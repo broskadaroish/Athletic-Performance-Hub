@@ -1,0 +1,78 @@
+
+⚽
+ATHLETIK DIAGNOSTIK
+Football Performance System
+
+
+
+
+
+
+
+
+KADER
+1 Spieler
+👤 Spielerverwaltung
+➕ Neuen Spieler anlegen
+
+📋 Alle Spieler
+
+Spieler hinzufügen
+Name *
+
+Lion
+Position
+
+Flügel
+
+Mannschaft
+
+HDH
+Geburtsdatum (z. B. 15.03.2002)
+
+12.12.2016
+Spielbein
+
+Beidfüßig
+
+
+TypeError: cannot pickle 'sqlite3.Row' object
+Traceback:
+File "/home/runner/workspace/artifacts/athletik/app.py", line 844, in <module>
+    pages[page]()
+    ~~~~~~~~~~~^^
+File "/home/runner/workspace/artifacts/athletik/app.py", line 312, in page_spieler
+    del_auswahl = st.selectbox("Spieler wählen", spieler, format_func=lambda x: x["name"], key="del_sel")
+                  ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+File "/home/runner/workspace/.pythonlibs/lib/python3.13/site-packages/streamlit/runtime/metrics_util.py", line 568, in wrapped_func
+    result = non_optional_func(*args, **kwargs)
+File "/home/runner/workspace/.pythonlibs/lib/python3.13/site-packages/streamlit/elements/widgets/selectbox.py", line 576, in selectbox
+    return self._selectbox(
+           ~~~~~~~~~~~~~~~^
+        label=label,
+        ^^^^^^^^^^^^
+    ...<16 lines>...
+        ctx=ctx,
+        ^^^^^^^^
+    )
+    ^
+File "/home/runner/workspace/.pythonlibs/lib/python3.13/site-packages/streamlit/elements/widgets/selectbox.py", line 711, in _selectbox
+    widget_state = register_widget(
+        selectbox_proto.id,
+    ...<15 lines>...
+        formatted_options=None if accept_new_options else formatted_options,
+    )
+File "/home/runner/workspace/.pythonlibs/lib/python3.13/site-packages/streamlit/runtime/state/widgets.py", line 206, in register_widget
+    return register_widget_from_metadata(metadata, ctx)
+File "/home/runner/workspace/.pythonlibs/lib/python3.13/site-packages/streamlit/runtime/state/widgets.py", line 229, in register_widget_from_metadata
+    return ctx.session_state.register_widget(metadata, user_key)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^
+File "/home/runner/workspace/.pythonlibs/lib/python3.13/site-packages/streamlit/runtime/state/safe_session_state.py", line 59, in register_widget
+    return self._state.register_widget(metadata, user_key)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^
+File "/home/runner/workspace/.pythonlibs/lib/python3.13/site-packages/streamlit/runtime/state/session_state.py", line 1320, in register_widget
+    initial_widget_value = deepcopy(deserializer(None))
+File "/nix/store/qzc04a3npl70cyyy6flnnrb2ig3kayxm-python3-3.13.11/lib/python3.13/copy.py", line 152, in deepcopy
+    rv = reductor(4)
+Made with ReplitBuild for free
+

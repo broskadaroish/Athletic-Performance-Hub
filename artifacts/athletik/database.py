@@ -10,6 +10,16 @@ from datetime import date
 DB_PATH = "athletik.db"
 
 
+def _row(r):
+    """sqlite3.Row → dict (Streamlit kann Row-Objekte nicht pickling)."""
+    return dict(r) if r is not None else None
+
+
+def _rows(rs):
+    """Liste von sqlite3.Row → Liste von dicts."""
+    return [dict(r) for r in rs]
+
+
 @contextmanager
 def get_conn():
     conn = sqlite3.connect(DB_PATH)
@@ -127,12 +137,12 @@ def spieler_speichern(name, geburtsdatum, position, spielbein, mannschaft):
 
 def spieler_laden():
     with get_conn() as conn:
-        return conn.execute("SELECT * FROM spieler ORDER BY name").fetchall()
+        return _rows(conn.execute("SELECT * FROM spieler ORDER BY name").fetchall())
 
 
 def spieler_by_id(spieler_id):
     with get_conn() as conn:
-        return conn.execute("SELECT * FROM spieler WHERE id=?", (spieler_id,)).fetchone()
+        return _row(conn.execute("SELECT * FROM spieler WHERE id=?", (spieler_id,)).fetchone())
 
 
 def spieler_loeschen(spieler_id):
@@ -159,18 +169,18 @@ def fms_speichern(spieler_id, datum, deep, hurdle_l, hurdle_r, inline_l, inline_
 
 def fms_letzter(spieler_id):
     with get_conn() as conn:
-        return conn.execute(
+        return _row(conn.execute(
             "SELECT * FROM fms_test WHERE spieler_id=? ORDER BY id DESC LIMIT 1",
             (spieler_id,),
-        ).fetchone()
+        ).fetchone())
 
 
 def fms_history(spieler_id):
     with get_conn() as conn:
-        return conn.execute(
+        return _rows(conn.execute(
             "SELECT datum,score,bewertung,asymmetrie,schwerpunkt FROM fms_test WHERE spieler_id=? ORDER BY datum",
             (spieler_id,),
-        ).fetchall()
+        ).fetchall())
 
 
 # ─── Y-Balance ─────────────────────────────────────────────────────────────
@@ -191,18 +201,18 @@ def y_balance_speichern(spieler_id, datum, ant_r, ant_l, pm_r, pm_l, pl_r, pl_l,
 
 def y_balance_letzter(spieler_id):
     with get_conn() as conn:
-        return conn.execute(
+        return _row(conn.execute(
             "SELECT * FROM y_balance_test WHERE spieler_id=? ORDER BY id DESC LIMIT 1",
             (spieler_id,),
-        ).fetchone()
+        ).fetchone())
 
 
 def y_balance_history(spieler_id):
     with get_conn() as conn:
-        return conn.execute(
+        return _rows(conn.execute(
             "SELECT datum,composite_rechts,composite_links,asymmetrie,schwerpunkt FROM y_balance_test WHERE spieler_id=? ORDER BY datum",
             (spieler_id,),
-        ).fetchall()
+        ).fetchall())
 
 
 # ─── Training ──────────────────────────────────────────────────────────────
@@ -210,15 +220,15 @@ def y_balance_history(spieler_id):
 def training_bibliothek_laden():
     """Return all exercises from the training table."""
     with get_conn() as conn:
-        return conn.execute("SELECT * FROM training ORDER BY bereich, problem").fetchall()
+        return _rows(conn.execute("SELECT * FROM training ORDER BY bereich, problem").fetchall())
 
 
 def training_nach_bereich(bereich):
     with get_conn() as conn:
-        return conn.execute(
+        return _rows(conn.execute(
             "SELECT bereich,uebung,problem,saetze,wiederholungen,haeufigkeit FROM training WHERE LOWER(bereich)=LOWER(?)",
             (bereich,),
-        ).fetchall()
+        ).fetchall())
 
 
 def training_count():
@@ -251,10 +261,10 @@ def trainingsplan_eintrag_speichern(spieler_id, datum, woche, bereich, uebung, s
 
 def trainingsplan_laden(spieler_id):
     with get_conn() as conn:
-        return conn.execute(
+        return _rows(conn.execute(
             "SELECT bereich,uebung,saetze,wiederholungen,haeufigkeit,woche FROM trainingsplan WHERE spieler_id=? ORDER BY woche,id",
             (spieler_id,),
-        ).fetchall()
+        ).fetchall())
 
 
 # ─── Periodisierung ────────────────────────────────────────────────────────
@@ -280,7 +290,7 @@ def periodisierung_bulk_insert(spieler_id, plan):
 
 def periodisierung_laden(spieler_id):
     with get_conn() as conn:
-        return conn.execute(
+        return _rows(conn.execute(
             "SELECT woche,phase,ziel,bereich,uebung,intensitaet,volumen,haeufigkeit FROM periodisierung WHERE spieler_id=? ORDER BY woche",
             (spieler_id,),
-        ).fetchall()
+        ).fetchall())
