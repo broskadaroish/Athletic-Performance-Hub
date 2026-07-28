@@ -1,0 +1,555 @@
+Du bist ein Senior Python-Entwickler, UI/UX-Designer und Experte für sichere Sport- und Trainingssoftware.
+
+Ich habe eine Fußball-Athletik-App mit Python, Streamlit und SQLite. Die Anwendung dient Trainern zur Organisation, Dokumentation und sportlichen Leistungsbeobachtung.
+
+Ich bin Trainer und Athletiktrainer, aber kein Arzt, Physiotherapeut oder sonstiger medizinischer Behandler.
+
+## Zentrale Vorgabe
+
+Die App darf keine medizinische Diagnose stellen, keine Krankheit oder Verletzung erkennen, keine medizinische Behandlung empfehlen und keine medizinische Freigabe erteilen.
+
+Sie ist ausschließlich eine Trainings-, Dokumentations- und Orientierungshilfe für den Fußball- und Athletikbereich.
+
+Die App darf sportliche Testergebnisse berechnen und darstellen, zum Beispiel:
+
+* FMS-Ergebnisse
+* Y-Balance-Ergebnisse
+* Sprintzeiten
+* Sprungleistungen
+* Richtungswechseltests
+* Yo-Yo-Test
+* anthropometrische Entwicklungen
+* Trainingsbelastungen
+* subjektive Spielerangaben
+* Seitenunterschiede
+* sportliche Leistungsentwicklungen
+
+Alle daraus erzeugten Hinweise müssen als sportliche Orientierung und nicht als medizinische Bewertung bezeichnet werden.
+
+## Verbindliche Zweckbestimmung
+
+Baue in die App eine feste Seite „Zweckbestimmung und Hinweise“ ein.
+
+Verwende folgenden Inhalt:
+
+„Diese Anwendung dient ausschließlich der Dokumentation, Organisation und sportlichen Auswertung von Trainings- und Leistungstests.
+
+Die angezeigten Ergebnisse, Bewertungen, Ampelfarben, Hinweise und Trainingsempfehlungen stellen keine medizinische Diagnose, Untersuchung, Behandlung oder Freigabe dar.
+
+Die Anwendung ersetzt keine ärztliche, physiotherapeutische oder sonstige medizinische Untersuchung und Beratung.
+
+Bei Schmerzen, Verletzungsverdacht, Schwindel, Atemproblemen, ungewöhnlicher Erschöpfung oder anderen gesundheitlichen Beschwerden darf die betroffene Person nicht allein aufgrund einer App-Auswertung weitertrainieren. In solchen Fällen ist eine medizinisch qualifizierte Fachperson hinzuzuziehen.
+
+Der Anwender bleibt für die Auswahl, Durchführung und Anpassung des Trainings verantwortlich.
+
+Bei Kindern und Jugendlichen müssen Alter, Entwicklungsstand, aktueller Gesundheitszustand und Belastbarkeit berücksichtigt werden.“
+
+Dieser Hinweis muss:
+
+* beim ersten Start angezeigt werden
+* aktiv bestätigt werden
+* in den Einstellungen erneut aufrufbar sein
+* im PDF-Bericht enthalten sein
+* im Kurzprotokoll enthalten sein
+* vor dem Versand eines Berichts sichtbar sein
+
+Speichere:
+
+* Datum der Bestätigung
+* Version des Hinweises
+* Benutzer, der bestätigt hat
+
+## Keine medizinischen Begriffe
+
+Prüfe die gesamte App und ersetze problematische medizinische Begriffe.
+
+Verwende nicht:
+
+* Diagnose
+* medizinische Diagnose
+* Erkrankung erkannt
+* Verletzung erkannt
+* Behandlung
+* Therapie
+* therapeutischer Plan
+* medizinische Empfehlung
+* Patient
+* gesund
+* krank
+* spielfähig
+* sportmedizinisch freigegeben
+* Return-to-Play-Freigabe
+* Verletzungswahrscheinlichkeit
+* sichere Trainingsfreigabe
+* geringes oder hohes Verletzungsrisiko
+
+Verwende stattdessen:
+
+* sportliche Auswertung
+* Testergebnis
+* Trainingshinweis
+* Trainingsschwerpunkt
+* auffälliger Testwert
+* beobachtungsbedürftiger Wert
+* Abweichung
+* Seitenunterschied
+* Bewegungsauffälligkeit
+* Belastungshinweis
+* Leistungsprofil
+* dokumentierter Trainingsstatus
+* Teilnahme nach externer Freigabe
+* Rücksprache mit einer medizinischen Fachperson empfohlen
+
+## Ampelsystem
+
+Die Ampelfarben dürfen keine medizinische Sicherheit vortäuschen.
+
+Verwende folgende Bedeutung:
+
+### Grün
+
+„Im Rahmen der vorliegenden sportlichen Testdaten aktuell kein auffälliger Wert. Dies ist keine medizinische Freigabe.“
+
+### Gelb
+
+„Beobachtungsbedürftiger sportlicher Testwert. Training anpassen, erneut testen und bei Beschwerden fachlich abklären lassen.“
+
+### Rot
+
+„Deutlich auffälliger sportlicher Testwert oder gemeldete Beschwerden. Keine automatische Trainingsfreigabe. Trainerische Prüfung und gegebenenfalls medizinische Abklärung erforderlich.“
+
+Zeige zusätzlich immer:
+
+„Die Ampelfarbe basiert nur auf den eingegebenen Daten und ersetzt keine medizinische Beurteilung.“
+
+## Schmerzen und Beschwerden
+
+Die App darf Beschwerden dokumentieren, aber nicht diagnostizieren.
+
+Mögliche Eingabefelder:
+
+* Körperregion
+* subjektive Schmerzstärke von 0 bis 10
+* Beginn der Beschwerden
+* Beschwerden in Ruhe
+* Beschwerden bei Belastung
+* externe Untersuchung erfolgt
+* externe Trainingsfreigabe liegt vor
+* Trainerkommentar
+
+Wenn Schmerzen oder Beschwerden eingetragen werden, zeige keine automatische Diagnose.
+
+Zeige stattdessen:
+
+„Es wurden Beschwerden angegeben. Die App kann deren Ursache oder Schwere nicht beurteilen. Die weitere Belastung muss verantwortungsvoll geprüft werden. Bei starken, anhaltenden oder zunehmenden Beschwerden ist eine medizinische Fachperson hinzuzuziehen.“
+
+Bei starken Beschwerden soll kein automatischer Trainingsplan erzeugt werden.
+
+Stattdessen soll erscheinen:
+
+„Aufgrund der angegebenen Beschwerden wird derzeit keine automatische Belastungsempfehlung erstellt.“
+
+## Verletzungsbereich
+
+Benenne den Bereich nicht „Verletzungsdiagnostik“.
+
+Verwende:
+
+„Beschwerden und Trainingsstatus“
+
+Mögliche Statuswerte:
+
+* uneingeschränktes Mannschaftstraining
+* angepasstes Mannschaftstraining
+* individuelles Training
+* Trainingspause
+* externe Abklärung empfohlen
+* externe Freigabe dokumentiert
+
+Die App darf niemals selbst den Status „spielfähig“ oder „medizinisch freigegeben“ festlegen.
+
+Eine externe Freigabe darf lediglich dokumentiert werden:
+
+* freigebende Stelle
+* Datum
+* Bemerkung
+* hochgeladenes Dokument optional
+
+## FMS und Y-Balance
+
+FMS- und Y-Balance-Ergebnisse dürfen nicht als zuverlässige Vorhersage einer Verletzung dargestellt werden.
+
+Verwende keine Aussage wie:
+
+„Hohes Verletzungsrisiko“
+
+Verwende stattdessen:
+
+„Auffälliges Bewegungs- und Stabilitätsprofil“
+
+oder:
+
+„Mehrere sportlich relevante Auffälligkeiten in den vorliegenden Testergebnissen“
+
+Die App darf Trainingsschwerpunkte vorschlagen, zum Beispiel:
+
+* Mobilität
+* Rumpfstabilität
+* einbeinige Kontrolle
+* Hüftstabilität
+* Kniekontrolle
+* Sprunggelenksbeweglichkeit
+
+Diese Hinweise müssen als allgemeine sportliche Trainingsempfehlungen bezeichnet werden.
+
+## Anthropometrie und Wachstum
+
+Körpergröße, Gewicht, Sitzhöhe und weitere Messwerte dürfen als Verlauf dargestellt werden.
+
+Ein möglicher Reife- oder Wachstumsschub darf nur als Schätzung bezeichnet werden.
+
+Zeige:
+
+„Die angezeigte Einschätzung des Wachstums- oder Reifestatus ist eine rechnerische Schätzung. Sie stellt keine medizinische, pädiatrische oder endokrinologische Beurteilung dar.“
+
+Verwende keine Aussage wie:
+
+* Wachstumsstörung
+* Entwicklungsstörung
+* medizinisch auffälliges Wachstum
+
+Verwende stattdessen:
+
+* deutliche Veränderung im Messverlauf
+* erneut messen
+* Belastung aufmerksam beobachten
+* bei gesundheitlichen Fragen fachlich abklären lassen
+
+## Trainingsplan
+
+Automatische Trainingspläne dürfen nur allgemeine sportliche Empfehlungen enthalten.
+
+Berücksichtige:
+
+* Alter
+* Trainingsniveau
+* vorhandene Tests
+* gemeldete Beschwerden
+* Wachstum
+* Belastung
+* Mannschaftstraining
+
+Jeder Trainingsplan muss folgenden Hinweis enthalten:
+
+„Dieser Plan ist eine allgemeine sportliche Trainingsempfehlung auf Grundlage der eingegebenen Daten. Er muss durch eine qualifizierte Trainingsperson geprüft, angepasst und beaufsichtigt werden. Er ersetzt keine medizinische oder physiotherapeutische Behandlung.“
+
+Die App darf bei Schmerzen, akuten Beschwerden oder fehlender externer Freigabe keine Übungen als Rehabilitation oder Therapie empfehlen.
+
+Verwende nicht:
+
+* Reha-Übung
+* Therapieübung
+* Behandlung
+* Verletzung ausheilen
+* Schmerz beseitigen
+
+Verwende:
+
+* allgemeine Trainingsübung
+* präventiv orientierte Trainingsmaßnahme
+* koordinative Übung
+* Stabilitätsübung
+* Mobilitätsübung
+* Belastung nur bei Beschwerdefreiheit und fachlicher Freigabe
+
+## Berichte und Protokolle
+
+Ergänze drei Berichtstypen:
+
+### Kurzprotokoll
+
+Eine kompakte Seite mit:
+
+* Vereinslogo
+* Spielername
+* Mannschaft
+* Testdatum
+* durchgeführte Tests
+* wichtigste Ergebnisse
+* sportliche Stärken
+* beobachtungsbedürftige Werte
+* Trainingsschwerpunkte
+* nächster empfohlener Retest
+* Trainername
+* rechtlicher Hinweis
+
+### Ausführlicher Spielerbericht
+
+Enthält:
+
+* Spielerprofil
+* Anthropometrie
+* Testhistorie
+* FMS
+* Y-Balance
+* Sprint
+* Sprung
+* Richtungswechsel
+* Yo-Yo-Test
+* Diagramme
+* sportliche Leistungsentwicklung
+* Trainingsschwerpunkte
+* allgemeiner Trainingsplan
+* Hinweise und Grenzen der Auswertung
+
+### Mannschaftsbericht
+
+Enthält:
+
+* Mannschaftsübersicht
+* durchschnittliche Testwerte
+* fällige Retests
+* Trainingsgruppen
+* sportliche Mannschaftsschwerpunkte
+
+Keine Rangliste soll Spieler öffentlich bloßstellen.
+
+## PDF-Erstellung
+
+Erstelle einen Button:
+
+„PDF-Protokoll erstellen“
+
+Vor der Erstellung soll der Benutzer auswählen:
+
+* Kurzprotokoll
+* ausführlicher Spielerbericht
+* Mannschaftsbericht
+
+Das PDF soll:
+
+* professionell gestaltet sein
+* für DIN A4 geeignet sein
+* Seitenzahlen enthalten
+* das Erstellungsdatum enthalten
+* den Trainer beziehungsweise Ersteller nennen
+* den Hinweis „Keine medizinische Diagnose“ enthalten
+* den vollständigen Haftungs- und Anwendungshinweis am Ende enthalten
+
+Jede Seite soll in der Fußzeile enthalten:
+
+„Sportliche Trainings- und Dokumentationshilfe – keine medizinische Diagnose oder Freigabe.“
+
+## Drucken
+
+Erstelle eine druckoptimierte Ansicht.
+
+Der Nutzer soll das PDF:
+
+* herunterladen
+* öffnen
+* ausdrucken
+
+können.
+
+Die PDF-Erstellung muss zunächst lokal funktionieren, ohne dass Daten an externe Dienste übertragen werden.
+
+## E-Mail-Versand
+
+Erstelle einen Bereich:
+
+„Bericht versenden“
+
+Funktionen:
+
+* Empfängeradresse manuell eingeben
+* Betreff automatisch vorschlagen
+* kurze Nachricht bearbeiten
+* PDF als Anhang
+* Versandbestätigung
+* Versandprotokoll
+
+Vorgeschlagener Betreff:
+
+„Sportliches Testprotokoll – [Spielername] – [Testdatum]“
+
+Vorgeschlagene Nachricht:
+
+„Guten Tag,
+
+anbei erhalten Sie das sportliche Testprotokoll.
+
+Die enthaltenen Ergebnisse und Hinweise dienen ausschließlich der Trainingsdokumentation und sportlichen Orientierung. Sie stellen keine medizinische Diagnose oder Freigabe dar.
+
+Freundliche Grüße
+
+[Trainername]“
+
+Der Versand darf erst erfolgen, wenn der Benutzer aktiv bestätigt:
+
+„Ich bestätige, dass ich zum Versand dieses Berichts an die angegebene Person berechtigt bin.“
+
+Versende keine E-Mail automatisch direkt nach einem Test.
+
+## Datenschutz
+
+Die App verarbeitet personenbezogene Daten und möglicherweise Angaben zu Beschwerden oder Gesundheit.
+
+Berücksichtige deshalb:
+
+* so wenige Daten wie nötig
+* klare Einwilligung und Berechtigung
+* Rollen- und Rechteverwaltung
+* Zugriffsschutz
+* sichere Passwörter
+* keine Klartextpasswörter
+* verschlüsselte Verbindung bei Onlinebetrieb
+* Protokollierung von Export und Versand
+* Löschfunktion
+* Berichtigung von Daten
+* Datenexport
+* Datensicherung
+* keine Weitergabe an externe Dienste ohne klare Freigabe
+
+Bei minderjährigen Spielern soll dokumentiert werden können:
+
+* Name der sorgeberechtigten Person
+* Einwilligung zur Datenspeicherung
+* Einwilligung zum Berichtversand
+* Datum der Einwilligung
+* Widerruf
+* Empfänger, an die Berichte versendet werden dürfen
+
+Speichere medizinische Dokumente oder externe Befunde nicht automatisch.
+
+## Einverständnis vor Tests
+
+Vor einer Testdurchführung soll eine kurze Bestätigung möglich sein:
+
+* Spieler ist über den Test informiert
+* Testbedingungen wurden erklärt
+* aktuelle Beschwerden wurden abgefragt
+* Durchführung wird durch eine qualifizierte Person begleitet
+* bei Beschwerden wird der Test abgebrochen
+
+Bei Minderjährigen soll die notwendige Einwilligung dokumentierbar sein.
+
+## Notfall- und Abbruchhinweise
+
+Bei der Testeingabe soll sichtbar sein:
+
+„Der Test ist sofort abzubrechen, wenn Schmerzen, Schwindel, Atemnot, Brustschmerzen, ungewöhnliche Schwäche oder andere auffällige Beschwerden auftreten.“
+
+Die App soll nicht versuchen, diese Symptome zu bewerten.
+
+## Technische Sicherheitsregeln
+
+Erstelle eine zentrale Datei, zum Beispiel:
+
+* safety_texts.py
+* legal_notices.py
+
+Darin sollen alle Hinweise zentral gespeichert werden.
+
+Vermeide, dass unterschiedliche Seiten widersprüchliche Hinweise anzeigen.
+
+Erstelle außerdem zentrale Funktionen für:
+
+* Hinweis anzeigen
+* Bestätigung speichern
+* PDF-Hinweis einfügen
+* E-Mail-Hinweis einfügen
+* Beschwerden prüfen
+* automatische Planung bei Beschwerden sperren
+* externe Freigabe dokumentieren
+
+## Bestehende App prüfen
+
+Analysiere zunächst alle vorhandenen Dateien und suche nach folgenden Begriffen:
+
+* Diagnose
+* Verletzungsrisiko
+* hohes Risiko
+* niedriges Risiko
+* Behandlung
+* Therapie
+* Reha
+* medizinisch
+* Freigabe
+* gesund
+* krank
+* Patient
+* Return to Play
+* Verletzung erkannt
+* keine Auffälligkeit, Training möglich
+
+Erstelle danach eine Liste:
+
+1. Fundstelle
+2. problematische Formulierung
+3. sichere Ersatzformulierung
+4. betroffene Datei
+
+Ändere noch keinen Code, bevor diese Liste erstellt wurde.
+
+## Arbeitsreihenfolge
+
+Arbeite in folgenden Phasen:
+
+### Phase 1
+
+* vorhandene medizinische Formulierungen prüfen
+* Zweckbestimmung festlegen
+* zentrale Hinweisdatei erstellen
+* Einwilligungs- und Bestätigungsansicht erstellen
+
+### Phase 2
+
+* Ampeltexte überarbeiten
+* Diagnosebegriffe ersetzen
+* Beschwerden und Trainingsstatus sicher gestalten
+* automatische Trainingsplanung bei Beschwerden sperren
+
+### Phase 3
+
+* PDF-Kurzprotokoll
+* ausführlicher PDF-Bericht
+* druckoptimierte Ansicht
+
+### Phase 4
+
+* sicherer E-Mail-Versand
+* Versandbestätigung
+* Versandprotokoll
+* Berechtigungsprüfung
+
+### Phase 5
+
+* Datenschutzfunktionen
+* Rollen und Berechtigungen
+* Löschung, Export und Einwilligungsverwaltung
+
+## Wichtige Arbeitsweise
+
+Verändere nicht das gesamte Projekt gleichzeitig.
+
+Gib mir zuerst:
+
+1. eine Analyse des aktuellen Projekts
+2. alle problematischen medizinischen Formulierungen
+3. einen konkreten Umbauplan
+4. eine Liste der Dateien, die geändert werden müssen
+
+Danach arbeite Datei für Datei.
+
+Gib immer die vollständige betroffene Datei zurück.
+
+Keine unvollständigen Codeschnipsel.
+
+Die App muss nach jeder Phase weiterhin startfähig sein.
+
+Bestehende Daten dürfen nicht verloren gehen.
+
+Vor Datenbankänderungen muss eine sichere Migration erstellt werden.
+
+Die Anwendung muss klar als sportliche Trainings- und Dokumentationshilfe erkennbar sein und darf keine medizinische Diagnose, Behandlung oder Freigabe anbieten.
