@@ -5,7 +5,7 @@ Uses a context manager for every connection so files are never left open.
 
 import sqlite3
 from contextlib import contextmanager
-from datetime import date
+from datetime import date, datetime
 
 DB_PATH = "athletik.db"
 
@@ -37,12 +37,31 @@ def init_db():
     with get_conn() as conn:
         conn.executescript("""
         CREATE TABLE IF NOT EXISTS spieler (
+            id              INTEGER PRIMARY KEY AUTOINCREMENT,
+            name            TEXT NOT NULL,
+            geburtsdatum    TEXT,
+            position        TEXT,
+            spielbein       TEXT,
+            mannschaft      TEXT,
+            vorname         TEXT,
+            nachname        TEXT,
+            geschlecht      TEXT,
+            altersklasse    TEXT,
+            hauptposition   TEXT,
+            nebenposition   TEXT,
+            leistungsniveau TEXT,
+            trainingsstatus TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS verletzung (
             id           INTEGER PRIMARY KEY AUTOINCREMENT,
-            name         TEXT    NOT NULL,
-            geburtsdatum TEXT,
-            position     TEXT,
-            spielbein    TEXT,
-            mannschaft   TEXT
+            spieler_id   INTEGER REFERENCES spieler(id),
+            datum        TEXT,
+            art          TEXT,
+            koerperteil  TEXT,
+            schwere      TEXT,
+            ausfall_tage INTEGER,
+            notizen      TEXT
         );
 
         CREATE TABLE IF NOT EXISTS fms_test (
@@ -123,15 +142,72 @@ def init_db():
             status       TEXT DEFAULT 'offen'
         );
         """)
+    # Migration: neue Spalten für bestehende Datenbanken nachträglich anlegen
+    _migrate_spieler_columns()
+
+
+def _migrate_spieler_columns():
+    """Fügt neue Spalten zur spieler-Tabelle hinzu, falls noch nicht vorhanden."""
+    neue_spalten = [
+        ("vorname", "TEXT"), ("nachname", "TEXT"), ("geschlecht", "TEXT"),
+        ("altersklasse", "TEXT"), ("hauptposition", "TEXT"), ("nebenposition", "TEXT"),
+        ("leistungsniveau", "TEXT"), ("trainingsstatus", "TEXT"),
+    ]
+    with get_conn() as conn:
+        for spalte, typ in neue_spalten:
+            try:
+                conn.execute(f"ALTER TABLE spieler ADD COLUMN {spalte} {typ}")
+            except Exception:
+                pass  # Spalte existiert bereits
+
+
+# ─── Hilfsfunktionen ───────────────────────────────────────────────────────
+
+def berechne_alter(geburtsdatum_str: str) -> int | None:
+    """Berechnet das aktuelle Alter aus einem Datumsstring (TT.MM.JJJJ oder JJJJ-MM-TT)."""
+    if not geburtsdatum_str:
+        return None
+    for fmt in ("%d.%m.%Y", "%Y-%m-%d"):
+        try:
+            geb = datetime.strptime(geburtsdatum_str, fmt).date()
+            heute = date.today()
+            return heute.year - geb.year - ((heute.month, heute.day) < (geb.month, geb.day))
+        except ValueError:
+            continue
+    return None
+
+
+def altersklasse_vorschlag(geburtsdatum_str: str) -> str:
+    """Schlägt die passende Altersklasse anhand des Alters vor."""
+    alter = berechne_alter(geburtsdatum_str)
+    if alter is None:
+        return "Unbekannt"
+    if alter <= 7:   return "U7 (Bambini)"
+    if alter <= 9:   return "U8/U9 (F-Jugend)"
+    if alter <= 11:  return "U10/U11 (E-Jugend)"
+    if alter <= 13:  return "U12/U13 (D-Jugend)"
+    if alter <= 15:  return "U14/U15 (C-Jugend)"
+    if alter <= 17:  return "U16/U17 (B-Jugend)"
+    if alter <= 19:  return "U18/U19 (A-Jugend)"
+    return "Senioren"
 
 
 # ─── Spieler ───────────────────────────────────────────────────────────────
 
-def spieler_speichern(name, geburtsdatum, position, spielbein, mannschaft):
+def spieler_speichern(vorname, nachname, geburtsdatum, geschlecht,
+                      hauptposition, nebenposition, altersklasse,
+                      spielbein, leistungsniveau, mannschaft, trainingsstatus):
+    name = f"{vorname} {nachname}".strip()
     with get_conn() as conn:
         conn.execute(
-            "INSERT INTO spieler (name,geburtsdatum,position,spielbein,mannschaft) VALUES (?,?,?,?,?)",
-            (name, geburtsdatum, position, spielbein, mannschaft),
+            """INSERT INTO spieler
+               (name, vorname, nachname, geburtsdatum, geschlecht,
+                position, hauptposition, nebenposition, altersklasse,
+                spielbein, leistungsniveau, mannschaft, trainingsstatus)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+            (name, vorname, nachname, geburtsdatum, geschlecht,
+             hauptposition, hauptposition, nebenposition, altersklasse,
+             spielbein, leistungsniveau, mannschaft, trainingsstatus),
         )
 
 
@@ -147,7 +223,37 @@ def spieler_by_id(spieler_id):
 
 def spieler_loeschen(spieler_id):
     with get_conn() as conn:
+        conn.execute("DELETE FROM verletzung WHERE spieler_id=?", (spieler_id,))
+        conn.execute("DELETE FROM fms_test WHERE spieler_id=?", (spieler_id,))
+        conn.execute("DELETE FROM y_balance_test WHERE spieler_id=?", (spieler_id,))
+        conn.execute("DELETE FROM trainingsplan WHERE spieler_id=?", (spieler_id,))
+        conn.execute("DELETE FROM periodisierung WHERE spieler_id=?", (spieler_id,))
         conn.execute("DELETE FROM spieler WHERE id=?", (spieler_id,))
+
+
+# ─── Verletzungshistorie ────────────────────────────────────────────────────
+
+def verletzung_speichern(spieler_id, datum, art, koerperteil, schwere, ausfall_tage, notizen):
+    with get_conn() as conn:
+        conn.execute(
+            """INSERT INTO verletzung
+               (spieler_id, datum, art, koerperteil, schwere, ausfall_tage, notizen)
+               VALUES (?,?,?,?,?,?,?)""",
+            (spieler_id, datum, art, koerperteil, schwere, ausfall_tage, notizen),
+        )
+
+
+def verletzungen_laden(spieler_id):
+    with get_conn() as conn:
+        return _rows(conn.execute(
+            "SELECT * FROM verletzung WHERE spieler_id=? ORDER BY datum DESC",
+            (spieler_id,),
+        ).fetchall())
+
+
+def verletzung_loeschen(verletzung_id):
+    with get_conn() as conn:
+        conn.execute("DELETE FROM verletzung WHERE id=?", (verletzung_id,))
 
 
 # ─── FMS ───────────────────────────────────────────────────────────────────

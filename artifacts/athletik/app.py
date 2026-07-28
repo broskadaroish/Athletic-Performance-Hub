@@ -14,10 +14,31 @@ import pandas as pd
 from database import (
     init_db,
     spieler_speichern, spieler_laden, spieler_by_id, spieler_loeschen,
+    berechne_alter, altersklasse_vorschlag,
+    verletzung_speichern, verletzungen_laden, verletzung_loeschen,
     fms_speichern, fms_letzter, fms_history,
     y_balance_speichern, y_balance_letzter, y_balance_history,
     trainingsplan_loeschen, trainingsplan_eintrag_speichern, trainingsplan_laden,
 )
+
+# ─── Konstanten ───────────────────────────────────────────────────────────────
+
+POSITIONEN = [
+    "Torwart", "Innenverteidiger", "Außenverteidiger (rechts)",
+    "Außenverteidiger (links)", "Defensives Mittelfeld", "Zentrales Mittelfeld",
+    "Offensives Mittelfeld", "Rechtes Mittelfeld", "Linkes Mittelfeld",
+    "Rechter Flügel", "Linker Flügel", "Hängende Spitze", "Mittelstürmer",
+]
+ALTERSKLASSEN = [
+    "U7 (Bambini)", "U8/U9 (F-Jugend)", "U10/U11 (E-Jugend)",
+    "U12/U13 (D-Jugend)", "U14/U15 (C-Jugend)", "U16/U17 (B-Jugend)",
+    "U18/U19 (A-Jugend)", "Senioren", "Ü-Mannschaft",
+]
+LEISTUNGSNIVEAUS  = ["Breitensport", "Leistungssport", "Regionalkader", "Landeskader", "Bundeskader", "Profi"]
+TRAININGSSTATUS   = ["Volltraining", "Eingeschränktes Training", "Reha", "Verletzt / Ausfall", "Pause / Urlaub"]
+VERLETZUNGSARTEN  = ["Muskel", "Sehne / Band", "Knochen / Knorpel", "Prellung / Kontusion", "Sonstiges"]
+KOERPERTEILE      = ["Sprunggelenk", "Knie", "Oberschenkel", "Leiste", "Hüfte", "Lendenwirbel", "Schulter", "Sonstiges"]
+SCHWEREGRADE      = ["Leicht (1–7 Tage)", "Mittel (8–28 Tage)", "Schwer (> 28 Tage)"]
 from training import init_training_bibliothek, empfehlung_bereiche, uebungen_fuer_bereiche
 from fms import FMSResult
 from y_balance import YBalanceResult
@@ -184,6 +205,18 @@ PLOTLY_LAYOUT = dict(
     margin=dict(l=40, r=20, t=40, b=40),
 )
 
+_AXIS_BASE = dict(gridcolor="#21262d", linecolor="#30363d", zerolinecolor="#30363d")
+
+
+def _pl(**overrides) -> dict:
+    """Erstellt ein Plotly-Layout ohne doppelte Schlüsselkonflikte."""
+    layout = {k: v for k, v in PLOTLY_LAYOUT.items()
+              if k not in overrides and k not in ("xaxis", "yaxis")}
+    layout["xaxis"] = {**_AXIS_BASE, **overrides.pop("xaxis", {})}
+    layout["yaxis"] = {**_AXIS_BASE, **overrides.pop("yaxis", {})}
+    layout.update(overrides)
+    return layout
+
 
 # ══════════════════════════════════════════════════════════════════════════════
 # PAGES
@@ -249,8 +282,7 @@ def page_dashboard():
             text=scores, textposition="outside",
             textfont=dict(color="#e6edf3"),
         ))
-        fig_bar.update_layout(**PLOTLY_LAYOUT, height=260,
-                              yaxis=dict(range=[0, 105], **PLOTLY_LAYOUT["yaxis"]))
+        fig_bar.update_layout(**_pl(height=260, yaxis=dict(range=[0, 105])))
         st.plotly_chart(fig_bar, use_container_width=True)
 
     st.markdown("---")
@@ -284,19 +316,50 @@ def page_spieler():
 
     with tab_add:
         st.markdown("### Spieler hinzufügen")
-        col1, col2 = st.columns(2)
-        name         = col1.text_input("Name *")
-        geburtsdatum = col2.text_input("Geburtsdatum (z. B. 15.03.2002)")
-        position     = col1.selectbox("Position", ["Torwart", "Innenverteidiger", "Außenverteidiger", "Mittelfeld", "Flügel", "Stürmer"])
-        spielbein    = col2.selectbox("Spielbein", ["Rechts", "Links", "Beidfüßig"])
-        mannschaft   = col1.text_input("Mannschaft")
 
+        # ── Persönliche Daten ──────────────────────────────────────────────
+        st.markdown("#### 👤 Persönliche Daten")
+        c1, c2 = st.columns(2)
+        vorname      = c1.text_input("Vorname *")
+        nachname     = c2.text_input("Nachname *")
+        geburtsdatum = c1.text_input("Geburtsdatum (TT.MM.JJJJ) *", placeholder="15.03.2008")
+        geschlecht   = c2.selectbox("Geschlecht", ["Männlich", "Weiblich", "Divers"])
+
+        # Alter + Altersklasse automatisch
+        alter = berechne_alter(geburtsdatum)
+        ak_vorschlag = altersklasse_vorschlag(geburtsdatum)
+        if alter:
+            c1.markdown(f"<small style='color:#3fb950'>Alter: **{alter} Jahre** — Vorschlag: {ak_vorschlag}</small>", unsafe_allow_html=True)
+        altersklasse = c2.selectbox("Altersklasse", ALTERSKLASSEN,
+                                    index=ALTERSKLASSEN.index(ak_vorschlag) if ak_vorschlag in ALTERSKLASSEN else 7)
+
+        st.markdown("#### 🏟️ Sportliche Daten")
+        p1, p2 = st.columns(2)
+        hauptposition = p1.selectbox("Hauptposition *", POSITIONEN)
+        nebenposition = p2.selectbox("Nebenposition",   ["—"] + POSITIONEN)
+        spielbein     = p1.selectbox("Spielbein",       ["Rechts", "Links", "Beidfüßig"])
+        leistungsniveau = p2.selectbox("Leistungsniveau", LEISTUNGSNIVEAUS)
+
+        st.markdown("#### 🏃 Teamdaten")
+        t1, t2 = st.columns(2)
+        mannschaft     = t1.text_input("Mannschaft / Verein")
+        trainingsstatus = t2.selectbox("Trainingsstatus", TRAININGSSTATUS)
+
+        st.markdown("---")
         if st.button("💾 Spieler speichern", use_container_width=False):
-            if not name.strip():
-                st.error("Bitte einen Namen eingeben.")
+            if not vorname.strip() or not nachname.strip():
+                st.error("Bitte Vor- und Nachnamen eingeben.")
+            elif not geburtsdatum.strip():
+                st.error("Bitte ein Geburtsdatum eingeben.")
             else:
-                spieler_speichern(name.strip(), geburtsdatum, position, spielbein, mannschaft)
-                st.success(f"✅ Spieler **{name}** wurde gespeichert.")
+                spieler_speichern(
+                    vorname.strip(), nachname.strip(), geburtsdatum.strip(),
+                    geschlecht, hauptposition,
+                    nebenposition if nebenposition != "—" else "",
+                    altersklasse, spielbein, leistungsniveau,
+                    mannschaft.strip(), trainingsstatus,
+                )
+                st.success(f"✅ Spieler **{vorname} {nachname}** wurde gespeichert.")
                 st.rerun()
 
     with tab_list:
@@ -304,13 +367,27 @@ def page_spieler():
         if not spieler:
             st.info("Noch keine Spieler vorhanden.")
             return
-        df = pd.DataFrame([dict(row) for row in spieler])
-        df.columns = ["ID", "Name", "Geburtsdatum", "Position", "Spielbein", "Mannschaft"]
-        st.dataframe(df.drop("ID", axis=1), use_container_width=True, hide_index=True)
+
+        # Tabelle mit den relevanten Spalten
+        zeilen = []
+        for p in spieler:
+            alter = berechne_alter(p.get("geburtsdatum"))
+            zeilen.append({
+                "Name":            p["name"],
+                "Alter":           f"{alter} J." if alter else "—",
+                "Altersklasse":    p.get("altersklasse") or "—",
+                "Hauptposition":   p.get("hauptposition") or p.get("position") or "—",
+                "Spielbein":       p.get("spielbein") or "—",
+                "Mannschaft":      p.get("mannschaft") or "—",
+                "Leistungsniveau": p.get("leistungsniveau") or "—",
+                "Status":          p.get("trainingsstatus") or "Volltraining",
+            })
+        st.dataframe(pd.DataFrame(zeilen), use_container_width=True, hide_index=True)
 
         with st.expander("🗑️ Spieler löschen"):
             del_auswahl = st.selectbox("Spieler wählen", spieler, format_func=lambda x: x["name"], key="del_sel")
-            if st.button("⚠️ Spieler löschen", type="primary"):
+            st.warning("⚠️ Alle Testdaten dieses Spielers werden ebenfalls gelöscht.")
+            if st.button("Spieler endgültig löschen", type="primary"):
                 spieler_loeschen(del_auswahl["id"])
                 st.success("Spieler gelöscht.")
                 st.rerun()
@@ -497,12 +574,33 @@ def page_spieler_profil():
     ascore = athletik_score(fms, y)
     defizite = defizite_ermitteln(fms, y)
     schwerpunkt = schwerpunkt_sammeln(fms, y)
+    alter = berechne_alter(auswahl.get("geburtsdatum"))
 
     # ── Header ────────────────────────────────────────────────────────────
     h1, h2, h3 = st.columns([2, 1, 1])
     with h1:
         st.markdown(f"## {auswahl['name']}")
-        st.markdown(f"🏟️ {auswahl['position'] or '—'}  ·  {auswahl['mannschaft'] or '—'}  ·  Spielbein: {auswahl['spielbein'] or '—'}")
+        haupt = auswahl.get("hauptposition") or auswahl.get("position") or "—"
+        neben = auswahl.get("nebenposition") or ""
+        pos_str = f"{haupt}" + (f" / {neben}" if neben else "")
+        info_zeile = (
+            f"🎂 {alter} Jahre  ·  "
+            f"⚽ {pos_str}  ·  "
+            f"🏟️ {auswahl.get('mannschaft') or '—'}  ·  "
+            f"🦵 Spielbein: {auswahl.get('spielbein') or '—'}"
+        )
+        st.markdown(f"<small style='color:#8b949e'>{info_zeile}</small>", unsafe_allow_html=True)
+        ak = auswahl.get("altersklasse") or "—"
+        niv = auswahl.get("leistungsniveau") or "—"
+        status = auswahl.get("trainingsstatus") or "Volltraining"
+        status_color = "#f85149" if "verletzt" in status.lower() or "ausfall" in status.lower() \
+                       else "#d29922" if "eingeschränkt" in status.lower() or "reha" in status.lower() \
+                       else "#3fb950"
+        st.markdown(
+            f"<small style='color:#8b949e'>{ak}  ·  {niv}  ·  "
+            f"<span style='color:{status_color};font-weight:600'>{status}</span></small>",
+            unsafe_allow_html=True,
+        )
     with h2:
         st.markdown("**Athletik Score**")
         st.markdown(_score_badge(ascore), unsafe_allow_html=True)
@@ -514,67 +612,124 @@ def page_spieler_profil():
 
     # ── Key metrics ───────────────────────────────────────────────────────
     m1, m2, m3, m4 = st.columns(4)
-    m1.metric("FMS Score",       f"{fms['score']}/21" if fms else "Kein Test", delta=None)
-    m2.metric("FMS Bewertung",   fms["bewertung"] if fms else "—")
+    m1.metric("FMS Score",      f"{fms['score']}/21" if fms else "Kein Test")
+    m2.metric("FMS Bewertung",  fms["bewertung"] if fms else "—")
     if y:
         avg_y = (y["composite_rechts"] + y["composite_links"]) / 2
         m3.metric("Y-Balance Ø",    f"{avg_y:.1f} %")
-        m4.metric("Y-Balance Asym.", y["asymmetrie"][:25] if y else "—")
+        m4.metric("Y-Balance Asym.", y["asymmetrie"][:25])
     else:
-        m3.metric("Y-Balance",    "Kein Test")
-        m4.metric("Y-Balance",    "—")
+        m3.metric("Y-Balance",  "Kein Test")
+        m4.metric("Y-Balance",  "—")
 
     st.markdown("---")
 
-    # ── Defizite ──────────────────────────────────────────────────────────
-    col_l, col_r = st.columns(2)
-    with col_l:
-        st.markdown("### 🎯 Erkannte Defizite")
-        if not defizite:
-            st.success("✅ Keine auffälligen Defizite erkannt.")
+    # ── Tabs: Defizite / Verletzungshistorie / PDF ─────────────────────────
+    tab_def, tab_verletz, tab_pdf = st.tabs(["🎯 Defizite & Empfehlungen", "🩹 Verletzungshistorie", "📄 PDF Report"])
+
+    with tab_def:
+        col_l, col_r = st.columns(2)
+        with col_l:
+            st.markdown("### 🎯 Erkannte Defizite")
+            if not defizite:
+                st.success("✅ Keine auffälligen Defizite erkannt.")
+            else:
+                for d in defizite:
+                    css = "tag-crit" if d["level"] == "kritisch" else "tag-warn"
+                    st.markdown(
+                        f'<div class="card"><span class="{css}">{d["bereich"]}</span>'
+                        f'<br><small style="color:#8b949e">{d["text"]}</small></div>',
+                        unsafe_allow_html=True,
+                    )
+        with col_r:
+            st.markdown("### 🏋️ Trainingsempfehlungen")
+            bereiche = empfehlung_bereiche(schwerpunkt)
+            if not bereiche:
+                st.info("Kein spezifischer Trainingsschwerpunkt erkannt.")
+            else:
+                for bereich, uebungen in uebungen_fuer_bereiche(bereiche).items():
+                    with st.expander(f"**{bereich}** — {len(uebungen)} Übungen"):
+                        for u in uebungen:
+                            st.markdown(
+                                f"**{u['uebung']}**  \n"
+                                f"Problem: {u['problem']} · {u['saetze']} Sätze · "
+                                f"{u['wiederholungen']} · {u['haeufigkeit']}"
+                            )
+
+    with tab_verletz:
+        st.markdown("### 🩹 Verletzungshistorie")
+
+        # Neue Verletzung eintragen
+        with st.expander("➕ Neue Verletzung eintragen"):
+            va1, va2 = st.columns(2)
+            v_datum      = va1.text_input("Datum (TT.MM.JJJJ)", value=date.today().strftime("%d.%m.%Y"), key="v_dat")
+            v_art        = va2.selectbox("Verletzungsart", VERLETZUNGSARTEN, key="v_art")
+            v_koerper    = va1.selectbox("Körperteil", KOERPERTEILE, key="v_koerper")
+            v_schwere    = va2.selectbox("Schweregrad", SCHWEREGRADE, key="v_schwere")
+            v_ausfall    = va1.number_input("Ausfalltage (geschätzt)", 0, 365, 0, key="v_ausfall")
+            v_notizen    = st.text_area("Notizen / Diagnose", key="v_notizen", height=80)
+            if st.button("💾 Verletzung speichern", key="v_save"):
+                verletzung_speichern(sid, v_datum, v_art, v_koerper, v_schwere, int(v_ausfall), v_notizen)
+                st.success("✅ Verletzung gespeichert.")
+                st.rerun()
+
+        # Verletzungsliste
+        verletzungen = verletzungen_laden(sid)
+        if not verletzungen:
+            st.info("Noch keine Verletzungen eingetragen.")
         else:
-            for d in defizite:
-                css = "tag-crit" if d["level"] == "kritisch" else "tag-warn"
+            gesamt_ausfall = sum(v.get("ausfall_tage") or 0 for v in verletzungen)
+            va, vb = st.columns(2)
+            va.metric("Einträge gesamt", len(verletzungen))
+            vb.metric("Ausfalltage gesamt", gesamt_ausfall)
+            st.markdown("---")
+            for v in verletzungen:
+                schwere_color = (
+                    "#f85149" if "schwer" in (v.get("schwere") or "").lower()
+                    else "#d29922" if "mittel" in (v.get("schwere") or "").lower()
+                    else "#3fb950"
+                )
                 st.markdown(
-                    f'<div class="card"><span class="{css}">{d["bereich"]}</span>'
-                    f'<br><small style="color:#8b949e">{d["text"]}</small></div>',
+                    f'<div class="card">'
+                    f'<div style="display:flex;justify-content:space-between">'
+                    f'<span style="font-weight:700;color:#e6edf3">{v.get("koerperteil","—")} — {v.get("art","—")}</span>'
+                    f'<span style="color:#8b949e;font-size:13px">{v.get("datum","")}</span>'
+                    f'</div>'
+                    f'<span style="color:{schwere_color};font-size:12px;font-weight:600">{v.get("schwere","—")}</span>'
+                    f'  ·  <span style="color:#8b949e;font-size:12px">{v.get("ausfall_tage",0)} Ausfalltage</span>'
+                    + (f'<br><small style="color:#8b949e">{v["notizen"]}</small>' if v.get("notizen") else "")
+                    + f'</div>',
                     unsafe_allow_html=True,
                 )
+            with st.expander("🗑️ Verletzungseintrag löschen"):
+                del_v = st.selectbox(
+                    "Eintrag wählen", verletzungen,
+                    format_func=lambda x: f"{x.get('datum','')} — {x.get('koerperteil','')} ({x.get('art','')})",
+                    key="del_v",
+                )
+                if st.button("Eintrag löschen", key="del_v_btn"):
+                    verletzung_loeschen(del_v["id"])
+                    st.success("Gelöscht.")
+                    st.rerun()
 
-    with col_r:
-        st.markdown("### 🏋️ Trainingsempfehlungen")
-        bereiche = empfehlung_bereiche(schwerpunkt)
-        if not bereiche:
-            st.info("Kein spezifischer Trainingsschwerpunkt erkannt.")
-        else:
-            for bereich, uebungen in uebungen_fuer_bereiche(bereiche).items():
-                with st.expander(f"**{bereich}** — {len(uebungen)} Übungen"):
-                    for u in uebungen:
-                        st.markdown(
-                            f"**{u['uebung']}**  \n"
-                            f"Problem: {u['problem']} · {u['saetze']} Sätze · {u['wiederholungen']} · {u['haeufigkeit']}"
-                        )
-
-    st.markdown("---")
-
-    # ── PDF download ──────────────────────────────────────────────────────
-    st.markdown("### 📄 PDF Report")
-    plan_rows = zyklus_laden(sid)
-    if st.button("📥 PDF Report generieren"):
-        pdf_bytes = generate_report(
-            spieler=auswahl,
-            fms_row=fms, y_row=y,
-            athletik_score=ascore,
-            risiko_label=label,
-            defizite=defizite,
-            plan_rows=plan_rows,
-        )
-        st.download_button(
-            label="⬇️ PDF herunterladen",
-            data=pdf_bytes,
-            file_name=f"athletik_report_{auswahl['name'].replace(' ','_')}_{date.today()}.pdf",
-            mime="application/pdf",
-        )
+    with tab_pdf:
+        st.markdown("### 📄 PDF Report")
+        plan_rows = zyklus_laden(sid)
+        if st.button("📥 PDF Report generieren"):
+            pdf_bytes = generate_report(
+                spieler=auswahl,
+                fms_row=fms, y_row=y,
+                athletik_score=ascore,
+                risiko_label=label,
+                defizite=defizite,
+                plan_rows=plan_rows,
+            )
+            st.download_button(
+                label="⬇️ PDF herunterladen",
+                data=pdf_bytes,
+                file_name=f"athletik_report_{auswahl['name'].replace(' ','_')}_{date.today()}.pdf",
+                mime="application/pdf",
+            )
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -635,7 +790,7 @@ def page_trainingsplan():
             st.info("Noch kein Trainingsplan vorhanden.")
             return
 
-        df = pd.DataFrame([dict(row) for row in plan])
+        df = pd.DataFrame(plan)
         df.columns = ["Bereich", "Übung", "Sätze", "Wdh.", "Häufigkeit", "Woche"]
         df = df[["Woche", "Bereich", "Übung", "Sätze", "Wdh.", "Häufigkeit"]]
 
@@ -681,7 +836,7 @@ def page_periodisierung():
         st.info("Noch kein Periodisierungsplan vorhanden. Klicke auf **Zyklus erstellen**.")
         return
 
-    df = pd.DataFrame([dict(row) for row in plan])
+    df = pd.DataFrame(plan)
     df.columns = ["Woche", "Phase", "Ziel", "Bereich", "Übung", "Intensität", "Volumen", "Häufigkeit"]
 
     # Phase colour map
@@ -733,7 +888,7 @@ def page_fortschritt():
         if not fms_hist:
             st.info("Noch keine FMS Tests vorhanden.")
         else:
-            df = pd.DataFrame([dict(row) for row in fms_hist])
+            df = pd.DataFrame(fms_hist)
             df.columns = ["Datum", "Score", "Bewertung", "Asymmetrie", "Schwerpunkt"]
 
             fig = go.Figure()
@@ -751,11 +906,7 @@ def page_fortschritt():
                           annotation_text="Beobachten ≤14", annotation_position="top right")
             fig.add_hline(y=12, line_dash="dash", line_color="#f85149",
                           annotation_text="Hohes Risiko ≤12", annotation_position="top right")
-            fig.update_layout(
-                **PLOTLY_LAYOUT, height=340,
-                title="FMS Score Verlauf",
-                yaxis=dict(range=[0, 22], **PLOTLY_LAYOUT["yaxis"]),
-            )
+            fig.update_layout(**_pl(height=340, title="FMS Score Verlauf", yaxis=dict(range=[0, 22])))
             st.plotly_chart(fig, use_container_width=True)
             st.dataframe(df, use_container_width=True, hide_index=True)
 
@@ -763,7 +914,7 @@ def page_fortschritt():
         if not yb_hist:
             st.info("Noch keine Y-Balance Tests vorhanden.")
         else:
-            df = pd.DataFrame([dict(row) for row in yb_hist])
+            df = pd.DataFrame(yb_hist)
             df.columns = ["Datum", "Composite R", "Composite L", "Asymmetrie", "Schwerpunkt"]
 
             fig2 = go.Figure()
@@ -781,11 +932,7 @@ def page_fortschritt():
             ))
             fig2.add_hline(y=89, line_dash="dash", line_color="#d29922",
                            annotation_text="Normwert 89 %", annotation_position="top right")
-            fig2.update_layout(
-                **PLOTLY_LAYOUT, height=340,
-                title="Y-Balance Composite Score Verlauf",
-                yaxis=dict(range=[70, 115], **PLOTLY_LAYOUT["yaxis"]),
-            )
+            fig2.update_layout(**_pl(height=340, title="Y-Balance Composite Score Verlauf", yaxis=dict(range=[70, 115])))
             st.plotly_chart(fig2, use_container_width=True)
             st.dataframe(df, use_container_width=True, hide_index=True)
 
