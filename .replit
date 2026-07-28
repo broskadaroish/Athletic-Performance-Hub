@@ -18,19 +18,7 @@ modules = ["nodejs-24", "python-base-3.13"]
 
     [[workflows.workflow.tasks]]
     task = "workflow.run"
-    args = "Football Athletik App"
-
-    [[workflows.workflow]]
-    name = "Football Athletik App"
-    author = "agent"
-
-    [[workflows.workflow.tasks]]
-    task = "shell.exec"
-    args = "cd artifacts/athletik && streamlit run app.py --server.port 5000"
-    waitForPort = 5000
-
-    [workflows.workflow.metadata]
-    outputType = "webview"
+    args = "artifacts/athletik: Football Athletik App"
 
     [agent]
     stack = "PNPM_WORKSPACE"
