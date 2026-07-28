@@ -51,7 +51,7 @@ athletik/
 
 ## User preferences
 
-_Populate as you build._
+- Immer auf Deutsch antworten.
 
 ## Gotchas
 
