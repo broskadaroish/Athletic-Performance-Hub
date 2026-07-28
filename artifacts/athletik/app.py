@@ -16,10 +16,19 @@ from database import (
     spieler_speichern, spieler_laden, spieler_by_id, spieler_loeschen,
     berechne_alter, altersklasse_vorschlag,
     verletzung_speichern, verletzungen_laden, verletzung_loeschen,
+    anthropometrie_speichern, anthropometrie_letzter, anthropometrie_history, anthropometrie_loeschen_letzten,
     fms_speichern, fms_letzter, fms_history,
     y_balance_speichern, y_balance_letzter, y_balance_history,
     trainingsplan_loeschen, trainingsplan_eintrag_speichern, trainingsplan_laden,
+    sprint_speichern, sprint_letzter, sprint_history,
+    sprung_speichern, sprung_letzter, sprung_history,
 )
+from anthropometrie import (
+    bmi_berechnen, bmi_kategorie, phv_offset_berechnen,
+    reifestatus_text, reifestatus_farbe, wachstum_berechnen,
+)
+from sprint import SprintErgebnis
+from sprung import SprungErgebnis
 
 # ─── Konstanten ───────────────────────────────────────────────────────────────
 
@@ -937,6 +946,382 @@ def page_fortschritt():
             st.dataframe(df, use_container_width=True, hide_index=True)
 
 
+# ──────────────────────────────────────────────────────────────────────────────
+
+def page_anthropometrie():
+    st.markdown("# 📐 Anthropometrie")
+    st.markdown("Körpermessungen, BMI und Wachstumsverlauf — Grundlage für belastungsgerechtes Training.")
+
+    auswahl = _player_selector("anthro")
+    if not auswahl:
+        return
+
+    sid    = auswahl["id"]
+    sp     = spieler_by_id(sid)
+    alter  = berechne_alter(sp.get("geburtsdatum", "")) if sp else 0.0
+    geschl = sp.get("geschlecht", "Männlich") if sp else "Männlich"
+
+    history = anthropometrie_history(sid)
+    letzter = anthropometrie_letzter(sid)
+
+    # ── Tabs ──────────────────────────────────────────────────────────────────
+    tab_neu, tab_verlauf = st.tabs(["📋 Neue Messung", "📈 Verlauf"])
+
+    with tab_neu:
+        st.markdown("### Körpermessung eingeben")
+        c1, c2 = st.columns(2)
+        datum        = c1.date_input("Datum", value=date.today(), key="anthro_datum")
+        groesse      = c1.number_input("Körpergröße (cm)", 100.0, 220.0,
+                                        float(letzter["groesse"]) if letzter else 175.0,
+                                        step=0.5, key="anthro_groesse")
+        gewicht      = c1.number_input("Körpergewicht (kg)", 30.0, 150.0,
+                                        float(letzter["gewicht"]) if letzter else 70.0,
+                                        step=0.5, key="anthro_gewicht")
+        koerperfett  = c1.number_input("Körperfett (%)", 0.0, 50.0,
+                                        float(letzter["koerperfett"]) if letzter else 12.0,
+                                        step=0.1, key="anthro_kf")
+        muskelmasse  = c1.number_input("Muskelmasse (kg)", 0.0, 100.0,
+                                        float(letzter["muskelmasse"]) if letzter else 0.0,
+                                        step=0.5, key="anthro_mm")
+        sitzhoehe    = c2.number_input("Sitzhöhe (cm) — optional für PHV", 0.0, 120.0,
+                                        float(letzter["sitzhoehe"]) if letzter else 0.0,
+                                        step=0.5, key="anthro_sh")
+        beinlaenge   = c2.number_input("Beinlänge (cm) — optional für PHV", 0.0, 120.0,
+                                        float(letzter["beinlaenge"]) if letzter else 0.0,
+                                        step=0.5, key="anthro_bl")
+        armspann     = c2.number_input("Armspannweite (cm)", 0.0, 250.0,
+                                        float(letzter["armspannweite"]) if letzter else 0.0,
+                                        step=0.5, key="anthro_arm")
+
+        bmi     = bmi_berechnen(gewicht, groesse)
+        bmi_kat = bmi_kategorie(bmi)
+        phv     = phv_offset_berechnen(alter, groesse, gewicht, sitzhoehe, beinlaenge, geschl) if alter else None
+        reife   = reifestatus_text(phv)
+        farbe   = reifestatus_farbe(phv)
+
+        # Vorschau
+        st.markdown("---")
+        m1, m2, m3 = st.columns(3)
+        m1.metric("BMI", f"{bmi}", bmi_kat)
+        m2.metric("Körperfett", f"{koerperfett} %")
+        if phv is not None:
+            m3.metric("PHV-Offset", f"{phv:+.1f} Jahre")
+        st.markdown(
+            f'<div style="background:#161b22;border:1px solid {farbe};border-radius:8px;padding:10px 14px;margin:8px 0">'
+            f'<span style="color:{farbe};font-weight:600">⚠️ Reifestatus (Schätzung): </span>'
+            f'<span style="color:#e6edf3">{reife}</span><br>'
+            f'<small style="color:#8b949e">Hinweis: Diese Schätzung (Mirwald-Formel) ersetzt keine ärztliche Untersuchung.</small>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+
+        col_sv, col_del = st.columns([3, 1])
+        with col_sv:
+            if st.button("💾 Messung speichern", use_container_width=True, key="anthro_save"):
+                anthropometrie_speichern(
+                    sid, datum.strftime("%d.%m.%Y"),
+                    groesse, gewicht, sitzhoehe, beinlaenge, armspann,
+                    koerperfett, muskelmasse,
+                    bmi, bmi_kat, phv, reife,
+                )
+                st.success("✅ Messung gespeichert!")
+                st.rerun()
+        with col_del:
+            if letzter and st.button("🗑️ Letzte löschen", use_container_width=True, key="anthro_del"):
+                anthropometrie_loeschen_letzten(sid)
+                st.warning("Letzte Messung gelöscht.")
+                st.rerun()
+
+    with tab_verlauf:
+        if not history:
+            st.info("Noch keine Messungen vorhanden.")
+            return
+
+        df = pd.DataFrame(history)
+        df.columns = ["Datum", "Größe", "Gewicht", "Körperfett", "Muskelmasse",
+                      "BMI", "BMI-Kat.", "Sitzhöhe", "Beinlänge", "Armspann",
+                      "PHV-Offset", "Reifestatus"]
+
+        # Wachstum/Monat
+        wachstum = wachstum_berechnen(history)
+        if wachstum is not None and wachstum > 0:
+            st.info(f"📏 Durchschnittliches Wachstum: **{wachstum} cm/Monat**")
+
+        c_g, c_w = st.columns(2)
+        with c_g:
+            fig = go.Figure()
+            fig.add_trace(go.Scatter(x=df["Datum"], y=df["Größe"],
+                                     mode="lines+markers+text", text=df["Größe"].round(1),
+                                     textposition="top center",
+                                     line=dict(color="#3b82f6", width=3),
+                                     marker=dict(size=8), name="Größe (cm)"))
+            fig.update_layout(**_pl(height=280, title="Körpergröße"))
+            st.plotly_chart(fig, use_container_width=True)
+
+        with c_w:
+            fig2 = go.Figure()
+            fig2.add_trace(go.Scatter(x=df["Datum"], y=df["Gewicht"],
+                                      mode="lines+markers+text", text=df["Gewicht"].round(1),
+                                      textposition="top center",
+                                      line=dict(color="#3fb950", width=3),
+                                      marker=dict(size=8), name="Gewicht (kg)"))
+            fig2.update_layout(**_pl(height=280, title="Körpergewicht"))
+            st.plotly_chart(fig2, use_container_width=True)
+
+        c_kf, c_bmi = st.columns(2)
+        with c_kf:
+            fig3 = go.Figure()
+            fig3.add_trace(go.Scatter(x=df["Datum"], y=df["Körperfett"],
+                                      mode="lines+markers+text", text=df["Körperfett"].round(1),
+                                      textposition="top center",
+                                      line=dict(color="#d29922", width=3),
+                                      marker=dict(size=8), name="Körperfett (%)"))
+            fig3.update_layout(**_pl(height=280, title="Körperfett"))
+            st.plotly_chart(fig3, use_container_width=True)
+
+        with c_bmi:
+            fig4 = go.Figure()
+            fig4.add_trace(go.Bar(x=df["Datum"], y=df["BMI"],
+                                  marker_color="#58a6ff", text=df["BMI"].round(1),
+                                  textposition="outside", name="BMI"))
+            fig4.add_hline(y=18.5, line_dash="dash", line_color="#3fb950",
+                           annotation_text="Untergrenze 18.5")
+            fig4.add_hline(y=25.0, line_dash="dash", line_color="#d29922",
+                           annotation_text="Übergewicht 25")
+            fig4.update_layout(**_pl(height=280, title="BMI-Verlauf"))
+            st.plotly_chart(fig4, use_container_width=True)
+
+        st.dataframe(df[["Datum", "Größe", "Gewicht", "BMI", "BMI-Kat.", "Körperfett",
+                          "Muskelmasse", "PHV-Offset", "Reifestatus"]],
+                     use_container_width=True, hide_index=True)
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+
+def _sprint_eingabe(distanz_label: str, key_prefix: str, letzter_row, col):
+    """Hilfsfunktion: 3-Versuch-Eingabe für eine Sprint-Distanz."""
+    col.markdown(f"**{distanz_label}**")
+    c1, c2, c3 = col.columns(3)
+    v1 = c1.number_input("V1", 0.0, 20.0, 0.0, step=0.01, format="%.2f", key=f"{key_prefix}_v1", label_visibility="collapsed")
+    v2 = c2.number_input("V2", 0.0, 20.0, 0.0, step=0.01, format="%.2f", key=f"{key_prefix}_v2", label_visibility="collapsed")
+    v3 = c3.number_input("V3", 0.0, 20.0, 0.0, step=0.01, format="%.2f", key=f"{key_prefix}_v3", label_visibility="collapsed")
+    bester = min((v for v in [v1, v2, v3] if v > 0), default=None)
+    if bester:
+        col.markdown(f'<small style="color:#8b949e">Bester Versuch: <b style="color:#58a6ff">{bester:.2f} s</b></small>', unsafe_allow_html=True)
+    return v1, v2, v3, bester
+
+
+def page_sprint():
+    st.markdown("# ⚡ Sprint-Diagnostik")
+    st.markdown("Lineare Beschleunigung und Maximalgeschwindigkeit — 5 m bis 30 m, je 3 Versuche.")
+
+    auswahl = _player_selector("sprint")
+    if not auswahl:
+        return
+
+    sid    = auswahl["id"]
+    sp     = spieler_by_id(sid)
+    geschl = sp.get("geschlecht", "Männlich") if sp else "Männlich"
+    niveau = sp.get("leistungsniveau", "Leistungssport") if sp else "Leistungssport"
+
+    letzter = sprint_letzter(sid)
+    hist    = sprint_history(sid)
+
+    tab_neu, tab_verlauf = st.tabs(["📋 Neuer Test", "📈 Verlauf"])
+
+    with tab_neu:
+        datum = st.date_input("Testdatum", value=date.today(), key="sprint_datum")
+        st.markdown("#### Zeiten eingeben (Sekunden) — Versuch 1 / 2 / 3")
+        st.caption("Nicht gemessene Distanzen einfach auf 0.00 lassen.")
+
+        c_l, c_r = st.columns(2)
+        v1_5,  v2_5,  v3_5,  b5  = _sprint_eingabe("5 m",  "s5",  letzter, c_l)
+        v1_10, v2_10, v3_10, b10 = _sprint_eingabe("10 m", "s10", letzter, c_l)
+        v1_20, v2_20, v3_20, b20 = _sprint_eingabe("20 m", "s20", letzter, c_r)
+        v1_30, v2_30, v3_30, b30 = _sprint_eingabe("30 m", "s30", letzter, c_r)
+
+        from sprint import (beschleunigungsindex, bewertung_sprint, bewertung_farbe,
+                            SprintErgebnis as _SE)
+        res = _SE(beste_5m=b5, beste_10m=b10, beste_20m=b20, beste_30m=b30,
+                  geschlecht=geschl, niveau=niveau)
+
+        if any([b5, b10, b20, b30]):
+            st.markdown("---")
+            m1, m2, m3, m4 = st.columns(4)
+            if b10: m1.metric("10 m", f"{b10:.2f} s", res.bewertung_10m)
+            if b20: m2.metric("20 m", f"{b20:.2f} s")
+            if b30: m3.metric("30 m", f"{b30:.2f} s", res.bewertung_30m)
+            if res.beschl_index: m4.metric("Beschl.-Index", f"{res.beschl_index:.3f}")
+
+            if res.defizite:
+                st.markdown("**🔴 Identifizierte Defizite:**")
+                for d in res.defizite:
+                    st.markdown(f"- {d}")
+
+        if st.button("💾 Test speichern", use_container_width=True, key="sprint_save"):
+            if not any([b5, b10, b20, b30]):
+                st.error("Bitte mindestens eine Distanz eingeben.")
+            else:
+                from sprint import beschleunigungsindex, bewertung_sprint
+                import json
+                sprint_speichern(
+                    sid, datum.strftime("%d.%m.%Y"),
+                    v1_5, v2_5, v3_5, b5 or 0,
+                    v1_10, v2_10, v3_10, b10 or 0,
+                    v1_20, v2_20, v3_20, b20 or 0,
+                    v1_30, v2_30, v3_30, b30 or 0,
+                    res.beschl_index or 0,
+                    res.bewertung_10m, res.bewertung_30m,
+                    json.dumps(res.defizite, ensure_ascii=False),
+                )
+                st.success("✅ Sprint-Test gespeichert!")
+                st.rerun()
+
+    with tab_verlauf:
+        if not hist:
+            st.info("Noch keine Sprint-Tests vorhanden.")
+            return
+
+        df = pd.DataFrame(hist)
+        df.columns = ["Datum", "5 m", "10 m", "20 m", "30 m", "Beschl.-Index", "Bew. 10 m"]
+
+        fig = go.Figure()
+        for col_name, color in [("10 m", "#3b82f6"), ("20 m", "#3fb950"),
+                                  ("30 m", "#d29922"), ("5 m", "#f85149")]:
+            sub = df[df[col_name] > 0]
+            if sub.empty:
+                continue
+            fig.add_trace(go.Scatter(x=sub["Datum"], y=sub[col_name],
+                                     mode="lines+markers", name=col_name,
+                                     line=dict(color=color, width=2),
+                                     marker=dict(size=7)))
+        fig.update_layout(**_pl(height=340, title="Sprintzeiten-Verlauf",
+                                yaxis=dict(autorange="reversed",
+                                           title="Zeit (s) — niedriger = besser")))
+        st.plotly_chart(fig, use_container_width=True)
+        st.dataframe(df, use_container_width=True, hide_index=True)
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+
+def page_sprung():
+    st.markdown("# 🦘 Sprung-Diagnostik")
+    st.markdown("Explosivkraft, Reaktivkraft und Seitenasymmetrie — CMJ, Squat Jump, Drop Jump, Standweitsprung.")
+
+    auswahl = _player_selector("sprung")
+    if not auswahl:
+        return
+
+    sid    = auswahl["id"]
+    sp     = spieler_by_id(sid)
+    geschl = sp.get("geschlecht", "Männlich") if sp else "Männlich"
+    niveau = sp.get("leistungsniveau", "Leistungssport") if sp else "Leistungssport"
+
+    letzter = sprung_letzter(sid)
+    hist    = sprung_history(sid)
+
+    tab_neu, tab_verlauf = st.tabs(["📋 Neuer Test", "📈 Verlauf"])
+
+    with tab_neu:
+        datum = st.date_input("Testdatum", value=date.today(), key="sprung_datum")
+        st.markdown("#### Messwerte (cm / s) — nicht gemessene Tests auf 0 lassen")
+
+        c1, c2 = st.columns(2)
+        c1.markdown("**CMJ beidbeinig (cm)**")
+        cmj_beid = c1.number_input("CMJ beidbeinig", 0.0, 100.0, 0.0, step=0.5, key="cmj_beid", label_visibility="collapsed")
+        c1.markdown("**CMJ einbeinig rechts (cm)**")
+        cmj_r    = c1.number_input("CMJ rechts", 0.0, 80.0, 0.0, step=0.5, key="cmj_r", label_visibility="collapsed")
+        c1.markdown("**CMJ einbeinig links (cm)**")
+        cmj_l    = c1.number_input("CMJ links", 0.0, 80.0, 0.0, step=0.5, key="cmj_l", label_visibility="collapsed")
+        c1.markdown("**Squat Jump (cm)**")
+        squat    = c1.number_input("Squat Jump", 0.0, 100.0, 0.0, step=0.5, key="squat", label_visibility="collapsed")
+
+        c2.markdown("**Drop Jump — Höhe (cm)**")
+        dj_h  = c2.number_input("Drop Jump Höhe", 0.0, 80.0, 0.0, step=0.5, key="dj_h", label_visibility="collapsed")
+        c2.markdown("**Drop Jump — Kontaktzeit (s)**")
+        dj_kz = c2.number_input("Drop Jump Kontaktzeit", 0.0, 2.0, 0.0, step=0.01, format="%.2f", key="dj_kz", label_visibility="collapsed")
+        c2.markdown("**Standweitsprung (cm)**")
+        swj   = c2.number_input("Standweitsprung", 0.0, 400.0, 0.0, step=1.0, key="swj", label_visibility="collapsed")
+
+        from sprung import SprungErgebnis as _SpE, asymmetrie_prozent, rsi_berechnen
+        res = _SpE(cmj_beid=cmj_beid or None, cmj_rechts=cmj_r or None,
+                   cmj_links=cmj_l or None, squat_jump=squat or None,
+                   drop_jump_hoehe=dj_h or None, drop_jump_kz=dj_kz or None,
+                   standweit=swj or None, geschlecht=geschl, niveau=niveau)
+
+        if any([cmj_beid, cmj_r, cmj_l, squat, dj_h, swj]):
+            st.markdown("---")
+            m1, m2, m3, m4 = st.columns(4)
+            if cmj_beid: m1.metric("CMJ", f"{cmj_beid:.1f} cm", res.bewertung_cmj)
+            if squat:    m2.metric("Squat Jump", f"{squat:.1f} cm")
+            if res.rsi:  m3.metric("RSI", f"{res.rsi:.2f}", "gut" if res.rsi >= 1.5 else "niedrig")
+            if res.cmj_asymmetrie:
+                color_txt = "⚠️ auffällig" if res.cmj_asymmetrie > 10 else "✅ ok"
+                m4.metric("Asymmetrie", f"{res.cmj_asymmetrie:.1f} %", color_txt)
+
+            if res.defizite:
+                st.markdown("**🔴 Identifizierte Defizite:**")
+                for d in res.defizite:
+                    st.markdown(f"- {d}")
+
+        if st.button("💾 Test speichern", use_container_width=True, key="sprung_save"):
+            if not any([cmj_beid, cmj_r, cmj_l, squat, dj_h, swj]):
+                st.error("Bitte mindestens einen Testwert eingeben.")
+            else:
+                import json
+                sprung_speichern(
+                    sid, datum.strftime("%d.%m.%Y"),
+                    cmj_beid or 0, cmj_r or 0, cmj_l or 0,
+                    res.cmj_asymmetrie or 0,
+                    squat or 0, dj_h or 0, dj_kz or 0,
+                    res.rsi or 0, swj or 0,
+                    res.bewertung_cmj,
+                    json.dumps(res.defizite, ensure_ascii=False),
+                )
+                st.success("✅ Sprung-Test gespeichert!")
+                st.rerun()
+
+    with tab_verlauf:
+        if not hist:
+            st.info("Noch keine Sprung-Tests vorhanden.")
+            return
+
+        df = pd.DataFrame(hist)
+        df.columns = ["Datum", "CMJ", "Squat Jump", "Drop Jump H.", "RSI",
+                      "Standweit", "Asymmetrie %", "Bewertung CMJ"]
+
+        c_cmj, c_asym = st.columns(2)
+        with c_cmj:
+            fig = go.Figure()
+            for col_name, color in [("CMJ", "#3b82f6"), ("Squat Jump", "#3fb950")]:
+                sub = df[df[col_name] > 0]
+                if sub.empty: continue
+                fig.add_trace(go.Scatter(x=sub["Datum"], y=sub[col_name],
+                                         mode="lines+markers", name=col_name,
+                                         line=dict(color=color, width=2), marker=dict(size=7)))
+            fig.update_layout(**_pl(height=280, title="CMJ & Squat Jump (cm)",
+                                    yaxis=dict(title="cm")))
+            st.plotly_chart(fig, use_container_width=True)
+
+        with c_asym:
+            sub_a = df[df["Asymmetrie %"] > 0]
+            if not sub_a.empty:
+                fig2 = go.Figure()
+                fig2.add_trace(go.Bar(x=sub_a["Datum"], y=sub_a["Asymmetrie %"],
+                                      marker_color=["#f85149" if v > 10 else "#3fb950"
+                                                    for v in sub_a["Asymmetrie %"]],
+                                      text=sub_a["Asymmetrie %"].round(1),
+                                      textposition="outside"))
+                fig2.add_hline(y=10, line_dash="dash", line_color="#d29922",
+                               annotation_text="Grenzwert 10 %")
+                fig2.update_layout(**_pl(height=280, title="CMJ-Asymmetrie links/rechts"))
+                st.plotly_chart(fig2, use_container_width=True)
+            else:
+                st.info("Keine einbeinigen CMJ-Werte vorhanden.")
+
+        st.dataframe(df, use_container_width=True, hide_index=True)
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # NAVIGATION
 # ══════════════════════════════════════════════════════════════════════════════
@@ -958,8 +1343,11 @@ with st.sidebar:
             "🏠 Coach Dashboard",
             "👤 Spielerverwaltung",
             "🏃 Spielerprofil",
+            "📐 Anthropometrie",
             "📝 FMS Test",
             "📏 Y-Balance Test",
+            "⚡ Sprint-Diagnostik",
+            "🦘 Sprung-Diagnostik",
             "📅 Trainingsplan",
             "🔄 Periodisierung",
             "📈 Fortschritt",
@@ -982,8 +1370,11 @@ pages = {
     "🏠 Coach Dashboard":   page_dashboard,
     "👤 Spielerverwaltung": page_spieler,
     "🏃 Spielerprofil":     page_spieler_profil,
+    "📐 Anthropometrie":    page_anthropometrie,
     "📝 FMS Test":          page_fms,
     "📏 Y-Balance Test":    page_ybalance,
+    "⚡ Sprint-Diagnostik": page_sprint,
+    "🦘 Sprung-Diagnostik": page_sprung,
     "📅 Trainingsplan":     page_trainingsplan,
     "🔄 Periodisierung":    page_periodisierung,
     "📈 Fortschritt":       page_fortschritt,

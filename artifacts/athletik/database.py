@@ -64,6 +64,23 @@ def init_db():
             notizen      TEXT
         );
 
+        CREATE TABLE IF NOT EXISTS anthropometrie (
+            id            INTEGER PRIMARY KEY AUTOINCREMENT,
+            spieler_id    INTEGER REFERENCES spieler(id),
+            datum         TEXT,
+            groesse       REAL,
+            gewicht       REAL,
+            sitzhoehe     REAL,
+            beinlaenge    REAL,
+            armspannweite REAL,
+            koerperfett   REAL,
+            muskelmasse   REAL,
+            bmi           REAL,
+            bmi_kategorie TEXT,
+            phv_offset    REAL,
+            reifestatus   TEXT
+        );
+
         CREATE TABLE IF NOT EXISTS fms_test (
             id               INTEGER PRIMARY KEY AUTOINCREMENT,
             spieler_id       INTEGER REFERENCES spieler(id),
@@ -103,6 +120,36 @@ def init_db():
             composite_links       REAL,
             asymmetrie            TEXT,
             schwerpunkt           TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS sprint_test (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            spieler_id  INTEGER REFERENCES spieler(id),
+            datum       TEXT,
+            v1_5m  REAL, v2_5m  REAL, v3_5m  REAL, beste_5m  REAL,
+            v1_10m REAL, v2_10m REAL, v3_10m REAL, beste_10m REAL,
+            v1_20m REAL, v2_20m REAL, v3_20m REAL, beste_20m REAL,
+            v1_30m REAL, v2_30m REAL, v3_30m REAL, beste_30m REAL,
+            beschl_index REAL,
+            bewertung_10m TEXT, bewertung_30m TEXT,
+            defizite TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS sprung_test (
+            id              INTEGER PRIMARY KEY AUTOINCREMENT,
+            spieler_id      INTEGER REFERENCES spieler(id),
+            datum           TEXT,
+            cmj_beid        REAL,
+            cmj_rechts      REAL,
+            cmj_links       REAL,
+            cmj_asymmetrie  REAL,
+            squat_jump      REAL,
+            drop_jump_hoehe REAL,
+            drop_jump_kz    REAL,
+            rsi             REAL,
+            standweit       REAL,
+            bewertung_cmj   TEXT,
+            defizite        TEXT
         );
 
         CREATE TABLE IF NOT EXISTS training (
@@ -224,6 +271,7 @@ def spieler_by_id(spieler_id):
 def spieler_loeschen(spieler_id):
     with get_conn() as conn:
         conn.execute("DELETE FROM verletzung WHERE spieler_id=?", (spieler_id,))
+        conn.execute("DELETE FROM anthropometrie WHERE spieler_id=?", (spieler_id,))
         conn.execute("DELETE FROM fms_test WHERE spieler_id=?", (spieler_id,))
         conn.execute("DELETE FROM y_balance_test WHERE spieler_id=?", (spieler_id,))
         conn.execute("DELETE FROM trainingsplan WHERE spieler_id=?", (spieler_id,))
@@ -289,6 +337,49 @@ def fms_history(spieler_id):
         ).fetchall())
 
 
+# ─── Anthropometrie ────────────────────────────────────────────────────────
+
+def anthropometrie_speichern(spieler_id, datum, groesse, gewicht, sitzhoehe,
+                              beinlaenge, armspannweite, koerperfett, muskelmasse,
+                              bmi, bmi_kat, phv_offset, reifestatus):
+    with get_conn() as conn:
+        conn.execute("""
+        INSERT INTO anthropometrie
+        (spieler_id,datum,groesse,gewicht,sitzhoehe,beinlaenge,armspannweite,
+         koerperfett,muskelmasse,bmi,bmi_kategorie,phv_offset,reifestatus)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
+        """, (spieler_id, datum, groesse, gewicht, sitzhoehe, beinlaenge,
+              armspannweite, koerperfett, muskelmasse, bmi, bmi_kat, phv_offset, reifestatus))
+
+
+def anthropometrie_letzter(spieler_id):
+    with get_conn() as conn:
+        return _row(conn.execute(
+            "SELECT * FROM anthropometrie WHERE spieler_id=? ORDER BY id DESC LIMIT 1",
+            (spieler_id,),
+        ).fetchone())
+
+
+def anthropometrie_history(spieler_id):
+    with get_conn() as conn:
+        return _rows(conn.execute(
+            """SELECT datum,groesse,gewicht,koerperfett,muskelmasse,bmi,bmi_kategorie,
+                      sitzhoehe,beinlaenge,armspannweite,phv_offset,reifestatus
+               FROM anthropometrie WHERE spieler_id=? ORDER BY datum""",
+            (spieler_id,),
+        ).fetchall())
+
+
+def anthropometrie_loeschen_letzten(spieler_id):
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT id FROM anthropometrie WHERE spieler_id=? ORDER BY id DESC LIMIT 1",
+            (spieler_id,),
+        ).fetchone()
+        if row:
+            conn.execute("DELETE FROM anthropometrie WHERE id=?", (row["id"],))
+
+
 # ─── Y-Balance ─────────────────────────────────────────────────────────────
 
 def y_balance_speichern(spieler_id, datum, ant_r, ant_l, pm_r, pm_l, pl_r, pl_l,
@@ -348,6 +439,82 @@ def training_bulk_insert(uebungen):
             "INSERT INTO training (bereich,problem,uebung,saetze,wiederholungen,haeufigkeit) VALUES (?,?,?,?,?,?)",
             uebungen,
         )
+
+
+# ─── Sprint ────────────────────────────────────────────────────────────────
+
+def sprint_speichern(spieler_id, datum,
+                     v1_5, v2_5, v3_5, b5,
+                     v1_10, v2_10, v3_10, b10,
+                     v1_20, v2_20, v3_20, b20,
+                     v1_30, v2_30, v3_30, b30,
+                     beschl_index, bew_10, bew_30, defizite):
+    with get_conn() as conn:
+        conn.execute("""
+        INSERT INTO sprint_test
+        (spieler_id,datum,
+         v1_5m,v2_5m,v3_5m,beste_5m,
+         v1_10m,v2_10m,v3_10m,beste_10m,
+         v1_20m,v2_20m,v3_20m,beste_20m,
+         v1_30m,v2_30m,v3_30m,beste_30m,
+         beschl_index,bewertung_10m,bewertung_30m,defizite)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        """, (spieler_id, datum,
+              v1_5, v2_5, v3_5, b5,
+              v1_10, v2_10, v3_10, b10,
+              v1_20, v2_20, v3_20, b20,
+              v1_30, v2_30, v3_30, b30,
+              beschl_index, bew_10, bew_30, defizite))
+
+
+def sprint_letzter(spieler_id):
+    with get_conn() as conn:
+        return _row(conn.execute(
+            "SELECT * FROM sprint_test WHERE spieler_id=? ORDER BY id DESC LIMIT 1",
+            (spieler_id,),
+        ).fetchone())
+
+
+def sprint_history(spieler_id):
+    with get_conn() as conn:
+        return _rows(conn.execute(
+            "SELECT datum,beste_5m,beste_10m,beste_20m,beste_30m,beschl_index,bewertung_10m FROM sprint_test WHERE spieler_id=? ORDER BY datum",
+            (spieler_id,),
+        ).fetchall())
+
+
+# ─── Sprung ────────────────────────────────────────────────────────────────
+
+def sprung_speichern(spieler_id, datum,
+                     cmj_beid, cmj_rechts, cmj_links, cmj_asym,
+                     squat_jump, dj_hoehe, dj_kz, rsi,
+                     standweit, bew_cmj, defizite):
+    with get_conn() as conn:
+        conn.execute("""
+        INSERT INTO sprung_test
+        (spieler_id,datum,cmj_beid,cmj_rechts,cmj_links,cmj_asymmetrie,
+         squat_jump,drop_jump_hoehe,drop_jump_kz,rsi,standweit,bewertung_cmj,defizite)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
+        """, (spieler_id, datum,
+              cmj_beid, cmj_rechts, cmj_links, cmj_asym,
+              squat_jump, dj_hoehe, dj_kz, rsi,
+              standweit, bew_cmj, defizite))
+
+
+def sprung_letzter(spieler_id):
+    with get_conn() as conn:
+        return _row(conn.execute(
+            "SELECT * FROM sprung_test WHERE spieler_id=? ORDER BY id DESC LIMIT 1",
+            (spieler_id,),
+        ).fetchone())
+
+
+def sprung_history(spieler_id):
+    with get_conn() as conn:
+        return _rows(conn.execute(
+            "SELECT datum,cmj_beid,squat_jump,drop_jump_hoehe,rsi,standweit,cmj_asymmetrie,bewertung_cmj FROM sprung_test WHERE spieler_id=? ORDER BY datum",
+            (spieler_id,),
+        ).fetchall())
 
 
 # ─── Trainingsplan ─────────────────────────────────────────────────────────
