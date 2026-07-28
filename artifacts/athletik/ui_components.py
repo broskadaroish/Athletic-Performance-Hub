@@ -44,8 +44,8 @@ def player_banner(player: dict, alter: int | float | None = None) -> str:
     team   = player.get("mannschaft") or "—"
     status = player.get("trainingsstatus") or "Volltraining"
     status_color = (
-        C["red"]    if any(x in status.lower() for x in ["verletzt", "ausfall"])
-        else C["yellow"] if any(x in status.lower() for x in ["eingeschränkt", "reha"])
+        C["red"]    if any(x in status.lower() for x in ["pause", "abklärung", "abklaerung"])
+        else C["yellow"] if any(x in status.lower() for x in ["angepasst", "individuell", "freigabe"])
         else C["green"]
     )
     alter_str = f"{int(alter)} Jahre · " if alter else ""

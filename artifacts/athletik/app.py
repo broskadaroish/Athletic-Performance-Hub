@@ -32,6 +32,20 @@ from database import (
     sprung_speichern, sprung_letzter, sprung_history,
     agilitaet_speichern, agilitaet_letzter, agilitaet_history,
     ausdauer_speichern, ausdauer_letzter, ausdauer_history,
+    einwilligung_speichern, einwilligung_letzter, einwilligung_alle,
+)
+from safety_texts import (
+    ZWECKBESTIMMUNG_VERSION,
+    ZWECKBESTIMMUNG_TITEL,
+    ZWECKBESTIMMUNG_TEXT_DISPLAY,
+    AMPEL_GRUEN, AMPEL_GELB, AMPEL_ROT, AMPEL_FUSSZEILE,
+    TRAININGSPLAN_HINWEIS,
+    PHV_HINWEIS,
+    FMS_HINWEIS,
+    BESCHWERDEN_HINWEIS,
+    ABBRUCH_HINWEIS,
+    PDF_FUSSZEILE,
+    KURZ_HINWEIS,
 )
 from anthropometrie import (
     bmi_berechnen, bmi_kategorie, phv_offset_berechnen,
@@ -56,7 +70,14 @@ ALTERSKLASSEN = [
     "U18/U19 (A-Jugend)", "Senioren", "Ü-Mannschaft",
 ]
 LEISTUNGSNIVEAUS  = ["Breitensport", "Leistungssport", "Regionalkader", "Landeskader", "Bundeskader", "Profi"]
-TRAININGSSTATUS   = ["Volltraining", "Eingeschränktes Training", "Reha", "Verletzt / Ausfall", "Pause / Urlaub"]
+TRAININGSSTATUS   = [
+    "Uneingeschränktes Mannschaftstraining",
+    "Angepasstes Mannschaftstraining",
+    "Individuelles Training",
+    "Trainingspause",
+    "Externe Abklärung empfohlen",
+    "Externe Freigabe dokumentiert",
+]
 VERLETZUNGSARTEN  = ["Muskel", "Sehne / Band", "Knochen / Knorpel", "Prellung / Kontusion", "Sonstiges"]
 KOERPERTEILE      = ["Sprunggelenk", "Knie", "Oberschenkel", "Leiste", "Hüfte", "Lendenwirbel", "Schulter", "Sonstiges"]
 SCHWEREGRADE      = ["Leicht (1–7 Tage)", "Mittel (8–28 Tage)", "Schwer (> 28 Tage)"]
@@ -74,6 +95,17 @@ from pdf_report import generate_report
 init_db()
 init_training_bibliothek()
 
+# ─── Startup: Zweckbestimmung bestätigen ──────────────────────────────────────
+def _zweck_bestaetigt() -> bool:
+    """True wenn die Zweckbestimmung dieser Version bereits bestätigt wurde."""
+    if st.session_state.get("zweck_bestaetigt"):
+        return True
+    letzter = einwilligung_letzter()
+    if letzter and letzter.get("version") == ZWECKBESTIMMUNG_VERSION:
+        st.session_state["zweck_bestaetigt"] = True
+        return True
+    return False
+
 # ─── Page config ──────────────────────────────────────────────────────────────
 st.set_page_config(
     page_title="Football Athletik Diagnostik",
@@ -84,6 +116,45 @@ st.set_page_config(
 
 # ─── Inject central design system ────────────────────────────────────────────
 st.markdown(APP_CSS, unsafe_allow_html=True)
+
+# ─── Startup-Gate: Zweckbestimmung muss bestätigt werden ─────────────────────
+if not _zweck_bestaetigt():
+    st.markdown(
+        f'<div style="max-width:700px;margin:40px auto;padding:36px 40px;'
+        f'background:#161b22;border:2px solid #d29922;border-radius:12px">'
+        f'<div style="font-size:28px;text-align:center;margin-bottom:8px">⚠️</div>'
+        f'<h2 style="color:#e6edf3;text-align:center;margin-bottom:4px">'
+        f'Zweckbestimmung und Anwendungshinweise</h2>'
+        f'<p style="color:#8b949e;text-align:center;font-size:12px;margin-bottom:24px">'
+        f'Version {ZWECKBESTIMMUNG_VERSION} — Bitte vor der ersten Nutzung bestätigen</p>',
+        unsafe_allow_html=True,
+    )
+    for absatz in ZWECKBESTIMMUNG_TEXT_DISPLAY.split("\n\n"):
+        st.markdown(absatz)
+    st.markdown(
+        '<div style="background:#0d1117;border:1px solid #30363d;border-radius:8px;'
+        'padding:14px 16px;margin-top:20px;color:#f0a030;font-size:13px">'
+        '⚠️ Diese Anwendung ist eine sportliche Trainings- und Dokumentationshilfe. '
+        'Sie stellt keine medizinische Diagnose und erteilt keine medizinische Freigabe.</div>',
+        unsafe_allow_html=True,
+    )
+    st.markdown("")
+    benutzer_name = st.text_input(
+        "Ihr Name (Trainer / Nutzer)",
+        placeholder="z. B. Thomas Müller",
+        key="zweck_benutzer",
+    )
+    bestaetigt = st.checkbox(
+        "Ich habe die Zweckbestimmung und Anwendungshinweise gelesen und verstanden.",
+        key="zweck_checkbox",
+    )
+    if st.button("✅ Bestätigen und App starten", type="primary",
+                 disabled=not bestaetigt, use_container_width=True):
+        name = benutzer_name.strip() or "Trainer"
+        einwilligung_speichern(ZWECKBESTIMMUNG_VERSION, name)
+        st.session_state["zweck_bestaetigt"] = True
+        st.rerun()
+    st.stop()
 
 
 # ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -573,9 +644,11 @@ def page_spieler_profil():
         ak = auswahl.get("altersklasse") or "—"
         niv = auswahl.get("leistungsniveau") or "—"
         status = auswahl.get("trainingsstatus") or "Volltraining"
-        status_color = "#f85149" if "verletzt" in status.lower() or "ausfall" in status.lower() \
-                       else "#d29922" if "eingeschränkt" in status.lower() or "reha" in status.lower() \
-                       else "#3fb950"
+        status_color = (
+            "#f85149" if any(x in status.lower() for x in ["pause", "abklärung", "abklaerung"])
+            else "#d29922" if any(x in status.lower() for x in ["angepasst", "individuell", "freigabe"])
+            else "#3fb950"
+        )
         st.markdown(
             f"<small style='color:#8b949e'>{ak}  ·  {niv}  ·  "
             f"<span style='color:{status_color};font-weight:600'>{status}</span></small>",
@@ -2011,12 +2084,82 @@ def page_startseite():
         st.rerun()
 
 
+def page_zweckbestimmung():
+    """Zweckbestimmung und Hinweise — erneut abrufbar aus den Einstellungen."""
+    st.markdown("# 📋 Zweckbestimmung und Anwendungshinweise")
+    st.markdown(
+        f'<div style="background:#1c2128;border:1px solid #d29922;border-radius:8px;'
+        f'padding:16px 20px;margin-bottom:20px">'
+        f'<span style="color:#d29922;font-size:12px;font-weight:600;letter-spacing:1px">'
+        f'VERSION {ZWECKBESTIMMUNG_VERSION}</span></div>',
+        unsafe_allow_html=True,
+    )
+
+    for absatz in ZWECKBESTIMMUNG_TEXT_DISPLAY.split("\n\n"):
+        st.markdown(absatz)
+
+    st.markdown("---")
+    st.markdown("### 🟢 🟡 🔴 Bedeutung der Ampelfarben")
+    st.markdown(
+        f'<div style="background:#0d1117;border-left:4px solid #3fb950;'
+        f'border-radius:6px;padding:12px 16px;margin:8px 0">'
+        f'<b style="color:#3fb950">Grün</b><br>'
+        f'<span style="color:#8b949e">{AMPEL_GRUEN}</span></div>',
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        f'<div style="background:#0d1117;border-left:4px solid #d29922;'
+        f'border-radius:6px;padding:12px 16px;margin:8px 0">'
+        f'<b style="color:#d29922">Gelb</b><br>'
+        f'<span style="color:#8b949e">{AMPEL_GELB}</span></div>',
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        f'<div style="background:#0d1117;border-left:4px solid #f85149;'
+        f'border-radius:6px;padding:12px 16px;margin:8px 0">'
+        f'<b style="color:#f85149">Rot</b><br>'
+        f'<span style="color:#8b949e">{AMPEL_ROT}</span></div>',
+        unsafe_allow_html=True,
+    )
+    st.caption(f"ℹ️ {AMPEL_FUSSZEILE}")
+
+    st.markdown("---")
+    st.markdown("### 🏋️ Trainingsplan-Hinweis")
+    st.info(TRAININGSPLAN_HINWEIS)
+
+    st.markdown("### 📐 Wachstum / Anthropometrie")
+    st.info(PHV_HINWEIS)
+
+    st.markdown("### 📝 FMS / Y-Balance")
+    st.info(FMS_HINWEIS)
+
+    st.markdown("---")
+    st.markdown("### 📜 Bestätigungsprotokoll")
+    alle = einwilligung_alle()
+    if alle:
+        df_einw = pd.DataFrame(alle)[["datum", "version", "benutzer"]]
+        df_einw.columns = ["Datum", "Version", "Bestätigt von"]
+        st.dataframe(df_einw, use_container_width=True, hide_index=True)
+    else:
+        st.info("Noch keine Bestätigung gespeichert.")
+
+    st.markdown("---")
+    st.markdown("### 🔄 Zweckbestimmung erneut bestätigen")
+    benutzer_neu = st.text_input("Name", key="zweck_renew_name", placeholder="Trainer / Nutzer")
+    if st.button("✅ Erneut bestätigen und speichern", key="zweck_renew_btn"):
+        einwilligung_speichern(ZWECKBESTIMMUNG_VERSION, benutzer_neu.strip() or "Trainer")
+        st.success("✅ Zweckbestimmung erneut bestätigt und gespeichert.")
+        st.rerun()
+
+
 def page_einstellungen():
     """Einstellungen — App-Konfiguration."""
     st.markdown(section_header("⚙️ Einstellungen", "App-Konfiguration und Datenverwaltung"),
                 unsafe_allow_html=True)
 
-    tab_allg, tab_export = st.tabs(["⚙️ Allgemein", "💾 Export & Backup"])
+    tab_allg, tab_zweck, tab_export = st.tabs([
+        "⚙️ Allgemein", "📋 Zweckbestimmung", "💾 Export & Backup"
+    ])
 
     with tab_allg:
         st.markdown("### Vereinsinformationen")
@@ -2035,6 +2178,9 @@ def page_einstellungen():
         if alle:
             mannschaften = list({p.get("mannschaft") or "Keine" for p in alle})
             st.markdown(f"**Mannschaften:** {', '.join(sorted(mannschaften))}")
+
+    with tab_zweck:
+        page_zweckbestimmung()
 
     with tab_export:
         st.markdown("### Daten exportieren")

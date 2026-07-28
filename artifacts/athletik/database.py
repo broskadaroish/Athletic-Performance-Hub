@@ -64,6 +64,13 @@ def init_db():
             notizen      TEXT
         );
 
+        CREATE TABLE IF NOT EXISTS einwilligung (
+            id        INTEGER PRIMARY KEY AUTOINCREMENT,
+            datum     TEXT NOT NULL,
+            version   TEXT NOT NULL,
+            benutzer  TEXT NOT NULL DEFAULT 'Trainer'
+        );
+
         CREATE TABLE IF NOT EXISTS anthropometrie (
             id            INTEGER PRIMARY KEY AUTOINCREMENT,
             spieler_id    INTEGER REFERENCES spieler(id),
@@ -287,6 +294,35 @@ def spieler_speichern(vorname, nachname, geburtsdatum, geschlecht,
              spielbein, leistungsniveau, mannschaft, trainingsstatus),
         )
 
+
+# ─── Einwilligung / Zweckbestimmung ────────────────────────────────────────
+
+def einwilligung_speichern(version: str, benutzer: str = "Trainer") -> None:
+    """Speichert eine neue Bestätigung der Zweckbestimmung."""
+    with get_conn() as conn:
+        conn.execute(
+            "INSERT INTO einwilligung (datum, version, benutzer) VALUES (?,?,?)",
+            (str(date.today()), version, benutzer),
+        )
+
+
+def einwilligung_letzter() -> dict | None:
+    """Gibt die zuletzt gespeicherte Bestätigung zurück oder None."""
+    with get_conn() as conn:
+        return _row(conn.execute(
+            "SELECT * FROM einwilligung ORDER BY id DESC LIMIT 1"
+        ).fetchone())
+
+
+def einwilligung_alle() -> list[dict]:
+    """Gibt alle gespeicherten Bestätigungen zurück (neueste zuerst)."""
+    with get_conn() as conn:
+        return _rows(conn.execute(
+            "SELECT * FROM einwilligung ORDER BY id DESC"
+        ).fetchall())
+
+
+# ─── Spieler ───────────────────────────────────────────────────────────────
 
 def spieler_laden():
     with get_conn() as conn:
