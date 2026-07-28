@@ -152,6 +152,36 @@ def init_db():
             defizite        TEXT
         );
 
+        CREATE TABLE IF NOT EXISTS agilitaet_test (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            spieler_id  INTEGER REFERENCES spieler(id),
+            datum       TEXT,
+            t505_r      REAL,
+            t505_l      REAL,
+            asym_505    REAL,
+            t5_10_5     REAL,
+            t_test      REAL,
+            illinois    REAL,
+            bew_505     TEXT,
+            bew_t_test  TEXT,
+            bew_illinois TEXT,
+            defizite    TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS ausdauer_test (
+            id           INTEGER PRIMARY KEY AUTOINCREMENT,
+            spieler_id   INTEGER REFERENCES spieler(id),
+            datum        TEXT,
+            test_typ     TEXT,
+            distanz_m    REAL,
+            hf_max       REAL,
+            rpe          INTEGER,
+            vo2max       REAL,
+            bewertung    TEXT,
+            altersgruppe TEXT,
+            defizite     TEXT
+        );
+
         CREATE TABLE IF NOT EXISTS training (
             id             INTEGER PRIMARY KEY AUTOINCREMENT,
             bereich        TEXT,
@@ -272,6 +302,10 @@ def spieler_loeschen(spieler_id):
     with get_conn() as conn:
         conn.execute("DELETE FROM verletzung WHERE spieler_id=?", (spieler_id,))
         conn.execute("DELETE FROM anthropometrie WHERE spieler_id=?", (spieler_id,))
+        conn.execute("DELETE FROM agilitaet_test WHERE spieler_id=?", (spieler_id,))
+        conn.execute("DELETE FROM ausdauer_test WHERE spieler_id=?", (spieler_id,))
+        conn.execute("DELETE FROM sprint_test WHERE spieler_id=?", (spieler_id,))
+        conn.execute("DELETE FROM sprung_test WHERE spieler_id=?", (spieler_id,))
         conn.execute("DELETE FROM fms_test WHERE spieler_id=?", (spieler_id,))
         conn.execute("DELETE FROM y_balance_test WHERE spieler_id=?", (spieler_id,))
         conn.execute("DELETE FROM trainingsplan WHERE spieler_id=?", (spieler_id,))
@@ -513,6 +547,67 @@ def sprung_history(spieler_id):
     with get_conn() as conn:
         return _rows(conn.execute(
             "SELECT datum,cmj_beid,squat_jump,drop_jump_hoehe,rsi,standweit,cmj_asymmetrie,bewertung_cmj FROM sprung_test WHERE spieler_id=? ORDER BY datum",
+            (spieler_id,),
+        ).fetchall())
+
+
+# ─── Agilität ──────────────────────────────────────────────────────────────
+
+def agilitaet_speichern(spieler_id, datum, t505_r, t505_l, asym_505,
+                         t5_10_5, t_test, illinois,
+                         bew_505, bew_t_test, bew_illinois, defizite):
+    with get_conn() as conn:
+        conn.execute("""
+        INSERT INTO agilitaet_test
+        (spieler_id,datum,t505_r,t505_l,asym_505,t5_10_5,t_test,illinois,
+         bew_505,bew_t_test,bew_illinois,defizite)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
+        """, (spieler_id, datum, t505_r, t505_l, asym_505,
+              t5_10_5, t_test, illinois,
+              bew_505, bew_t_test, bew_illinois, defizite))
+
+
+def agilitaet_letzter(spieler_id):
+    with get_conn() as conn:
+        return _row(conn.execute(
+            "SELECT * FROM agilitaet_test WHERE spieler_id=? ORDER BY id DESC LIMIT 1",
+            (spieler_id,),
+        ).fetchone())
+
+
+def agilitaet_history(spieler_id):
+    with get_conn() as conn:
+        return _rows(conn.execute(
+            "SELECT datum,t505_r,t505_l,asym_505,t5_10_5,t_test,illinois,bew_t_test FROM agilitaet_test WHERE spieler_id=? ORDER BY datum",
+            (spieler_id,),
+        ).fetchall())
+
+
+# ─── Ausdauer ──────────────────────────────────────────────────────────────
+
+def ausdauer_speichern(spieler_id, datum, test_typ, distanz_m,
+                        hf_max, rpe, vo2max, bewertung, altersgruppe, defizite):
+    with get_conn() as conn:
+        conn.execute("""
+        INSERT INTO ausdauer_test
+        (spieler_id,datum,test_typ,distanz_m,hf_max,rpe,vo2max,bewertung,altersgruppe,defizite)
+        VALUES (?,?,?,?,?,?,?,?,?,?)
+        """, (spieler_id, datum, test_typ, distanz_m,
+              hf_max, rpe, vo2max, bewertung, altersgruppe, defizite))
+
+
+def ausdauer_letzter(spieler_id):
+    with get_conn() as conn:
+        return _row(conn.execute(
+            "SELECT * FROM ausdauer_test WHERE spieler_id=? ORDER BY id DESC LIMIT 1",
+            (spieler_id,),
+        ).fetchone())
+
+
+def ausdauer_history(spieler_id):
+    with get_conn() as conn:
+        return _rows(conn.execute(
+            "SELECT datum,test_typ,distanz_m,vo2max,bewertung,hf_max,rpe FROM ausdauer_test WHERE spieler_id=? ORDER BY datum",
             (spieler_id,),
         ).fetchall())
 

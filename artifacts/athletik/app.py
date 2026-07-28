@@ -22,6 +22,8 @@ from database import (
     trainingsplan_loeschen, trainingsplan_eintrag_speichern, trainingsplan_laden,
     sprint_speichern, sprint_letzter, sprint_history,
     sprung_speichern, sprung_letzter, sprung_history,
+    agilitaet_speichern, agilitaet_letzter, agilitaet_history,
+    ausdauer_speichern, ausdauer_letzter, ausdauer_history,
 )
 from anthropometrie import (
     bmi_berechnen, bmi_kategorie, phv_offset_berechnen,
@@ -29,6 +31,8 @@ from anthropometrie import (
 )
 from sprint import SprintErgebnis
 from sprung import SprungErgebnis
+from agilitaet import AgilitaetErgebnis, bewertung as agil_bewertung, bewertung_farbe as agil_farbe
+from ausdauer import AusdauerErgebnis, trainingsbereiche, bewertung_farbe as aus_farbe
 
 # ─── Konstanten ───────────────────────────────────────────────────────────────
 
@@ -1322,6 +1326,282 @@ def page_sprung():
         st.dataframe(df, use_container_width=True, hide_index=True)
 
 
+# ──────────────────────────────────────────────────────────────────────────────
+
+def _zeit_eingabe(label: str, key: str, col, letzter=None, letzter_key=None):
+    """Hilfsfunktion: Zeiteingabe mit Vorschau-Bewertung."""
+    col.markdown(f"**{label}**")
+    default = float(letzter[letzter_key]) if (letzter and letzter_key and letzter.get(letzter_key)) else 0.0
+    v = col.number_input(label, 0.0, 30.0, default, step=0.01, format="%.2f",
+                         key=key, label_visibility="collapsed")
+    return v if v > 0 else None
+
+
+def page_agilitaet():
+    st.markdown("# 🔀 Agilität & Richtungswechsel")
+    st.markdown("505-Test, 5-10-5 Shuttle, T-Test, Illinois Agility Run — Richtungswechsel-Fähigkeit und Abbremsstärke.")
+
+    auswahl = _player_selector("agil")
+    if not auswahl:
+        return
+
+    sid    = auswahl["id"]
+    sp     = spieler_by_id(sid)
+    geschl = sp.get("geschlecht", "Männlich") if sp else "Männlich"
+    niveau = sp.get("leistungsniveau", "Leistungssport") if sp else "Leistungssport"
+
+    letzter = agilitaet_letzter(sid)
+    hist    = agilitaet_history(sid)
+
+    tab_neu, tab_verlauf, tab_info = st.tabs(["📋 Neuer Test", "📈 Verlauf", "ℹ️ Testbeschreibung"])
+
+    with tab_neu:
+        datum = st.date_input("Testdatum", value=date.today(), key="agil_datum")
+        st.markdown("#### Zeiten (s) — nicht gemessene Tests auf 0.00 lassen")
+
+        c1, c2 = st.columns(2)
+        t505_r  = _zeit_eingabe("505-Test rechts (s)", "a505r", c1, letzter, "t505_r")
+        t505_l  = _zeit_eingabe("505-Test links (s)",  "a505l", c1, letzter, "t505_l")
+        t5_10_5 = _zeit_eingabe("5-10-5 Shuttle (s)",  "a5105", c2, letzter, "t5_10_5")
+        t_test  = _zeit_eingabe("T-Test (s)",           "att",   c2, letzter, "t_test")
+        illinois = _zeit_eingabe("Illinois Agility (s)","aill",  c1, letzter, "illinois")
+
+        from agilitaet import AgilitaetErgebnis as _AE
+        res = _AE(t505_r=t505_r, t505_l=t505_l, t5_10_5=t5_10_5,
+                  t_test=t_test, illinois=illinois,
+                  geschlecht=geschl, niveau=niveau)
+
+        if any([t505_r, t505_l, t5_10_5, t_test, illinois]):
+            st.markdown("---")
+            m1, m2, m3, m4 = st.columns(4)
+            if t505_r:   m1.metric("505 rechts", f"{t505_r:.2f} s",   res.bew_505)
+            if t505_l:   m2.metric("505 links",  f"{t505_l:.2f} s")
+            if t_test:   m3.metric("T-Test",     f"{t_test:.2f} s",   res.bew_t_test)
+            if illinois: m4.metric("Illinois",   f"{illinois:.2f} s", res.bew_illinois)
+
+            if res.asym_505:
+                color = "#f85149" if res.asym_505 > 10 else "#3fb950"
+                sign  = "⚠️ auffällig" if res.asym_505 > 10 else "✅ symmetrisch"
+                st.markdown(
+                    f'<div style="background:#161b22;border:1px solid {color};border-radius:8px;'
+                    f'padding:10px 14px;margin:8px 0">'
+                    f'<span style="color:{color};font-weight:600">505-Asymmetrie: {res.asym_505:.1f} % — {sign}</span>'
+                    f'<br><small style="color:#8b949e">Grenzwert: 10 % (klinisch relevant)</small></div>',
+                    unsafe_allow_html=True,
+                )
+
+            if res.defizite:
+                st.markdown("**🔴 Identifizierte Defizite:**")
+                for d in res.defizite:
+                    st.markdown(f"- {d}")
+
+        if st.button("💾 Test speichern", use_container_width=True, key="agil_save"):
+            if not any([t505_r, t505_l, t5_10_5, t_test, illinois]):
+                st.error("Bitte mindestens einen Testwert eingeben.")
+            else:
+                import json
+                agilitaet_speichern(
+                    sid, datum.strftime("%d.%m.%Y"),
+                    t505_r or 0, t505_l or 0, res.asym_505 or 0,
+                    t5_10_5 or 0, t_test or 0, illinois or 0,
+                    res.bew_505, res.bew_t_test, res.bew_illinois,
+                    json.dumps(res.defizite, ensure_ascii=False),
+                )
+                st.success("✅ Agilität-Test gespeichert!")
+                st.rerun()
+
+    with tab_verlauf:
+        if not hist:
+            st.info("Noch keine Agilität-Tests vorhanden.")
+        else:
+            df = pd.DataFrame(hist)
+            df.columns = ["Datum", "505 R", "505 L", "Asymmetrie %",
+                          "5-10-5", "T-Test", "Illinois", "Bewertung T-Test"]
+
+            fig = go.Figure()
+            for col_name, color in [("T-Test","#3b82f6"), ("Illinois","#3fb950"),
+                                     ("5-10-5","#d29922"), ("505 R","#f85149"), ("505 L","#a371f7")]:
+                sub = df[df[col_name] > 0]
+                if sub.empty: continue
+                fig.add_trace(go.Scatter(x=sub["Datum"], y=sub[col_name],
+                                         mode="lines+markers", name=col_name,
+                                         line=dict(width=2), marker=dict(size=7)))
+            fig.update_layout(**_pl(height=320, title="Agilitätszeiten-Verlauf (s)",
+                                    yaxis=dict(autorange="reversed", title="Zeit (s)")))
+            st.plotly_chart(fig, use_container_width=True)
+
+            sub_a = df[df["Asymmetrie %"] > 0]
+            if not sub_a.empty:
+                fig2 = go.Figure()
+                fig2.add_trace(go.Bar(
+                    x=sub_a["Datum"], y=sub_a["Asymmetrie %"],
+                    marker_color=["#f85149" if v > 10 else "#3fb950" for v in sub_a["Asymmetrie %"]],
+                    text=sub_a["Asymmetrie %"].round(1), textposition="outside",
+                ))
+                fig2.add_hline(y=10, line_dash="dash", line_color="#d29922",
+                               annotation_text="Grenzwert 10 %")
+                fig2.update_layout(**_pl(height=240, title="505-Asymmetrie R vs. L (%)"))
+                st.plotly_chart(fig2, use_container_width=True)
+
+            st.dataframe(df, use_container_width=True, hide_index=True)
+
+    with tab_info:
+        st.markdown("""
+        | Test | Distanz / Aufbau | Misst |
+        |---|---|---|
+        | **505-Test** | 10 m anlaufen → 180° Wendung → 5 m Sprint | Richtungswechsel, getrennt R/L |
+        | **5-10-5 Shuttle** | 5 m links → 10 m rechts → 5 m zurück | Shuttle-Beschleunigung, Abbremsen |
+        | **T-Test** | 9,14 m vor, je 4,57 m seitwärts, zurück | Mehrdirektionale Agilität |
+        | **Illinois Agility** | 10 m Slalomkurs | Gesamtagilität, Richtungswechselgeschwindigkeit |
+        """)
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+
+ALTERSGRUPPEN_YO = ["U13/U14", "U15/U16", "U17/U18", "Senioren"]
+RPE_LABELS = {
+    6: "6 — Gar keine Anstrengung", 7: "7", 8: "8", 9: "9",
+    10: "10 — Sehr leicht", 11: "11 — Leicht", 12: "12",
+    13: "13 — Etwas anstrengend", 14: "14",
+    15: "15 — Anstrengend", 16: "16", 17: "17 — Sehr anstrengend",
+    18: "18", 19: "19 — Extrem anstrengend", 20: "20 — Maximale Anstrengung",
+}
+
+
+def page_ausdauer():
+    st.markdown("# 🫁 Yo-Yo Ausdauer-Diagnostik")
+    st.markdown("Yo-Yo Intermittent Recovery Test Level 1 (IR1) und Level 2 (IR2) — Standardtest im Fußball.")
+
+    auswahl = _player_selector("aus")
+    if not auswahl:
+        return
+
+    sid    = auswahl["id"]
+    sp     = spieler_by_id(sid)
+    geschl = sp.get("geschlecht", "Männlich") if sp else "Männlich"
+    alter  = berechne_alter(sp.get("geburtsdatum","")) if sp else 0
+
+    letzter = ausdauer_letzter(sid)
+    hist    = ausdauer_history(sid)
+
+    # Altersgruppe aus Alter ableiten
+    def alter_zu_gruppe(a):
+        if a < 15: return "U13/U14"
+        if a < 17: return "U15/U16"
+        if a < 19: return "U17/U18"
+        return "Senioren"
+
+    tab_neu, tab_verlauf = st.tabs(["📋 Neuer Test", "📈 Verlauf"])
+
+    with tab_neu:
+        c1, c2 = st.columns(2)
+        datum       = c1.date_input("Testdatum", value=date.today(), key="aus_datum")
+        test_typ    = c1.selectbox("Test-Level", ["IR1", "IR2"], key="aus_typ")
+        altersgruppe = c2.selectbox("Altersgruppe", ALTERSGRUPPEN_YO,
+                                     index=ALTERSGRUPPEN_YO.index(alter_zu_gruppe(alter or 20)),
+                                     key="aus_ag")
+
+        st.markdown("#### Testergebnis")
+        c3, c4, c5 = st.columns(3)
+        distanz_m = c3.number_input("Erzielte Distanz (m)", 0, 5000,
+                                     int(letzter["distanz_m"]) if letzter else 0,
+                                     step=40, key="aus_dist")
+        hf_max    = c4.number_input("HF max (bpm)", 0, 230,
+                                     int(letzter["hf_max"]) if letzter and letzter.get("hf_max") else 0,
+                                     step=1, key="aus_hf")
+        rpe_val   = c5.selectbox("RPE (Borg 6–20)", list(range(6, 21)),
+                                  index=9, key="aus_rpe",
+                                  format_func=lambda x: RPE_LABELS.get(x, str(x)))
+
+        from ausdauer import AusdauerErgebnis as _AE, trainingsbereiche, bewertung_ir1
+        res = _AE(test_typ=test_typ, distanz_m=distanz_m,
+                  hf_max=hf_max or None, rpe=rpe_val,
+                  geschlecht=geschl, altersgruppe=altersgruppe)
+
+        if distanz_m > 0:
+            st.markdown("---")
+            m1, m2, m3 = st.columns(3)
+            m1.metric("Distanz", f"{distanz_m} m")
+            if res.vo2max:
+                m2.metric("VO₂max (Schätzung ⚠️)", f"{res.vo2max} ml/kg/min")
+            bew_color = aus_farbe(res.bewertung)
+            m3.markdown(
+                f'<div style="background:#161b22;border:1px solid {bew_color};border-radius:8px;'
+                f'padding:8px 12px;text-align:center">'
+                f'<div style="color:{bew_color};font-weight:700;font-size:18px">{res.bewertung}</div>'
+                f'<div style="color:#8b949e;font-size:11px">Bewertung {altersgruppe}</div></div>',
+                unsafe_allow_html=True,
+            )
+
+            st.caption("⚠️ Die VO₂max-Schätzung basiert auf der Bangsbo-Formel und ist kein Laborwert.")
+
+            if res.vo2max:
+                st.markdown("#### Trainingsbereiche")
+                tb = trainingsbereiche(res.vo2max)
+                st.dataframe(pd.DataFrame(tb), use_container_width=True, hide_index=True)
+
+            if res.defizite:
+                st.markdown("**🔴 Identifizierte Defizite:**")
+                for d in res.defizite:
+                    st.markdown(f"- {d}")
+
+        if st.button("💾 Test speichern", use_container_width=True, key="aus_save"):
+            if distanz_m <= 0:
+                st.error("Bitte Distanz eingeben.")
+            else:
+                import json
+                ausdauer_speichern(
+                    sid, datum.strftime("%d.%m.%Y"),
+                    test_typ, distanz_m,
+                    hf_max or 0, rpe_val,
+                    res.vo2max or 0, res.bewertung,
+                    altersgruppe,
+                    json.dumps(res.defizite, ensure_ascii=False),
+                )
+                st.success("✅ Ausdauer-Test gespeichert!")
+                st.rerun()
+
+    with tab_verlauf:
+        if not hist:
+            st.info("Noch keine Ausdauer-Tests vorhanden.")
+            return
+
+        df = pd.DataFrame(hist)
+        df.columns = ["Datum", "Test", "Distanz (m)", "VO₂max", "Bewertung", "HF max", "RPE"]
+
+        c_d, c_v = st.columns(2)
+        with c_d:
+            fig = go.Figure()
+            for typ, color in [("IR1", "#3b82f6"), ("IR2", "#3fb950")]:
+                sub = df[df["Test"] == typ]
+                if sub.empty: continue
+                fig.add_trace(go.Scatter(
+                    x=sub["Datum"], y=sub["Distanz (m)"],
+                    mode="lines+markers+text", name=f"Yo-Yo {typ}",
+                    text=sub["Distanz (m)"], textposition="top center",
+                    line=dict(color=color, width=3), marker=dict(size=8),
+                ))
+            fig.update_layout(**_pl(height=300, title="Yo-Yo Distanz-Verlauf (m)"))
+            st.plotly_chart(fig, use_container_width=True)
+
+        with c_v:
+            sub_v = df[df["VO₂max"] > 0]
+            if not sub_v.empty:
+                fig2 = go.Figure()
+                fig2.add_trace(go.Scatter(
+                    x=sub_v["Datum"], y=sub_v["VO₂max"],
+                    mode="lines+markers+text", name="VO₂max (Schätzung)",
+                    text=sub_v["VO₂max"].round(1), textposition="top center",
+                    line=dict(color="#d29922", width=3), marker=dict(size=8),
+                ))
+                fig2.add_hline(y=50, line_dash="dash", line_color="#3fb950",
+                               annotation_text="Zielwert 50 ml/kg/min")
+                fig2.update_layout(**_pl(height=300, title="VO₂max-Schätzung ⚠️"))
+                st.plotly_chart(fig2, use_container_width=True)
+
+        st.dataframe(df, use_container_width=True, hide_index=True)
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # NAVIGATION
 # ══════════════════════════════════════════════════════════════════════════════
@@ -1348,6 +1628,8 @@ with st.sidebar:
             "📏 Y-Balance Test",
             "⚡ Sprint-Diagnostik",
             "🦘 Sprung-Diagnostik",
+            "🔀 Agilität",
+            "🫁 Ausdauer (Yo-Yo)",
             "📅 Trainingsplan",
             "🔄 Periodisierung",
             "📈 Fortschritt",
@@ -1375,6 +1657,8 @@ pages = {
     "📏 Y-Balance Test":    page_ybalance,
     "⚡ Sprint-Diagnostik": page_sprint,
     "🦘 Sprung-Diagnostik": page_sprung,
+    "🔀 Agilität":          page_agilitaet,
+    "🫁 Ausdauer (Yo-Yo)":  page_ausdauer,
     "📅 Trainingsplan":     page_trainingsplan,
     "🔄 Periodisierung":    page_periodisierung,
     "📈 Fortschritt":       page_fortschritt,
