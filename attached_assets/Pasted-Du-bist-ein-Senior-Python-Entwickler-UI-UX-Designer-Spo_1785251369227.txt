@@ -1,0 +1,563 @@
+Du bist ein Senior Python-Entwickler, UI/UX-Designer, Sportwissenschaftler und Athletiktrainer im Leistungsfußball.
+
+Ich habe bereits eine funktionierende Fußball-Athletik- und Diagnostik-App mit Python, Streamlit und SQLite.
+
+Die App enthält bereits beziehungsweise soll enthalten:
+
+* Spielerverwaltung
+* Spielerprofile
+* Anthropometrie
+* FMS-Test
+* Y-Balance-Test
+* Sprintdiagnostik
+* Sprungdiagnostik
+* Richtungswechseltests
+* Yo-Yo-Test
+* Defizitanalyse
+* Athletik-Score
+* Trainingspläne
+* Periodisierung
+* Testhistorie
+* Belastungssteuerung
+* Verletzungs- und Beschwerdedokumentation
+
+## Hauptaufgabe
+
+Überarbeite die Benutzeroberfläche so, dass die Anwendung wie eine moderne professionelle App wirkt.
+
+Die Oberfläche darf nicht wie eine einfache Streamlit-Webseite aussehen. Sie soll übersichtlich, hochwertig, modern und intuitiv bedienbar sein.
+
+Trotz der vielen Funktionen darf die App nicht überladen wirken.
+
+Analysiere zuerst mein bestehendes Projekt und meine vorhandene Navigation. Erstelle danach einen konkreten Vorschlag für die neue App-Struktur.
+
+Verändere nicht sofort das komplette Projekt.
+
+## Grundaufbau der App
+
+Die App soll eine moderne feste Seitennavigation besitzen.
+
+Die Hauptnavigation soll folgende Bereiche enthalten:
+
+1. Startseite
+2. Spieler
+3. Diagnostik
+4. Trainingsplanung
+5. Entwicklung
+6. Mannschaft
+7. Einstellungen
+
+Die Navigation soll mit passenden Icons ausgestattet sein.
+
+Beispiel:
+
+* Startseite: Haus- oder Dashboard-Icon
+* Spieler: Personen-Icon
+* Diagnostik: Diagramm- oder Aktivitäts-Icon
+* Trainingsplanung: Hantel- oder Kalender-Icon
+* Entwicklung: Trend-Icon
+* Mannschaft: Gruppen-Icon
+* Einstellungen: Zahnrad-Icon
+
+Der aktuell ausgewählte Menüpunkt muss deutlich hervorgehoben werden.
+
+## 1. Startseite
+
+Die Startseite darf nur die wichtigsten Informationen zeigen.
+
+Sie soll enthalten:
+
+* Begrüßung
+* ausgewählter Spieler
+* Athletik-Score
+* aktueller Status
+* Gesamtrisiko
+* letzte Testung
+* nächster empfohlener Test
+* drei wichtigste Defizite
+* drei wichtigste Stärken
+* aktuelle Trainingsempfehlung
+* eventuell vorhandene Warnungen
+
+Die Informationen sollen in modernen Karten dargestellt werden.
+
+Beispiele für Karten:
+
+* Athletik-Score: 74 von 100
+* Belastungsstatus: normal
+* letzter Test: 22. Juli 2026
+* nächster Retest: in 14 Tagen
+* aktueller Schwerpunkt: Beschleunigung
+
+Die Startseite soll keine vollständigen Testergebnisse und keine langen Texte anzeigen.
+
+Für weitere Informationen soll es Schaltflächen wie diese geben:
+
+* Details ansehen
+* Test starten
+* Trainingsplan öffnen
+* Verlauf anzeigen
+
+## 2. Spielerbereich
+
+Der Spielerbereich soll folgende Unterseiten oder Tabs enthalten:
+
+### Übersicht
+
+* Spielerfoto oder Platzhalter
+* Name
+* Geburtsdatum
+* Alter
+* Mannschaft
+* Position
+* Spielbein
+* Leistungsniveau
+* Trainingsstatus
+
+### Anthropometrie
+
+* Körpergröße
+* Körpergewicht
+* Sitzhöhe
+* Beinlänge
+* Armspannweite
+* Körperfettanteil
+* Muskelmasse
+* BMI
+* Größenentwicklung
+* Gewichtsentwicklung
+* Wachstumsgeschwindigkeit
+* geschätzter Reifestatus
+
+Alle Werte müssen mit Datum gespeichert werden.
+
+Die Entwicklung soll übersichtlich als Diagramm dargestellt werden.
+
+Bei Nachwuchsspielern soll ein Hinweis erscheinen, wenn ein auffälliger Wachstumsschub erkannt wird.
+
+Es muss klar erkennbar sein, dass der Reifestatus nur eine Schätzung und keine medizinische Diagnose ist.
+
+### Gesundheit
+
+* aktuelle Beschwerden
+* Schmerzskala
+* Verletzungshistorie
+* Trainingspause
+* Return-to-Training
+* Return-to-Play
+* ärztliche oder physiotherapeutische Freigabe
+* Trainerkommentare
+
+### Testhistorie
+
+* alle durchgeführten Tests
+* Datum
+* Testergebnis
+* Bewertung
+* Vergleich zur vorherigen Testung
+* Details öffnen
+
+## 3. Diagnostik
+
+Die Diagnostik soll nicht als eine einzige lange Seite dargestellt werden.
+
+Verwende moderne Testkategorien oder Kacheln:
+
+* Bewegung
+* Stabilität
+* Sprint
+* Sprung
+* Richtungswechsel
+* Ausdauer
+* Kraft
+
+Nach Auswahl einer Kategorie werden nur die dazugehörigen Tests angezeigt.
+
+### Bewegung und Stabilität
+
+* FMS
+* Y-Balance
+* Mobilität
+* einbeinige Stabilität
+
+### Sprint
+
+* 5 Meter
+* 10 Meter
+* 20 Meter
+* 30 Meter
+* Zwischenzeiten
+* Flying Sprint
+* Repeated Sprint Ability
+
+### Sprung
+
+* Countermovement Jump
+* Squat Jump
+* Drop Jump
+* Reaktivkraftindex
+* Standweitsprung
+* einbeinige Sprünge
+* Seitenasymmetrien
+
+### Richtungswechsel
+
+* 505-Test
+* 5-10-5 Shuttle
+* T-Test
+* Illinois Agility Test
+* Tests mit Ball
+* Tests ohne Ball
+
+### Ausdauer
+
+* Yo-Yo Intermittent Recovery Test Level 1
+* Yo-Yo Intermittent Recovery Test Level 2
+
+### Kraft
+
+* funktionelle Krafttests
+* Rumpfkraft
+* Adduktorenkraft
+* Hamstring-Kontrolle
+* Wadenkraft
+* einbeinige Kraft
+* Seitendifferenzen
+
+Jede Testkarte soll anzeigen:
+
+* Testname
+* kurze Erklärung
+* letzter Test
+* letztes Ergebnis
+* Status
+* Schaltfläche „Test starten“
+* Schaltfläche „Verlauf“
+
+## Testeingabe
+
+Testeingaben sollen einfach und übersichtlich sein.
+
+Bei mehreren Versuchen soll eine Tabellen- oder Kartenansicht verwendet werden.
+
+Beispiel Sprint:
+
+* Versuch 1
+* Versuch 2
+* Versuch 3
+
+Das System berechnet automatisch:
+
+* besten Versuch
+* Durchschnitt
+* Differenz zwischen den Versuchen
+* Veränderung zum letzten Test
+* Leistungsbewertung
+
+Nach dem Speichern soll eine übersichtliche Ergebnisansicht erscheinen.
+
+## 4. Trainingsplanung
+
+Der Trainingsbereich soll getrennt von den Testergebnissen aufgebaut werden.
+
+Er soll enthalten:
+
+* aktueller Trainingsschwerpunkt
+* individuelle Defizite
+* aktuelle Trainingswoche
+* Einheiten der Woche
+* Übungsübersicht
+* Belastung
+* Progression
+* Retest-Termin
+
+Die Trainingswoche soll wie ein moderner Wochenkalender dargestellt werden.
+
+Beispiel:
+
+* Montag: Beweglichkeit und Stabilität
+* Dienstag: Mannschaftstraining
+* Mittwoch: Beschleunigung
+* Donnerstag: Mannschaftstraining
+* Freitag: Regeneration
+* Samstag: Spiel
+* Sonntag: frei
+
+Jede Übung soll in einer eigenen Karte angezeigt werden:
+
+* Übungsname
+* Ziel
+* kurze Beschreibung
+* Sätze
+* Wiederholungen
+* Belastungszeit
+* Pausenzeit
+* Intensität
+* benötigtes Material
+* Trainingsvideo oder späterer Videolink
+* Übung erledigt
+
+Die Trainingsplanung muss auch funktionieren, wenn nur einzelne Tests vorhanden sind.
+
+Beispiele:
+
+* nur FMS vorhanden
+* nur Y-Balance vorhanden
+* nur Sprinttest vorhanden
+* nur Sprungtest vorhanden
+* nur Yo-Yo-Test vorhanden
+* mehrere Tests vorhanden
+
+## 5. Entwicklung
+
+Dieser Bereich soll alle zeitlichen Entwicklungen zeigen.
+
+Verwende Filter für:
+
+* Zeitraum
+* Spieler
+* Testart
+* Mannschaft
+* Position
+
+Angezeigt werden sollen:
+
+* Athletik-Score-Verlauf
+* Körpergröße
+* Körpergewicht
+* Sprintentwicklung
+* Sprungentwicklung
+* Yo-Yo-Entwicklung
+* Bewegungsqualität
+* Asymmetrien
+* Trainingsbelastung
+* Fehlzeiten
+* Verletzungen
+
+Diagramme sollen sauber, groß und leicht verständlich sein.
+
+Zeige nicht zu viele Diagramme gleichzeitig.
+
+Der Nutzer soll auswählen können, welche Entwicklung er sehen möchte.
+
+## 6. Mannschaft
+
+Der Mannschaftsbereich soll eine übersichtliche Traineransicht enthalten.
+
+Anzeigen:
+
+* Anzahl Spieler
+* Spieler mit fälligem Retest
+* Spieler mit aktuellen Beschwerden
+* Spieler mit hoher Belastung
+* Spieler im Wachstumsschub
+* durchschnittlicher Athletik-Score
+* stärkste Mannschaftsbereiche
+* größte Mannschaftsdefizite
+
+Zusätzlich:
+
+* Spielerliste
+* Filter nach Position
+* Filter nach Jahrgang
+* Filter nach Status
+* Filter nach Trainingsgruppe
+
+Das System soll Trainingsgruppen automatisch vorschlagen können.
+
+Beispiele:
+
+* Gruppe Beschleunigung
+* Gruppe Explosivkraft
+* Gruppe Stabilität
+* Gruppe Beweglichkeit
+* Gruppe Ausdauer
+* Gruppe Regeneration
+
+## 7. Einstellungen
+
+Der Einstellungsbereich soll enthalten:
+
+* Vereinsname
+* Vereinslogo
+* Mannschaften
+* Altersklassen
+* Testauswahl
+* Bewertungssystem
+* Farbschema
+* Benutzerverwaltung
+* Datenbankeinstellungen
+* Export
+* Datensicherung
+
+## Modernes Design
+
+Verwende ein einheitliches modernes Designsystem.
+
+Die App soll folgende Eigenschaften haben:
+
+* große klare Überschriften
+* moderne Schrift
+* ausreichend Abstand zwischen Elementen
+* abgerundete Karten
+* dezente Schatten
+* klare Icons
+* hochwertige Schaltflächen
+* gut lesbare Formulare
+* einheitliche Farben
+* ruhige Hintergrundgestaltung
+* keine überfüllten Seiten
+* keine langen unstrukturierten Texte
+* keine unnötigen Tabellen
+
+Nutze Farben sparsam und mit klarer Bedeutung:
+
+* Grün: guter Status
+* Gelb oder Orange: beobachten
+* Rot: auffällig oder Handlungsbedarf
+* Blau: Information
+* Grau: neutral
+
+Rot darf nicht zu häufig verwendet werden.
+
+Die App soll professionell und sportlich wirken, aber nicht verspielt.
+
+## Responsive Darstellung
+
+Die App soll auf folgenden Geräten sinnvoll nutzbar sein:
+
+* Desktop-PC
+* Laptop
+* Tablet
+* Smartphone
+
+Auf einem Smartphone sollen Karten untereinander dargestellt werden.
+
+Schaltflächen und Eingabefelder müssen groß genug für eine Bedienung per Touch sein.
+
+Tabellen sollen auf kleinen Bildschirmen vermieden oder horizontal scrollbar sein.
+
+## Benutzerführung
+
+Der Nutzer soll jederzeit erkennen:
+
+* wo er sich befindet
+* welcher Spieler ausgewählt ist
+* welche Daten gespeichert wurden
+* welche Handlung als Nächstes sinnvoll ist
+
+Verwende:
+
+* klare Seitentitel
+* kurze Erklärungen
+* Statusmeldungen
+* Ladeanzeigen
+* Bestätigungen nach dem Speichern
+* verständliche Fehlermeldungen
+* Zurück-Schaltflächen
+* Abbrechen-Schaltflächen
+* Speichern-Schaltflächen
+
+Verwende keine unnötigen technischen Begriffe in der Benutzeroberfläche.
+
+## Zentrale Spielerauswahl
+
+Der aktuell ausgewählte Spieler soll oben in der App oder in der Seitennavigation sichtbar sein.
+
+Beim Wechsel des Spielers müssen alle Seiten automatisch die Daten des neuen Spielers anzeigen.
+
+Es darf nicht auf jeder Seite eine andere Spielerauswahl geben.
+
+## Technische Umsetzung
+
+Nutze:
+
+* Python
+* Streamlit
+* SQLite
+* modulare Architektur
+* wiederverwendbare UI-Komponenten
+* zentrale Design- und Theme-Datei
+* zentrale Navigation
+* zentrale Spielerauswahl
+* klare Trennung zwischen Datenbank, Logik und Benutzeroberfläche
+
+Erstelle wiederverwendbare Komponenten für:
+
+* Kennzahlenkarten
+* Statusanzeigen
+* Warnmeldungen
+* Testkarten
+* Spielerkarten
+* Diagrammkarten
+* Trainingskarten
+* leere Zustände
+* Bestätigungsdialoge
+
+Vermeide doppelte HTML- und CSS-Blöcke in verschiedenen Dateien.
+
+Lege Farben, Abstände, Schriftgrößen, Kartenstile und Schaltflächen zentral fest.
+
+Eine mögliche Struktur wäre:
+
+* app.py
+* navigation.py
+* theme.py
+* ui_components.py
+* database.py
+* player_service.py
+* diagnosis_engine.py
+* training_engine.py
+* pages/
+* pages/home.py
+* pages/players.py
+* pages/diagnostics.py
+* pages/training.py
+* pages/progress.py
+* pages/team.py
+* pages/settings.py
+* tests/
+* tests/fms.py
+* tests/y_balance.py
+* tests/sprint.py
+* tests/jump.py
+* tests/agility.py
+* tests/yoyo.py
+* tests/strength.py
+
+Passe die Struktur an mein vorhandenes Projekt an. Erstelle nicht unnötig neue Dateien, wenn bereits passende Module vorhanden sind.
+
+## Wichtige Arbeitsweise
+
+Analysiere zuerst alle vorhandenen Dateien und erkläre mir:
+
+1. Wie die App aktuell aufgebaut ist.
+2. Welche Bereiche unübersichtlich oder doppelt sind.
+3. Welche Dateien erhalten bleiben können.
+4. Welche neue Navigation sinnvoll ist.
+5. Welche UI-Komponenten wiederverwendbar sein sollten.
+6. In welcher Reihenfolge die Oberfläche umgebaut werden soll.
+
+Beginne danach mit Phase 1:
+
+* zentrale Navigation
+* modernes Farbschema
+* zentrale Spielerauswahl
+* neue Startseite
+* wiederverwendbare Karten
+
+Ändere nicht alle Seiten gleichzeitig.
+
+Gib mir nach jeder Änderung immer die vollständige betroffene Datei zum Ersetzen zurück.
+
+Keine unvollständigen Codeschnipsel.
+
+Bestehende funktionierende Funktionen und Datenbankeinträge dürfen nicht verloren gehen.
+
+Erstelle vor größeren Datenbankänderungen eine Migrationsstrategie.
+
+Die Anwendung muss nach jeder einzelnen Phase weiterhin startfähig sein.
+
+Verwende möglichst stabile Streamlit-Funktionen und vermeide unnötige externe Abhängigkeiten.
+
+Das Ergebnis soll wie eine echte moderne Trainer-App wirken und nicht wie eine technische Testoberfläche.

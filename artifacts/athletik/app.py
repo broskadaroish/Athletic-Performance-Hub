@@ -6,10 +6,18 @@ imports simple; shared logic is delegated to the module layer.
 """
 
 import streamlit as st
-from datetime import date
+from datetime import date, datetime
 import plotly.graph_objects as go
 import plotly.express as px
 import pandas as pd
+
+from theme import APP_CSS, C, PLOTLY_LAYOUT as _PL_BASE
+from ui_components import (
+    kpi_card, score_kpi, risk_kpi,
+    player_banner, section_header, deficit_row, strength_row,
+    test_status_card, empty_state,
+    score_badge_html, risk_badge_html,
+)
 
 from database import (
     init_db,
@@ -74,137 +82,45 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# ─── Dark UI theme (CSS) ──────────────────────────────────────────────────────
-st.markdown("""
-<style>
-/* ── Base ── */
-html, body, [class*="css"] {
-    font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
-}
-.stApp {
-    background-color: #0d1117;
-    color: #e6edf3;
-}
-section[data-testid="stSidebar"] {
-    background-color: #161b22;
-    border-right: 1px solid #30363d;
-}
-/* ── Headers ── */
-h1, h2, h3, h4 { color: #ffffff !important; }
-/* ── Metric cards ── */
-[data-testid="metric-container"] {
-    background: #161b22;
-    border: 1px solid #30363d;
-    border-radius: 10px;
-    padding: 14px 18px;
-}
-[data-testid="stMetricLabel"] { color: #8b949e !important; font-size: 12px; }
-[data-testid="stMetricValue"] { color: #e6edf3 !important; font-size: 26px; font-weight: 700; }
-/* ── Score badge ── */
-.score-badge {
-    display:inline-block; padding:6px 18px; border-radius:50px;
-    font-weight:700; font-size:20px; letter-spacing:1px;
-}
-.badge-green  { background:#0d3b2e; color:#3fb950; border:1px solid #3fb950; }
-.badge-yellow { background:#3b2a0d; color:#d29922; border:1px solid #d29922; }
-.badge-red    { background:#3b0d0d; color:#f85149; border:1px solid #f85149; }
-/* ── Cards ── */
-.card {
-    background:#161b22; border:1px solid #30363d; border-radius:12px;
-    padding:20px 24px; margin-bottom:14px;
-}
-.card-title {
-    font-size:13px; font-weight:600; text-transform:uppercase;
-    letter-spacing:1px; color:#8b949e; margin-bottom:8px;
-}
-.card-value { font-size:28px; font-weight:700; color:#e6edf3; }
-/* ── Deficit tag ── */
-.tag-crit {
-    display:inline-block; background:#3b0d0d; color:#f85149;
-    border:1px solid #f85149; border-radius:6px;
-    padding:3px 10px; font-size:12px; font-weight:600; margin:3px;
-}
-.tag-warn {
-    display:inline-block; background:#3b2a0d; color:#d29922;
-    border:1px solid #d29922; border-radius:6px;
-    padding:3px 10px; font-size:12px; font-weight:600; margin:3px;
-}
-/* ── Progress bar ── */
-.prog-wrap { background:#21262d; border-radius:6px; height:10px; margin:4px 0 10px; }
-.prog-fill  { height:10px; border-radius:6px; }
-/* ── Inputs / selects ── */
-[data-testid="stNumberInput"] input,
-[data-testid="stTextInput"] input,
-[data-testid="stSelectbox"] select,
-[data-testid="stTextArea"] textarea {
-    background:#21262d !important; color:#e6edf3 !important;
-    border:1px solid #30363d !important; border-radius:6px !important;
-}
-/* ── Buttons ── */
-.stButton > button {
-    background: linear-gradient(135deg,#1f6feb,#388bfd);
-    color:#fff; border:none; border-radius:8px;
-    font-weight:600; letter-spacing:0.5px;
-    padding:10px 24px; transition:all .2s;
-}
-.stButton > button:hover {
-    background: linear-gradient(135deg,#388bfd,#58a6ff);
-    transform:translateY(-1px);
-}
-/* ── Tables ── */
-.dataframe { background:#161b22 !important; color:#e6edf3 !important; }
-thead tr th { background:#21262d !important; color:#8b949e !important; }
-tbody tr:nth-child(even) { background:#0d1117 !important; }
-/* ── Tabs ── */
-[data-testid="stTab"] { color:#8b949e; }
-button[aria-selected="true"] { color:#58a6ff !important; border-color:#58a6ff !important; }
-/* ── Divider ── */
-hr { border-color:#30363d; }
-/* ── Sidebar radio ── */
-[data-testid="stSidebarContent"] label { color:#c9d1d9 !important; }
-</style>
-""", unsafe_allow_html=True)
+# ─── Inject central design system ────────────────────────────────────────────
+st.markdown(APP_CSS, unsafe_allow_html=True)
 
 
 # ─── Helpers ──────────────────────────────────────────────────────────────────
 
+# Delegate badge helpers to ui_components (keep aliases for existing page code)
 def _risk_badge(level: str) -> str:
-    cls = {"hoch": "badge-red", "mittel": "badge-yellow", "gering": "badge-green"}.get(level, "badge-green")
-    icons = {"hoch": "🔴", "mittel": "🟡", "gering": "🟢"}
-    labels = {"hoch": "HOHES RISIKO", "mittel": "MITTLERES RISIKO", "gering": "GERINGES RISIKO"}
-    return f'<span class="score-badge {cls}">{icons[level]} {labels[level]}</span>'
-
+    return risk_badge_html(level)
 
 def _score_badge(score: int) -> str:
-    cls = "badge-green" if score >= 75 else "badge-yellow" if score >= 50 else "badge-red"
-    return f'<span class="score-badge {cls}">{score}<span style="font-size:14px;font-weight:400">/100</span></span>'
-
+    return score_badge_html(score)
 
 def _progress_html(value: int, max_val: int, color: str = "#1f6feb") -> str:
     pct = min(value / max_val * 100, 100)
     return f'<div class="prog-wrap"><div class="prog-fill" style="width:{pct:.0f}%;background:{color}"></div></div>'
 
-
 def _color_for_score(score: int, max_val: int = 100) -> str:
     pct = score / max_val
-    if pct >= 0.75:
-        return "#3fb950"
-    if pct >= 0.5:
-        return "#d29922"
-    return "#f85149"
+    if pct >= 0.75: return C["green"]
+    if pct >= 0.5:  return C["yellow"]
+    return C["red"]
 
 
-def _player_selector(key_suffix="") -> tuple | None:
+def _player_selector(key_suffix="") -> dict | None:
+    """Returns the globally selected player (no per-page dropdown rendered).
+    The selector lives in the sidebar; all pages share the same active player."""
     spieler = spieler_laden()
     if not spieler:
-        st.info("👤 Noch keine Spieler angelegt. Bitte zuerst einen Spieler erstellen.")
+        st.warning("👤 Noch keine Spieler angelegt. Gehe zu **Spieler → Verwaltung** um den ersten Spieler anzulegen.")
         return None
-    return st.selectbox(
-        "Spieler auswählen",
-        spieler,
-        format_func=lambda x: f"{x['name']}  —  {x['position'] or ''}  ({x['mannschaft'] or ''})",
-        key=f"player_sel_{key_suffix}",
-    )
+    pid = st.session_state.get("global_player_id")
+    if pid:
+        match = next((p for p in spieler if p["id"] == pid), None)
+        if match:
+            return match
+    # Fallback to first player; also store in session state
+    st.session_state["global_player_id"] = spieler[0]["id"]
+    return spieler[0]
 
 
 # ─── Plotly theme helper ───────────────────────────────────────────────────────
@@ -249,15 +165,28 @@ def page_dashboard():
     high_risk, med_risk, low_risk = 0, 0, 0
     scores = []
 
+    # Load all module data per player in one pass (also used for the table below)
+    player_data = []
     for p in all_players:
-        fms = fms_letzter(p["id"])
-        y   = y_balance_letzter(p["id"])
-        rs  = risiko_score(fms, y)
+        pid    = p["id"]
+        fms    = fms_letzter(pid)
+        y      = y_balance_letzter(pid)
+        sprint = sprint_letzter(pid)
+        sprung = sprung_letzter(pid)
+        agil   = agilitaet_letzter(pid)
+        aus    = ausdauer_letzter(pid)
+        verlet = verletzungen_laden(pid)
+        rs     = risiko_score(fms, y, verlet)
         _, level = risiko_label(rs)
-        if level == "hoch":   high_risk += 1
+        sc     = athletik_score(fms, y, sprint, sprung, agil, aus)
+        if level == "hoch":    high_risk += 1
         elif level == "mittel": med_risk += 1
         else:                   low_risk += 1
-        scores.append(athletik_score(fms, y))
+        scores.append(sc)
+        player_data.append({
+            "p": p, "fms": fms, "y": y, "sprint": sprint, "sprung": sprung,
+            "agil": agil, "aus": aus, "verlet": verlet, "rs": rs, "level": level, "sc": sc,
+        })
 
     avg_score = round(sum(scores) / len(scores)) if scores else 0
 
@@ -303,20 +232,23 @@ def page_dashboard():
 
     # ── Per-player table ───────────────────────────────────────────────────
     rows = []
-    for p, s in zip(all_players, scores):
-        fms = fms_letzter(p["id"])
-        y   = y_balance_letzter(p["id"])
-        rs  = risiko_score(fms, y)
-        _, level = risiko_label(rs)
-        icon = {"hoch": "🔴", "mittel": "🟡", "gering": "🟢"}[level]
+    for d in player_data:
+        p, fms, y, sprint, sprung, agil, aus = (
+            d["p"], d["fms"], d["y"], d["sprint"], d["sprung"], d["agil"], d["aus"]
+        )
+        level = d["level"]
+        icon  = {"hoch": "🔴", "mittel": "🟡", "gering": "🟢"}[level]
         rows.append({
-            "Name":          p["name"],
-            "Position":      p["position"] or "—",
-            "Mannschaft":    p["mannschaft"] or "—",
-            "Athletik Score": s,
-            "FMS Score":     fms["score"] if fms else "—",
-            "Y-Balance Ø":   f"{(y['composite_rechts']+y['composite_links'])/2:.1f}%" if y else "—",
-            "Risiko":        f"{icon} {level.capitalize()}",
+            "Name":           p["name"],
+            "Position":       p["position"] or "—",
+            "Mannschaft":     p["mannschaft"] or "—",
+            "Athletik Score": d["sc"],
+            "FMS Score":      fms["score"] if fms else "—",
+            "Y-Balance Ø":    f"{(y['composite_rechts']+y['composite_links'])/2:.1f}%" if y else "—",
+            "Sprint 10m":     f"{sprint['beste_10m']}s" if sprint and sprint.get("beste_10m") else "—",
+            "CMJ":            f"{sprung['cmj_beid']}cm" if sprung and sprung.get("cmj_beid") else "—",
+            "VO₂max":         f"{aus['vo2max']}" if aus and aus.get("vo2max") else "—",
+            "Risiko":         f"{icon} {level.capitalize()}",
         })
     st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
 
@@ -579,14 +511,20 @@ def page_spieler_profil():
     if not auswahl:
         return
 
-    sid   = auswahl["id"]
-    fms   = fms_letzter(sid)
-    y     = y_balance_letzter(sid)
-    rs    = risiko_score(fms, y)
+    sid    = auswahl["id"]
+    fms    = fms_letzter(sid)
+    y      = y_balance_letzter(sid)
+    sprint = sprint_letzter(sid)
+    sprung = sprung_letzter(sid)
+    agil   = agilitaet_letzter(sid)
+    aus    = ausdauer_letzter(sid)
+    anthro = anthropometrie_letzter(sid)
+    verlet = verletzungen_laden(sid)
+    rs     = risiko_score(fms, y, verlet)
     label, level = risiko_label(rs)
-    ascore = athletik_score(fms, y)
-    defizite = defizite_ermitteln(fms, y)
-    schwerpunkt = schwerpunkt_sammeln(fms, y)
+    ascore   = athletik_score(fms, y, sprint, sprung, agil, aus)
+    defizite = defizite_ermitteln(fms, y, sprint, sprung, agil, aus, anthro)
+    schwerpunkt = schwerpunkt_sammeln(fms, y, sprint, sprung, agil, aus)
     alter = berechne_alter(auswahl.get("geburtsdatum"))
 
     # ── Header ────────────────────────────────────────────────────────────
@@ -648,9 +586,16 @@ def page_spieler_profil():
                 st.success("✅ Keine auffälligen Defizite erkannt.")
             else:
                 for d in defizite:
-                    css = "tag-crit" if d["level"] == "kritisch" else "tag-warn"
+                    css   = "tag-crit" if d["level"] == "kritisch" else "tag-warn"
+                    modul = d.get("modul", "")
+                    modul_badge = (
+                        f'<span style="font-size:10px;color:#8b949e;background:#21262d;'
+                        f'border-radius:4px;padding:1px 6px;margin-left:6px">{modul}</span>'
+                        if modul else ""
+                    )
                     st.markdown(
                         f'<div class="card"><span class="{css}">{d["bereich"]}</span>'
+                        f'{modul_badge}'
                         f'<br><small style="color:#8b949e">{d["text"]}</small></div>',
                         unsafe_allow_html=True,
                     )
@@ -787,10 +732,14 @@ def page_trainingsplan():
     if not auswahl:
         return
 
-    sid = auswahl["id"]
-    fms = fms_letzter(sid)
-    y   = y_balance_letzter(sid)
-    schwerpunkt = schwerpunkt_sammeln(fms, y)
+    sid    = auswahl["id"]
+    fms    = fms_letzter(sid)
+    y      = y_balance_letzter(sid)
+    sprint = sprint_letzter(sid)
+    sprung = sprung_letzter(sid)
+    agil   = agilitaet_letzter(sid)
+    aus    = ausdauer_letzter(sid)
+    schwerpunkt = schwerpunkt_sammeln(fms, y, sprint, sprung, agil, aus)
 
     tab_auto, tab_manual, tab_view = st.tabs(["🤖 Automatisch generieren", "✍️ Manuell hinzufügen", "📋 Plan anzeigen"])
 
@@ -798,7 +747,7 @@ def page_trainingsplan():
         st.markdown("### Individuellen Plan aus Diagnostik generieren")
         bereiche = empfehlung_bereiche(schwerpunkt)
         if bereiche:
-            st.info(f"**Erkannte Schwerpunkte aus FMS + Y-Balance:** {', '.join(bereiche)}")
+            st.info(f"**Erkannte Schwerpunkte aus allen Testmodulen:** {', '.join(bereiche)}")
         else:
             st.warning("Kein Diagnostik-Schwerpunkt vorhanden. Standard-Plan wird erstellt.")
 
@@ -856,10 +805,14 @@ def page_periodisierung():
     if not auswahl:
         return
 
-    sid = auswahl["id"]
-    fms = fms_letzter(sid)
-    y   = y_balance_letzter(sid)
-    schwerpunkt = schwerpunkt_sammeln(fms, y)
+    sid    = auswahl["id"]
+    fms    = fms_letzter(sid)
+    y      = y_balance_letzter(sid)
+    sprint = sprint_letzter(sid)
+    sprung = sprung_letzter(sid)
+    agil   = agilitaet_letzter(sid)
+    aus    = ausdauer_letzter(sid)
+    schwerpunkt = schwerpunkt_sammeln(fms, y, sprint, sprung, agil, aus)
 
     col_info, col_btn = st.columns([3, 1])
     with col_info:
@@ -925,29 +878,40 @@ def page_fortschritt():
     sid = auswahl["id"]
     st.markdown(f"### {auswahl['name']} — historische Testergebnisse")
 
-    fms_hist = fms_history(sid)
-    yb_hist  = y_balance_history(sid)
+    fms_hist    = fms_history(sid)
+    yb_hist     = y_balance_history(sid)
+    sprint_hist = sprint_history(sid)
+    sprung_hist = sprung_history(sid)
+    agil_hist   = agilitaet_history(sid)
+    aus_hist    = ausdauer_history(sid)
+    anthro_hist = anthropometrie_history(sid)
 
-    tab_fms, tab_yb = st.tabs(["FMS Verlauf", "Y-Balance Verlauf"])
+    tab_fms, tab_yb, tab_sprint, tab_sprung, tab_agil, tab_aus, tab_anthro = st.tabs([
+        "FMS Verlauf",
+        "Y-Balance Verlauf",
+        "Sprint Verlauf",
+        "Sprung Verlauf",
+        "Agilität Verlauf",
+        "Ausdauer Verlauf",
+        "Anthropometrie Verlauf",
+    ])
 
+    # ── FMS ──────────────────────────────────────────────────────────────────
     with tab_fms:
         if not fms_hist:
             st.info("Noch keine FMS Tests vorhanden.")
         else:
             df = pd.DataFrame(fms_hist)
             df.columns = ["Datum", "Score", "Bewertung", "Asymmetrie", "Schwerpunkt"]
-
             fig = go.Figure()
             fig.add_trace(go.Scatter(
                 x=df["Datum"], y=df["Score"],
                 mode="lines+markers+text",
-                text=df["Score"],
-                textposition="top center",
+                text=df["Score"], textposition="top center",
                 line=dict(color="#3b82f6", width=3),
                 marker=dict(size=9, color="#58a6ff"),
                 name="FMS Score",
             ))
-            # Risk threshold lines
             fig.add_hline(y=14, line_dash="dash", line_color="#d29922",
                           annotation_text="Beobachten ≤14", annotation_position="top right")
             fig.add_hline(y=12, line_dash="dash", line_color="#f85149",
@@ -956,31 +920,158 @@ def page_fortschritt():
             st.plotly_chart(fig, use_container_width=True)
             st.dataframe(df, use_container_width=True, hide_index=True)
 
+    # ── Y-Balance ────────────────────────────────────────────────────────────
     with tab_yb:
         if not yb_hist:
             st.info("Noch keine Y-Balance Tests vorhanden.")
         else:
             df = pd.DataFrame(yb_hist)
             df.columns = ["Datum", "Composite R", "Composite L", "Asymmetrie", "Schwerpunkt"]
-
             fig2 = go.Figure()
             fig2.add_trace(go.Scatter(
                 x=df["Datum"], y=df["Composite R"],
                 mode="lines+markers", name="Rechts",
-                line=dict(color="#3b82f6", width=3),
-                marker=dict(size=9),
+                line=dict(color="#3b82f6", width=3), marker=dict(size=9),
             ))
             fig2.add_trace(go.Scatter(
                 x=df["Datum"], y=df["Composite L"],
                 mode="lines+markers", name="Links",
-                line=dict(color="#f85149", width=3),
-                marker=dict(size=9),
+                line=dict(color="#f85149", width=3), marker=dict(size=9),
             ))
             fig2.add_hline(y=89, line_dash="dash", line_color="#d29922",
                            annotation_text="Normwert 89 %", annotation_position="top right")
-            fig2.update_layout(**_pl(height=340, title="Y-Balance Composite Score Verlauf", yaxis=dict(range=[70, 115])))
+            fig2.update_layout(**_pl(height=340, title="Y-Balance Composite Score Verlauf",
+                                    yaxis=dict(range=[70, 115])))
             st.plotly_chart(fig2, use_container_width=True)
             st.dataframe(df, use_container_width=True, hide_index=True)
+
+    # ── Sprint ────────────────────────────────────────────────────────────────
+    with tab_sprint:
+        if not sprint_hist:
+            st.info("Noch keine Sprint-Tests vorhanden.")
+        else:
+            df = pd.DataFrame(sprint_hist)
+            df.columns = ["Datum", "5m", "10m", "20m", "30m", "Beschl.-Index", "Bewertung 10m"]
+            fig3 = go.Figure()
+            for col, color in [("10m", "#3b82f6"), ("30m", "#3fb950")]:
+                if col in df.columns and df[col].notna().any():
+                    fig3.add_trace(go.Scatter(
+                        x=df["Datum"], y=df[col],
+                        mode="lines+markers", name=f"Sprint {col}",
+                        line=dict(color=color, width=3), marker=dict(size=9),
+                    ))
+            fig3.update_layout(**_pl(height=320, title="Sprintzeiten Verlauf",
+                                    yaxis=dict(title="Zeit (s)")))
+            st.plotly_chart(fig3, use_container_width=True)
+            st.dataframe(df, use_container_width=True, hide_index=True)
+
+    # ── Sprung ────────────────────────────────────────────────────────────────
+    with tab_sprung:
+        if not sprung_hist:
+            st.info("Noch keine Sprung-Tests vorhanden.")
+        else:
+            df = pd.DataFrame(sprung_hist)
+            df.columns = ["Datum", "CMJ beid.", "Squat Jump", "Drop Jump", "RSI",
+                          "Standweit", "CMJ Asymm.", "Bewertung CMJ"]
+            fig4 = go.Figure()
+            fig4.add_trace(go.Scatter(
+                x=df["Datum"], y=df["CMJ beid."],
+                mode="lines+markers+text",
+                text=df["CMJ beid."], textposition="top center",
+                line=dict(color="#3b82f6", width=3), marker=dict(size=9),
+                name="CMJ beidbeinig (cm)",
+            ))
+            fig4.add_hline(y=33, line_dash="dash", line_color="#d29922",
+                           annotation_text="Norm Leistungssport 33 cm",
+                           annotation_position="top right")
+            fig4.update_layout(**_pl(height=320, title="CMJ Sprunghöhe Verlauf",
+                                    yaxis=dict(title="Höhe (cm)")))
+            st.plotly_chart(fig4, use_container_width=True)
+            st.dataframe(df, use_container_width=True, hide_index=True)
+
+    # ── Agilität ─────────────────────────────────────────────────────────────
+    with tab_agil:
+        if not agil_hist:
+            st.info("Noch keine Agilitäts-Tests vorhanden.")
+        else:
+            df = pd.DataFrame(agil_hist)
+            df.columns = ["Datum", "505 R (s)", "505 L (s)", "Asymm. 505 (%)",
+                          "5-10-5 (s)", "T-Test (s)", "Illinois (s)", "Bewertung T-Test"]
+            fig5 = go.Figure()
+            for col, color in [("T-Test (s)", "#3b82f6"), ("Illinois (s)", "#3fb950")]:
+                if col in df.columns and df[col].notna().any():
+                    fig5.add_trace(go.Scatter(
+                        x=df["Datum"], y=df[col],
+                        mode="lines+markers", name=col,
+                        line=dict(color=color, width=3), marker=dict(size=9),
+                    ))
+            fig5.update_layout(**_pl(height=320, title="Agilitätszeiten Verlauf",
+                                    yaxis=dict(title="Zeit (s)")))
+            st.plotly_chart(fig5, use_container_width=True)
+            st.dataframe(df, use_container_width=True, hide_index=True)
+
+    # ── Ausdauer ──────────────────────────────────────────────────────────────
+    with tab_aus:
+        if not aus_hist:
+            st.info("Noch keine Ausdauer-Tests vorhanden.")
+        else:
+            df = pd.DataFrame(aus_hist)
+            df.columns = ["Datum", "Test-Typ", "Distanz (m)", "VO₂max", "Bewertung", "HF max", "RPE"]
+            fig6 = go.Figure()
+            if "VO₂max" in df.columns and df["VO₂max"].notna().any():
+                fig6.add_trace(go.Scatter(
+                    x=df["Datum"], y=df["VO₂max"],
+                    mode="lines+markers+text",
+                    text=df["VO₂max"], textposition="top center",
+                    line=dict(color="#3b82f6", width=3), marker=dict(size=9),
+                    name="VO₂max (ml/kg/min)",
+                ))
+            fig6.add_hline(y=50, line_dash="dash", line_color="#d29922",
+                           annotation_text="Zielwert ≥ 50 ml/kg/min",
+                           annotation_position="top right")
+            fig6.update_layout(**_pl(height=320, title="VO₂max Verlauf",
+                                    yaxis=dict(title="VO₂max (ml/kg/min)")))
+            st.plotly_chart(fig6, use_container_width=True)
+            st.dataframe(df, use_container_width=True, hide_index=True)
+
+    # ── Anthropometrie ────────────────────────────────────────────────────────
+    with tab_anthro:
+        if not anthro_hist:
+            st.info("Noch keine Anthropometrie-Messungen vorhanden.")
+        else:
+            df = pd.DataFrame(anthro_hist)
+            df.columns = ["Datum", "Größe (cm)", "Gewicht (kg)", "Körperfett (%)", "Muskelmasse (kg)",
+                          "BMI", "BMI-Kat.", "Sitzhöhe (cm)", "Beinlänge (cm)", "Armspann (cm)",
+                          "PHV-Offset", "Reifestatus"]
+            fig7 = go.Figure()
+            fig7.add_trace(go.Scatter(
+                x=df["Datum"], y=df["Gewicht (kg)"],
+                mode="lines+markers", name="Gewicht (kg)",
+                line=dict(color="#3b82f6", width=3), marker=dict(size=9),
+            ))
+            fig7.add_trace(go.Scatter(
+                x=df["Datum"], y=df["Muskelmasse (kg)"],
+                mode="lines+markers", name="Muskelmasse (kg)",
+                line=dict(color="#3fb950", width=3), marker=dict(size=9),
+            ))
+            fig7.update_layout(**_pl(height=320, title="Körperzusammensetzung Verlauf",
+                                    yaxis=dict(title="kg")))
+            st.plotly_chart(fig7, use_container_width=True)
+
+            # BMI + PHV chart
+            fig8 = go.Figure()
+            fig8.add_trace(go.Scatter(
+                x=df["Datum"], y=df["BMI"],
+                mode="lines+markers", name="BMI",
+                line=dict(color="#d29922", width=3), marker=dict(size=9),
+            ))
+            fig8.add_hline(y=25, line_dash="dash", line_color="#f85149",
+                           annotation_text="Übergewicht ≥ 25", annotation_position="top right")
+            fig8.update_layout(**_pl(height=260, title="BMI Verlauf"))
+            st.plotly_chart(fig8, use_container_width=True)
+            st.dataframe(df[["Datum", "Größe (cm)", "Gewicht (kg)", "Körperfett (%)",
+                              "Muskelmasse (kg)", "BMI", "BMI-Kat.", "PHV-Offset", "Reifestatus"]],
+                         use_container_width=True, hide_index=True)
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -1636,10 +1727,354 @@ def page_ausdauer():
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# NAVIGATION
+# NEW PAGES (Phase 1)
 # ══════════════════════════════════════════════════════════════════════════════
 
+def page_startseite():
+    """Home — personalisierte Übersicht für den aktiven Spieler."""
+    spieler_liste = spieler_laden()
+    if not spieler_liste:
+        st.markdown(empty_state("⚽", "Willkommen bei Athletik Diagnostik",
+                                "Lege unter Spieler → Verwaltung deinen ersten Spieler an."),
+                    unsafe_allow_html=True)
+        return
+
+    auswahl = _player_selector()
+    if not auswahl:
+        return
+
+    sid    = auswahl["id"]
+    fms    = fms_letzter(sid)
+    y      = y_balance_letzter(sid)
+    sprint = sprint_letzter(sid)
+    sprung = sprung_letzter(sid)
+    agil   = agilitaet_letzter(sid)
+    aus    = ausdauer_letzter(sid)
+    anthro = anthropometrie_letzter(sid)
+    verlet = verletzungen_laden(sid)
+
+    rs              = risiko_score(fms, y, verlet)
+    _, level        = risiko_label(rs)
+    ascore          = athletik_score(fms, y, sprint, sprung, agil, aus)
+    defizite        = defizite_ermitteln(fms, y, sprint, sprung, agil, aus, anthro)
+    alter           = berechne_alter(auswahl.get("geburtsdatum"))
+
+    # ── Greeting ──────────────────────────────────────────────────────────────
+    hour = datetime.now().hour
+    greeting = "Guten Morgen" if hour < 12 else "Guten Tag" if hour < 18 else "Guten Abend"
+    st.markdown(f"## {greeting}, Coach")
+
+    # ── Player banner ─────────────────────────────────────────────────────────
+    st.markdown(player_banner(auswahl, alter), unsafe_allow_html=True)
+
+    # ── KPI row ───────────────────────────────────────────────────────────────
+    score_color = C["green"] if ascore >= 75 else C["yellow"] if ascore >= 50 else C["red"]
+    risk_colors = {"hoch": C["red"], "mittel": C["yellow"], "gering": C["green"]}
+    risk_icons  = {"hoch": "🔴", "mittel": "🟡", "gering": "🟢"}
+    risk_labels = {"hoch": "HOHES RISIKO", "mittel": "MITTLERES RISIKO", "gering": "GERINGES RISIKO"}
+
+    # Last test date across all modules
+    dates = []
+    for row in [fms, y, sprint, sprung, agil, aus, anthro]:
+        if row and row.get("datum"):
+            dates.append(str(row["datum"]))
+    letzter_test = max(dates) if dates else None
+
+    k1, k2, k3, k4 = st.columns(4)
+    with k1:
+        st.markdown(kpi_card("Athletik Score",
+                             f'{ascore}<span style="font-size:16px;font-weight:400;color:{C["muted"]}">/100</span>',
+                             color=score_color), unsafe_allow_html=True)
+    with k2:
+        st.markdown(kpi_card("Verletzungsrisiko",
+                             f'{risk_icons[level]} {risk_labels[level]}',
+                             color=risk_colors[level]), unsafe_allow_html=True)
+    with k3:
+        st.markdown(kpi_card("Letzter Test", letzter_test or "Kein Test",
+                             subtitle="Datum"), unsafe_allow_html=True)
+    with k4:
+        verlet_count = len(verlet) if verlet else 0
+        ausfall_ges  = sum(v.get("ausfall_tage") or 0 for v in (verlet or []))
+        st.markdown(kpi_card("Verletzungshistorie",
+                             str(verlet_count),
+                             subtitle=f"{ausfall_ges} Ausfalltage gesamt"), unsafe_allow_html=True)
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # ── Defizite & Stärken ────────────────────────────────────────────────────
+    col_def, col_str = st.columns(2)
+
+    with col_def:
+        st.markdown(f'<div style="font-size:13px;font-weight:600;letter-spacing:1px;color:{C["muted"]};margin-bottom:8px">TOP DEFIZITE</div>', unsafe_allow_html=True)
+        if not defizite:
+            st.markdown(f'<div style="color:{C["green"]};font-size:14px;padding:10px 0">✅ Keine auffälligen Defizite erkannt.</div>', unsafe_allow_html=True)
+        else:
+            for d in defizite[:5]:
+                st.markdown(deficit_row(d), unsafe_allow_html=True)
+            if len(defizite) > 5:
+                st.caption(f"+ {len(defizite)-5} weitere Defizite — Details im Spielerprofil")
+
+    with col_str:
+        st.markdown(f'<div style="font-size:13px;font-weight:600;letter-spacing:1px;color:{C["muted"]};margin-bottom:8px">STÄRKEN</div>', unsafe_allow_html=True)
+        strengths = []
+        if fms and fms["score"] >= 17:
+            strengths.append(("FMS Bewegungsqualität", f'Score {fms["score"]}/21'))
+        if y:
+            avg_y = (y["composite_rechts"] + y["composite_links"]) / 2
+            if avg_y >= 92:
+                strengths.append(("Y-Balance", f'Ø {avg_y:.1f} %'))
+        if sprint and sprint.get("bewertung_10m") in ("Sehr gut (Profi-Niveau)", "Gut (Leistungssport)"):
+            strengths.append(("Sprint", sprint["bewertung_10m"]))
+        if sprung and sprung.get("bewertung_cmj") in ("Sehr gut (Profi-Niveau)", "Gut (Leistungssport)"):
+            strengths.append(("Explosivkraft", sprung["bewertung_cmj"]))
+        if agil and agil.get("bew_t_test") in ("Sehr gut (Profi-Niveau)", "Gut (Leistungssport)"):
+            strengths.append(("Agilität", agil["bew_t_test"]))
+        if aus and aus.get("bewertung") == "Gut":
+            strengths.append(("Ausdauer", f'VO₂max ~{aus["vo2max"]} ml/kg/min' if aus.get("vo2max") else "Gut"))
+        if not strengths:
+            st.markdown(f'<div style="color:{C["muted"]};font-size:14px;padding:10px 0">Noch keine Tests mit Stärken vorhanden.</div>', unsafe_allow_html=True)
+        for bereich, detail in strengths[:5]:
+            st.markdown(strength_row(bereich, detail), unsafe_allow_html=True)
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # ── Test-Übersicht ────────────────────────────────────────────────────────
+    st.markdown(f'<div style="font-size:13px;font-weight:600;letter-spacing:1px;color:{C["muted"]};margin-bottom:10px">TESTMODULE — AKTUELLER STATUS</div>', unsafe_allow_html=True)
+    c1, c2, c3 = st.columns(3)
+    cards = [
+        ("FMS",       "📝", fms,    fms["bewertung"]        if fms    else None, fms["datum"]    if fms    else None),
+        ("Y-Balance", "📏", y,      "Asymmetrie: " + y["asymmetrie"][:12] if y else None, y["datum"] if y else None),
+        ("Sprint",    "⚡", sprint, sprint["bewertung_10m"] if sprint else None, sprint["datum"] if sprint else None),
+        ("Sprung",    "🦘", sprung, sprung["bewertung_cmj"] if sprung else None, sprung["datum"] if sprung else None),
+        ("Agilität",  "🔀", agil,   agil["bew_t_test"]      if agil   else None, agil["datum"]   if agil   else None),
+        ("Ausdauer",  "🫁", aus,    aus["bewertung"]        if aus    else None, aus["datum"]    if aus    else None),
+    ]
+    for i, (name, icon, row, rating, dt) in enumerate(cards):
+        col = [c1, c2, c3][i % 3]
+        with col:
+            st.markdown(test_status_card(name, icon, dt, rating), unsafe_allow_html=True)
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # ── Quick actions ─────────────────────────────────────────────────────────
+    st.markdown(f'<div style="font-size:13px;font-weight:600;letter-spacing:1px;color:{C["muted"]};margin-bottom:10px">SCHNELLZUGRIFF</div>', unsafe_allow_html=True)
+    qa1, qa2, qa3, qa4 = st.columns(4)
+    if qa1.button("👤 Spielerprofil", use_container_width=True):
+        st.session_state["nav_section"] = "👤  Spieler"
+        st.session_state["nav_sub_spieler"] = "🏃 Profil & Diagnostik"
+        st.rerun()
+    if qa2.button("🔬 Test starten", use_container_width=True):
+        st.session_state["nav_section"] = "🔬  Diagnostik"
+        st.rerun()
+    if qa3.button("📅 Trainingsplan", use_container_width=True):
+        st.session_state["nav_section"] = "📅  Training"
+        st.rerun()
+    if qa4.button("📈 Verlauf", use_container_width=True):
+        st.session_state["nav_section"] = "📈  Entwicklung"
+        st.rerun()
+
+
+def page_einstellungen():
+    """Einstellungen — App-Konfiguration."""
+    st.markdown(section_header("⚙️ Einstellungen", "App-Konfiguration und Datenverwaltung"),
+                unsafe_allow_html=True)
+
+    tab_allg, tab_export = st.tabs(["⚙️ Allgemein", "💾 Export & Backup"])
+
+    with tab_allg:
+        st.markdown("### Vereinsinformationen")
+        c1, c2 = st.columns(2)
+        vereinsname = c1.text_input("Vereinsname", value=st.session_state.get("cfg_vereinsname", ""), key="cfg_vname")
+        saison      = c2.text_input("Aktuelle Saison", value=st.session_state.get("cfg_saison", "2025/26"), key="cfg_saison")
+        if st.button("💾 Speichern", key="cfg_save"):
+            st.session_state["cfg_vereinsname"] = vereinsname
+            st.session_state["cfg_saison"]      = saison
+            st.success("✅ Einstellungen gespeichert (Session).")
+
+        st.markdown("---")
+        st.markdown("### Kader-Übersicht")
+        alle = spieler_laden()
+        st.metric("Spieler gesamt", len(alle))
+        if alle:
+            mannschaften = list({p.get("mannschaft") or "Keine" for p in alle})
+            st.markdown(f"**Mannschaften:** {', '.join(sorted(mannschaften))}")
+
+    with tab_export:
+        st.markdown("### Daten exportieren")
+        alle = spieler_laden()
+        if not alle:
+            st.info("Keine Spieler vorhanden.")
+        else:
+            rows = []
+            for p in alle:
+                fms    = fms_letzter(p["id"])
+                y      = y_balance_letzter(p["id"])
+                sprint = sprint_letzter(p["id"])
+                aus    = ausdauer_letzter(p["id"])
+                verlet = verletzungen_laden(p["id"])
+                ascore = athletik_score(fms, y, sprint, None, None, aus)
+                rs     = risiko_score(fms, y, verlet)
+                _, rlv = risiko_label(rs)
+                rows.append({
+                    "Name":            p["name"],
+                    "Position":        p.get("position") or "—",
+                    "Mannschaft":      p.get("mannschaft") or "—",
+                    "Altersklasse":    p.get("altersklasse") or "—",
+                    "Athletik Score":  ascore,
+                    "Risiko":          rlv.capitalize(),
+                    "FMS":             fms["score"] if fms else "—",
+                    "VO₂max":          aus["vo2max"] if aus else "—",
+                })
+            df_export = pd.DataFrame(rows)
+            st.dataframe(df_export, use_container_width=True, hide_index=True)
+            csv = df_export.to_csv(index=False).encode("utf-8")
+            st.download_button("⬇️ Kader-CSV herunterladen", csv,
+                               f"kader_export_{date.today()}.csv", "text/csv",
+                               use_container_width=True)
+
+        st.markdown("---")
+        st.markdown("### Datenbank")
+        db_path = "athletik.db"
+        import os
+        db_size = os.path.getsize(db_path) / 1024 if os.path.exists(db_path) else 0
+        st.metric("Datenbankgröße", f"{db_size:.1f} KB")
+        st.info("💡 Erstelle regelmäßig Sicherungen der Datei `athletik.db`.")
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# NAVIGATION  (7-section structure)
+# ══════════════════════════════════════════════════════════════════════════════
+
+# ── Sub-page maps per section ─────────────────────────────────────────────────
+_SUB_SPIELER = {
+    "👥 Verwaltung":        page_spieler,
+    "🏃 Profil & Diagnostik": page_spieler_profil,
+    "📐 Anthropometrie":    page_anthropometrie,
+}
+_SUB_DIAGNOSTIK = {
+    "📝 FMS":               page_fms,
+    "📏 Y-Balance":         page_ybalance,
+    "⚡ Sprint":             page_sprint,
+    "🦘 Sprung":             page_sprung,
+    "🔀 Agilität":          page_agilitaet,
+    "🫁 Ausdauer (Yo-Yo)":  page_ausdauer,
+}
+_SUB_TRAINING = {
+    "📅 Trainingsplan":     page_trainingsplan,
+    "🔄 Periodisierung":    page_periodisierung,
+}
+
+_MAIN_SECTIONS = [
+    "🏠  Startseite",
+    "👤  Spieler",
+    "🔬  Diagnostik",
+    "📅  Training",
+    "📈  Entwicklung",
+    "👥  Mannschaft",
+    "⚙️  Einstellungen",
+]
+
 with st.sidebar:
+    # ── Logo ──────────────────────────────────────────────────────────────────
+    st.markdown(
+        f'<div style="padding:18px 0 10px;text-align:center">'
+        f'<div style="font-size:38px">⚽</div>'
+        f'<div style="font-weight:800;font-size:14px;color:{C["text"]};letter-spacing:1px;margin-top:4px">ATHLETIK DIAGNOSTIK</div>'
+        f'<div style="font-size:10px;color:{C["muted"]};margin-top:2px">Football Performance System</div>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
+
+    # ── Global player selector ────────────────────────────────────────────────
+    alle_spieler = spieler_laden()
+    if alle_spieler:
+        pid_current = st.session_state.get("global_player_id")
+        idx_current = 0
+        if pid_current:
+            ids = [p["id"] for p in alle_spieler]
+            if pid_current in ids:
+                idx_current = ids.index(pid_current)
+        sel_player = st.selectbox(
+            "Aktiver Spieler",
+            alle_spieler,
+            index=idx_current,
+            format_func=lambda x: x["name"],
+            key="sidebar_player_sel",
+        )
+        st.session_state["global_player_id"] = sel_player["id"]
+        # Show player pill
+        pos  = sel_player.get("hauptposition") or sel_player.get("position") or "—"
+        team = sel_player.get("mannschaft") or "—"
+        st.markdown(
+            f'<div class="player-pill">'
+            f'<div class="player-pill-sub">{pos} · {team}</div>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+    else:
+        st.markdown(
+            f'<div style="padding:8px 0;color:{C["muted"]};font-size:12px">Kein Spieler angelegt.</div>',
+            unsafe_allow_html=True,
+        )
+
+    st.markdown(f'<hr style="border-color:{C["surface2"]};margin:10px 0">', unsafe_allow_html=True)
+
+    # ── Main navigation ───────────────────────────────────────────────────────
+    section = st.radio(
+        "",
+        _MAIN_SECTIONS,
+        key="nav_section",
+        label_visibility="collapsed",
+    )
+
+    # ── Sub-navigation ────────────────────────────────────────────────────────
+    sub_map = None
+    sub_key = None
+    if section == "👤  Spieler":
+        sub_map, sub_key = _SUB_SPIELER, "nav_sub_spieler"
+    elif section == "🔬  Diagnostik":
+        sub_map, sub_key = _SUB_DIAGNOSTIK, "nav_sub_diagnostik"
+    elif section == "📅  Training":
+        sub_map, sub_key = _SUB_TRAINING, "nav_sub_training"
+
+    sub_choice = None
+    if sub_map:
+        st.markdown('<div class="subnav">', unsafe_allow_html=True)
+        sub_choice = st.radio(
+            "",
+            list(sub_map.keys()),
+            key=sub_key,
+            label_visibility="collapsed",
+        )
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    st.markdown(f'<hr style="border-color:{C["surface2"]};margin:10px 0">', unsafe_allow_html=True)
+
+    # ── Kader count ───────────────────────────────────────────────────────────
+    n = len(alle_spieler) if alle_spieler else 0
+    st.markdown(
+        f'<div style="padding:8px 12px;background:{C["surface"]};border-radius:8px;border:1px solid {C["border"]}">'
+        f'<div style="font-size:10px;color:{C["muted"]};letter-spacing:1px">KADER</div>'
+        f'<div style="font-size:20px;font-weight:700;color:{C["text"]}">{n} Spieler</div>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
+
+# ── Route ─────────────────────────────────────────────────────────────────────
+if section == "🏠  Startseite":
+    page_startseite()
+elif section == "👤  Spieler":
+    _SUB_SPIELER[sub_choice]()
+elif section == "🔬  Diagnostik":
+    _SUB_DIAGNOSTIK[sub_choice]()
+elif section == "📅  Training":
+    _SUB_TRAINING[sub_choice]()
+elif section == "📈  Entwicklung":
+    page_fortschritt()
+elif section == "👥  Mannschaft":
+    page_dashboard()
+elif section == "⚙️  Einstellungen":
+    page_einstellungen()
     st.markdown(
         '<div style="text-align:center;padding:16px 0 8px">'
         '<div style="font-size:36px">⚽</div>'
@@ -1696,4 +2131,3 @@ pages = {
     "🔄 Periodisierung":    page_periodisierung,
     "📈 Fortschritt":       page_fortschritt,
 }
-pages[page]()
