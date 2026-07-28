@@ -1,45 +1,46 @@
 modules = ["nodejs-24", "python-base-3.13"]
 
-[deployment]
-router = "application"
-deploymentTarget = "autoscale"
+    [deployment]
+    router = "application"
+    deploymentTarget = "autoscale"
 
-[deployment.postBuild]
-args = ["pnpm", "store", "prune"]
-env = { "CI" = "true" }
+    [deployment.postBuild]
+    args = ["pnpm", "store", "prune"]
+    env = { "CI" = "true" }
 
-[workflows]
-runButton = "Project"
+    [workflows]
+    runButton = "Project"
 
-[[workflows.workflow]]
-name = "Project"
-mode = "parallel"
-author = "agent"
+    [[workflows.workflow]]
+    name = "Project"
+    mode = "parallel"
+    author = "agent"
 
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "Football Athletik App"
+    [[workflows.workflow.tasks]]
+    task = "workflow.run"
+    args = "Football Athletik App"
 
-[[workflows.workflow]]
-name = "Football Athletik App"
-author = "agent"
+    [[workflows.workflow]]
+    name = "Football Athletik App"
+    author = "agent"
 
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "cd athletik && streamlit run app.py --server.port 5000"
-waitForPort = 5000
+    [[workflows.workflow.tasks]]
+    task = "shell.exec"
+    args = "cd artifacts/athletik && streamlit run app.py --server.port 5000"
+    waitForPort = 5000
 
-[workflows.workflow.metadata]
-outputType = "webview"
+    [workflows.workflow.metadata]
+    outputType = "webview"
 
-[agent]
-stack = "PNPM_WORKSPACE"
-expertMode = true
+    [agent]
+    stack = "PNPM_WORKSPACE"
+    expertMode = true
 
-[postMerge]
-path = "scripts/post-merge.sh"
-timeoutMs = 20000
+    [postMerge]
+    path = "scripts/post-merge.sh"
+    timeoutMs = 20000
 
-[nix]
-channel = "stable-25_05"
-packages = ["glibcLocales"]
+    [nix]
+    channel = "stable-25_05"
+    packages = ["glibcLocales"]
+    
