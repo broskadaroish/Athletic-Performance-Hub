@@ -178,6 +178,74 @@ def athletik_score(
     return max(0, min(100, round(total)))
 
 
+# ─── Sub-scores für Radar-Chart ───────────────────────────────────────────────
+
+def athletik_sub_scores(
+    fms_row,
+    y_row,
+    sprint_row=None,
+    sprung_row=None,
+    agil_row=None,
+    aus_row=None,
+) -> dict[str, int]:
+    """
+    Gibt normierte Einzelwerte (0–100) pro Modul zurück — Grundlage für
+    den Radar-Chart 'Athletisches Profil'.
+
+    Schlüssel: 'FMS', 'Y-Balance', 'Sprint', 'Sprungkraft', 'Agilität', 'Ausdauer'
+    Nur Module mit Daten sind enthalten.
+    """
+    scores: dict[str, int] = {}
+
+    if fms_row:
+        s = round(fms_row["score"] / 21 * 100)
+        if "Asymmetrie" in str(fms_row.get("asymmetrie", "")):
+            s = max(0, s - 10)
+        scores["FMS"] = s
+
+    if y_row:
+        avg = (y_row["composite_rechts"] + y_row["composite_links"]) / 2
+        s = round(min(100, max(0, (avg - 70) / 30 * 100)))
+        if "Asymmetrie" in str(y_row.get("asymmetrie", "")):
+            s = max(0, s - 10)
+        scores["Y-Balance"] = s
+
+    if sprint_row:
+        bew = str(sprint_row.get("bewertung_10m") or sprint_row.get("bewertung_30m") or "")
+        s = _bew_to_score(bew)
+        if s is not None:
+            scores["Sprint"] = s
+
+    if sprung_row:
+        bew = str(sprung_row.get("bewertung_cmj") or "")
+        s = _bew_to_score(bew)
+        if s is not None:
+            asym = sprung_row.get("cmj_asymmetrie") or 0
+            if asym and float(asym) > 10:
+                s = max(0, s - 10)
+            scores["Sprungkraft"] = s
+
+    if agil_row:
+        bew = str(agil_row.get("bew_t_test") or agil_row.get("bew_505") or "")
+        s = _bew_to_score(bew)
+        if s is not None:
+            asym = agil_row.get("asym_505") or 0
+            if asym and float(asym) > 10:
+                s = max(0, s - 8)
+            scores["Agilitaet"] = s
+
+    if aus_row:
+        bew = str(aus_row.get("bewertung") or "")
+        s = _bew_to_score(bew)
+        if s is not None:
+            vo2 = aus_row.get("vo2max") or 0
+            if vo2 and float(vo2) >= 55:
+                s = min(100, s + 5)
+            scores["Ausdauer"] = s
+
+    return scores
+
+
 # ─── Defizite ────────────────────────────────────────────────────────────────
 
 def defizite_ermitteln(

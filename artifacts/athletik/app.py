@@ -64,7 +64,7 @@ from training import init_training_bibliothek, empfehlung_bereiche, uebungen_fue
 from fms import FMSResult
 from y_balance import YBalanceResult
 from analytics import (
-    risiko_score, risiko_label, athletik_score,
+    risiko_score, risiko_label, athletik_score, athletik_sub_scores,
     defizite_ermitteln, schwerpunkt_sammeln,
 )
 from periodisierung import zyklus_erstellen, zyklus_laden
@@ -195,6 +195,35 @@ def page_dashboard():
     c2.metric("Hohes Risiko 🔴", high_risk)
     c3.metric("Mittleres Risiko 🟡", med_risk)
     c4.metric("Ø Athletik Score", f"{avg_score}/100")
+
+    # ── Teamschnitt-Widgets für Sprint, CMJ, Yo-Yo (nur wenn ≥1 Datenpunkt) ──
+    sprint_vals = [d["sprint"]["beste_10m"] for d in player_data
+                   if d["sprint"] and d["sprint"].get("beste_10m")]
+    cmj_vals    = [d["sprung"]["cmj_beid"] for d in player_data
+                   if d["sprung"] and d["sprung"].get("cmj_beid")]
+    yoyo_vals   = [d["aus"]["distanz_m"] for d in player_data
+                   if d["aus"] and d["aus"].get("distanz_m")]
+
+    if sprint_vals or cmj_vals or yoyo_vals:
+        cols_kpi = st.columns(3)
+        if sprint_vals:
+            avg_s = sum(sprint_vals) / len(sprint_vals)
+            cols_kpi[0].metric("Ø Sprint 10m", f"{avg_s:.2f} s",
+                               help=f"Datenbasis: {len(sprint_vals)} Spieler")
+        else:
+            cols_kpi[0].metric("Ø Sprint 10m", "—", help="Noch keine Sprintdaten")
+        if cmj_vals:
+            avg_c = sum(cmj_vals) / len(cmj_vals)
+            cols_kpi[1].metric("Ø CMJ", f"{avg_c:.1f} cm",
+                               help=f"Datenbasis: {len(cmj_vals)} Spieler")
+        else:
+            cols_kpi[1].metric("Ø CMJ", "—", help="Noch keine Sprungdaten")
+        if yoyo_vals:
+            avg_y = sum(yoyo_vals) / len(yoyo_vals)
+            cols_kpi[2].metric("Ø Yo-Yo Distanz", f"{avg_y:.0f} m",
+                               help=f"Datenbasis: {len(yoyo_vals)} Spieler")
+        else:
+            cols_kpi[2].metric("Ø Yo-Yo Distanz", "—", help="Noch keine Ausdauerdaten")
 
     st.markdown("---")
 
@@ -559,6 +588,41 @@ def page_spieler_profil():
         st.markdown("**Verletzungsrisiko**")
         st.markdown(_risk_badge(level), unsafe_allow_html=True)
 
+    # ── Radar-Chart im Header (wenn ≥ 3 Module vorhanden) ─────────────────
+    sub_scores_header = athletik_sub_scores(fms, y, sprint, sprung, agil, aus)
+    if len(sub_scores_header) >= 3:
+        label_map_h = {
+            "FMS": "FMS", "Y-Balance": "Y-Balance", "Sprint": "Sprint",
+            "Sprungkraft": "Sprungkraft", "Agilitaet": "Agilität", "Ausdauer": "Ausdauer",
+        }
+        cats_h  = [label_map_h.get(k, k) for k in sub_scores_header.keys()]
+        vals_h  = list(sub_scores_header.values())
+        cats_hc = cats_h + [cats_h[0]]
+        vals_hc = vals_h + [vals_h[0]]
+        fig_hdr = go.Figure()
+        fig_hdr.add_trace(go.Scatterpolar(
+            r=vals_hc, theta=cats_hc,
+            fill="toself", name="Profil",
+            line=dict(color="#3b82f6", width=2),
+            fillcolor="rgba(59,130,246,0.18)",
+            marker=dict(size=7, color="#58a6ff"),
+        ))
+        fig_hdr.update_layout(
+            polar=dict(
+                bgcolor="#161b22",
+                radialaxis=dict(visible=True, range=[0, 100],
+                               color="#8b949e", gridcolor="#30363d",
+                               tickfont=dict(size=8)),
+                angularaxis=dict(color="#e6edf3", gridcolor="#30363d",
+                                 tickfont=dict(size=10)),
+            ),
+            **{k: v for k, v in PLOTLY_LAYOUT.items() if k not in ("xaxis", "yaxis")},
+            height=280, showlegend=False, margin=dict(l=40, r=40, t=20, b=20),
+        )
+        _, rc = st.columns([3, 2])
+        with rc:
+            st.plotly_chart(fig_hdr, use_container_width=True)
+
     st.markdown("---")
 
     # ── Key metrics ───────────────────────────────────────────────────────
@@ -886,7 +950,8 @@ def page_fortschritt():
     aus_hist    = ausdauer_history(sid)
     anthro_hist = anthropometrie_history(sid)
 
-    tab_fms, tab_yb, tab_sprint, tab_sprung, tab_agil, tab_aus, tab_anthro = st.tabs([
+    tab_radar, tab_fms, tab_yb, tab_sprint, tab_sprung, tab_agil, tab_aus, tab_anthro = st.tabs([
+        "🕸️ Athletisches Profil",
         "FMS Verlauf",
         "Y-Balance Verlauf",
         "Sprint Verlauf",
@@ -895,6 +960,78 @@ def page_fortschritt():
         "Ausdauer Verlauf",
         "Anthropometrie Verlauf",
     ])
+
+    # ── Athletisches Profil — Radar-Chart ────────────────────────────────────
+    with tab_radar:
+        fms_now    = fms_letzter(sid)
+        y_now      = y_balance_letzter(sid)
+        sprint_now = sprint_letzter(sid)
+        sprung_now = sprung_letzter(sid)
+        agil_now   = agilitaet_letzter(sid)
+        aus_now    = ausdauer_letzter(sid)
+        sub = athletik_sub_scores(fms_now, y_now, sprint_now, sprung_now, agil_now, aus_now)
+
+        if len(sub) < 2:
+            st.info("Mindestens 2 Testmodule müssen vorliegen, um das Radar-Chart zu zeichnen.")
+        else:
+            # Label-Mapping für Anzeige
+            label_map = {
+                "FMS": "FMS",
+                "Y-Balance": "Y-Balance",
+                "Sprint": "Sprint",
+                "Sprungkraft": "Sprungkraft",
+                "Agilitaet": "Agilität",
+                "Ausdauer": "Ausdauer",
+            }
+            cats   = [label_map.get(k, k) for k in sub.keys()]
+            vals   = list(sub.values())
+            # Radar geschlossen
+            cats_closed = cats + [cats[0]]
+            vals_closed = vals + [vals[0]]
+
+            fig_r = go.Figure()
+            fig_r.add_trace(go.Scatterpolar(
+                r=vals_closed, theta=cats_closed,
+                fill="toself", name="Aktuell",
+                line=dict(color="#3b82f6", width=2),
+                fillcolor="rgba(59,130,246,0.15)",
+                marker=dict(size=8, color="#58a6ff"),
+            ))
+            # Referenzlinie 70 (Teamziel)
+            ref_cats = cats + [cats[0]]
+            ref_vals = [70] * len(ref_cats)
+            fig_r.add_trace(go.Scatterpolar(
+                r=ref_vals, theta=ref_cats,
+                mode="lines", name="Teamziel 70",
+                line=dict(color="#d29922", width=1, dash="dash"),
+            ))
+            fig_r.update_layout(
+                polar=dict(
+                    bgcolor="#161b22",
+                    radialaxis=dict(visible=True, range=[0, 100],
+                                   color="#8b949e", gridcolor="#30363d",
+                                   tickfont=dict(size=9)),
+                    angularaxis=dict(color="#e6edf3", gridcolor="#30363d"),
+                ),
+                **{k: v for k, v in PLOTLY_LAYOUT.items() if k not in ("xaxis", "yaxis")},
+                height=420, showlegend=True,
+                legend=dict(orientation="h", y=-0.1),
+                title=dict(text="Athletisches Profil (normiert 0–100)", font=dict(color="#e6edf3")),
+            )
+            col_rad, col_tbl = st.columns([3, 2])
+            with col_rad:
+                st.plotly_chart(fig_r, use_container_width=True)
+            with col_tbl:
+                st.markdown("### Modulscores")
+                for k, v in sub.items():
+                    label = label_map.get(k, k)
+                    bar_color = "#3fb950" if v >= 75 else "#d29922" if v >= 50 else "#f85149"
+                    st.markdown(
+                        f"**{label}** — {v}/100 "
+                        f"<span style='display:inline-block;width:{v}px;max-width:100px;"
+                        f"height:8px;background:{bar_color};border-radius:4px;vertical-align:middle'></span>",
+                        unsafe_allow_html=True,
+                    )
 
     # ── FMS ──────────────────────────────────────────────────────────────────
     with tab_fms:
