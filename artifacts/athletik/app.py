@@ -727,11 +727,43 @@ def page_spieler_profil():
 
     with tab_pdf:
         st.markdown("### 📄 PDF Report")
-        plan_rows = zyklus_laden(sid)
-        if st.button("📥 PDF Report generieren"):
+        st.markdown(
+            "Der Bericht enthält alle vorhandenen Testergebnisse: "
+            "Anthropometrie, FMS, Y-Balance, Sprint, Sprung, Agilität, Ausdauer, "
+            "Verletzungshistorie, Defizite und Trainingsplan."
+        )
+        plan_rows   = zyklus_laden(sid)
+        anthro_row  = anthropometrie_letzter(sid)
+        sprint_row  = sprint_letzter(sid)
+        sprung_row  = sprung_letzter(sid)
+        agil_row    = agilitaet_letzter(sid)
+        aus_row     = ausdauer_letzter(sid)
+        verletzungen_pdf = verletzungen_laden(sid)
+
+        # Anzahl vorhandener Module anzeigen
+        module = {
+            "FMS": fms, "Y-Balance": y, "Anthropometrie": anthro_row,
+            "Sprint": sprint_row, "Sprung": sprung_row,
+            "Agilität": agil_row, "Ausdauer": aus_row,
+        }
+        vorh = [k for k, v in module.items() if v]
+        fehlt = [k for k, v in module.items() if not v]
+        if vorh:
+            st.success(f"✅ Enthaltene Module: {', '.join(vorh)}")
+        if fehlt:
+            st.info(f"ℹ️ Noch keine Daten: {', '.join(fehlt)}")
+
+        if st.button("📥 PDF Report generieren", key="pdf_gen"):
             pdf_bytes = generate_report(
                 spieler=auswahl,
-                fms_row=fms, y_row=y,
+                fms_row=fms,
+                y_row=y,
+                anthro_row=anthro_row,
+                sprint_row=sprint_row,
+                sprung_row=sprung_row,
+                agil_row=agil_row,
+                aus_row=aus_row,
+                verletzungen=verletzungen_pdf,
                 athletik_score=ascore,
                 risiko_label=label,
                 defizite=defizite,
@@ -742,6 +774,7 @@ def page_spieler_profil():
                 data=pdf_bytes,
                 file_name=f"athletik_report_{auswahl['name'].replace(' ','_')}_{date.today()}.pdf",
                 mime="application/pdf",
+                key="pdf_dl",
             )
 
 
