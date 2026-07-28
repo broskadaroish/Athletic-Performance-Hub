@@ -1,0 +1,218 @@
+Du bist ein Senior Software Engineer, Sportwissenschaftler und Athletiktrainer im Leistungsfußball.
+
+Ich möchte ein professionelles Fußball-Athletik- und Diagnostiksystem mit Python und Streamlit entwickeln. Das System soll modular aufgebaut sein und sich an aktuellen sportwissenschaftlichen und fußballspezifischen Erkenntnissen orientieren.
+
+## Spielerverwaltung
+
+Für jeden Spieler soll ein vollständiges Profil angelegt werden können:
+
+* Vorname und Nachname
+* Geburtsdatum und automatisch berechnetes Alter
+* Geschlecht
+* Mannschaft
+* Altersklasse
+* Spielposition
+* Hauptposition und Nebenposition
+* Spielbein
+* Leistungsniveau
+* Testhistorie
+* Verletzungshistorie
+* Trainingsstatus
+
+## Anthropometrie
+
+Für jeden Spieler sollen regelmäßig anthropometrische Daten erfasst werden können:
+
+* Körpergröße in Zentimetern
+* Körpergewicht in Kilogramm
+* Sitzhöhe
+* Beinlänge
+* Armspannweite
+* Körperfettanteil
+* Muskelmasse
+* BMI
+* Wachstum pro Monat
+* Größenentwicklung
+* Gewichtsentwicklung
+* Verhältnis von Körpergröße zu Gewicht
+
+Bei Nachwuchsspielern soll das System Wachstumsschübe berücksichtigen können. Die Daten sollen mit Datum gespeichert und als Verlauf dargestellt werden.
+
+Optional soll eine einfache Einschätzung der biologischen Reife beziehungsweise des Reifestatus möglich sein. Dabei muss klar angezeigt werden, dass es sich nur um eine Schätzung und nicht um eine medizinische Diagnose handelt.
+
+## Bewegungs- und Stabilitätstests
+
+* Functional Movement Screen
+* Y-Balance-Test
+* Einbeinige Stabilitätstests
+* Beweglichkeits- und Mobilitätstests
+
+## Sprungdiagnostik
+
+* Countermovement Jump
+* Squat Jump
+* Drop Jump
+* Reaktivkraftindex
+* Standweitsprung
+* Einbeiniger Standweitsprung
+* Einbeinige Sprungtests rechts und links
+* Mehrfachsprünge
+* Seitenunterschiede und Asymmetrien
+
+## Sprintdiagnostik
+
+* Sprint über 5 Meter
+* Sprint über 10 Meter
+* Sprint über 20 Meter
+* Sprint über 30 Meter
+* Zwischenzeiten
+* Beschleunigungsleistung
+* maximale Sprintgeschwindigkeit
+* Flying Sprint
+* wiederholte Sprints
+
+Bei jedem Sprinttest sollen mindestens drei Versuche eingegeben werden können. Das System soll den besten Versuch, den Durchschnitt, die Streuung und die Entwicklung berechnen.
+
+## Richtungswechsel und Agilität
+
+* 505 Agility Test rechts und links
+* 5-10-5 Shuttle Test
+* T-Test
+* Illinois Agility Test
+* fußballspezifische Richtungswechseltests
+* Tests mit Ball und ohne Ball
+* Vergleich zwischen rechter und linker Wendeseite
+* Abbremsfähigkeit
+* erneute Beschleunigung nach dem Richtungswechsel
+
+## Ausdauerdiagnostik
+
+Integriere den Yo-Yo Intermittent Recovery Test.
+
+Folgende Varianten sollen möglich sein:
+
+* Yo-Yo Intermittent Recovery Test Level 1
+* Yo-Yo Intermittent Recovery Test Level 2
+
+Zu jedem Test sollen erfasst und berechnet werden:
+
+* absolvierte Gesamtdistanz
+* letzte vollständig absolvierte Stufe
+* Testdauer
+* Abbruchgrund
+* Herzfrequenz maximal
+* Herzfrequenz nach Belastung
+* subjektives Belastungsempfinden
+* Leistungsbewertung
+* Entwicklung im Zeitverlauf
+* Vergleich mit alters- und leistungsbezogenen Referenzwerten
+
+Das System soll aus dem Yo-Yo-Test passende Trainingsbereiche ableiten, zum Beispiel:
+
+* aerobe Leistungsfähigkeit
+* hochintensive intermittierende Ausdauer
+* Wiederholungsfähigkeit intensiver Läufe
+* Erholungsfähigkeit zwischen Belastungen
+* fußballspezifische Ausdauer
+
+Optional soll auch eine geschätzte VO₂max angezeigt werden können. Dabei muss deutlich stehen, dass dieser Wert nur geschätzt ist und keine direkte Spiroergometrie ersetzt.
+
+## Zentrale automatische Analyse
+
+Jeder Test soll strukturierte Diagnosebereiche liefern. Die Trainingsplanung darf nicht nur nach Wörtern in Beschreibungstexten suchen.
+
+Mögliche Diagnosebereiche sind:
+
+* Sprunggelenksmobilität
+* Kniekontrolle
+* Hüftstabilität
+* Rumpfstabilität
+* Bewegungsqualität
+* Explosivkraft
+* Reaktivkraft
+* einbeinige Kraft
+* Beschleunigung
+* maximale Sprintgeschwindigkeit
+* Abbremsfähigkeit
+* Richtungswechsel
+* Seitenasymmetrie
+* aerobe Ausdauer
+* intermittierende Ausdauer
+* Wiederholungssprintfähigkeit
+* Regenerationsfähigkeit
+
+Alle Ergebnisse sollen in einer zentralen Analysefunktion zusammengeführt werden.
+
+## Automatischer Trainingsplan
+
+Das System muss immer einen individuellen Trainingsplan erstellen können, unabhängig davon, welche Tests vorhanden sind.
+
+Das bedeutet:
+
+* nur FMS-Test vorhanden → Trainingsplan aus dem FMS
+* nur Y-Balance-Test vorhanden → Trainingsplan aus dem Y-Balance-Test
+* nur Sprinttest vorhanden → Sprint- und Krafttrainingsplan
+* nur Sprungtest vorhanden → Explosivkraftplan
+* nur Richtungswechseltest vorhanden → Agilitäts- und Abbremsplan
+* nur Yo-Yo-Test vorhanden → Ausdauertrainingsplan
+* nur anthropometrische Daten vorhanden → alters- und wachstumsgerechte allgemeine Empfehlung
+* mehrere Tests vorhanden → kombinierter Trainingsplan mit Prioritäten
+
+Der Trainingsplan soll enthalten:
+
+* Trainingsziel
+* Trainingsbereich
+* konkrete fußballspezifische Übungen
+* Sätze
+* Wiederholungen
+* Belastungszeit
+* Pausenzeit
+* Intensität
+* Häufigkeit pro Woche
+* Trainingsdauer
+* Progression
+* vier- bis sechswöchige Periodisierung
+* Retest-Empfehlung
+
+Wachstum, Alter, Position, Trainingsniveau und vorhandene Beschwerden sollen bei der Belastungssteuerung berücksichtigt werden.
+
+## Dashboard
+
+Das Dashboard soll anzeigen:
+
+* Athletik-Score von 0 bis 100
+* Teststatus
+* aktuelle Defizite
+* Stärken
+* Verletzungsrisiko als vorsichtige Orientierung
+* anthropometrische Entwicklung
+* Wachstumskurven
+* Sprintentwicklung
+* Sprungentwicklung
+* Richtungswechselentwicklung
+* Yo-Yo-Test-Entwicklung
+* Seitenunterschiede
+* individuelle Trainingsschwerpunkte
+* aktuellen Trainingsplan
+* nächsten empfohlenen Retest
+
+## Technische Anforderungen
+
+* Python
+* Streamlit
+* SQLite, später auf PostgreSQL erweiterbar
+* klare modulare Dateistruktur
+* zentrale Diagnose-Engine
+* keine doppelte Auswertungslogik
+* neue Tests müssen später einfach ergänzt werden können
+* moderne und übersichtliche Benutzeroberfläche
+* vollständige Testhistorie
+* Export als PDF und Excel soll später möglich sein
+
+Ich habe bereits ein funktionierendes Python-Projekt mit mehreren Dateien.
+
+Analysiere zuerst meine vorhandenen Dateien. Verändere nicht sofort das gesamte Projekt. Erstelle zunächst einen konkreten Erweiterungsplan und eine sinnvolle Modulstruktur.
+
+Arbeite anschließend Schritt für Schritt. Ändere immer nur einen überschaubaren Bereich. Nenne bei jeder Änderung die betroffene Datei und gib mir danach die vollständige Datei zum Ersetzen zurück.
+
+Bestehende funktionierende Funktionen dürfen nicht ohne Begründung entfernt werden.
