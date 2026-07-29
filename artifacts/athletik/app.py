@@ -3103,6 +3103,192 @@ def page_spieler_vergleich():
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+# PAGE: DIAGNOSTIK ÜBERSICHT (Kachel-Grid)
+# ══════════════════════════════════════════════════════════════════════════════
+
+def page_diagnostik_overview() -> None:
+    """Diagnostik-Startscreen: Kachelübersicht aller 6 Testmodule."""
+    st.markdown(
+        section_header("🔬 Diagnostik", "Testübersicht — wähle ein Modul und starte direkt"),
+        unsafe_allow_html=True,
+    )
+
+    sid = st.session_state.get("global_player_id")
+    if not sid:
+        st.markdown(
+            empty_state("👤", "Kein Spieler ausgewählt",
+                        "Bitte einen Spieler in der Seitenleiste auswählen."),
+            unsafe_allow_html=True,
+        )
+        return
+
+    # ── Last results ──────────────────────────────────────────────────────────
+    fms_d  = fms_letzter(sid)
+    yb_d   = y_balance_letzter(sid)
+    spr_d  = sprint_letzter(sid)
+    sprg_d = sprung_letzter(sid)
+    agil_d = agilitaet_letzter(sid)
+    aus_d  = ausdauer_letzter(sid)
+
+    def _rating_color(rating: str | None) -> str:
+        if not rating:
+            return C["muted"]
+        r = rating.lower()
+        if any(x in r for x in ["sehr gut", "gut", "unauffällig", "keine asym", "optimal"]):
+            return C["green"]
+        if any(x in r for x in ["mittel", "grenzwertig", "gering", "durchschnitt"]):
+            return C["yellow"]
+        if any(x in r for x in ["verbesserung", "risiko", "mangelhaft", "schlecht",
+                                  "asymmetrie", "hoch", "schwäche", "kritisch"]):
+            return C["red"]
+        return C["muted"]
+
+    def _fmt_date(d: str | None) -> str:
+        if not d:
+            return "Noch kein Test"
+        try:
+            from datetime import datetime as _dt
+            return _dt.strptime(d, "%Y-%m-%d").strftime("%d.%m.%Y")
+        except Exception:
+            return d
+
+    # ── Key metric per test ───────────────────────────────────────────────────
+    def _yb_metric():
+        if not yb_d:
+            return None, None
+        cr = yb_d.get("composite_rechts")
+        cl = yb_d.get("composite_links")
+        if cr and cl:
+            return f"R {cr:.0f} % / L {cl:.0f} %", yb_d.get("asymmetrie")
+        return None, None
+
+    def _agil_metric():
+        if not agil_d:
+            return None, None
+        if agil_d.get("t_test"):
+            return f"T-Test: {agil_d['t_test']:.2f} s", agil_d.get("bew_t_test")
+        if agil_d.get("illinois"):
+            return f"Illinois: {agil_d['illinois']:.2f} s", agil_d.get("bew_illinois")
+        if agil_d.get("t505_r"):
+            return f"505: R {agil_d['t505_r']:.2f} s", agil_d.get("bew_505")
+        return None, None
+
+    yb_metric, yb_rating   = _yb_metric()
+    agil_metric, agil_rating = _agil_metric()
+
+    tiles = [
+        {
+            "icon": "📝", "name": "FMS",
+            "desc": "Functional Movement Screen",
+            "sub":  "📝 FMS",
+            "metric": f"{fms_d['score']}/21" if fms_d else None,
+            "rating": fms_d.get("bewertung") if fms_d else None,
+            "date":   fms_d.get("datum")     if fms_d else None,
+        },
+        {
+            "icon": "📏", "name": "Y-Balance",
+            "desc": "Dynamische Gleichgewichtskontrolle",
+            "sub":  "📏 Y-Balance",
+            "metric": yb_metric,
+            "rating": yb_rating,
+            "date":   yb_d.get("datum") if yb_d else None,
+        },
+        {
+            "icon": "⚡", "name": "Sprint",
+            "desc": "Lineare Schnelligkeit",
+            "sub":  "⚡ Sprint",
+            "metric": (f"10 m: {spr_d['beste_10m']:.2f} s"
+                       if spr_d and spr_d.get("beste_10m") else None),
+            "rating": spr_d.get("bewertung_10m") if spr_d else None,
+            "date":   spr_d.get("datum")         if spr_d else None,
+        },
+        {
+            "icon": "🦘", "name": "Sprung",
+            "desc": "Sprungkraft & Reaktivkraft",
+            "sub":  "🦘 Sprung",
+            "metric": (f"CMJ: {sprg_d['cmj_beid']:.1f} cm"
+                       if sprg_d and sprg_d.get("cmj_beid") else None),
+            "rating": sprg_d.get("bewertung_cmj") if sprg_d else None,
+            "date":   sprg_d.get("datum")         if sprg_d else None,
+        },
+        {
+            "icon": "🔀", "name": "Agilität",
+            "desc": "Richtungswechsel & Reaktion",
+            "sub":  "🔀 Agilität",
+            "metric": agil_metric,
+            "rating": agil_rating,
+            "date":   agil_d.get("datum") if agil_d else None,
+        },
+        {
+            "icon": "🫁", "name": "Ausdauer",
+            "desc": "Aerobe Kapazität (Yo-Yo)",
+            "sub":  "🫁 Ausdauer (Yo-Yo)",
+            "metric": (f"VO₂max: {aus_d['vo2max']:.1f} ml·kg⁻¹·min⁻¹"
+                       if aus_d and aus_d.get("vo2max") else None),
+            "rating": aus_d.get("bewertung") if aus_d else None,
+            "date":   aus_d.get("datum")     if aus_d else None,
+        },
+    ]
+
+    # ── Render 3 × 2 grid ────────────────────────────────────────────────────
+    cols_top = st.columns(3, gap="medium")
+    cols_bot = st.columns(3, gap="medium")
+    all_cols = cols_top + cols_bot
+
+    for i, tile in enumerate(tiles):
+        with all_cols[i]:
+            has_data     = tile["metric"] is not None
+            rc           = _rating_color(tile["rating"]) if has_data else C["border"]
+            dot          = (
+                f'<span style="display:inline-block;width:7px;height:7px;border-radius:50%;'
+                f'background:{rc};margin-right:5px;vertical-align:middle"></span>'
+            )
+
+            metric_html  = (
+                f'<div style="font-size:22px;font-weight:800;color:{C["text"]};'
+                f'margin:10px 0 2px;letter-spacing:-0.5px">{tile["metric"]}</div>'
+                if has_data else
+                f'<div style="font-size:12px;color:{C["muted"]};margin:10px 0 2px;'
+                f'font-style:italic">Noch kein Test vorhanden</div>'
+            )
+            rating_html  = (
+                f'<div style="font-size:11px;color:{rc};font-weight:600;margin-bottom:6px">'
+                f'{dot}{tile["rating"]}</div>'
+                if has_data and tile["rating"] else
+                f'<div style="font-size:11px;color:{C["muted"]};margin-bottom:6px">—</div>'
+            )
+
+            st.markdown(
+                f'<div style="background:{C["surface"]};border:1px solid {C["border"]};'
+                f'border-top:3px solid {rc};border-radius:12px;padding:16px 18px 10px;'
+                f'margin-bottom:2px;min-height:140px">'
+                f'<div style="display:flex;align-items:center;gap:9px">'
+                f'<span style="font-size:24px;line-height:1">{tile["icon"]}</span>'
+                f'<div>'
+                f'<div style="font-size:15px;font-weight:700;color:{C["text"]}">{tile["name"]}</div>'
+                f'<div style="font-size:10px;color:{C["muted"]};letter-spacing:0.5px">'
+                f'{tile["desc"].upper()}</div>'
+                f'</div></div>'
+                f'{metric_html}'
+                f'{rating_html}'
+                f'<div style="font-size:10px;color:{C["muted"]}">🗓 {_fmt_date(tile["date"])}</div>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+            if st.button(
+                "Test starten →",
+                key=f"tile_btn_{i}",
+                use_container_width=True,
+            ):
+                st.session_state["_nav_sub_diagnostik_goto"] = tile["sub"]
+                st.rerun()
+
+        # small vertical gap between rows
+        if i == 2:
+            st.write("")
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # NAVIGATION  (7-section structure)
 # ══════════════════════════════════════════════════════════════════════════════
 
@@ -3113,6 +3299,7 @@ _SUB_SPIELER = {
     "📐 Anthropometrie":    page_anthropometrie,
 }
 _SUB_DIAGNOSTIK = {
+    "🏠 Übersicht":         page_diagnostik_overview,
     "📝 FMS":               page_fms,
     "📏 Y-Balance":         page_ybalance,
     "⚡ Sprint":             page_sprint,
@@ -3186,6 +3373,8 @@ with st.sidebar:
     # Must be applied before the widget is instantiated to avoid StreamlitAPIException
     if "_nav_goto" in st.session_state:
         st.session_state["nav_section"] = st.session_state.pop("_nav_goto")
+    if "_nav_sub_diagnostik_goto" in st.session_state:
+        st.session_state["nav_sub_diagnostik"] = st.session_state.pop("_nav_sub_diagnostik_goto")
 
     # ── Main navigation ───────────────────────────────────────────────────────
     section = st.radio(
