@@ -4280,12 +4280,13 @@ def page_diagnostik_overview() -> None:
         return
 
     # ── Last results ──────────────────────────────────────────────────────────
-    fms_d  = fms_letzter(sid)
-    yb_d   = y_balance_letzter(sid)
-    spr_d  = sprint_letzter(sid)
-    sprg_d = sprung_letzter(sid)
-    agil_d = agilitaet_letzter(sid)
-    aus_d  = ausdauer_letzter(sid)
+    fms_d   = fms_letzter(sid)
+    yb_d    = y_balance_letzter(sid)
+    spr_d   = sprint_letzter(sid)
+    sprg_d  = sprung_letzter(sid)
+    agil_d  = agilitaet_letzter(sid)
+    aus_d   = ausdauer_letzter(sid)
+    kraft_d = kraft_letzter(sid)
 
     def _rating_color(rating: str | None) -> str:
         if not rating:
@@ -4385,10 +4386,27 @@ def page_diagnostik_overview() -> None:
             "rating": aus_d.get("bewertung") if aus_d else None,
             "date":   aus_d.get("datum")     if aus_d else None,
         },
+        {
+            "icon": "💪", "name": "Kraftdiagnostik",
+            "desc": "Bankdrücken 1RM & Rumpfkraft",
+            "sub":  "💪 Kraft",
+            "metric": (
+                f"1RM: {kraft_d.get('direktes_1rm') or kraft_d.get('geschaetztes_1rm'):.1f} kg"
+                if kraft_d and (kraft_d.get("direktes_1rm") or kraft_d.get("geschaetztes_1rm"))
+                else ("Rumpf: %.0f s" % kraft_d["rumpf_gesamt_sekunden"]
+                      if kraft_d and kraft_d.get("rumpf_gesamt_sekunden") else None)
+            ),
+            "rating": (
+                ("Rel. Kraft: %.2f ×KGW" % (kraft_d.get("relative_kraft_direkt") or kraft_d.get("relative_kraft_geschaetzt")))
+                if kraft_d and (kraft_d.get("relative_kraft_direkt") or kraft_d.get("relative_kraft_geschaetzt"))
+                else None
+            ),
+            "date": kraft_d.get("datum") if kraft_d else None,
+        },
     ]
 
-    # ── Render 3 × 2 grid ────────────────────────────────────────────────────
-    cols_top = st.columns(3, gap="medium")
+    # ── Render grid: Zeile 1 = 4 Kacheln, Zeile 2 = 3 Kacheln ───────────────
+    cols_top = st.columns(4, gap="medium")
     cols_bot = st.columns(3, gap="medium")
     all_cols = cols_top + cols_bot
 
@@ -4441,7 +4459,7 @@ def page_diagnostik_overview() -> None:
                 st.rerun()
 
         # small vertical gap between rows
-        if i == 2:
+        if i == 3:
             st.write("")
 
 
