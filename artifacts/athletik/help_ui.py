@@ -8,6 +8,7 @@ Wiederverwendbare UI-Komponenten für Testanleitungen.
     field_info_col(col, test_id, field_id)    — ℹ️-Popover-Button in einer Spalte
 """
 from __future__ import annotations
+import base64
 import os
 import streamlit as st
 from test_help import TEST_HELP, SICHERHEITSHINWEIS_ALLGEMEIN, COMPLIANCE_HINWEIS
@@ -15,6 +16,20 @@ from field_eval import badge_html as _badge_html, alter_zu_altersgruppe as _alte
 from database import checkliste_custom_laden
 
 _BASE = os.path.dirname(os.path.abspath(__file__))
+
+
+def _svg_as_img(path: str) -> str:
+    """Liest eine SVG-Datei und gibt einen fertigen <img>-Tag als HTML zurück.
+
+    Durch Base64-Kodierung umgeht das Bild den Streamlit-HTML-Sanitizer,
+    der komplexe SVG-Elemente wie <defs> und <marker> entfernt.
+    """
+    with open(path, "rb") as fh:
+        b64 = base64.b64encode(fh.read()).decode("ascii")
+    return (
+        f'<img src="data:image/svg+xml;base64,{b64}" '
+        'style="width:100%;max-width:620px;display:block;margin:0 auto">'
+    )
 
 
 def sicherheitshinweis_box() -> None:
@@ -37,8 +52,7 @@ def show_test_info(test_id: str) -> None:
         if bild:
             bild_abs = os.path.join(_BASE, bild)
             if os.path.exists(bild_abs):
-                with open(bild_abs, encoding="utf-8") as fh:
-                    st.markdown(fh.read(), unsafe_allow_html=True)
+                st.markdown(_svg_as_img(bild_abs), unsafe_allow_html=True)
                 st.caption(f"Abbildung: {info['name']} — Testaufbau")
 
         # ── Inhalt zweispaltig ────────────────────────────────────────────────
@@ -166,8 +180,7 @@ def field_info_col(col, test_id: str, field_id: str) -> None:
         if bild:
             bild_abs = os.path.join(_BASE, bild)
             if os.path.exists(bild_abs):
-                with open(bild_abs, encoding="utf-8") as fh:
-                    st.markdown(fh.read(), unsafe_allow_html=True)
+                st.markdown(_svg_as_img(bild_abs), unsafe_allow_html=True)
                 st.markdown("")
         if feld.get("kurzhilfe"):
             st.info(feld["kurzhilfe"])
