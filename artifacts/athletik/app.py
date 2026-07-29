@@ -1134,7 +1134,7 @@ def page_spieler_profil():
                      key="profil_goto_vergleich",
                      use_container_width=True):
             st.session_state["vergl_preset_pid"] = sid
-            st.session_state["nav_section"] = "⚖️  Vergleich"
+            st.session_state["_nav_goto"] = "⚖️  Vergleich"
             st.rerun()
     with _btn_b:
         # Kein Cache — damit Änderungen (neue Tests, neue Verletzungen) sofort
@@ -1208,7 +1208,7 @@ def page_spieler_profil():
     with ak_btn_col:
         st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
         if st.button("📐 Messen →", key="profil_goto_anthro", use_container_width=True):
-            st.session_state["nav_section"]            = "👤  Spieler"
+            st.session_state["_nav_goto"]              = "👤  Spieler"
             st.session_state["_nav_sub_spieler_goto"]  = "📐 Anthropometrie"
             st.rerun()
 
