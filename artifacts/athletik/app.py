@@ -1845,7 +1845,7 @@ def page_agilitaet():
 
 # ──────────────────────────────────────────────────────────────────────────────
 
-ALTERSGRUPPEN_YO = ["U13/U14", "U15/U16", "U17/U18", "Senioren"]
+ALTERSGRUPPEN_YO = ["U8/U9", "U10/U11", "U12/U13", "U13/U14", "U15/U16", "U17/U18", "Senioren"]
 RPE_LABELS = {
     6: "6 — Gar keine Anstrengung", 7: "7", 8: "8", 9: "9",
     10: "10 — Sehr leicht", 11: "11 — Leicht", 12: "12",
@@ -1873,9 +1873,11 @@ def page_ausdauer():
 
     # Altersgruppe aus Alter ableiten
     def alter_zu_gruppe(a):
-        if a < 15: return "U13/U14"
-        if a < 17: return "U15/U16"
-        if a < 19: return "U17/U18"
+        if a < 10: return "U8/U9"
+        if a < 12: return "U10/U11"
+        if a < 14: return "U12/U13"
+        if a < 16: return "U15/U16"
+        if a < 18: return "U17/U18"
         return "Senioren"
 
     tab_neu, tab_verlauf = st.tabs(["📋 Neuer Test", "📈 Verlauf"])

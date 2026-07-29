@@ -66,12 +66,18 @@ def trainingsbereiche(vo2max: float) -> list[dict]:
 
 NORMWERTE_IR1 = {
     "Männlich": {
+        "U8/U9":   {"Gut": 200,  "Mittel": 120,  "Verbesserungsbedarf": 0},
+        "U10/U11": {"Gut": 480,  "Mittel": 280,  "Verbesserungsbedarf": 0},
+        "U12/U13": {"Gut": 800,  "Mittel": 480,  "Verbesserungsbedarf": 0},
         "U13/U14": {"Gut": 1200, "Mittel": 800,  "Verbesserungsbedarf": 0},
         "U15/U16": {"Gut": 1600, "Mittel": 1100, "Verbesserungsbedarf": 0},
         "U17/U18": {"Gut": 2000, "Mittel": 1400, "Verbesserungsbedarf": 0},
         "Senioren": {"Gut": 2400, "Mittel": 1600, "Verbesserungsbedarf": 0},
     },
     "Weiblich": {
+        "U8/U9":   {"Gut": 160,  "Mittel": 100,  "Verbesserungsbedarf": 0},
+        "U10/U11": {"Gut": 360,  "Mittel": 200,  "Verbesserungsbedarf": 0},
+        "U12/U13": {"Gut": 600,  "Mittel": 360,  "Verbesserungsbedarf": 0},
         "U13/U14": {"Gut": 800,  "Mittel": 500,  "Verbesserungsbedarf": 0},
         "U15/U16": {"Gut": 1000, "Mittel": 700,  "Verbesserungsbedarf": 0},
         "U17/U18": {"Gut": 1200, "Mittel": 800,  "Verbesserungsbedarf": 0},
