@@ -1,0 +1,189 @@
+Erweitere meine App um einen neuen Menüpunkt **„Testprotokoll drucken“**.
+
+## Ziel
+
+Ich möchte alle Athletiktests zunächst auf Papier durchführen und die Ergebnisse anschließend manuell in die App übertragen.
+
+Das PDF dient ausschließlich als Erfassungsprotokoll und darf keine automatische Auswertung oder Bewertung enthalten.
+
+## Auswahlmöglichkeiten
+
+Vor dem Erstellen des PDFs soll ich auswählen können:
+
+### Tests
+
+Ich kann auswählen:
+
+* einzelne Tests
+* mehrere Tests
+* alle Tests
+
+Unterstützt werden müssen alle bereits in meiner App vorhandenen Testbereiche, insbesondere:
+
+### Anthropometrie
+
+* Körpergröße
+* Körpergewicht
+* Sitzhöhe
+* Beinlänge
+* Armspannweite
+* BMI (optional)
+* weitere vorhandene anthropometrische Messungen
+
+### FMS
+
+* Deep Squat
+* Hurdle Step links
+* Hurdle Step rechts
+* Inline Lunge links
+* Inline Lunge rechts
+* Shoulder Mobility links
+* Shoulder Mobility rechts
+* Active Straight Leg Raise links
+* Active Straight Leg Raise rechts
+* Trunk Stability Push-Up
+* Rotary Stability links
+* Rotary Stability rechts
+
+### Y-Balance
+
+* Anterior
+* Posteromedial
+* Posterolateral
+
+mit jeweils:
+
+* rechter Versuch 1–3
+* linker Versuch 1–3
+* Bestwert rechts
+* Bestwert links
+
+### Sprinttests
+
+Alle vorhandenen Sprinttests, z. B.
+
+* 5 m
+* 10 m
+* 20 m
+* 30 m
+
+mit Zeitfeldern.
+
+### Sprungtests
+
+Alle vorhandenen Sprungtests, z. B.
+
+* Countermovement Jump
+* Squat Jump
+* Drop Jump
+* Standweitsprung
+* Einbeinsprung rechts
+* Einbeinsprung links
+
+mit mehreren Versuchen und Bestwert.
+
+### Agility / Richtungswechsel
+
+Alle vorhandenen Tests, z. B.
+
+* 505
+* T-Test
+* Illinois
+* 5-10-5 Shuttle
+
+### Krafttests
+
+Alle bereits vorhandenen Krafttests.
+
+### Ausdauertests
+
+Alle bereits vorhandenen Ausdauertests, z. B.
+
+* Yo-Yo-Test
+* weitere vorhandene Tests
+
+## Zwei Druckvarianten
+
+### 1. Leeres Testprotokoll
+
+Ohne Spieler.
+
+Mit freien Feldern für:
+
+* Name
+* Mannschaft
+* Datum
+* Trainer
+* Bemerkungen
+
+Alle Testergebnisse werden später handschriftlich eingetragen.
+
+### 2. Testprotokoll mit Spielern
+
+Spieler aus der Datenbank auswählen.
+
+Automatisch übernehmen:
+
+* Name
+* Spieler-ID
+* Geburtsdatum
+* Mannschaft
+* Position
+* Spielbein
+* weitere vorhandene Profildaten
+
+Für jeden Spieler eine eigene Seite oder einen eigenen Abschnitt erstellen.
+
+## Aufbau
+
+Jeder Test erhält:
+
+* Testname
+* kurze Beschreibung
+* Messwert
+* Einheit
+* Versuch 1
+* Versuch 2
+* Versuch 3
+* Bestwert
+* Rechts
+* Links (falls erforderlich)
+* Feld für Trainerbeobachtungen
+* Feld für Bemerkungen
+* Checkbox „Test nicht durchgeführt“
+
+## Layout
+
+Das PDF soll:
+
+* übersichtlich
+* professionell
+* druckerfreundlich
+* DIN A4
+* schwarz-weiß geeignet
+
+sein.
+
+Bei mehreren Spielern automatisch mehrere Seiten erzeugen.
+
+## Vorschau
+
+Vor dem PDF:
+
+* ausgewählte Spieler anzeigen
+* ausgewählte Tests anzeigen
+* Anzahl der Seiten schätzen
+* Vorschau anzeigen
+
+## Wichtige Regeln
+
+* Bestehende PDF-Berichte nicht verändern.
+* Neue Funktion separat implementieren.
+* Bereits vorhandene Testdefinitionen verwenden.
+* Keine Tests doppelt anlegen.
+* Keine vorhandenen Daten überschreiben.
+* Keine Auswertung durchführen.
+* Keine Ampelbewertung anzeigen.
+* Das PDF dient ausschließlich als Papier-Testbogen für die spätere Eingabe in die App.
+
+Analysiere zuerst den aktuellen Projektstand und verwende ausschließlich die Tests, die bereits in meiner App vorhanden sind.

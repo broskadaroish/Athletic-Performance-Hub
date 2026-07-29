@@ -40,6 +40,9 @@ from database import (
     checkliste_custom_laden, checkliste_custom_speichern,
     beobachtung_speichern,
 )
+from testprotokoll_pdf import (
+    generate_testprotokoll, TEST_NAMEN, TEST_REIHENFOLGE,
+)
 from safety_texts import (
     ZWECKBESTIMMUNG_VERSION,
     ZWECKBESTIMMUNG_TITEL,
@@ -4042,6 +4045,115 @@ def page_diagnostik_overview() -> None:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+# TESTPROTOKOLL DRUCKEN
+# ══════════════════════════════════════════════════════════════════════════════
+
+def page_testprotokoll():
+    st.markdown(
+        section_header("🖨️ Testprotokoll drucken",
+                       "Leere Druckbogen fuer die papierbasierte Erfassung — keine Auswertung"),
+        unsafe_allow_html=True,
+    )
+
+    alle_spieler = spieler_laden()
+
+    # ── Schritt 1: Variante ────────────────────────────────────────────────────
+    st.markdown("### Schritt 1 — Variante")
+    variante = st.radio(
+        "Druckvariante",
+        ["📄 Leeres Protokoll (ohne Spieler)", "👤 Protokoll mit Spieler(n)"],
+        horizontal=True,
+        label_visibility="collapsed",
+        key="proto_variante",
+    )
+    leer = variante.startswith("📄")
+
+    # ── Schritt 2: Tests auswählen ─────────────────────────────────────────────
+    st.markdown("### Schritt 2 — Tests auswählen")
+    col_all, col_none = st.columns([2, 8])
+    if col_all.button("Alle auswählen", key="proto_all"):
+        for tid in TEST_REIHENFOLGE:
+            st.session_state[f"proto_test_{tid}"] = True
+    if col_none.button("Alle abwählen", key="proto_none"):
+        for tid in TEST_REIHENFOLGE:
+            st.session_state[f"proto_test_{tid}"] = False
+
+    cols = st.columns(4)
+    selected_tests = []
+    for i, tid in enumerate(TEST_REIHENFOLGE):
+        checked = cols[i % 4].checkbox(
+            TEST_NAMEN[tid],
+            value=st.session_state.get(f"proto_test_{tid}", True),
+            key=f"proto_test_{tid}",
+        )
+        if checked:
+            selected_tests.append(tid)
+
+    # ── Schritt 3: Spieler (nur bei "mit Spieler") ────────────────────────────
+    selected_spieler = []
+    if not leer:
+        st.markdown("### Schritt 3 — Spieler auswählen")
+        if not alle_spieler:
+            st.warning("Keine Spieler in der Datenbank. Bitte zuerst Spieler anlegen.")
+        else:
+            opts = {p["name"]: p for p in alle_spieler}
+            auswahl = st.multiselect(
+                "Spieler (Mehrfachauswahl möglich)",
+                list(opts.keys()),
+                key="proto_spieler_sel",
+            )
+            selected_spieler = [opts[n] for n in auswahl]
+
+    # ── Vorschau ───────────────────────────────────────────────────────────────
+    st.markdown("---")
+    st.markdown("### Vorschau")
+    if not selected_tests:
+        st.warning("Bitte mindestens einen Test auswählen.")
+        return
+
+    n_spieler = max(len(selected_spieler), 1)
+    n_seiten   = n_spieler  # vereinfachte Schätzung: 1-3 Seiten pro Spieler
+
+    info_cols = st.columns(3)
+    info_cols[0].metric("Ausgewählte Tests", len(selected_tests))
+    info_cols[1].metric("Spieler / Bögen", n_spieler)
+    info_cols[2].metric("Geschätzte Seiten", f"ca. {n_seiten}–{n_seiten * 3}")
+
+    st.markdown("**Ausgewählte Tests:**")
+    st.markdown("  ".join([f"`{TEST_NAMEN[t]}`" for t in selected_tests]))
+
+    if not leer and selected_spieler:
+        st.markdown("**Spieler:**")
+        st.markdown("  ".join([f"`{p['name']}`" for p in selected_spieler]))
+
+    if leer and not selected_spieler:
+        st.info("📄 Leeres Protokoll — Spielerdaten werden handschriftlich eingetragen.")
+    elif not leer and not selected_spieler:
+        st.warning("Bitte mindestens einen Spieler auswählen, oder zur Variante 'Leeres Protokoll' wechseln.")
+        return
+
+    # ── PDF generieren ─────────────────────────────────────────────────────────
+    st.markdown("---")
+    if st.button("📥 Testprotokoll PDF erstellen", use_container_width=True, key="proto_gen"):
+        with st.spinner("PDF wird erstellt …"):
+            pdf_bytes = generate_testprotokoll(
+                test_ids=selected_tests,
+                spieler_liste=selected_spieler if not leer else None,
+                variante="leer" if leer else "spieler",
+            )
+        dateiname = "testprotokoll_leer.pdf" if leer else "testprotokoll_spieler.pdf"
+        st.download_button(
+            label="⬇️ PDF herunterladen",
+            data=pdf_bytes,
+            file_name=dateiname,
+            mime="application/pdf",
+            use_container_width=True,
+            key="proto_dl",
+        )
+        st.success(f"✅ PDF erstellt — {len(selected_tests)} Test(s), {n_spieler} Bogen/Bögen.")
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # NAVIGATION  (7-section structure)
 # ══════════════════════════════════════════════════════════════════════════════
 
@@ -4073,6 +4185,7 @@ _MAIN_SECTIONS = [
     "📈  Entwicklung",
     "⚖️  Vergleich",
     "👥  Mannschaft",
+    "🖨️  Protokoll",
     "📄  Anleitungen",
     "⚙️  Einstellungen",
 ]
@@ -4187,6 +4300,8 @@ elif section == "⚖️  Vergleich":
     page_spieler_vergleich()
 elif section == "👥  Mannschaft":
     page_dashboard()
+elif section == "🖨️  Protokoll":
+    page_testprotokoll()
 elif section == "📄  Anleitungen":
     page_export_pdf()
 elif section == "⚙️  Einstellungen":
