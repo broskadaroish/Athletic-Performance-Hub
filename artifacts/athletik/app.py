@@ -1541,6 +1541,14 @@ def page_sprint():
                 for d in res.defizite:
                     st.markdown(f"- {d}")
 
+        # F-04: Plausibilitätsprüfung Sprint-Zeiten
+        if b5 and b10 and b10 < b5:
+            st.warning("⚠️ Plausibilitätsprüfung: Die 10-m-Zeit ist kleiner als die 5-m-Zeit — bitte Eingaben prüfen.")
+        if b10 and b20 and b20 < b10:
+            st.warning("⚠️ Plausibilitätsprüfung: Die 20-m-Zeit ist kleiner als die 10-m-Zeit — bitte Eingaben prüfen.")
+        if b20 and b30 and b30 < b20:
+            st.warning("⚠️ Plausibilitätsprüfung: Die 30-m-Zeit ist kleiner als die 20-m-Zeit — bitte Eingaben prüfen.")
+
         if st.button("💾 Test speichern", use_container_width=True, key="sprint_save"):
             if not any([b5, b10, b20, b30]):
                 st.error("Bitte mindestens eine Distanz eingeben.")
@@ -2035,11 +2043,20 @@ def page_startseite():
             dates.append(str(row["datum"]))
     letzter_test = max(dates) if dates else None
 
+    # F-07: Hinweis wenn noch keine Testdaten vorhanden
+    hat_tests = any([fms, y, sprint, sprung, agil, aus])
+    if not hat_tests:
+        st.info("ℹ️ Noch nicht genug Testdaten für einen vollständigen Athletik-Score. Führe mindestens einen Test durch.")
+
     k1, k2, k3, k4 = st.columns(4)
     with k1:
-        st.markdown(kpi_card("Athletik Score",
-                             f'{ascore}<span style="font-size:16px;font-weight:400;color:{C["muted"]}">/100</span>',
-                             color=score_color), unsafe_allow_html=True)
+        score_display = (
+            f'{ascore}<span style="font-size:16px;font-weight:400;color:{C["muted"]}">/100</span>'
+            if hat_tests else
+            f'<span style="font-size:20px;color:{C["muted"]}">—</span>'
+        )
+        st.markdown(kpi_card("Athletik Score", score_display, color=score_color if hat_tests else C["muted"]),
+                    unsafe_allow_html=True)
     with k2:
         st.markdown(kpi_card("Athletik-Status",
                              f'{risk_icons[level]} {risk_labels[level]}',
@@ -2333,7 +2350,8 @@ def page_einstellungen():
         st.markdown("### Datenbank")
         db_path = "athletik.db"
         import os
-        db_size = os.path.getsize(db_path) / 1024 if os.path.exists(db_path) else 0
+        import os as _os
+        db_size = _os.path.getsize(db_path) / 1024 if _os.path.exists(db_path) else 0
         st.metric("Datenbankgröße", f"{db_size:.1f} KB")
         st.info("💡 Erstelle regelmäßig Sicherungen der Datei `athletik.db`.")
 

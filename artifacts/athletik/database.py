@@ -248,14 +248,18 @@ def _migrate_spieler_columns():
 # ─── Hilfsfunktionen ───────────────────────────────────────────────────────
 
 def berechne_alter(geburtsdatum_str: str) -> int | None:
-    """Berechnet das aktuelle Alter aus einem Datumsstring (TT.MM.JJJJ oder JJJJ-MM-TT)."""
+    """Berechnet das aktuelle Alter aus einem Datumsstring (TT.MM.JJJJ oder JJJJ-MM-TT).
+    Gibt None zurück bei ungültigem Format, leerem Wert oder Geburtsdatum in der Zukunft."""
     if not geburtsdatum_str:
         return None
     for fmt in ("%d.%m.%Y", "%Y-%m-%d"):
         try:
             geb = datetime.strptime(geburtsdatum_str, fmt).date()
             heute = date.today()
-            return heute.year - geb.year - ((heute.month, heute.day) < (geb.month, geb.day))
+            if geb > heute:
+                return None
+            alter = heute.year - geb.year - ((heute.month, heute.day) < (geb.month, geb.day))
+            return alter
         except ValueError:
             continue
     return None
@@ -283,7 +287,14 @@ def spieler_speichern(vorname, nachname, geburtsdatum, geschlecht,
                       spielbein, leistungsniveau, mannschaft, trainingsstatus):
     name = f"{vorname} {nachname}".strip()
     with get_conn() as conn:
-        conn.execute(
+        # F-05: Duplikatschutz — gleicher Name + Geburtsdatum
+        existing = conn.execute(
+            "SELECT id FROM spieler WHERE LOWER(name)=LOWER(?) AND geburtsdatum=?",
+            (name, geburtsdatum),
+        ).fetchone()
+        if existing:
+            return existing[0]
+        cursor = conn.execute(
             """INSERT INTO spieler
                (name, vorname, nachname, geburtsdatum, geschlecht,
                 position, hauptposition, nebenposition, altersklasse,
@@ -293,6 +304,7 @@ def spieler_speichern(vorname, nachname, geburtsdatum, geschlecht,
              hauptposition, hauptposition, nebenposition, altersklasse,
              spielbein, leistungsniveau, mannschaft, trainingsstatus),
         )
+        return cursor.lastrowid
 
 
 # ─── Einwilligung / Zweckbestimmung ────────────────────────────────────────

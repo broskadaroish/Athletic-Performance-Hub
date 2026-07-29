@@ -99,7 +99,7 @@ class SprintErgebnis:
 
     @property
     def defizite(self) -> list[str]:
-        """Gibt Diagnose-Bereiche zurück, die auf Trainingsbedarf hinweisen."""
+        """Gibt Trainingsbereiche zurück, die auf Optimierungsbedarf hinweisen."""
         d = []
         if self.beste_10m and self.beste_10m > REFERENZ_ZEITEN["10m"]["Leistungssport"] * (1.05 if self.geschlecht == "Männlich" else 1.05):
             d.append("Linearbeschleunigung (0–10 m)")

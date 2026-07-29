@@ -104,7 +104,7 @@ class SprungErgebnis:
 
     @property
     def defizite(self) -> list[str]:
-        """Gibt Diagnose-Bereiche zurück, die auf Trainingsbedarf hinweisen."""
+        """Gibt Trainingsbereiche zurück, die auf Optimierungsbedarf hinweisen."""
         d = []
         ref = NORMWERTE_CMJ_W if self.geschlecht == "Weiblich" else NORMWERTE_CMJ
         if self.cmj_beid and self.cmj_beid < ref["Leistungssport"] * 0.95:

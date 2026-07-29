@@ -81,7 +81,7 @@ class YBalanceResult:
             return "Sprunggelenk Mobilität + Knie-Vorschub verbessern"
         if self.composite_r < 89 or self.composite_l < 89:
             return "Allgemeine Balance + Beinachsenstabilität"
-        return "Keine Auffälligkeit — leistungsorientiertes Training möglich"
+        return "Keine relevante Asymmetrie erkannt"
 
     def as_db_tuple(self):
         return (
