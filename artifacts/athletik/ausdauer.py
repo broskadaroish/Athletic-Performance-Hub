@@ -116,7 +116,9 @@ class AusdauerErgebnis:
             return None
         if self.test_typ == "IR1":
             return vo2max_schaetzen_ir1(self.distanz_m)
-        return vo2max_schaetzen_ir2(self.distanz_m)
+        # IR2: Bangsbo-Formel gilt ausschließlich für IR1 — keine automatische
+        # VO₂max-Schätzung für IR2 (andere Intensitätsstufen, anderer Koeffizient).
+        return None
 
     @property
     def bewertung(self) -> str:

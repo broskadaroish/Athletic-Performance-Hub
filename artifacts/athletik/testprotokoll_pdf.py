@@ -125,9 +125,15 @@ TEST_DEFS = {
             {"label": "RPE (1-10)",   "einheit": "1-10",             "typ": "single"},
         ],
     },
+    "kraft": {
+        "name": "Kraftdiagnostik",
+        "icon": "K",
+        "beschreibung": "Bankdruecken 1RM (direkt oder Epley-Schaetzung) und Rumpfkraftausdauer (Haltezeiten in Sekunden).",
+        "felder": [],  # Spezielles Rendering — siehe _add_test_section
+    },
 }
 
-TEST_REIHENFOLGE = ["anthropometrie", "fms", "y_balance", "sprint", "sprung", "agilitaet", "ausdauer"]
+TEST_REIHENFOLGE = ["anthropometrie", "fms", "y_balance", "sprint", "sprung", "agilitaet", "ausdauer", "kraft"]
 TEST_NAMEN = {k: v["name"] for k, v in TEST_DEFS.items()}
 
 
@@ -389,6 +395,58 @@ def _add_test_section(pdf: TestprotokollPDF, test_id: str):
         pdf._table_header(attempt_cols)
         for f in td["felder"]:
             pdf._table_row(f["label"], f.get("einheit", ""), f["typ"])
+
+    elif test_id == "kraft":
+        # ── A: Bankdrücken 1RM ──────────────────────────────────────────────────
+        pdf._beschreibung("A) Bankdruecken 1RM  |  Methode: Direkt / Epley-Schaetzung ankreuzen")
+        pdf._checkbox_row("Methode: Direkter 1RM-Test (Sicherung durch 2 Trainer erforderlich)")
+        pdf._checkbox_row("Methode: Submaximaltest mit Epley-Schaetzung (empfohlen)")
+        pdf.ln(1)
+        bd_cols = [
+            ("Messung", pdf.W_LABEL),
+            ("Einheit", pdf.W_UNIT),
+            ("Versuch 1", pdf.W_V),
+            ("Versuch 2", pdf.W_V),
+            ("Versuch 3", pdf.W_V),
+            ("Bestwert",  pdf.W_BEST),
+        ]
+        pdf._table_header(bd_cols)
+        pdf._table_row("Testgewicht Bankdruecken", "kg", "attempts")
+        pdf._table_row("Wiederholungen (2-10 WH)", "WH", "single")
+        pdf._table_row("Direktes 1RM", "kg", "single")
+        pdf._table_row("Geschaetztes 1RM (Epley)", "kg", "single")
+        pdf._table_row("Relative Kraft  (1RM / Koerpergew.)", "xKGW", "single")
+        pdf.ln(3)
+
+        # ── B: Rumpfkraftausdauer ──────────────────────────────────────────────
+        pdf._beschreibung("B) Rumpfkraftausdauer — Haltezeiten in Sekunden")
+        rumpf_cols = [
+            ("Uebung / Variante", pdf.W_LABEL + pdf.W_UNIT),
+            ("Versuch 1 (s)", pdf.W_V),
+            ("Versuch 2 (s)", pdf.W_V),
+            ("Bestwert (s)", pdf.W_V + pdf.W_BEST),
+        ]
+        pdf._table_header(rumpf_cols)
+        rh = 8
+        for lbl in ["Ventral (Plank) beidbeinig", "Lateral rechts", "Lateral links", "Dorsal"]:
+            pdf.set_font("Helvetica", "", 8)
+            pdf.set_fill_color(*pdf.WHITE)
+            pdf.set_draw_color(*pdf.GR_MID)
+            pdf.set_line_width(0.2)
+            pdf.cell(pdf.W_LABEL + pdf.W_UNIT, rh, f"  {_s(lbl)}", border="LTB")
+            pdf.cell(pdf.W_V,              rh, "", border="TLB")
+            pdf.cell(pdf.W_V,              rh, "", border="TLB")
+            pdf.cell(pdf.W_V + pdf.W_BEST, rh, "", border="TRB")
+            pdf.ln()
+        # Summenzeile
+        pdf.set_font("Helvetica", "B", 8)
+        pdf.set_fill_color(*pdf.GR_PALE)
+        pdf.cell(pdf.W_LABEL + pdf.W_UNIT, rh, "  Rumpf-Gesamtzeit", border=1, fill=True)
+        pdf.cell(pdf.W_V,              rh, "", border=1, fill=True)
+        pdf.cell(pdf.W_V,              rh, "", border=1, fill=True)
+        pdf.cell(pdf.W_V + pdf.W_BEST, rh, "", border=1, fill=True)
+        pdf.ln()
+        pdf.set_fill_color(*pdf.WHITE)
 
     # Trainerbeobachtungen
     pdf._maybe_page_break(30)

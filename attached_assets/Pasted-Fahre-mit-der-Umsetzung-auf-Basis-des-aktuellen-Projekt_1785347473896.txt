@@ -1,0 +1,274 @@
+Fahre mit der Umsetzung auf Basis des aktuellen Projektstands fort.
+
+Der vorherige Workflow ist abgestürzt. Wiederhole keine bereits erfolgreich abgeschlossenen Änderungen und setze keine Dateien zurück.
+
+Das ursprüngliche Plan-Dokument muss nicht erneut hochgeladen werden. Die noch unklaren Phasen bedeuten:
+
+## Phase 3 – Doppelte Testergebnisse verhindern
+
+Prüfe und vervollständige folgende Punkte:
+
+* Mehrfaches Klicken auf „Speichern“ darf keine doppelten Testergebnisse erzeugen.
+* Prüfe alle Testbereiche:
+
+  * Anthropometrie
+  * FMS
+  * Y-Balance
+  * Sprint
+  * Sprung
+  * Agilität
+  * Ausdauer
+  * Kraft
+  * Trainerbeobachtungen
+* Existiert bereits ein Test für denselben Spieler, dieselbe Testart und dasselbe Datum, soll nicht automatisch ein zweiter Datensatz erstellt werden.
+* Biete stattdessen an:
+
+  * bestehenden Test bearbeiten
+  * neuen separaten Test anlegen
+  * abbrechen
+* Ein neuer separater Test muss über eine Session-ID oder Uhrzeit eindeutig unterscheidbar sein.
+* Prüfe, ob ein Testsession-Konzept bereits teilweise vorhanden ist.
+* Ergänze es nur, wenn es sicher und ohne Beschädigung bestehender Daten möglich ist.
+* Alte Datensätze müssen weiterhin funktionieren.
+
+## Noch offene bekannte Phasen
+
+Bearbeite jetzt alle noch offenen Punkte:
+
+### Phase 4 – restliche Plausibilitätsprüfungen
+
+Prüfe zusätzlich:
+
+* Körpergröße
+* Körpergewicht
+* Sitzhöhe
+* Beinlänge
+* Armspannweite
+* Sprintzeit 0 Sekunden
+* Agilitätszeit 0 Sekunden
+* negative Werte
+* unplausible Sprintreihenfolge
+* zukünftiges Testdatum
+
+Bei Kindern und Jugendlichen keine Erwachsenen-BMI-Ampel verwenden.
+
+### Phase 8 – Trainerbeobachtungen im Ergebnis-PDF
+
+Ergänze im Spieler-Ergebnisbericht einen Abschnitt „Trainerbeobachtungen“.
+
+* Nur anzeigen, wenn Beobachtungen vorhanden sind.
+* Positive Beobachtungen, Auffälligkeiten und Freitext darstellen.
+* Seitenangaben und Ausprägungen übernehmen.
+* Texte sauber umbrechen.
+* Keine medizinischen Diagnosen.
+* Bestehendes PDF-Layout nicht beschädigen.
+
+### Phase 11 – Kraftdiagnostik vollständig integrieren
+
+Integriere Kraftdiagnostik in:
+
+* Spielerprofil
+* Diagnostikübersicht
+* Entwicklung
+* Spielervergleich
+* Mannschaftsansicht
+* Datenexport
+* Ergebnis-PDF
+
+Zeige mindestens:
+
+* Bankdrücken direktes 1RM
+* Bankdrücken geschätztes 1RM
+* relative Bankdrückkraft
+* ventrale Rumpfkraftausdauer
+* laterale Rumpfkraftausdauer rechts
+* laterale Rumpfkraftausdauer links
+* dorsale Rumpfkraftausdauer
+* interner Rumpfausdauer-Gesamtwert
+* Seitendifferenz
+* Testdatum
+* Entwicklung gegenüber dem vorherigen identischen Test
+
+Direkte und geschätzte 1RM-Werte müssen eindeutig getrennt dargestellt werden.
+
+Die Kraftdiagnostik darf noch nicht automatisch in den Athletik-Gesamtscore einfließen.
+
+### Phase 12 – Kraft im Testprotokoll-PDF
+
+Erweitere `testprotokoll_pdf.py`.
+
+Auswählbar müssen sein:
+
+* Bankdrücken direktes 1RM
+* Bankdrücken geschätztes 1RM
+* ventrale Rumpfkraftausdauer
+* laterale Rumpfkraftausdauer rechts
+* laterale Rumpfkraftausdauer links
+* dorsale Rumpfkraftausdauer
+* komplette Rumpfausdauer-Testbatterie
+
+Das Papierprotokoll soll passende Felder enthalten für:
+
+* Spieler
+* Datum
+* Körpergewicht
+* Testvariante
+* Gewicht
+* Wiederholungen
+* Versuch 1 bis 3
+* gültig oder ungültig
+* direkte oder geschätzte 1RM-Leistung
+* relative Kraft
+* vier Rumpfzeiten
+* Gesamtzeit
+* Seitendifferenz
+* Trainerbeobachtungen
+* Abbruchgrund
+* Beschwerden
+* Bemerkungen
+
+Die Felder im Papierbogen müssen zu den späteren Eingabefeldern der App passen.
+
+### Phase 15 – Ausdauerformel absichern
+
+Die Formel:
+
+```text
+VO₂max = Distanz × 0,0084 + 36,4
+```
+
+darf nur beim passenden Yo-Yo-IR1-Test verwendet werden.
+
+* Testtyp eindeutig prüfen.
+* Bei anderen Ausdauertests keine automatische VO₂max-Berechnung mit dieser Formel.
+* Ergebnis deutlich als Schätzung kennzeichnen.
+* Rohdaten weiterhin anzeigen.
+
+### Phase 17 – Navigation verbessern
+
+Ergänze sinnvolle Direktsprünge:
+
+* Spielerprofil → Test starten
+* Spielerprofil → Testprotokoll drucken
+* Spielerprofil → letzte Ergebnisse
+* Ergebnis → Spielerprofil
+* Ergebnis → Entwicklung
+* Ergebnis → PDF
+* Testsession → offene Tests
+
+Bestehende Navigation nicht vollständig neu schreiben.
+
+### Phase 18 – Vollständige Tests
+
+Verwende eine separate Testdatenbank und keine echten Spielerdaten.
+
+Teste mindestens:
+
+1. App startet.
+2. Spieler anlegen.
+3. Anthropometrie speichern.
+4. FMS speichern.
+5. Y-Balance speichern und erneut laden.
+6. Sprint mit drei Versuchen.
+7. Sprintzeit 0 ablehnen.
+8. Sprung mit drei Versuchen.
+9. Agilität mit drei Versuchen.
+10. Ausdauer speichern.
+11. Trainerbeobachtung zweimal speichern.
+12. Prüfen, dass keine Duplikate entstehen.
+13. Krafttest Bankdrücken direkt speichern.
+14. Bankdrücken geschätzt speichern.
+15. Epley-Berechnung prüfen.
+16. Relative Kraft prüfen.
+17. Vier Rumpftests speichern.
+18. Gesamtwert korrekt addieren.
+19. Bei fehlendem Rumpftest keinen Gesamtwert berechnen.
+20. Seitendifferenz berechnen.
+21. Kraftverlauf anzeigen.
+22. Kraft im Spielerprofil anzeigen.
+23. Kraft im Vergleich anzeigen.
+24. Ergebnis-PDF erstellen.
+25. Testprotokoll-PDF mit Kraft erstellen.
+26. Spieler mit Kraftdaten löschen.
+27. App neu starten und Daten erneut laden.
+28. Mehrfaches Klicken auf Speichern prüfen.
+29. Bestehende alte Datensätze öffnen.
+30. Datenbank-Reset nur in der Testkopie prüfen.
+
+## Phase 19 – Abschlussbericht
+
+Erstelle nach der Umsetzung einen vollständigen Abschlussbericht mit:
+
+### A. Abgeschlossene Phasen
+
+Liste jede Phase mit Status auf:
+
+* vollständig abgeschlossen
+* teilweise abgeschlossen
+* noch offen
+* nicht erforderlich
+
+### B. Geänderte Dateien
+
+Für jede Datei:
+
+* was geändert wurde
+* warum es geändert wurde
+* ob die Änderung getestet wurde
+
+### C. Datenbankänderungen
+
+Nenne:
+
+* neue Tabellen
+* neue Spalten
+* neue Indizes
+* Migrationen
+* Fremdschlüssel
+* bereinigte Duplikate
+* verwaiste Datensätze
+
+### D. Kraftdiagnostik
+
+Beschreibe:
+
+* Bankdrücken direkt
+* Bankdrücken geschätzt
+* Epley-Formel
+* relative Kraft
+* vier Rumpftests
+* Rumpfausdauer-Gesamtwert
+* Seitendifferenz
+* Beobachtungen
+* Spielerprofil
+* Verlauf
+* Vergleich
+* PDFs
+
+### E. Tests
+
+Liste jeden durchgeführten Test mit:
+
+* erfolgreich
+* fehlgeschlagen
+* nicht durchführbar
+* Begründung
+
+### F. Offene Fehler
+
+Nenne nur tatsächlich noch offene Fehler.
+
+## Wichtige Regeln
+
+* Keine bereits funktionierenden Änderungen erneut schreiben.
+* Keine Backups zurückspielen.
+* Kein Git-Reset, Checkout, Revert oder Rollback.
+* Vor dem Fortfahren erneut eine aktuelle Datenbanksicherung erstellen.
+* Bestehende Spielerdaten nicht verändern.
+* Keine erfundenen Normwerte ergänzen.
+* Der Rumpfausdauer-Gesamtwert bleibt eine interne Summenkennzahl.
+* Rumpfhaltezeiten als Kraftausdauer bezeichnen.
+* Kraftdiagnostik vorerst nicht in den Athletik-Gesamtscore aufnehmen.
+* Nicht nur prüfen, ob Code vorhanden ist, sondern alle neuen Funktionen tatsächlich testen.
+
+Setze jetzt die offenen Phasen fort und beende den Auftrag mit Phase 19.

@@ -33,6 +33,8 @@ from database import (
     agilitaet_history,
     ausdauer_letzter,
     ausdauer_history,
+    kraft_letzter,
+    kraft_history,
     berechne_alter,
 )
 from analytics import risiko_score, risiko_label, athletik_score
@@ -334,6 +336,7 @@ def spieler_excel_bytes(spieler_id: int) -> bytes:
     sprung = sprung_letzter(spieler_id)
     agil   = agilitaet_letzter(spieler_id)
     aus    = ausdauer_letzter(spieler_id)
+    kraft  = kraft_letzter(spieler_id)
     verlet = verletzungen_laden(spieler_id)
     alter  = berechne_alter(sp.get("geburtsdatum")) or "—"
     rs     = risiko_score(fms, y, verlet)
@@ -348,6 +351,7 @@ def spieler_excel_bytes(spieler_id: int) -> bytes:
     h_sprung = sprung_history(spieler_id)
     h_agil   = agilitaet_history(spieler_id)
     h_aus    = ausdauer_history(spieler_id)
+    h_kraft  = kraft_history(spieler_id)
 
     wb = openpyxl.Workbook()
 
@@ -473,6 +477,19 @@ def spieler_excel_bytes(spieler_id: int) -> bytes:
             ("Distanz (m)","distanz_m"),("VO2max","vo2max"),
             ("HF max (bpm)","hf_max"),("Bewertung","bewertung"),
         ]),
+        ("KRAFTDIAGNOSTIK (LETZTER WERT)", kraft, [
+            ("Datum","datum"),
+            ("Direktes 1RM (kg)","direktes_1rm"),
+            ("Epley 1RM (kg)","geschaetztes_1rm"),
+            ("Relative Kraft (direkt)","relative_kraft_direkt"),
+            ("Relative Kraft (Epley)","relative_kraft_geschaetzt"),
+            ("Ventral / Plank (s)","ventral_sekunden"),
+            ("Lateral rechts (s)","lateral_rechts_sekunden"),
+            ("Lateral links (s)","lateral_links_sekunden"),
+            ("Dorsal (s)","dorsal_sekunden"),
+            ("Rumpf-Gesamtzeit (s)","rumpf_gesamt_sekunden"),
+            ("Lat. Asymmetrie (%)","lateral_asymmetrie_prozent"),
+        ]),
     ]:
         if row_data:
             r += 1
@@ -565,6 +582,16 @@ def spieler_excel_bytes(spieler_id: int) -> bytes:
         h_aus,
         ["datum","test_typ","distanz_m","vo2max","hf_max","bewertung"],
         hdr_bg="2D1D3D",
+    )
+    r2 = _mod_history(ws2, r2, "KRAFTDIAGNOSTIK",
+        ["Datum","1RM dir. kg","1RM Epley kg","Rel. K. dir.","Rel. K. Epley",
+         "Ventral s","Lat R s","Lat L s","Dorsal s","Rumpf ges. s","Lat. Asym %"],
+        h_kraft,
+        ["datum","direktes_1rm","geschaetztes_1rm","relative_kraft_direkt",
+         "relative_kraft_geschaetzt","ventral_sekunden","lateral_rechts_sekunden",
+         "lateral_links_sekunden","dorsal_sekunden","rumpf_gesamt_sekunden",
+         "lateral_asymmetrie_prozent"],
+        hdr_bg="3D1D1D",
     )
 
     for col in range(1, 9):

@@ -40,6 +40,7 @@ from database import (
     db_komplett_zuruecksetzen,
     checkliste_custom_laden, checkliste_custom_speichern,
     beobachtung_speichern,
+    beobachtungen_alle_fuer_spieler,
 )
 from testprotokoll_pdf import (
     generate_testprotokoll, TEST_NAMEN, TEST_REIHENFOLGE,
@@ -778,6 +779,34 @@ def page_spieler():
 
 # ──────────────────────────────────────────────────────────────────────────────
 
+def _duplikat_check(key_pfx: str, datum_str: str, hist: list) -> str:
+    """Prüft ob für diesen Spieler bereits ein Test am gleichen Datum existiert.
+
+    Returns: 'speichern' | 'zweiter' | 'abbrechen'
+    """
+    if not hist:
+        return "speichern"
+    existing = any(
+        (r.get("datum") if isinstance(r, dict) else (r[0] if r else "")) == datum_str
+        for r in hist
+    )
+    if not existing:
+        return "speichern"
+    wahl = st.radio(
+        "⚠️ Für diesen Spieler existiert bereits ein Test an diesem Datum.",
+        ["Bestehenden Test überschreiben", "Als zweiten Test speichern", "Abbrechen"],
+        key=f"_dup_{key_pfx}",
+        horizontal=True,
+    )
+    if "zweiten" in wahl:
+        return "zweiter"
+    if "Abbrechen" in wahl:
+        return "abbrechen"
+    return "speichern"
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+
 def page_fms():
     st.markdown("# 📝 FMS — Functional Movement Screen")
     st.markdown("Sieben Bewegungsmuster werden bilateral getestet. Maximalpunktzahl: **21 Punkte**.")
@@ -850,9 +879,15 @@ def page_fms():
     # ── Trainerbeobachtungen ──────────────────────────────────────────────────
     st.markdown("---")
     obs_fms = render_observation_selector("fms", spieler_id, date.today().strftime("%d.%m.%Y"), "fms", standalone=False)
+    _dup_fms = _duplikat_check("fms", str(date.today()), fms_history(spieler_id))
 
     if st.button("✅ FMS speichern & auswerten", use_container_width=False):
-        import json as _j
+        if _dup_fms == "abbrechen":
+            st.info("Kein Test gespeichert."); st.stop()
+        import json as _j, datetime as _dtm
+        _datum_fms = str(date.today())
+        if _dup_fms == "zweiter":
+            _datum_fms += " (" + _dtm.datetime.now().strftime("%H:%M") + ")"
         result = FMSResult(
             deep_squat=deep, hurdle_l=hurdle_l, hurdle_r=hurdle_r,
             inline_l=inline_l, inline_r=inline_r,
@@ -861,14 +896,14 @@ def page_fms():
             rotary_l=rotary_l, rotary_r=rotary_r,
         )
         fms_speichern(
-            spieler_id, str(date.today()),
+            spieler_id, _datum_fms,
             deep, hurdle_l, hurdle_r, inline_l, inline_r,
             shoulder_l, shoulder_r, aslr_l, aslr_r, trunk, rotary_l, rotary_r,
             result.score, result.bewertung, result.asymmetrie, result.schwerpunkt,
         )
         if obs_fms["beob_ids"] or obs_fms.get("freitext"):
             beobachtung_speichern(
-                spieler_id, "fms", date.today().strftime("%d.%m.%Y"),
+                spieler_id, "fms", _datum_fms,
                 _j.dumps(obs_fms["beob_ids"], ensure_ascii=False),
                 obs_fms["seite"], obs_fms["auspraegung"],
                 obs_fms["freitext"], obs_fms["text_generiert"],
@@ -950,9 +985,15 @@ def page_ybalance():
     # ── Trainerbeobachtungen ──────────────────────────────────────────────────
     st.markdown("---")
     obs_yb = render_observation_selector("y_balance", spieler_id, date.today().strftime("%d.%m.%Y"), "yb", standalone=False)
+    _dup_yb = _duplikat_check("yb", str(date.today()), y_balance_history(spieler_id))
 
     if st.button("💾 Y-Balance berechnen & speichern"):
-        import json as _j
+        if _dup_yb == "abbrechen":
+            st.info("Kein Test gespeichert."); st.stop()
+        import json as _j, datetime as _dtm
+        _datum_yb = str(date.today())
+        if _dup_yb == "zweiter":
+            _datum_yb += " (" + _dtm.datetime.now().strftime("%H:%M") + ")"
         res = YBalanceResult(
             anterior_r=ant_r, anterior_l=ant_l,
             posteromedial_r=pm_r, posteromedial_l=pm_l,
@@ -960,7 +1001,7 @@ def page_ybalance():
             beinlaenge_r=bein_r, beinlaenge_l=bein_l,
         )
         y_balance_speichern(
-            spieler_id, str(date.today()),
+            spieler_id, _datum_yb,
             ant_r, ant_l, pm_r, pm_l, pl_r, pl_l,
             res.diff_anterior, res.diff_posteromedial, res.diff_posterolateral,
             res.composite_r, res.composite_l,
@@ -968,7 +1009,7 @@ def page_ybalance():
         )
         if obs_yb["beob_ids"] or obs_yb.get("freitext"):
             beobachtung_speichern(
-                spieler_id, "y_balance", date.today().strftime("%d.%m.%Y"),
+                spieler_id, "y_balance", _datum_yb,
                 _j.dumps(obs_yb["beob_ids"], ensure_ascii=False),
                 obs_yb["seite"], obs_yb["auspraegung"],
                 obs_yb["freitext"], obs_yb["text_generiert"],
@@ -1036,6 +1077,7 @@ def page_spieler_profil():
     sprung = sprung_letzter(sid)
     agil   = agilitaet_letzter(sid)
     aus    = ausdauer_letzter(sid)
+    kraft  = kraft_letzter(sid)
     anthro      = anthropometrie_letzter(sid)
     anthro_hist = anthropometrie_history(sid)
     verlet = verletzungen_laden(sid)
@@ -1314,11 +1356,15 @@ def page_spieler_profil():
         aus_row     = ausdauer_letzter(sid)
         verletzungen_pdf = verletzungen_laden(sid)
 
+        kraft_pdf = kraft_letzter(sid)
+        beob_pdf  = beobachtungen_alle_fuer_spieler(sid)
+
         # Anzahl vorhandener Module anzeigen
         module = {
             "FMS": fms, "Y-Balance": y, "Anthropometrie": anthro_row,
             "Sprint": sprint_row, "Sprung": sprung_row,
             "Agilität": agil_row, "Ausdauer": aus_row,
+            "Kraftdiagnostik": kraft_pdf,
         }
         vorh = [k for k, v in module.items() if v]
         fehlt = [k for k, v in module.items() if not v]
@@ -1337,11 +1383,13 @@ def page_spieler_profil():
                 sprung_row=sprung_row,
                 agil_row=agil_row,
                 aus_row=aus_row,
+                kraft_row=kraft_pdf,
                 verletzungen=verletzungen_pdf,
                 athletik_score=ascore,
                 risiko_label=label,
                 defizite=defizite,
                 plan_rows=plan_rows,
+                beobachtungen=beob_pdf,
             )
             st.session_state["pdf_bytes_cache"] = pdf_bytes
             st.download_button(
@@ -1556,9 +1604,10 @@ def page_fortschritt():
     sprung_hist = sprung_history(sid)
     agil_hist   = agilitaet_history(sid)
     aus_hist    = ausdauer_history(sid)
+    kraft_hist  = kraft_history(sid)
     anthro_hist = anthropometrie_history(sid)
 
-    tab_radar, tab_fms, tab_yb, tab_sprint, tab_sprung, tab_agil, tab_aus, tab_anthro = st.tabs([
+    tab_radar, tab_fms, tab_yb, tab_sprint, tab_sprung, tab_agil, tab_aus, tab_kraft, tab_anthro = st.tabs([
         "🕸️ Athletisches Profil",
         "FMS Verlauf",
         "Y-Balance Verlauf",
@@ -1566,6 +1615,7 @@ def page_fortschritt():
         "Sprung Verlauf",
         "Agilität Verlauf",
         "Ausdauer Verlauf",
+        "💪 Kraft Verlauf",
         "Anthropometrie Verlauf",
     ])
 
@@ -1780,6 +1830,64 @@ def page_fortschritt():
             st.dataframe(df, use_container_width=True, hide_index=True)
 
     # ── Anthropometrie ────────────────────────────────────────────────────────
+    with tab_kraft:
+        if not kraft_hist:
+            st.info("Noch keine Krafttests vorhanden.")
+        else:
+            df_k = pd.DataFrame(kraft_hist)
+            # expected columns from kraft_history: datum, direktes_1rm, geschaetztes_1rm,
+            # relative_kraft_direkt, relative_kraft_geschaetzt, ventral_sekunden,
+            # lateral_rechts_sekunden, lateral_links_sekunden, dorsal_sekunden,
+            # rumpf_gesamt_sekunden, lateral_asymmetrie_prozent, koerpergewicht
+            figk1 = go.Figure()
+            if "direktes_1rm" in df_k.columns:
+                figk1.add_trace(go.Scatter(
+                    x=df_k["datum"], y=df_k["direktes_1rm"],
+                    mode="lines+markers", name="Direktes 1RM (kg)",
+                    line=dict(color="#3fb950", width=3), marker=dict(size=9),
+                ))
+            if "geschaetztes_1rm" in df_k.columns:
+                figk1.add_trace(go.Scatter(
+                    x=df_k["datum"], y=df_k["geschaetztes_1rm"],
+                    mode="lines+markers", name="Epley 1RM (kg)",
+                    line=dict(color="#3b82f6", width=2, dash="dash"), marker=dict(size=7),
+                ))
+            figk1.update_layout(**_pl(height=300, title="Bankdrücken 1RM Verlauf (kg)",
+                                     yaxis=dict(title="kg")))
+            st.plotly_chart(figk1, use_container_width=True)
+
+            if "rumpf_gesamt_sekunden" in df_k.columns:
+                figk2 = go.Figure()
+                for col_k, lbl_k, clr_k in [
+                    ("ventral_sekunden",          "Ventral (Plank)", "#3fb950"),
+                    ("lateral_rechts_sekunden",   "Lateral rechts",  "#3b82f6"),
+                    ("lateral_links_sekunden",    "Lateral links",   "#d29922"),
+                    ("dorsal_sekunden",            "Dorsal",          "#9e6a03"),
+                    ("rumpf_gesamt_sekunden",      "Gesamtzeit",      "#f85149"),
+                ]:
+                    if col_k in df_k.columns:
+                        figk2.add_trace(go.Scatter(
+                            x=df_k["datum"], y=df_k[col_k],
+                            mode="lines+markers", name=lbl_k,
+                            line=dict(color=clr_k, width=2), marker=dict(size=7),
+                        ))
+                figk2.update_layout(**_pl(height=300, title="Rumpfkraftausdauer Verlauf (s)",
+                                         yaxis=dict(title="Sekunden")))
+                st.plotly_chart(figk2, use_container_width=True)
+
+            st.dataframe(df_k.rename(columns={
+                "datum": "Datum", "direktes_1rm": "1RM direkt (kg)",
+                "geschaetztes_1rm": "1RM Epley (kg)",
+                "relative_kraft_direkt": "Rel. K. direkt",
+                "relative_kraft_geschaetzt": "Rel. K. Epley",
+                "ventral_sekunden": "Ventral (s)",
+                "lateral_rechts_sekunden": "Lat. R (s)",
+                "lateral_links_sekunden": "Lat. L (s)",
+                "dorsal_sekunden": "Dorsal (s)",
+                "rumpf_gesamt_sekunden": "Rumpf ges. (s)",
+                "lateral_asymmetrie_prozent": "Lat. Asym (%)",
+            }), use_container_width=True, hide_index=True)
+
     with tab_anthro:
         if not anthro_hist:
             st.info("Noch keine Anthropometrie-Messungen vorhanden.")
@@ -1886,6 +1994,24 @@ def page_anthropometrie():
         phv     = phv_offset_berechnen(alter, groesse, gewicht, sitzhoehe, beinlaenge, geschl) if alter else None
         reife   = reifestatus_text(phv)
         farbe   = reifestatus_farbe(phv)
+
+        # ── Plausibilitätsprüfungen ──────────────────────────────────────────
+        if datum > date.today():
+            st.warning("⚠️ Datum liegt in der Zukunft — bitte prüfen.")
+        if sitzhoehe > 0 and sitzhoehe >= groesse:
+            st.warning("⚠️ Sitzhöhe ≥ Körpergröße — Eingaben prüfen.")
+        if beinlaenge > 0 and beinlaenge >= groesse:
+            st.warning("⚠️ Beinlänge ≥ Körpergröße — Eingaben prüfen.")
+        if armspann > 0 and (armspann < groesse * 0.75 or armspann > groesse * 1.25):
+            st.warning(
+                f"⚠️ Armspannweite ({armspann:.0f} cm) liegt deutlich außerhalb der "
+                f"Körpergröße ({groesse:.0f} cm) — Eingaben prüfen."
+            )
+        if alter and alter < 18 and bmi > 0:
+            st.info(
+                "ℹ️ Hinweis: BMI-Normbereiche für Erwachsene (≥ 18 J.) gelten nicht direkt "
+                "für Kinder und Jugendliche — bitte altersabhängige Normkurven verwenden."
+            )
 
         # Vorschau
         st.markdown("---")
@@ -2051,6 +2177,8 @@ def page_sprint():
 
     with tab_neu:
         datum = st.date_input("Testdatum", value=date.today(), key="sprint_datum")
+        if datum > date.today():
+            st.warning("⚠️ Testdatum liegt in der Zukunft — bitte prüfen.")
         st.markdown("#### Zeiten eingeben (Sekunden) — Versuch 1 / 2 / 3")
         st.caption("Nicht gemessene Distanzen auf 0.00 lassen. ℹ️-Button neben jeder Distanz für Eingabehilfe.")
 
@@ -2089,15 +2217,21 @@ def page_sprint():
         # ── Trainerbeobachtungen ────────────────────────────────────────────
         st.markdown("---")
         obs_sprint = render_observation_selector("sprint", sid, datum.strftime("%d.%m.%Y"), "sprint", standalone=False)
+        _dup_spr = _duplikat_check("sprint", datum.strftime("%d.%m.%Y"), hist)
 
         if st.button("💾 Test speichern", use_container_width=True, key="sprint_save"):
+            if _dup_spr == "abbrechen":
+                st.info("Kein Test gespeichert."); st.stop()
             if not any([b5, b10, b20, b30]):
                 st.error("Bitte mindestens eine Distanz eingeben.")
             else:
                 from sprint import beschleunigungsindex, bewertung_sprint
-                import json
+                import json, datetime as _dtm
+                _datum_spr = datum.strftime("%d.%m.%Y")
+                if _dup_spr == "zweiter":
+                    _datum_spr += " (" + _dtm.datetime.now().strftime("%H:%M") + ")"
                 sprint_speichern(
-                    sid, datum.strftime("%d.%m.%Y"),
+                    sid, _datum_spr,
                     v1_5, v2_5, v3_5, b5 or 0,
                     v1_10, v2_10, v3_10, b10 or 0,
                     v1_20, v2_20, v3_20, b20 or 0,
@@ -2108,7 +2242,7 @@ def page_sprint():
                 )
                 if obs_sprint["beob_ids"] or obs_sprint.get("freitext"):
                     beobachtung_speichern(
-                        sid, "sprint", datum.strftime("%d.%m.%Y"),
+                        sid, "sprint", _datum_spr,
                         json.dumps(obs_sprint["beob_ids"], ensure_ascii=False),
                         obs_sprint["seite"], obs_sprint["auspraegung"],
                         obs_sprint["freitext"], obs_sprint["text_generiert"],
@@ -2229,14 +2363,20 @@ def page_sprung():
 
         st.markdown("---")
         obs_sprung = render_observation_selector("sprung", sid, datum.strftime("%d.%m.%Y"), "sprung", standalone=False)
+        _dup_spg = _duplikat_check("sprung", datum.strftime("%d.%m.%Y"), hist)
 
         if st.button("💾 Test speichern", use_container_width=True, key="sprung_save"):
+            if _dup_spg == "abbrechen":
+                st.info("Kein Test gespeichert."); st.stop()
             if not any([b_cmj_beid, b_cmj_r, b_cmj_l, b_squat, b_dj_h, b_swj]):
                 st.error("Bitte mindestens einen Testwert eingeben.")
             else:
-                import json
+                import json, datetime as _dtm
+                _datum_spg = datum.strftime("%d.%m.%Y")
+                if _dup_spg == "zweiter":
+                    _datum_spg += " (" + _dtm.datetime.now().strftime("%H:%M") + ")"
                 sprung_speichern(
-                    sid, datum.strftime("%d.%m.%Y"),
+                    sid, _datum_spg,
                     b_cmj_beid or 0, b_cmj_r or 0, b_cmj_l or 0,
                     res.cmj_asymmetrie or 0,
                     b_squat or 0, b_dj_h or 0, b_dj_kz or 0,
@@ -2253,7 +2393,7 @@ def page_sprung():
                 )
                 if obs_sprung["beob_ids"] or obs_sprung.get("freitext"):
                     beobachtung_speichern(
-                        sid, "sprung", datum.strftime("%d.%m.%Y"),
+                        sid, "sprung", _datum_spg,
                         json.dumps(obs_sprung["beob_ids"], ensure_ascii=False),
                         obs_sprung["seite"], obs_sprung["auspraegung"],
                         obs_sprung["freitext"], obs_sprung["text_generiert"],
@@ -2410,14 +2550,20 @@ def page_agilitaet():
 
         st.markdown("---")
         obs_agil = render_observation_selector("agilitaet", sid, datum.strftime("%d.%m.%Y"), "agil", standalone=False)
+        _dup_agil = _duplikat_check("agil", datum.strftime("%d.%m.%Y"), hist)
 
         if st.button("💾 Test speichern", use_container_width=True, key="agil_save"):
+            if _dup_agil == "abbrechen":
+                st.info("Kein Test gespeichert."); st.stop()
             if not any([t505_r, t505_l, t5_10_5, t_test, illinois]):
                 st.error("Bitte mindestens einen Testwert eingeben.")
             else:
-                import json
+                import json, datetime as _dtm
+                _datum_agil = datum.strftime("%d.%m.%Y")
+                if _dup_agil == "zweiter":
+                    _datum_agil += " (" + _dtm.datetime.now().strftime("%H:%M") + ")"
                 agilitaet_speichern(
-                    sid, datum.strftime("%d.%m.%Y"),
+                    sid, _datum_agil,
                     t505_r or 0, t505_l or 0, res.asym_505 or 0,
                     t5_10_5 or 0, t_test or 0, illinois or 0,
                     res.bew_505, res.bew_t_test, res.bew_illinois,
@@ -2430,7 +2576,7 @@ def page_agilitaet():
                 )
                 if obs_agil["beob_ids"] or obs_agil.get("freitext"):
                     beobachtung_speichern(
-                        sid, "agilitaet", datum.strftime("%d.%m.%Y"),
+                        sid, "agilitaet", _datum_agil,
                         json.dumps(obs_agil["beob_ids"], ensure_ascii=False),
                         obs_agil["seite"], obs_agil["auspraegung"],
                         obs_agil["freitext"], obs_agil["text_generiert"],
@@ -2572,6 +2718,11 @@ def page_ausdauer():
             )
 
             st.caption("⚠️ Die VO₂max-Schätzung basiert auf der Bangsbo-Formel und ist kein Laborwert.")
+            if test_typ == "IR2":
+                st.info(
+                    "ℹ️ Für den Yo-Yo IR2 wird keine automatische VO₂max-Schätzung berechnet — "
+                    "der Bangsbo-Koeffizient gilt ausschließlich für den IR1."
+                )
 
             if res.vo2max:
                 st.markdown("#### Trainingsbereiche")
@@ -2586,14 +2737,20 @@ def page_ausdauer():
         # ── Trainerbeobachtungen ────────────────────────────────────────────
         st.markdown("---")
         obs_aus = render_observation_selector("ausdauer", sid, datum.strftime("%d.%m.%Y"), "aus", standalone=False)
+        _dup_aus = _duplikat_check("aus", datum.strftime("%d.%m.%Y"), hist)
 
         if st.button("💾 Test speichern", use_container_width=True, key="aus_save"):
+            if _dup_aus == "abbrechen":
+                st.info("Kein Test gespeichert."); st.stop()
             if distanz_m <= 0:
                 st.error("Bitte Distanz eingeben.")
             else:
-                import json
+                import json, datetime as _dtm
+                _datum_aus = datum.strftime("%d.%m.%Y")
+                if _dup_aus == "zweiter":
+                    _datum_aus += " (" + _dtm.datetime.now().strftime("%H:%M") + ")"
                 ausdauer_speichern(
-                    sid, datum.strftime("%d.%m.%Y"),
+                    sid, _datum_aus,
                     test_typ, distanz_m,
                     hf_max or 0, rpe_val,
                     res.vo2max or 0, res.bewertung,
@@ -2602,7 +2759,7 @@ def page_ausdauer():
                 )
                 if obs_aus["beob_ids"] or obs_aus.get("freitext"):
                     beobachtung_speichern(
-                        sid, "ausdauer", datum.strftime("%d.%m.%Y"),
+                        sid, "ausdauer", _datum_aus,
                         json.dumps(obs_aus["beob_ids"], ensure_ascii=False),
                         obs_aus["seite"], obs_aus["auspraegung"],
                         obs_aus["freitext"], obs_aus["text_generiert"],

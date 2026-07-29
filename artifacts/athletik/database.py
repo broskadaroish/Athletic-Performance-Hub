@@ -358,6 +358,23 @@ def beobachtung_history(spieler_id: int, test_id: str) -> list[dict]:
         ).fetchall())
 
 
+def beobachtungen_alle_fuer_spieler(spieler_id: int) -> list[dict]:
+    """Alle Trainerbeobachtungen für einen Spieler mit Inhalt (neueste zuerst).
+    Nur Einträge mit text_generiert oder freitext werden zurückgegeben."""
+    with get_conn() as conn:
+        return _rows(conn.execute(
+            """SELECT test_id, datum, text_generiert, freitext
+               FROM trainerbeobachtung
+               WHERE spieler_id=?
+                 AND (
+                     (text_generiert IS NOT NULL AND text_generiert != '')
+                     OR (freitext IS NOT NULL AND freitext != '')
+                 )
+               ORDER BY datum DESC""",
+            (spieler_id,),
+        ).fetchall())
+
+
 # ─── Trainer-Checkliste (custom) ──────────────────────────────────────────────
 
 def checkliste_custom_laden(test_id: str) -> str:

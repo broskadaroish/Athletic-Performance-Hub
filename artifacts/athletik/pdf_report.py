@@ -267,11 +267,13 @@ def generate_report(
     sprung_row=None,
     agil_row=None,
     aus_row=None,
+    kraft_row=None,
     verletzungen=None,
     athletik_score: int = 0,
     risiko_label: str = "-",
     defizite: list = None,
     plan_rows: list = None,
+    beobachtungen: list = None,
 ) -> bytes:
     """
     Vollstaendiger Athletik-Bericht fuer alle Testmodule.
@@ -345,6 +347,14 @@ def generate_report(
     if anthro_row and anthro_row.get("bmi"):
         pdf.metric_box("BMI", "%.1f" % anthro_row["bmi"],
                        ampel(anthro_row.get("bmi_kategorie", "")))
+
+    if kraft_row:
+        rm1 = kraft_row.get("direktes_1rm") or kraft_row.get("geschaetztes_1rm")
+        if rm1:
+            rel = kraft_row.get("relative_kraft_direkt") or kraft_row.get("relative_kraft_geschaetzt")
+            k_col = GREEN if (rel and rel >= 1.5) else YELLOW if (rel and rel >= 1.0) else GREY
+            lbl_k = "Bankdr. 1RM" if kraft_row.get("direktes_1rm") else "Bankdr. 1RM (Epley)"
+            pdf.metric_box(lbl_k, "%.1f kg" % rm1, k_col)
 
     pdf.ln(22)
     pdf.ampel_legend()
@@ -519,6 +529,54 @@ def generate_report(
         pdf.ln(2)
 
     # ════════════════════════════════════════════════════════════════════════════
+    # KRAFTDIAGNOSTIK
+    # ════════════════════════════════════════════════════════════════════════════
+    if kraft_row:
+        pdf.check_page_break(55)
+        pdf.section_title("KRAFTDIAGNOSTIK")
+        meth = "Direkt" if kraft_row.get("direktes_1rm") else "Epley-Schaetzung"
+        pdf.row2("Testdatum", kraft_row.get("datum", "-"), "Methode", meth)
+
+        rm1_d = kraft_row.get("direktes_1rm")
+        rm1_e = kraft_row.get("geschaetztes_1rm")
+        rel_d = kraft_row.get("relative_kraft_direkt")
+        rel_e = kraft_row.get("relative_kraft_geschaetzt")
+
+        if rm1_d:
+            col_rd = GREEN if (rel_d and rel_d >= 1.5) else YELLOW if (rel_d and rel_d >= 1.0) else RED
+            pdf.row2("Bankdruecken 1RM (direkt)", "%.1f kg" % rm1_d,
+                     "Relative Kraft", "%.2f xKGW" % rel_d if rel_d else "-",
+                     color_r=col_rd)
+        if rm1_e and not rm1_d:
+            col_re = GREEN if (rel_e and rel_e >= 1.5) else YELLOW if (rel_e and rel_e >= 1.0) else RED
+            pdf.row2("Bankdruecken 1RM (Epley-Schaetzung)", "%.1f kg" % rm1_e,
+                     "Relative Kraft", "%.2f xKGW" % rel_e if rel_e else "-",
+                     color_r=col_re)
+
+        vent  = kraft_row.get("ventral_sekunden")
+        lat_r = kraft_row.get("lateral_rechts_sekunden")
+        lat_l = kraft_row.get("lateral_links_sekunden")
+        dors  = kraft_row.get("dorsal_sekunden")
+        rumpf = kraft_row.get("rumpf_gesamt_sekunden")
+        lat_asym = kraft_row.get("lateral_asymmetrie_prozent")
+
+        if any([vent, lat_r, lat_l, dors, rumpf]):
+            pdf.ln(1)
+            if vent:
+                pdf.row2("Ventral (Plank)", "%.0f s" % vent)
+            if lat_r or lat_l:
+                pdf.row2("Lateral rechts", "%.0f s" % lat_r if lat_r else "-",
+                         "Lateral links",  "%.0f s" % lat_l if lat_l else "-")
+            if dors:
+                pdf.row2("Dorsal", "%.0f s" % dors)
+            if rumpf:
+                pdf.kv("Rumpf-Gesamtzeit", "%.0f s" % rumpf)
+            if lat_asym:
+                col_la = RED if lat_asym > 15 else YELLOW if lat_asym > 10 else GREEN
+                pdf.kv_color("Laterale Asymmetrie", "%.1f %%" % lat_asym, col_la)
+        pdf.ln(2)
+
+    # ════════════════════════════════════════════════════════════════════════════
     # VERLETZUNGSHISTORIE
     # ════════════════════════════════════════════════════════════════════════════
     if verletzungen:
@@ -545,6 +603,45 @@ def generate_report(
             pdf.table_row(vals, widths, fill)
             fill = not fill
         pdf.ln(2)
+
+    # ════════════════════════════════════════════════════════════════════════════
+    # TRAINERBEOBACHTUNGEN
+    # ════════════════════════════════════════════════════════════════════════════
+    if beobachtungen:
+        beob_mit_inhalt = [
+            b for b in beobachtungen
+            if b.get("text_generiert") or b.get("freitext")
+        ]
+        if beob_mit_inhalt:
+            pdf.check_page_break(25 + min(len(beob_mit_inhalt), 10) * 12)
+            pdf.section_title("TRAINERBEOBACHTUNGEN")
+            pdf.disclaimer_box(_safe(
+                "Diese Eintraege wurden vom Trainer waehrend der Diagnostik erfasst. "
+                "Beobachtungen dienen der Trainingssteuerung — keine medizinische Diagnose."
+            ), border_color=(80, 100, 100))
+            _test_lbl = {
+                "fms": "FMS", "y_balance": "Y-Balance", "sprint": "Sprint",
+                "sprung": "Sprung", "agilitaet": "Agilitaet", "ausdauer": "Ausdauer",
+                "anthropometrie": "Anthropometrie", "kraft": "Kraftdiagnostik",
+            }
+            for b in beob_mit_inhalt[:12]:
+                lbl = _test_lbl.get(b.get("test_id", ""), b.get("test_id", "-"))
+                pdf.set_font("Helvetica", "B", 8)
+                pdf.set_text_color(*pdf.MID)
+                pdf.cell(0, 5, _safe("%s — %s:" % (lbl, b.get("datum", "-"))),
+                         new_x="LMARGIN", new_y="NEXT")
+                if b.get("text_generiert"):
+                    pdf.set_font("Helvetica", "", 8)
+                    pdf.set_text_color(*pdf.DARK)
+                    pdf.multi_cell(0, 5, "  " + _safe(str(b["text_generiert"])[:220]))
+                if b.get("freitext"):
+                    pdf.set_font("Helvetica", "I", 7.5)
+                    pdf.set_text_color(*pdf.MID)
+                    pdf.cell(0, 5, "  Notiz: " + _safe(str(b["freitext"])[:160]),
+                             new_x="LMARGIN", new_y="NEXT")
+                pdf.set_text_color(*pdf.DARK)
+                pdf.ln(1)
+            pdf.ln(2)
 
     # ════════════════════════════════════════════════════════════════════════════
     # DEFIZITE & TRAININGSEMPFEHLUNGEN
@@ -717,12 +814,13 @@ class _VergleichReport(AthletikReport):
 def generate_vergleich_pdf(
     sp1: dict, sp2: dict,
     sc1: int = 0, sc2: int = 0,
-    fms1=None,  fms2=None,
-    y1=None,    y2=None,
-    spr1=None,  spr2=None,
-    spg1=None,  spg2=None,
-    agil1=None, agil2=None,
-    aus1=None,  aus2=None,
+    fms1=None,   fms2=None,
+    y1=None,     y2=None,
+    spr1=None,   spr2=None,
+    spg1=None,   spg2=None,
+    agil1=None,  agil2=None,
+    aus1=None,   aus2=None,
+    kraft1=None, kraft2=None,
 ) -> bytes:
     """Vergleichs-PDF für zwei Spieler — Score-Banner + Testwerte-Tabelle."""
 
@@ -894,6 +992,44 @@ def generate_vergleich_pdf(
         pdf.compare_row("Testdatum",
                         (aus1 or {}).get("datum", "—"),
                         (aus2 or {}).get("datum", "—"))
+
+    # ── Kraftdiagnostik ───────────────────────────────────────────────────────
+    if kraft1 or kraft2:
+        pdf.compare_section("KRAFTDIAGNOSTIK")
+        def _rm1(r):
+            if not r: return "—"
+            v = r.get("direktes_1rm") or r.get("geschaetztes_1rm")
+            return "%.1f kg" % v if v else "—"
+        def _rm1_col(r):
+            if not r: return GREY
+            rel = r.get("relative_kraft_direkt") or r.get("relative_kraft_geschaetzt")
+            return (GREEN if rel >= 1.5 else YELLOW if rel >= 1.0 else RED) if rel else GREY
+        def _rel(r):
+            if not r: return "—"
+            rel = r.get("relative_kraft_direkt") or r.get("relative_kraft_geschaetzt")
+            return "%.2f xKGW" % rel if rel else "—"
+        pdf.compare_row("Bankdr. 1RM (direkt/Epley)",
+                        _rm1(kraft1), _rm1(kraft2),
+                        _rm1_col(kraft1), _rm1_col(kraft2))
+        pdf.compare_row("Relative Kraft", _rel(kraft1), _rel(kraft2))
+        def _s_k(r, f):
+            v = (r or {}).get(f)
+            return "%.0f s" % v if v else "—"
+        pdf.compare_row("Ventral (Plank)", _s_k(kraft1,"ventral_sekunden"), _s_k(kraft2,"ventral_sekunden"))
+        pdf.compare_row("Lateral rechts",  _s_k(kraft1,"lateral_rechts_sekunden"), _s_k(kraft2,"lateral_rechts_sekunden"))
+        pdf.compare_row("Lateral links",   _s_k(kraft1,"lateral_links_sekunden"),  _s_k(kraft2,"lateral_links_sekunden"))
+        pdf.compare_row("Dorsal",          _s_k(kraft1,"dorsal_sekunden"),          _s_k(kraft2,"dorsal_sekunden"))
+        def _asym_k(r):
+            a = (r or {}).get("lateral_asymmetrie_prozent")
+            return "%.1f %%" % a if a else "—"
+        def _asym_k_col(r):
+            a = (r or {}).get("lateral_asymmetrie_prozent")
+            return (RED if a > 15 else YELLOW if a > 10 else GREEN) if a else GREY
+        pdf.compare_row("Lat. Asymmetrie", _asym_k(kraft1), _asym_k(kraft2),
+                        _asym_k_col(kraft1), _asym_k_col(kraft2))
+        pdf.compare_row("Testdatum",
+                        (kraft1 or {}).get("datum", "—"),
+                        (kraft2 or {}).get("datum", "—"))
 
     pdf.ln(4)
     pdf.ampel_legend()
