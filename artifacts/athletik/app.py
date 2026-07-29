@@ -97,6 +97,42 @@ from pdf_report import generate_report
 from pdf_anleitung import generate_anleitung_pdf, ALL_TEST_IDS, TEST_LABELS
 from export import kader_excel_bytes
 
+
+# ─── Anleitung-Download-Button (wiederverwendbar auf jeder Testseite) ─────────
+
+@st.cache_data(show_spinner=False)
+def _generate_anleitung_cached(test_id: str, vereinsname: str, saison: str) -> bytes:
+    """Generiert ein Einzel-Test-PDF (gecacht nach test_id + Vereinsinfos)."""
+    return generate_anleitung_pdf(
+        [test_id],
+        mit_deckblatt=False,
+        vereinsname=vereinsname,
+        saison=saison,
+    )
+
+
+def _anleitung_download_button(test_id: str) -> None:
+    """Zeigt einen kleinen PDF-Download-Button für die Testanleitung dieser Seite."""
+    vn = st.session_state.get("cfg_vereinsname", "")
+    sn = st.session_state.get("cfg_saison", "")
+    try:
+        pdf_bytes = _generate_anleitung_cached(test_id, vn, sn)
+    except Exception:
+        return
+    test_name = TEST_LABELS.get(test_id, test_id)
+    fname = f"Anleitung_{test_name.replace(' ', '_')}.pdf"
+    _, btn_col = st.columns([5, 1])
+    with btn_col:
+        st.download_button(
+            label="📄 Anleitung",
+            data=pdf_bytes,
+            file_name=fname,
+            mime="application/pdf",
+            key=f"dl_anleitung_{test_id}",
+            use_container_width=True,
+            help=f"Testanleitung '{test_name}' als PDF herunterladen",
+        )
+
 # ─── Bootstrap ────────────────────────────────────────────────────────────────
 init_db()
 init_training_bibliothek()
@@ -740,6 +776,7 @@ def page_fms():
     sicherheitshinweis_box()
     show_trainer_checkliste("fms")
     show_test_info("fms")
+    _anleitung_download_button("fms")
 
     auswahl = _player_selector("fms")
     if not auswahl:
@@ -851,6 +888,7 @@ def page_ybalance():
     sicherheitshinweis_box()
     show_trainer_checkliste("y_balance")
     show_test_info("y_balance")
+    _anleitung_download_button("y_balance")
 
     auswahl = _player_selector("yb")
     if not auswahl:
@@ -1680,6 +1718,7 @@ def page_anthropometrie():
     sicherheitshinweis_box()
     show_trainer_checkliste("anthropometrie")
     show_test_info("anthropometrie")
+    _anleitung_download_button("anthropometrie")
 
     auswahl = _player_selector("anthro")
     if not auswahl:
@@ -1870,6 +1909,7 @@ def page_sprint():
     sicherheitshinweis_box()
     show_trainer_checkliste("sprint")
     show_test_info("sprint")
+    _anleitung_download_button("sprint")
 
     auswahl = _player_selector("sprint")
     if not auswahl:
@@ -1975,6 +2015,7 @@ def page_sprung():
     sicherheitshinweis_box()
     show_trainer_checkliste("jump")
     show_test_info("jump")
+    _anleitung_download_button("jump")
 
     auswahl = _player_selector("sprung")
     if not auswahl:
@@ -2138,6 +2179,7 @@ def page_agilitaet():
     sicherheitshinweis_box()
     show_trainer_checkliste("agility")
     show_test_info("agility")
+    _anleitung_download_button("agility")
 
     auswahl = _player_selector("agil")
     if not auswahl:
@@ -2273,6 +2315,7 @@ def page_ausdauer():
     sicherheitshinweis_box()
     show_trainer_checkliste("yoyo")
     show_test_info("yoyo")
+    _anleitung_download_button("yoyo")
 
     auswahl = _player_selector("aus")
     if not auswahl:
