@@ -1099,7 +1099,7 @@ def page_spieler_profil():
                 angularaxis=dict(color="#e6edf3", gridcolor="#30363d",
                                  tickfont=dict(size=10)),
             ),
-            **{k: v for k, v in PLOTLY_LAYOUT.items() if k not in ("xaxis", "yaxis")},
+            **{k: v for k, v in PLOTLY_LAYOUT.items() if k not in ("xaxis", "yaxis", "margin")},
             height=280, showlegend=False, margin=dict(l=40, r=40, t=20, b=20),
         )
         _, rc = st.columns([3, 2])
