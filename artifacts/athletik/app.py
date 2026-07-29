@@ -93,6 +93,7 @@ from analytics import (
 )
 from periodisierung import zyklus_erstellen, zyklus_laden
 from pdf_report import generate_report
+from pdf_anleitung import generate_anleitung_pdf, ALL_TEST_IDS, TEST_LABELS
 
 # ─── Bootstrap ────────────────────────────────────────────────────────────────
 init_db()
@@ -2490,6 +2491,138 @@ def page_einstellungen():
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+# PAGE: TESTANLEITUNGEN EXPORT
+# ══════════════════════════════════════════════════════════════════════════════
+
+def page_export_pdf():
+    """Testanleitungen als druckbares PDF exportieren."""
+    st.markdown(
+        section_header("📄 Testanleitungen exportieren",
+                       "Vollständige Coaching-Anleitungen als druckbares PDF"),
+        unsafe_allow_html=True,
+    )
+
+    st.markdown(
+        f"""
+        <div style="background:{C['surface']};border:1px solid {C['border']};
+                    border-radius:10px;padding:16px 20px;margin-bottom:18px">
+          <div style="font-size:13px;color:{C['text']};line-height:1.7">
+            Exportiere vollständige Testanleitungen für Coaches ohne App-Zugang.<br>
+            Das PDF enthält: <b>Ziel, Aufbau, Durchführung, Trainerhinweis,
+            Fehlerquellen, Sicherheitshinweise und Testskizzen</b>.
+          </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    # ── Testauswahl ──────────────────────────────────────────────────────────
+    st.markdown("### 📋 Tests auswählen")
+
+    col_auswahl, col_opt = st.columns([3, 1])
+
+    with col_opt:
+        alle_auswaehlen = st.checkbox("Alle Tests", value=True, key="pdf_alle")
+        mit_deckblatt   = st.checkbox("Deckblatt", value=True, key="pdf_deckblatt")
+
+    with col_auswahl:
+        if alle_auswaehlen:
+            selected_ids = ALL_TEST_IDS
+            # Show labels as info
+            muted_color = C["muted"]
+            st.markdown(
+                f"<div style='color:{muted_color};font-size:12px;padding:4px 0'>"
+                + " &nbsp;·&nbsp; ".join(TEST_LABELS[tid] for tid in ALL_TEST_IDS)
+                + "</div>",
+                unsafe_allow_html=True,
+            )
+        else:
+            options     = list(TEST_LABELS.values())
+            id_by_label = {v: k for k, v in TEST_LABELS.items()}
+            selected_labels = st.multiselect(
+                "Tests auswählen",
+                options,
+                default=options[:3],
+                key="pdf_test_select",
+                label_visibility="collapsed",
+            )
+            selected_ids = [id_by_label[lbl] for lbl in selected_labels]
+
+    # ── Vorschau der Inhalte ─────────────────────────────────────────────────
+    if selected_ids:
+        st.markdown("---")
+        st.markdown("### 📑 Enthaltene Abschnitte")
+
+        from test_help import TEST_HELP as _TH
+        cols = st.columns(min(len(selected_ids), 3))
+        for i, tid in enumerate(selected_ids):
+            data = _TH[tid]
+            with cols[i % len(cols)]:
+                st.markdown(
+                    f"""
+                    <div style="background:{C['surface']};border:1px solid {C['border']};
+                                border-radius:8px;padding:12px 14px;margin-bottom:10px">
+                      <div style="font-weight:700;font-size:12px;color:{C['accent']};
+                                  margin-bottom:4px">{data['name']}</div>
+                      <div style="font-size:11px;color:{C['muted']};line-height:1.5">
+                        {data['kurzbeschreibung'][:100]}…
+                      </div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+
+        st.markdown("---")
+
+        # ── Generieren ───────────────────────────────────────────────────────
+        st.markdown("### 📥 PDF generieren")
+        n_tests = len(selected_ids)
+        st.info(
+            f"**{n_tests} Test{'s' if n_tests != 1 else ''}** ausgewählt. "
+            "Das PDF wird direkt im Browser zum Download angeboten."
+        )
+
+        if st.button("⚙️ PDF generieren", type="primary", use_container_width=True,
+                     key="pdf_generate_btn"):
+            with st.spinner("PDF wird erstellt …"):
+                try:
+                    pdf_bytes = generate_anleitung_pdf(
+                        selected_ids,
+                        mit_deckblatt=mit_deckblatt,
+                    )
+                    st.session_state["_pdf_bytes"]    = pdf_bytes
+                    st.session_state["_pdf_ready"]    = True
+                    st.session_state["_pdf_test_ids"] = selected_ids
+                except Exception as exc:
+                    st.error(f"Fehler beim Erstellen des PDFs: {exc}")
+                    st.session_state["_pdf_ready"] = False
+
+        if st.session_state.get("_pdf_ready") and "_pdf_bytes" in st.session_state:
+            ids_in_file = st.session_state.get("_pdf_test_ids", selected_ids)
+            if set(ids_in_file) == set(selected_ids):
+                pdf_bytes = st.session_state["_pdf_bytes"]
+                n = len(ids_in_file)
+                if n == len(ALL_TEST_IDS):
+                    fname = "Testanleitungen_Komplett.pdf"
+                elif n == 1:
+                    fname = f"Testanleitung_{TEST_LABELS[ids_in_file[0]].replace(' ', '_')}.pdf"
+                else:
+                    fname = f"Testanleitungen_{n}_Tests.pdf"
+
+                st.success(f"✅ PDF fertig — {len(pdf_bytes) // 1024} KB")
+                st.download_button(
+                    label="📥 PDF herunterladen",
+                    data=pdf_bytes,
+                    file_name=fname,
+                    mime="application/pdf",
+                    use_container_width=True,
+                    key="pdf_dl_btn",
+                )
+    else:
+        st.warning("Bitte mindestens einen Test auswählen.")
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # NAVIGATION  (7-section structure)
 # ══════════════════════════════════════════════════════════════════════════════
 
@@ -2519,6 +2652,7 @@ _MAIN_SECTIONS = [
     "📅  Training",
     "📈  Entwicklung",
     "👥  Mannschaft",
+    "📄  Anleitungen",
     "⚙️  Einstellungen",
 ]
 
@@ -2626,6 +2760,8 @@ elif section == "📈  Entwicklung":
     page_fortschritt()
 elif section == "👥  Mannschaft":
     page_dashboard()
+elif section == "📄  Anleitungen":
+    page_export_pdf()
 elif section == "⚙️  Einstellungen":
     page_einstellungen()
     st.markdown(
