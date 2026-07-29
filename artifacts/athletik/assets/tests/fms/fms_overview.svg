@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 620 200"
+     style="width:100%;max-width:620px;border-radius:8px;display:block;margin:0 auto"
+     role="img" aria-label="FMS Übersicht: 7 Grundbewegungsmuster Deep Squat, Hurdle Step, Inline Lunge, Shoulder Mobility, Active Straight Leg Raise, Trunk Stability Push-up, Rotary Stability">
+  <rect width="620" height="200" rx="8" fill="#161b22"/>
+  <text x="310" y="22" text-anchor="middle" fill="#c9d1d9" font-family="system-ui,sans-serif" font-size="13" font-weight="600">Functional Movement Screen — 7 Grundmuster</text>
+
+  <!-- 7 boxes: 3 top row, 4 bottom row -->
+  <!-- Top row: 3 boxes -->
+  <!-- Box 1: Deep Squat -->
+  <rect x="20"  y="38" width="178" height="68" rx="6" fill="#21262d" stroke="#30363d" stroke-width="1"/>
+  <text x="109" y="58" text-anchor="middle" fill="#58a6ff" font-family="system-ui,sans-serif" font-size="12" font-weight="700">1 Deep Squat</text>
+  <text x="109" y="74" text-anchor="middle" fill="#8b949e" font-family="system-ui,sans-serif" font-size="10">Hüft- / Knie- / Sprunggelenk</text>
+  <text x="109" y="87" text-anchor="middle" fill="#8b949e" font-family="system-ui,sans-serif" font-size="10">Mobilität + Schulterflexion</text>
+  <text x="109" y="100" text-anchor="middle" fill="#c9d1d9" font-family="system-ui,sans-serif" font-size="11" font-weight="600">0 – 3 Punkte</text>
+
+  <!-- Box 2: Hurdle Step -->
+  <rect x="221" y="38" width="178" height="68" rx="6" fill="#21262d" stroke="#30363d" stroke-width="1"/>
+  <text x="310" y="58" text-anchor="middle" fill="#58a6ff" font-family="system-ui,sans-serif" font-size="12" font-weight="700">2 Hurdle Step</text>
+  <text x="310" y="74" text-anchor="middle" fill="#8b949e" font-family="system-ui,sans-serif" font-size="10">Einbeinige Standbein-Stabilität</text>
+  <text x="310" y="87" text-anchor="middle" fill="#8b949e" font-family="system-ui,sans-serif" font-size="10">Hüftmobilität bilateral</text>
+  <text x="310" y="100" text-anchor="middle" fill="#d29922" font-family="system-ui,sans-serif" font-size="11" font-weight="600">je Seite 0–3 (min. zählt)</text>
+
+  <!-- Box 3: Inline Lunge -->
+  <rect x="422" y="38" width="178" height="68" rx="6" fill="#21262d" stroke="#30363d" stroke-width="1"/>
+  <text x="511" y="58" text-anchor="middle" fill="#58a6ff" font-family="system-ui,sans-serif" font-size="12" font-weight="700">3 Inline Lunge</text>
+  <text x="511" y="74" text-anchor="middle" fill="#8b949e" font-family="system-ui,sans-serif" font-size="10">Hüftmobilität + Kniestabilität</text>
+  <text x="511" y="87" text-anchor="middle" fill="#8b949e" font-family="system-ui,sans-serif" font-size="10">Rumpfkontrolle im Ausfallschritt</text>
+  <text x="511" y="100" text-anchor="middle" fill="#d29922" font-family="system-ui,sans-serif" font-size="11" font-weight="600">je Seite 0–3 (min. zählt)</text>
+
+  <!-- Bottom row: 4 boxes -->
+  <!-- Box 4: Shoulder Mobility -->
+  <rect x="20"  y="120" width="130" height="68" rx="6" fill="#21262d" stroke="#30363d" stroke-width="1"/>
+  <text x="85"  y="138" text-anchor="middle" fill="#58a6ff" font-family="system-ui,sans-serif" font-size="11" font-weight="700">4 Shoulder</text>
+  <text x="85"  y="150" text-anchor="middle" fill="#58a6ff" font-family="system-ui,sans-serif" font-size="11" font-weight="700">Mobility</text>
+  <text x="85"  y="164" text-anchor="middle" fill="#8b949e" font-family="system-ui,sans-serif" font-size="9">Schulterrotation</text>
+  <text x="85"  y="181" text-anchor="middle" fill="#d29922" font-family="system-ui,sans-serif" font-size="10" font-weight="600">je Seite 0–3</text>
+
+  <!-- Box 5: ASLR -->
+  <rect x="163" y="120" width="130" height="68" rx="6" fill="#21262d" stroke="#30363d" stroke-width="1"/>
+  <text x="228" y="138" text-anchor="middle" fill="#58a6ff" font-family="system-ui,sans-serif" font-size="11" font-weight="700">5 ASLR</text>
+  <text x="228" y="150" text-anchor="middle" fill="#58a6ff" font-family="system-ui,sans-serif" font-size="11" font-weight="700">(Straight Leg)</text>
+  <text x="228" y="164" text-anchor="middle" fill="#8b949e" font-family="system-ui,sans-serif" font-size="9">Hüftbeugung + Rumpf</text>
+  <text x="228" y="181" text-anchor="middle" fill="#d29922" font-family="system-ui,sans-serif" font-size="10" font-weight="600">je Seite 0–3</text>
+
+  <!-- Box 6: Trunk Stability -->
+  <rect x="306" y="120" width="148" height="68" rx="6" fill="#21262d" stroke="#30363d" stroke-width="1"/>
+  <text x="380" y="138" text-anchor="middle" fill="#58a6ff" font-family="system-ui,sans-serif" font-size="11" font-weight="700">6 Trunk Stability</text>
+  <text x="380" y="150" text-anchor="middle" fill="#58a6ff" font-family="system-ui,sans-serif" font-size="11" font-weight="700">Push-up</text>
+  <text x="380" y="164" text-anchor="middle" fill="#8b949e" font-family="system-ui,sans-serif" font-size="9">Rumpfstabilität sagittal</text>
+  <text x="380" y="181" text-anchor="middle" fill="#c9d1d9" font-family="system-ui,sans-serif" font-size="10" font-weight="600">0–3 Punkte</text>
+
+  <!-- Box 7: Rotary Stability -->
+  <rect x="467" y="120" width="133" height="68" rx="6" fill="#21262d" stroke="#30363d" stroke-width="1"/>
+  <text x="533" y="138" text-anchor="middle" fill="#58a6ff" font-family="system-ui,sans-serif" font-size="11" font-weight="700">7 Rotary</text>
+  <text x="533" y="150" text-anchor="middle" fill="#58a6ff" font-family="system-ui,sans-serif" font-size="11" font-weight="700">Stability</text>
+  <text x="533" y="164" text-anchor="middle" fill="#8b949e" font-family="system-ui,sans-serif" font-size="9">Multiplan. Rumpfstabilität</text>
+  <text x="533" y="181" text-anchor="middle" fill="#d29922" font-family="system-ui,sans-serif" font-size="10" font-weight="600">je Seite 0–3</text>
+
+  <!-- Score legend -->
+  <text x="310" y="196" text-anchor="middle" fill="#8b949e" font-family="system-ui,sans-serif" font-size="9">Bewertung: 3=korrekt | 2=mit Kompensation | 1=nicht möglich | 0=Schmerzen — Gesamtmax: 21 Punkte</text>
+</svg>

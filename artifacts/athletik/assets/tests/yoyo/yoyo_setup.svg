@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 620 190"
+     style="width:100%;max-width:620px;border-radius:8px;display:block;margin:0 auto"
+     role="img" aria-label="Yo-Yo Test Aufbau: zwei 20-Meter-Linien, 5 Meter Erholungszone hinter der Startlinie">
+  <rect width="620" height="190" rx="8" fill="#161b22"/>
+  <text x="310" y="22" text-anchor="middle" fill="#c9d1d9" font-family="system-ui,sans-serif" font-size="13" font-weight="600">Yo-Yo IR1 / IR2 — Testaufbau</text>
+
+  <!-- Zone: Erholungszone (left) -->
+  <rect x="30" y="45" width="90" height="80" rx="4" fill="#1c3a2a" stroke="#3fb950" stroke-width="1.5" stroke-dasharray="5,3"/>
+  <text x="75" y="82" text-anchor="middle" fill="#3fb950" font-family="system-ui,sans-serif" font-size="10" font-weight="600">Erholungs-</text>
+  <text x="75" y="94" text-anchor="middle" fill="#3fb950" font-family="system-ui,sans-serif" font-size="10" font-weight="600">zone</text>
+  <text x="75" y="106" text-anchor="middle" fill="#3fb950" font-family="system-ui,sans-serif" font-size="10">5 m</text>
+
+  <!-- Main track -->
+  <rect x="120" y="45" width="470" height="80" rx="4" fill="#21262d" stroke="#30363d" stroke-width="1"/>
+  <!-- Lane divider -->
+  <line x1="120" y1="85" x2="590" y2="85" stroke="#30363d" stroke-width="1" stroke-dasharray="5,5"/>
+
+  <!-- Start / Turn line (left of main track) -->
+  <line x1="120" y1="38" x2="120" y2="132" stroke="#58a6ff" stroke-width="2.5"/>
+  <text x="120" y="148" text-anchor="middle" fill="#58a6ff" font-family="system-ui,sans-serif" font-size="11" font-weight="700">Start / Ziel</text>
+  <rect x="116" y="38" width="8" height="12" rx="2" fill="#58a6ff"/>
+  <rect x="116" y="118" width="8" height="12" rx="2" fill="#58a6ff"/>
+
+  <!-- Wendeline (right) -->
+  <line x1="590" y1="38" x2="590" y2="132" stroke="#ff7b72" stroke-width="2.5"/>
+  <text x="590" y="148" text-anchor="middle" fill="#ff7b72" font-family="system-ui,sans-serif" font-size="11" font-weight="700">Wende</text>
+  <polygon points="590,38  584,50  596,50" fill="#ff7b72" opacity="0.9"/>
+  <polygon points="590,130 584,118 596,118" fill="#ff7b72" opacity="0.9"/>
+
+  <!-- Distance label -->
+  <text x="355" y="62" text-anchor="middle" fill="#c9d1d9" font-family="system-ui,sans-serif" font-size="13" font-weight="600">20 m</text>
+
+  <!-- Arrows: hin (top) -->
+  <defs>
+    <marker id="y-arr-r" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#58a6ff" opacity="0.8"/>
+    </marker>
+    <marker id="y-arr-l" markerWidth="8" markerHeight="6" refX="0" refY="3" orient="auto">
+      <polygon points="8 0, 0 3, 8 6" fill="#f0883e" opacity="0.8"/>
+    </marker>
+    <marker id="y-rec-l" markerWidth="8" markerHeight="6" refX="0" refY="3" orient="auto">
+      <polygon points="8 0, 0 3, 8 6" fill="#3fb950" opacity="0.8"/>
+    </marker>
+    <marker id="y-rec-r" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#3fb950" opacity="0.8"/>
+    </marker>
+  </defs>
+  <!-- Top lane: run to wende -->
+  <line x1="130" y1="68" x2="576" y2="68" stroke="#58a6ff" stroke-width="1.5" opacity="0.7" marker-end="url(#y-arr-r)"/>
+  <!-- Bottom lane: return from wende -->
+  <line x1="576" y1="102" x2="130" y2="102" stroke="#f0883e" stroke-width="1.5" opacity="0.7" marker-end="url(#y-arr-l)"/>
+
+  <!-- Erholung arrows: into recovery zone and back -->
+  <line x1="114" y1="75" x2="42" y2="75" stroke="#3fb950" stroke-width="1.5" opacity="0.7" marker-end="url(#y-rec-l)"/>
+  <line x1="42" y1="95" x2="114" y2="95" stroke="#3fb950" stroke-width="1.5" opacity="0.7" marker-end="url(#y-rec-r)"/>
+
+  <!-- Beep icon -->
+  <text x="356" y="108" text-anchor="middle" fill="#d29922" font-family="system-ui,sans-serif" font-size="9">BEEP-Signal bei jeder Linie</text>
+
+  <!-- Legend -->
+  <rect x="30" y="162" width="560" height="22" rx="3" fill="#21262d" opacity="0.7"/>
+  <line x1="50" y1="173" x2="78" y2="173" stroke="#58a6ff" stroke-width="1.5"/>
+  <text x="82" y="177" fill="#8b949e" font-family="system-ui,sans-serif" font-size="10">Laufrichtung hin</text>
+  <line x1="190" y1="173" x2="218" y2="173" stroke="#f0883e" stroke-width="1.5"/>
+  <text x="222" y="177" fill="#8b949e" font-family="system-ui,sans-serif" font-size="10">Rückweg</text>
+  <line x1="295" y1="173" x2="323" y2="173" stroke="#3fb950" stroke-width="1.5"/>
+  <text x="327" y="177" fill="#8b949e" font-family="system-ui,sans-serif" font-size="10">Erholungszone (10 s IR1 / 5 s IR2)</text>
+</svg>

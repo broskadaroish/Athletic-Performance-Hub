@@ -447,6 +447,9 @@ def page_fms():
     st.markdown("# 📝 FMS — Functional Movement Screen")
     st.markdown("Sieben Bewegungsmuster werden bilateral getestet. Maximalpunktzahl: **21 Punkte**.")
 
+    sicherheitshinweis_box()
+    show_test_info("fms")
+
     auswahl = _player_selector("fms")
     if not auswahl:
         return
@@ -455,22 +458,24 @@ def page_fms():
 
     st.markdown("---")
     st.markdown("### Testergebnisse eingeben")
+    st.caption("Bewertung: 3 = korrekt | 2 = mit Kompensation | 1 = nicht möglich | 0 = Schmerzen. ℹ️ Tooltip an jedem Feld für Details.")
 
+    _fh = lambda fid: show_field_help("fms", fid)
     c1, c2, c3 = st.columns(3)
-    deep        = c1.number_input("Deep Squat", 0, 3, key="ds")
-    trunk       = c2.number_input("Trunk Stability Push-up", 0, 3, key="ts")
+    deep        = c1.number_input("Deep Squat",             0, 3, key="ds",  help=_fh("deep_squat"))
+    trunk       = c2.number_input("Trunk Stability Push-up",0, 3, key="ts",  help=_fh("trunk_stability"))
     st.markdown("##### Bilateral — Links / Rechts")
     col_l, col_r = st.columns(2)
-    hurdle_l    = col_l.number_input("Hurdle Step Links",        0, 3, key="hl")
-    hurdle_r    = col_r.number_input("Hurdle Step Rechts",       0, 3, key="hr")
-    inline_l    = col_l.number_input("Inline Lunge Links",       0, 3, key="il")
-    inline_r    = col_r.number_input("Inline Lunge Rechts",      0, 3, key="ir")
-    shoulder_l  = col_l.number_input("Shoulder Mobility Links",  0, 3, key="shl")
-    shoulder_r  = col_r.number_input("Shoulder Mobility Rechts", 0, 3, key="shr")
-    aslr_l      = col_l.number_input("ASLR Links",               0, 3, key="al")
-    aslr_r      = col_r.number_input("ASLR Rechts",              0, 3, key="ar")
-    rotary_l    = col_l.number_input("Rotary Stability Links",   0, 3, key="rl")
-    rotary_r    = col_r.number_input("Rotary Stability Rechts",  0, 3, key="rr")
+    hurdle_l    = col_l.number_input("Hurdle Step Links",        0, 3, key="hl",  help=_fh("hurdle_step"))
+    hurdle_r    = col_r.number_input("Hurdle Step Rechts",       0, 3, key="hr",  help=_fh("hurdle_step"))
+    inline_l    = col_l.number_input("Inline Lunge Links",       0, 3, key="il",  help=_fh("inline_lunge"))
+    inline_r    = col_r.number_input("Inline Lunge Rechts",      0, 3, key="ir",  help=_fh("inline_lunge"))
+    shoulder_l  = col_l.number_input("Shoulder Mobility Links",  0, 3, key="shl", help=_fh("shoulder"))
+    shoulder_r  = col_r.number_input("Shoulder Mobility Rechts", 0, 3, key="shr", help=_fh("shoulder"))
+    aslr_l      = col_l.number_input("ASLR Links",               0, 3, key="al",  help=_fh("aslr"))
+    aslr_r      = col_r.number_input("ASLR Rechts",              0, 3, key="ar",  help=_fh("aslr"))
+    rotary_l    = col_l.number_input("Rotary Stability Links",   0, 3, key="rl",  help=_fh("rotary_stability"))
+    rotary_r    = col_r.number_input("Rotary Stability Rechts",  0, 3, key="rr",  help=_fh("rotary_stability"))
 
     if st.button("✅ FMS speichern & auswerten", use_container_width=False):
         result = FMSResult(
@@ -522,6 +527,9 @@ def page_ybalance():
     st.markdown("# 📏 Y-Balance Test")
     st.markdown("Composite Score = (A + PM + PL) / (3 × Beinlänge) × 100.  Schwellenwert: **≥ 89 %**.")
 
+    sicherheitshinweis_box()
+    show_test_info("y_balance")
+
     auswahl = _player_selector("yb")
     if not auswahl:
         return
@@ -529,20 +537,23 @@ def page_ybalance():
     spieler_id = auswahl["id"]
     st.markdown("---")
 
+    _fh = lambda fid: show_field_help("y_balance", fid)
     col1, col2 = st.columns(2)
-    bein_r = col1.number_input("Beinlänge Rechts (cm) *", min_value=1.0, value=90.0, step=0.5)
-    bein_l = col2.number_input("Beinlänge Links (cm) *",  min_value=1.0, value=90.0, step=0.5)
+    bein_r = col1.number_input("Beinlänge Rechts (cm) *", min_value=1.0, value=90.0, step=0.5,
+                                help=_fh("beinlaenge"))
+    bein_l = col2.number_input("Beinlänge Links (cm) *",  min_value=1.0, value=90.0, step=0.5,
+                                help=_fh("beinlaenge"))
 
     st.markdown("#### Reichweiten (cm)")
     ch1, ch2 = st.columns(2)
     ch1.markdown("**Rechte Seite**")
     ch2.markdown("**Linke Seite**")
-    ant_r  = ch1.number_input("Anterior R",       0.0, 200.0, 0.0, step=0.5, key="antr")
-    ant_l  = ch2.number_input("Anterior L",       0.0, 200.0, 0.0, step=0.5, key="antl")
-    pm_r   = ch1.number_input("Posteromedial R",  0.0, 200.0, 0.0, step=0.5, key="pmr")
-    pm_l   = ch2.number_input("Posteromedial L",  0.0, 200.0, 0.0, step=0.5, key="pml")
-    pl_r   = ch1.number_input("Posterolateral R", 0.0, 200.0, 0.0, step=0.5, key="plr")
-    pl_l   = ch2.number_input("Posterolateral L", 0.0, 200.0, 0.0, step=0.5, key="pll")
+    ant_r  = ch1.number_input("Anterior R",       0.0, 200.0, 0.0, step=0.5, key="antr", help=_fh("anterior"))
+    ant_l  = ch2.number_input("Anterior L",       0.0, 200.0, 0.0, step=0.5, key="antl", help=_fh("anterior"))
+    pm_r   = ch1.number_input("Posteromedial R",  0.0, 200.0, 0.0, step=0.5, key="pmr",  help=_fh("posteromedial"))
+    pm_l   = ch2.number_input("Posteromedial L",  0.0, 200.0, 0.0, step=0.5, key="pml",  help=_fh("posteromedial"))
+    pl_r   = ch1.number_input("Posterolateral R", 0.0, 200.0, 0.0, step=0.5, key="plr",  help=_fh("posterolateral"))
+    pl_l   = ch2.number_input("Posterolateral L", 0.0, 200.0, 0.0, step=0.5, key="pll",  help=_fh("posterolateral"))
 
     if st.button("💾 Y-Balance berechnen & speichern"):
         res = YBalanceResult(
@@ -1336,6 +1347,8 @@ def page_anthropometrie():
     st.markdown("# 📐 Anthropometrie")
     st.markdown("Körpermessungen, BMI und Wachstumsverlauf — Grundlage für belastungsgerechtes Training.")
 
+    show_test_info("anthropometrie")
+
     auswahl = _player_selector("anthro")
     if not auswahl:
         return
@@ -1355,27 +1368,28 @@ def page_anthropometrie():
         st.markdown("### Körpermessung eingeben")
         c1, c2 = st.columns(2)
         datum        = c1.date_input("Datum", value=date.today(), key="anthro_datum")
+        _fh = lambda fid: show_field_help("anthropometrie", fid)
         groesse      = c1.number_input("Körpergröße (cm)", 100.0, 220.0,
                                         float(letzter["groesse"]) if letzter else 175.0,
-                                        step=0.5, key="anthro_groesse")
+                                        step=0.5, key="anthro_groesse", help=_fh("groesse"))
         gewicht      = c1.number_input("Körpergewicht (kg)", 30.0, 150.0,
                                         float(letzter["gewicht"]) if letzter else 70.0,
-                                        step=0.5, key="anthro_gewicht")
+                                        step=0.5, key="anthro_gewicht", help=_fh("gewicht"))
         koerperfett  = c1.number_input("Körperfett (%)", 0.0, 50.0,
                                         float(letzter["koerperfett"]) if letzter else 12.0,
-                                        step=0.1, key="anthro_kf")
+                                        step=0.1, key="anthro_kf", help=_fh("koerperfett"))
         muskelmasse  = c1.number_input("Muskelmasse (kg)", 0.0, 100.0,
                                         float(letzter["muskelmasse"]) if letzter else 0.0,
-                                        step=0.5, key="anthro_mm")
+                                        step=0.5, key="anthro_mm", help=_fh("muskelmasse"))
         sitzhoehe    = c2.number_input("Sitzhöhe (cm) — optional für PHV", 0.0, 120.0,
                                         float(letzter["sitzhoehe"]) if letzter else 0.0,
-                                        step=0.5, key="anthro_sh")
+                                        step=0.5, key="anthro_sh", help=_fh("sitzhoehe"))
         beinlaenge   = c2.number_input("Beinlänge (cm) — optional für PHV", 0.0, 120.0,
                                         float(letzter["beinlaenge"]) if letzter else 0.0,
-                                        step=0.5, key="anthro_bl")
+                                        step=0.5, key="anthro_bl", help=_fh("beinlaenge"))
         armspann     = c2.number_input("Armspannweite (cm)", 0.0, 250.0,
                                         float(letzter["armspannweite"]) if letzter else 0.0,
-                                        step=0.5, key="anthro_arm")
+                                        step=0.5, key="anthro_arm", help=_fh("armspann"))
 
         bmi     = bmi_berechnen(gewicht, groesse)
         bmi_kat = bmi_kategorie(bmi)
@@ -1615,6 +1629,9 @@ def page_sprung():
     st.markdown("# 🦘 Sprung-Diagnostik")
     st.markdown("Explosivkraft, Reaktivkraft und Seitenasymmetrie — CMJ, Squat Jump, Drop Jump, Standweitsprung.")
 
+    sicherheitshinweis_box()
+    show_test_info("jump")
+
     auswahl = _player_selector("sprung")
     if not auswahl:
         return
@@ -1633,22 +1650,36 @@ def page_sprung():
         datum = st.date_input("Testdatum", value=date.today(), key="sprung_datum")
         st.markdown("#### Messwerte (cm / s) — nicht gemessene Tests auf 0 lassen")
 
+        _fh = lambda fid: show_field_help("jump", fid)
         c1, c2 = st.columns(2)
-        c1.markdown("**CMJ beidbeinig (cm)**")
-        cmj_beid = c1.number_input("CMJ beidbeinig", 0.0, 100.0, 0.0, step=0.5, key="cmj_beid", label_visibility="collapsed")
-        c1.markdown("**CMJ einbeinig rechts (cm)**")
-        cmj_r    = c1.number_input("CMJ rechts", 0.0, 80.0, 0.0, step=0.5, key="cmj_r", label_visibility="collapsed")
-        c1.markdown("**CMJ einbeinig links (cm)**")
-        cmj_l    = c1.number_input("CMJ links", 0.0, 80.0, 0.0, step=0.5, key="cmj_l", label_visibility="collapsed")
-        c1.markdown("**Squat Jump (cm)**")
-        squat    = c1.number_input("Squat Jump", 0.0, 100.0, 0.0, step=0.5, key="squat", label_visibility="collapsed")
 
-        c2.markdown("**Drop Jump — Höhe (cm)**")
-        dj_h  = c2.number_input("Drop Jump Höhe", 0.0, 80.0, 0.0, step=0.5, key="dj_h", label_visibility="collapsed")
-        c2.markdown("**Drop Jump — Kontaktzeit (s)**")
-        dj_kz = c2.number_input("Drop Jump Kontaktzeit", 0.0, 2.0, 0.0, step=0.01, format="%.2f", key="dj_kz", label_visibility="collapsed")
-        c2.markdown("**Standweitsprung (cm)**")
-        swj   = c2.number_input("Standweitsprung", 0.0, 400.0, 0.0, step=1.0, key="swj", label_visibility="collapsed")
+        lc1, li1 = c1.columns([5,1])
+        lc1.markdown("**CMJ beidbeinig (cm)**"); field_info_col(li1, "jump", "cmj_beid")
+        cmj_beid = c1.number_input("CMJ beidbeinig", 0.0, 100.0, 0.0, step=0.5, key="cmj_beid", label_visibility="collapsed", help=_fh("cmj_beid"))
+
+        lc2, li2 = c1.columns([5,1])
+        lc2.markdown("**CMJ einbeinig rechts (cm)**"); field_info_col(li2, "jump", "cmj_r")
+        cmj_r    = c1.number_input("CMJ rechts", 0.0, 80.0, 0.0, step=0.5, key="cmj_r", label_visibility="collapsed", help=_fh("cmj_r"))
+
+        lc3, li3 = c1.columns([5,1])
+        lc3.markdown("**CMJ einbeinig links (cm)**"); field_info_col(li3, "jump", "cmj_l")
+        cmj_l    = c1.number_input("CMJ links", 0.0, 80.0, 0.0, step=0.5, key="cmj_l", label_visibility="collapsed", help=_fh("cmj_l"))
+
+        lc4, li4 = c1.columns([5,1])
+        lc4.markdown("**Squat Jump (cm)**"); field_info_col(li4, "jump", "squat_jump")
+        squat    = c1.number_input("Squat Jump", 0.0, 100.0, 0.0, step=0.5, key="squat", label_visibility="collapsed", help=_fh("squat_jump"))
+
+        rc1, ri1 = c2.columns([5,1])
+        rc1.markdown("**Drop Jump — Höhe (cm)**"); field_info_col(ri1, "jump", "dj_hoehe")
+        dj_h  = c2.number_input("Drop Jump Höhe", 0.0, 80.0, 0.0, step=0.5, key="dj_h", label_visibility="collapsed", help=_fh("dj_hoehe"))
+
+        rc2, ri2 = c2.columns([5,1])
+        rc2.markdown("**Drop Jump — Kontaktzeit (s)**"); field_info_col(ri2, "jump", "dj_kontakt")
+        dj_kz = c2.number_input("Drop Jump Kontaktzeit", 0.0, 2.0, 0.0, step=0.01, format="%.2f", key="dj_kz", label_visibility="collapsed", help=_fh("dj_kontakt"))
+
+        rc3, ri3 = c2.columns([5,1])
+        rc3.markdown("**Standweitsprung (cm)**"); field_info_col(ri3, "jump", "standweit")
+        swj   = c2.number_input("Standweitsprung", 0.0, 400.0, 0.0, step=1.0, key="swj", label_visibility="collapsed", help=_fh("standweit"))
 
         from sprung import SprungErgebnis as _SpE, asymmetrie_prozent, rsi_berechnen
         res = _SpE(cmj_beid=cmj_beid or None, cmj_rechts=cmj_r or None,
@@ -1731,18 +1762,28 @@ def page_sprung():
 
 # ──────────────────────────────────────────────────────────────────────────────
 
-def _zeit_eingabe(label: str, key: str, col, letzter=None, letzter_key=None):
-    """Hilfsfunktion: Zeiteingabe mit Vorschau-Bewertung."""
-    col.markdown(f"**{label}**")
+def _zeit_eingabe(label: str, key: str, col, letzter=None, letzter_key=None,
+                  test_id: str = "", field_id: str = ""):
+    """Hilfsfunktion: Zeiteingabe mit optionalem ℹ️-Button."""
+    if field_id and test_id:
+        hdr, info_btn = col.columns([5, 1])
+        hdr.markdown(f"**{label}**")
+        field_info_col(info_btn, test_id, field_id)
+    else:
+        col.markdown(f"**{label}**")
     default = float(letzter[letzter_key]) if (letzter and letzter_key and letzter.get(letzter_key)) else 0.0
+    help_txt = show_field_help(test_id, field_id) if (test_id and field_id) else None
     v = col.number_input(label, 0.0, 30.0, default, step=0.01, format="%.2f",
-                         key=key, label_visibility="collapsed")
+                         key=key, label_visibility="collapsed", help=help_txt)
     return v if v > 0 else None
 
 
 def page_agilitaet():
     st.markdown("# 🔀 Agilität & Richtungswechsel")
     st.markdown("505-Test, 5-10-5 Shuttle, T-Test, Illinois Agility Run — Richtungswechsel-Fähigkeit und Abbremsstärke.")
+
+    sicherheitshinweis_box()
+    show_test_info("agility")
 
     auswahl = _player_selector("agil")
     if not auswahl:
@@ -1763,11 +1804,11 @@ def page_agilitaet():
         st.markdown("#### Zeiten (s) — nicht gemessene Tests auf 0.00 lassen")
 
         c1, c2 = st.columns(2)
-        t505_r  = _zeit_eingabe("505-Test rechts (s)", "a505r", c1, letzter, "t505_r")
-        t505_l  = _zeit_eingabe("505-Test links (s)",  "a505l", c1, letzter, "t505_l")
-        t5_10_5 = _zeit_eingabe("5-10-5 Shuttle (s)",  "a5105", c2, letzter, "t5_10_5")
-        t_test  = _zeit_eingabe("T-Test (s)",           "att",   c2, letzter, "t_test")
-        illinois = _zeit_eingabe("Illinois Agility (s)","aill",  c1, letzter, "illinois")
+        t505_r  = _zeit_eingabe("505-Test rechts (s)", "a505r", c1, letzter, "t505_r",  "agility", "t505_r")
+        t505_l  = _zeit_eingabe("505-Test links (s)",  "a505l", c1, letzter, "t505_l",  "agility", "t505_l")
+        t5_10_5 = _zeit_eingabe("5-10-5 Shuttle (s)",  "a5105", c2, letzter, "t5_10_5", "agility", "t5_10_5")
+        t_test  = _zeit_eingabe("T-Test (s)",           "att",   c2, letzter, "t_test",  "agility", "t_test")
+        illinois = _zeit_eingabe("Illinois Agility (s)","aill",  c1, letzter, "illinois","agility", "illinois")
 
         from agilitaet import AgilitaetErgebnis as _AE
         res = _AE(t505_r=t505_r, t505_l=t505_l, t5_10_5=t5_10_5,
@@ -1875,6 +1916,9 @@ def page_ausdauer():
     st.markdown("# 🫁 Yo-Yo Ausdauer-Diagnostik")
     st.markdown("Yo-Yo Intermittent Recovery Test Level 1 (IR1) und Level 2 (IR2) — Standardtest im Fußball.")
 
+    sicherheitshinweis_box()
+    show_test_info("yoyo")
+
     auswahl = _player_selector("aus")
     if not auswahl:
         return
@@ -1907,16 +1951,18 @@ def page_ausdauer():
                                      key="aus_ag")
 
         st.markdown("#### Testergebnis")
+        _fh = lambda fid: show_field_help("yoyo", fid)
         c3, c4, c5 = st.columns(3)
         distanz_m = c3.number_input("Erzielte Distanz (m)", 0, 5000,
                                      int(letzter["distanz_m"]) if letzter else 0,
-                                     step=40, key="aus_dist")
+                                     step=40, key="aus_dist", help=_fh("distanz"))
         hf_max    = c4.number_input("HF max (bpm)", 0, 230,
                                      int(letzter["hf_max"]) if letzter and letzter.get("hf_max") else 0,
-                                     step=1, key="aus_hf")
+                                     step=1, key="aus_hf", help=_fh("hf_max"))
         rpe_val   = c5.selectbox("RPE (Borg 6–20)", list(range(6, 21)),
                                   index=9, key="aus_rpe",
-                                  format_func=lambda x: RPE_LABELS.get(x, str(x)))
+                                  format_func=lambda x: RPE_LABELS.get(x, str(x)),
+                                  help=_fh("rpe"))
 
         from ausdauer import AusdauerErgebnis as _AE, trainingsbereiche, bewertung_ir1
         res = _AE(test_typ=test_typ, distanz_m=distanz_m,

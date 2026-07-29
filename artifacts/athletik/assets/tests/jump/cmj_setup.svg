@@ -1,0 +1,102 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 620 180"
+     style="width:100%;max-width:620px;border-radius:8px;display:block;margin:0 auto"
+     role="img" aria-label="Countermovement Jump Phasen: Ausgangsposition, Gegenbewegung, Absprung, Flugphase, Landung">
+  <rect width="620" height="180" rx="8" fill="#161b22"/>
+  <text x="310" y="22" text-anchor="middle" fill="#c9d1d9" font-family="system-ui,sans-serif" font-size="13" font-weight="600">Sprung-Diagnostik — CMJ Phasen</text>
+
+  <!-- Ground line -->
+  <line x1="30" y1="148" x2="590" y2="148" stroke="#30363d" stroke-width="1.5"/>
+
+  <!-- Phase labels -->
+  <text x="78"  y="170" text-anchor="middle" fill="#8b949e" font-family="system-ui,sans-serif" font-size="10">1 Stand</text>
+  <text x="190" y="170" text-anchor="middle" fill="#8b949e" font-family="system-ui,sans-serif" font-size="10">2 Gegen-</text>
+  <text x="190" y="180" text-anchor="middle" fill="#8b949e" font-family="system-ui,sans-serif" font-size="10">bewegung</text>
+  <text x="310" y="170" text-anchor="middle" fill="#58a6ff" font-family="system-ui,sans-serif" font-size="10" font-weight="600">3 Absprung</text>
+  <text x="430" y="170" text-anchor="middle" fill="#3fb950" font-family="system-ui,sans-serif" font-size="10" font-weight="600">4 Höchstpunkt</text>
+  <text x="546" y="170" text-anchor="middle" fill="#8b949e" font-family="system-ui,sans-serif" font-size="10">5 Landung</text>
+
+  <!-- Dividers -->
+  <line x1="134" y1="30" x2="134" y2="150" stroke="#30363d" stroke-width="1" stroke-dasharray="4,3"/>
+  <line x1="250" y1="30" x2="250" y2="150" stroke="#30363d" stroke-width="1" stroke-dasharray="4,3"/>
+  <line x1="370" y1="30" x2="370" y2="150" stroke="#30363d" stroke-width="1" stroke-dasharray="4,3"/>
+  <line x1="490" y1="30" x2="490" y2="150" stroke="#30363d" stroke-width="1" stroke-dasharray="4,3"/>
+
+  <!-- === Phase 1: Stand === -->
+  <!-- Head -->
+  <circle cx="78" cy="65" r="9" fill="none" stroke="#8b949e" stroke-width="2"/>
+  <!-- Body -->
+  <line x1="78" y1="74" x2="78" y2="108" stroke="#8b949e" stroke-width="2.5"/>
+  <!-- Arms down -->
+  <line x1="78" y1="82" x2="64" y2="96" stroke="#8b949e" stroke-width="2"/>
+  <line x1="78" y1="82" x2="92" y2="96" stroke="#8b949e" stroke-width="2"/>
+  <!-- Legs straight -->
+  <line x1="78" y1="108" x2="70" y2="132" stroke="#8b949e" stroke-width="2"/>
+  <line x1="78" y1="108" x2="86" y2="132" stroke="#8b949e" stroke-width="2"/>
+  <!-- Feet -->
+  <line x1="70" y1="132" x2="62" y2="135" stroke="#8b949e" stroke-width="2"/>
+  <line x1="86" y1="132" x2="94" y2="135" stroke="#8b949e" stroke-width="2"/>
+
+  <!-- === Phase 2: Gegenbewegung (squat down) === -->
+  <circle cx="190" cy="72" r="9" fill="none" stroke="#d29922" stroke-width="2"/>
+  <line x1="190" y1="81" x2="190" y2="108" stroke="#d29922" stroke-width="2.5"/>
+  <line x1="190" y1="88" x2="174" y2="80" stroke="#d29922" stroke-width="2"/>
+  <line x1="190" y1="88" x2="206" y2="80" stroke="#d29922" stroke-width="2"/>
+  <!-- Knees bent -->
+  <line x1="190" y1="108" x2="178" y2="128" stroke="#d29922" stroke-width="2"/>
+  <line x1="178" y1="128" x2="172" y2="148" stroke="#d29922" stroke-width="2"/>
+  <line x1="190" y1="108" x2="202" y2="128" stroke="#d29922" stroke-width="2"/>
+  <line x1="202" y1="128" x2="208" y2="148" stroke="#d29922" stroke-width="2"/>
+  <!-- Down arrow -->
+  <text x="190" y="47" text-anchor="middle" fill="#d29922" font-family="system-ui,sans-serif" font-size="16">↓</text>
+
+  <!-- === Phase 3: Absprung (takeoff) === -->
+  <circle cx="310" cy="58" r="9" fill="none" stroke="#58a6ff" stroke-width="2"/>
+  <line x1="310" y1="67" x2="310" y2="100" stroke="#58a6ff" stroke-width="2.5"/>
+  <!-- Arms up -->
+  <line x1="310" y1="78" x2="294" y2="62" stroke="#58a6ff" stroke-width="2"/>
+  <line x1="310" y1="78" x2="326" y2="62" stroke="#58a6ff" stroke-width="2"/>
+  <!-- Legs pushing off -->
+  <line x1="310" y1="100" x2="300" y2="130" stroke="#58a6ff" stroke-width="2"/>
+  <line x1="300" y1="130" x2="295" y2="148" stroke="#58a6ff" stroke-width="2"/>
+  <line x1="310" y1="100" x2="320" y2="130" stroke="#58a6ff" stroke-width="2"/>
+  <line x1="320" y1="130" x2="325" y2="148" stroke="#58a6ff" stroke-width="2"/>
+  <!-- Up arrow -->
+  <text x="310" y="42" text-anchor="middle" fill="#58a6ff" font-family="system-ui,sans-serif" font-size="16">↑</text>
+
+  <!-- === Phase 4: Höchstpunkt === -->
+  <circle cx="430" cy="38" r="9" fill="none" stroke="#3fb950" stroke-width="2.5"/>
+  <line x1="430" y1="47" x2="430" y2="82" stroke="#3fb950" stroke-width="2.5"/>
+  <line x1="430" y1="57" x2="414" y2="48" stroke="#3fb950" stroke-width="2"/>
+  <line x1="430" y1="57" x2="446" y2="48" stroke="#3fb950" stroke-width="2"/>
+  <!-- Legs tucked/straight in air -->
+  <line x1="430" y1="82" x2="420" y2="105" stroke="#3fb950" stroke-width="2"/>
+  <line x1="420" y1="105" x2="416" y2="125" stroke="#3fb950" stroke-width="2"/>
+  <line x1="430" y1="82" x2="440" y2="105" stroke="#3fb950" stroke-width="2"/>
+  <line x1="440" y1="105" x2="444" y2="125" stroke="#3fb950" stroke-width="2"/>
+
+  <!-- Height measurement arrow -->
+  <defs>
+    <marker id="h-arr-up" markerWidth="6" markerHeight="5" refX="3" refY="2.5" orient="auto">
+      <polygon points="0 5, 3 0, 6 5" fill="#3fb950"/>
+    </marker>
+    <marker id="h-arr-dn" markerWidth="6" markerHeight="5" refX="3" refY="2.5" orient="auto">
+      <polygon points="0 0, 3 5, 6 0" fill="#3fb950"/>
+    </marker>
+  </defs>
+  <line x1="462" y1="38" x2="462" y2="148" stroke="#3fb950" stroke-width="1.5" stroke-dasharray="4,2"/>
+  <text x="472" y="96" fill="#3fb950" font-family="system-ui,sans-serif" font-size="11" font-weight="600">h</text>
+  <text x="468" y="108" fill="#3fb950" font-family="system-ui,sans-serif" font-size="9">(cm)</text>
+
+  <!-- === Phase 5: Landung === -->
+  <circle cx="546" cy="65" r="9" fill="none" stroke="#8b949e" stroke-width="2"/>
+  <line x1="546" y1="74" x2="546" y2="108" stroke="#8b949e" stroke-width="2.5"/>
+  <line x1="546" y1="82" x2="530" y2="74" stroke="#8b949e" stroke-width="2"/>
+  <line x1="546" y1="82" x2="562" y2="74" stroke="#8b949e" stroke-width="2"/>
+  <!-- Knees soft on landing -->
+  <line x1="546" y1="108" x2="534" y2="130" stroke="#8b949e" stroke-width="2"/>
+  <line x1="534" y1="130" x2="528" y2="148" stroke="#8b949e" stroke-width="2"/>
+  <line x1="546" y1="108" x2="558" y2="130" stroke="#8b949e" stroke-width="2"/>
+  <line x1="558" y1="130" x2="564" y2="148" stroke="#8b949e" stroke-width="2"/>
+  <!-- Down arrow -->
+  <text x="546" y="47" text-anchor="middle" fill="#8b949e" font-family="system-ui,sans-serif" font-size="14">↓</text>
+</svg>

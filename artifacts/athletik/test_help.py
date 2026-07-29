@@ -1,19 +1,8 @@
 """
 Zentrale Testanleitungen — Football Athletik Diagnostik.
-
-Struktur je Test-ID:
-    name, kurzbeschreibung, ziel, material, aufbau, aufwaermung,
-    durchfuehrung, trainerhinweis, versuche, pause, messwert,
-    einheit, gueltiger_versuch, ungueltiger_versuch, fehler,
-    sicherheit, bild_pfad, quelle, version, datum,
-    felder: { field_id: { label, kurzhilfe, eingabehilfe, einheit, bereich, ziel } }
-
-Erweiterung um Video-Felder (vorbereitet, noch nicht aktiv):
-    video_lokal, video_link, video_titel, video_quelle, video_lizenz
+Version 1.1 — alle 7 Test-Module vollständig befüllt.
 """
 from __future__ import annotations
-
-# ─── Pflicht-Texte (Compliance) ──────────────────────────────────────────────
 
 SICHERHEITSHINWEIS_ALLGEMEIN = (
     "Der Test ist sofort abzubrechen, wenn Schmerzen, Schwindel, Atemnot, "
@@ -27,8 +16,6 @@ COMPLIANCE_HINWEIS = (
     "Freigabe dar."
 )
 
-# ─── Zentrale Hilfedatenbank ──────────────────────────────────────────────────
-
 TEST_HELP: dict[str, dict] = {
 
     # ══════════════════════════════════════════════════════════════════════════
@@ -36,20 +23,13 @@ TEST_HELP: dict[str, dict] = {
     # ══════════════════════════════════════════════════════════════════════════
     "sprint": {
         "name": "Sprint-Diagnostik",
-        "kurzbeschreibung": (
-            "Lineare Beschleunigung und Maximalgeschwindigkeit über 5 m, 10 m, "
-            "20 m und 30 m — je 3 Versuche."
-        ),
+        "kurzbeschreibung": "Lineare Beschleunigung und Maximalgeschwindigkeit über 5 m, 10 m, 20 m und 30 m — je 3 Versuche.",
         "ziel": (
             "Überprüfung der Beschleunigungsfähigkeit (0–10 m), der Übergangsphase "
             "(10–20 m) und der Maximalgeschwindigkeit (20–30 m). "
-            "Der Beschleunigungsindex zeigt das Verhältnis von Startexplosivität "
-            "zu Maximalgeschwindigkeit."
+            "Der Beschleunigungsindex zeigt das Verhältnis von Startexplosivität zu Maximalgeschwindigkeit."
         ),
-        "material": (
-            "Maßband oder vormarkierte Strecke, Hütchen (5 Stück), "
-            "Lichtschranken oder Stoppuhr."
-        ),
+        "material": "Maßband oder vormarkierte Strecke, Hütchen (5 Stück), Lichtschranken oder Stoppuhr.",
         "aufbau": (
             "Startlinie markieren. Hütchen bei 5 m, 10 m, 20 m und 30 m aufstellen. "
             "Wenn vorhanden, Lichtschranken an den Messpunkten aufbauen. "
@@ -58,8 +38,7 @@ TEST_HELP: dict[str, dict] = {
         ),
         "aufwaermung": (
             "Mindestens 10 Minuten allgemeines Aufwärmen. "
-            "Anschließend 2–3 Steigerungsläufe über 30–40 m mit steigender "
-            "Intensität (70 %, 85 %, 95 %). "
+            "Anschließend 2–3 Steigerungsläufe über 30–40 m mit steigender Intensität (70 %, 85 %, 95 %). "
             "Kurze Sprung- und Aktivierungsübungen empfohlen."
         ),
         "durchfuehrung": (
@@ -72,185 +51,402 @@ TEST_HELP: dict[str, dict] = {
             "Spieler muss deutlich hinter der Startlinie beginnen (mind. 30 cm). "
             "Keine Vor- oder Ausholbewegung vor dem Start zulässig. "
             "Spieler muss vollständig durch das Ziel laufen. "
-            "Bei Lichtschranken: ganzer Körper muss die Schranke passieren, "
-            "nicht nur der vorgestreckte Arm."
+            "Bei Lichtschranken: ganzer Körper muss passieren, nicht nur der vorgestreckte Arm."
         ),
         "versuche": "3 Versuche je Distanz. Der schnellste gültige Versuch wird gewertet.",
         "pause": "2–3 Minuten aktive Pause (lockeres Gehen) zwischen den Versuchen.",
         "messwert": "Zeit in Sekunden",
         "einheit": "Sekunden (s)",
-        "gueltiger_versuch": (
-            "Korrekter Start hinter der Linie ohne Ausholbewegung, "
-            "maximale Beschleunigung, vollständiges Durchlaufen des Ziels "
-            "ohne vorzeitiges Abbremsen."
-        ),
-        "ungueltiger_versuch": (
-            "Frühstart (Bewegung vor Startkommando), Ausrutschen, "
-            "vorzeitiges Abbremsen vor dem Ziel, Behinderung durch Dritte, "
-            "Ausholbewegung beim Start."
-        ),
+        "gueltiger_versuch": "Korrekter Start hinter der Linie, maximale Beschleunigung, vollständiges Durchlaufen des Ziels.",
+        "ungueltiger_versuch": "Frühstart, Ausrutschen, vorzeitiges Abbremsen, Behinderung, Ausholbewegung.",
         "fehler": [
-            "Ausholbewegung vor dem Start — verfälscht die Reaktions-/Startzeit",
+            "Ausholbewegung vor dem Start — verfälscht die Startzeit",
             "Abbremsen kurz vor dem Ziel — gibt zu kurze gemessene Endzeit",
-            "Arm beim Durchlaufen einer Lichtschranke vorstrecken — gibt unrealistisch kurze Zeit",
+            "Arm beim Durchlaufen einer Lichtschranke vorstrecken — unrealistisch kurze Zeit",
             "Zu kurze Pause zwischen den Versuchen — Ermüdung verfälscht das Ergebnis",
-            "Unebene oder rutschige Testfläche — erhöht Verletzungsrisiko und verfälscht Zeiten",
         ],
         "sicherheit": (
-            "Testfläche vor dem Test auf Nässe, Unebenheiten und Hindernisse prüfen. "
-            "Mindestens 10 m Auslauffläche hinter der 30-m-Linie sicherstellen. "
-            "Spieler bei Beschwerden sofort stoppen lassen. "
-            "Kein Testen bei Schmerzen, Verletzungen oder Krankheit."
+            "Testfläche auf Nässe, Unebenheiten und Hindernisse prüfen. "
+            "Mindestens 10 m Auslauffläche hinter der 30-m-Linie. "
+            "Spieler bei Beschwerden sofort stoppen lassen."
         ),
         "bild_pfad": "assets/tests/sprint/sprint_setup.svg",
         "quelle": "Sporis et al. (2010); Stolen et al. (2005)",
         "version": "1.0",
         "datum": "2026-07-29",
-        "video_lokal": None,
-        "video_link": None,
-        "video_titel": None,
-        "video_quelle": None,
-        "video_lizenz": None,
+        "video_lokal": None, "video_link": None, "video_titel": None, "video_quelle": None, "video_lizenz": None,
         "felder": {
-            "sprint_5m": {
-                "label": "5 m",
-                "ziel": "Messung der Startexplosivität — Reaktion und erste Beschleunigungsschritte.",
-                "kurzhilfe": (
-                    "Schnellste Zeit über 5 Meter eintragen. "
-                    "3 Versuche — bester Versuch zählt. "
-                    "Typischer Bereich: 0.90 – 1.60 Sekunden."
-                ),
-                "eingabehilfe": "Zeit in Sekunden, z. B. 1.05",
-                "einheit": "Sekunden (s)",
-                "bereich": "Sinnvoller Bereich: 0.90 – 1.60 s",
-            },
-            "sprint_10m": {
-                "label": "10 m",
-                "ziel": "Messung der Beschleunigungsleistung — Phase 0 bis 10 Meter.",
-                "kurzhilfe": (
-                    "Schnellste Zeit über 10 Meter eintragen. "
-                    "Die 10-m-Zeit muss größer als die 5-m-Zeit sein. "
-                    "Typischer Bereich: 1.60 – 2.50 Sekunden."
-                ),
-                "eingabehilfe": "Zeit in Sekunden, z. B. 1.78",
-                "einheit": "Sekunden (s)",
-                "bereich": "Sinnvoller Bereich: 1.60 – 2.50 s",
-            },
-            "sprint_20m": {
-                "label": "20 m",
-                "ziel": "Messung der Übergangsphase — Beschleunigung zu Maximalgeschwindigkeit.",
-                "kurzhilfe": (
-                    "Schnellste Zeit über 20 Meter eintragen. "
-                    "Die 20-m-Zeit muss größer als die 10-m-Zeit sein. "
-                    "Typischer Bereich: 2.80 – 4.00 Sekunden."
-                ),
-                "eingabehilfe": "Zeit in Sekunden, z. B. 3.10",
-                "einheit": "Sekunden (s)",
-                "bereich": "Sinnvoller Bereich: 2.80 – 4.00 s",
-            },
-            "sprint_30m": {
-                "label": "30 m",
-                "ziel": "Messung der Maximalgeschwindigkeit — Phase 20 bis 30 Meter.",
-                "kurzhilfe": (
-                    "Schnellste Zeit über 30 Meter eintragen. "
-                    "Die 30-m-Zeit muss größer als die 20-m-Zeit sein. "
-                    "Typischer Bereich: 3.90 – 5.50 Sekunden."
-                ),
-                "eingabehilfe": "Zeit in Sekunden, z. B. 4.50",
-                "einheit": "Sekunden (s)",
-                "bereich": "Sinnvoller Bereich: 3.90 – 5.50 s",
-            },
+            "sprint_5m":  {"label": "5 m",  "ziel": "Startexplosivität — erste Beschleunigungsschritte.", "kurzhilfe": "Schnellste Zeit über 5 m eintragen. 3 Versuche — bester zählt.", "eingabehilfe": "Zeit in Sekunden, z. B. 1.05", "einheit": "s", "bereich": "Sinnvoll: 0.90 – 1.60 s"},
+            "sprint_10m": {"label": "10 m", "ziel": "Beschleunigungsleistung — 0 bis 10 Meter.", "kurzhilfe": "Schnellste Zeit über 10 m. Muss größer als 5-m-Zeit sein.", "eingabehilfe": "Zeit in Sekunden, z. B. 1.78", "einheit": "s", "bereich": "Sinnvoll: 1.60 – 2.50 s"},
+            "sprint_20m": {"label": "20 m", "ziel": "Übergangsphase von Beschleunigung zu Maximalgeschwindigkeit.", "kurzhilfe": "Schnellste Zeit über 20 m. Muss größer als 10-m-Zeit sein.", "eingabehilfe": "Zeit in Sekunden, z. B. 3.10", "einheit": "s", "bereich": "Sinnvoll: 2.80 – 4.00 s"},
+            "sprint_30m": {"label": "30 m", "ziel": "Maximalgeschwindigkeit — Phase 20 bis 30 Meter.", "kurzhilfe": "Schnellste Zeit über 30 m. Muss größer als 20-m-Zeit sein.", "eingabehilfe": "Zeit in Sekunden, z. B. 4.50", "einheit": "s", "bereich": "Sinnvoll: 3.90 – 5.50 s"},
         },
     },
 
     # ══════════════════════════════════════════════════════════════════════════
-    # STUBS — werden in Phase 3 schrittweise ausgebaut
+    # Y-BALANCE
     # ══════════════════════════════════════════════════════════════════════════
     "y_balance": {
         "name": "Y-Balance-Test",
-        "kurzbeschreibung": "Dynamische Gleichgewichts- und Stabilitätsdiagnostik — 3 Richtungen je Bein.",
-        "bild_pfad": None,
-        "version": "stub",
+        "kurzbeschreibung": "Dynamische Standbeinbalance in drei Richtungen — bewertet Gleichgewicht und Beinachsenstabilität.",
+        "ziel": (
+            "Messung der dynamischen Gleichgewichtsfähigkeit auf einem Standbein. "
+            "Composite Score ≥ 89 % gilt als sportlich unauffällig. "
+            "Seitenunterschiede > 4 cm je Richtung gelten als trainingsrelevant."
+        ),
+        "material": "Y-Balance-Kit oder Klebeband-Markierungen auf dem Boden (3 Arme: 0°, 135°, 225°), Maßband.",
+        "aufbau": (
+            "Standfläche markieren. Drei Messarme aufkleben oder Y-Balance-Kit verwenden: "
+            "Anterior (vorwärts, 0°), Posteromedial (schräg hinten-innen, ~135°), "
+            "Posterolateral (schräg hinten-außen, ~225°). "
+            "Arme mindestens 120 cm lang markieren."
+        ),
+        "aufwaermung": "5–10 Minuten allgemeines Aufwärmen, je 3–6 Übungsversuche je Richtung und Seite.",
+        "durchfuehrung": (
+            "Spieler steht auf einem Bein auf der Standfläche. "
+            "Mit dem freien Fuß so weit wie möglich entlang des Messarms schieben, ohne aufzusetzen. "
+            "Beinlänge (ASIS bis Innenknöchel) vorher messen und eintragen. "
+            "3 Messungen je Richtung und Seite — bester Wert wird verwendet."
+        ),
+        "trainerhinweis": (
+            "Standbein muss gerade bleiben (kein Strecken oder übermäßiges Beugen). "
+            "Ferse des Standbeins muss auf der Markierung bleiben. "
+            "Der Schiebefoot darf den Boden kurz berühren, aber nicht belasten. "
+            "Arme dürfen zur Balance genutzt werden."
+        ),
+        "versuche": "3 gültige Versuche je Richtung und Seite. Bester Wert zählt.",
+        "pause": "Kurze Pause zwischen den Seiten (30–60 Sekunden).",
+        "messwert": "Reichweite in cm je Richtung (Anterior, Posteromedial, Posterolateral) je Seite",
+        "einheit": "cm",
+        "gueltiger_versuch": "Standbein stabil, Ferse auf Markierung, Schiebefoot berührt Boden nur kurz.",
+        "ungueltiger_versuch": "Standbein hebt ab, Ferse verlässt Markierung, Schiebefoot wird belastet, Gleichgewichtsverlust.",
+        "fehler": [
+            "Standferse verlässt die Markierung — Reichweite erscheint größer als tatsächlich",
+            "Kniegelenk des Standbeins zu stark strecken — verfälscht Gleichgewichtsanforderung",
+            "Schiebefoot wird belastet — Test ist ungültig",
+            "Beinlänge nicht korrekt gemessen — Composite Score stimmt nicht",
+        ],
+        "sicherheit": (
+            "Rutschfester Untergrund erforderlich. "
+            "Bei Knie-, Sprunggelenk- oder Hüftbeschwerden Test aussetzen. "
+            "Spieler soll sich an einer Wand oder Person stabilisieren dürfen (dann als Übung werten)."
+        ),
+        "bild_pfad": "assets/tests/y_balance/ybalance_setup.svg",
+        "quelle": "Gribble et al. (2012); Plisky et al. (2006)",
+        "version": "1.0",
         "datum": "2026-07-29",
+        "video_lokal": None, "video_link": None, "video_titel": None, "video_quelle": None, "video_lizenz": None,
         "felder": {
-            "beinlaenge": {"label": "Beinlänge", "kurzhilfe": "Beinlänge in cm messen (ASIS bis Innenknöchel). Z. B. 87.5", "einheit": "cm", "bereich": "Sinnvoller Bereich: 50 – 90 cm"},
-            "anterior": {"label": "Anterior", "kurzhilfe": "Reichweite in Vorwärtsrichtung in cm. Z. B. 65", "einheit": "cm", "bereich": "Sinnvoller Bereich: 40 – 90 cm"},
-            "posteromedial": {"label": "Posteromedial", "kurzhilfe": "Reichweite schräg hinten-innen in cm. Z. B. 110", "einheit": "cm", "bereich": "Sinnvoller Bereich: 80 – 140 cm"},
-            "posterolateral": {"label": "Posterolateral", "kurzhilfe": "Reichweite schräg hinten-außen in cm. Z. B. 100", "einheit": "cm", "bereich": "Sinnvoller Bereich: 75 – 130 cm"},
+            "beinlaenge":     {"label": "Beinlänge", "ziel": "Normierungsbasis für den Composite Score.", "kurzhilfe": "Beinlänge in cm messen: ASIS (Beckenvorsprung) bis Innenknöchel bei gestrecktem Knie. Z. B. 87.5", "eingabehilfe": "Länge in cm, z. B. 87.5", "einheit": "cm", "bereich": "Sinnvoll: 50 – 95 cm"},
+            "anterior":       {"label": "Anterior", "ziel": "Vorwärts-Gleichgewicht, Sprunggelenkmobilität.", "kurzhilfe": "Reichweite in Vorwärtsrichtung (anterior) in cm. Besten Versuch eintragen.", "eingabehilfe": "Reichweite in cm, z. B. 65.0", "einheit": "cm", "bereich": "Sinnvoll: 40 – 90 cm"},
+            "posteromedial":  {"label": "Posteromedial", "ziel": "Hintere mediale Gleichgewichtsstabilität.", "kurzhilfe": "Reichweite schräg hinten-innen in cm. Besten Versuch eintragen.", "eingabehilfe": "Reichweite in cm, z. B. 110.0", "einheit": "cm", "bereich": "Sinnvoll: 80 – 145 cm"},
+            "posterolateral": {"label": "Posterolateral", "ziel": "Hintere laterale Gleichgewichtsstabilität.", "kurzhilfe": "Reichweite schräg hinten-außen in cm. Besten Versuch eintragen.", "eingabehilfe": "Reichweite in cm, z. B. 100.0", "einheit": "cm", "bereich": "Sinnvoll: 75 – 135 cm"},
         },
     },
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # FMS
+    # ══════════════════════════════════════════════════════════════════════════
     "fms": {
-        "name": "Functional Movement Screen",
-        "kurzbeschreibung": "Bewertung von 7 grundlegenden Bewegungsmustern mit Punkteskala 0–3.",
-        "bild_pfad": None,
-        "version": "stub",
+        "name": "Functional Movement Screen (FMS)",
+        "kurzbeschreibung": "7 Grundbewegungsmuster werden bilateral bewertet — Punkteskala 0 bis 3, Maximum 21 Punkte.",
+        "ziel": (
+            "Beurteilung der funktionellen Bewegungsqualität in 7 Grundmustern. "
+            "Score ≤ 14 Punkte gilt als trainingsrelevant. "
+            "Asymmetrien (gleiche Übung, verschiedene Seiten) zeigen seitenspezifischen Trainingsbedarf."
+        ),
+        "material": "FMS-Kit (Stab 122 cm, Hürde, Brett) oder entsprechende Hilfsmittel.",
+        "aufbau": (
+            "Ebene, rutschfeste Fläche. "
+            "FMS-Brett auf den Boden legen. Hürde auf Hüfthöhe des Spielers einstellen. "
+            "Stab bereithalten. Spieler barfuß oder in leichten Hallenschuhen."
+        ),
+        "aufwaermung": "5–10 Minuten allgemeines Aufwärmen, keine spezifische Vorbereitung auf die FMS-Muster.",
+        "durchfuehrung": (
+            "Jeden Test dreimal zeigen lassen. Bestes Ergebnis je Seite wird gewertet. "
+            "Bewertung: 3 = korrekt ohne Kompensation, 2 = korrekt mit Kompensation, "
+            "1 = nicht möglich, 0 = Schmerzen während des Tests. "
+            "Bei bilateralen Tests: niedrigerer Seitenwert zählt."
+        ),
+        "trainerhinweis": (
+            "Keine Hilfestellung oder Coaching während der Durchführung. "
+            "Nur beobachten und bewerten. "
+            "Bei Schmerzen (0 Punkte) sofort stoppen — keine weitere Belastung. "
+            "Reihenfolge einhalten: Deep Squat → Hurdle Step → Inline Lunge → Shoulder → ASLR → Trunk → Rotary."
+        ),
+        "versuche": "Bis zu 3 Versuche je Muster. Bestes Ergebnis wird gewertet.",
+        "pause": "Kurze Pause zwischen den Mustern, kein zeitlicher Druck.",
+        "messwert": "Punkte je Muster (0–3), Gesamtscore (0–21)",
+        "einheit": "Punkte",
+        "gueltiger_versuch": "Bewegung wird vollständig und klar beobachtbar ausgeführt.",
+        "ungueltiger_versuch": "Bewegung abgebrochen, zu kurz oder ohne klares Ergebnis — Versuch wiederholen.",
+        "fehler": [
+            "Coaching während der Ausführung — verändert das natürliche Bewegungsmuster",
+            "Zu früh bewertet ohne vollständige Bewegungsausführung",
+            "Höhere Seite bei Asymmetrien eingetragen statt niedrigerer",
+            "Schuhwerk beeinflusst Beweglichkeit — immer barfuß oder gleiche Bedingung",
+        ],
+        "sicherheit": (
+            "Bei Schmerzen (Bewertung 0) den Test sofort abbrechen. "
+            "Keine Provokation von Beschwerden. "
+            "Schwangere, akute Verletzungen und starke Schwellungen: Test aussetzen."
+        ),
+        "bild_pfad": "assets/tests/fms/fms_overview.svg",
+        "quelle": "Cook et al. (2006); Functional Movement Systems",
+        "version": "1.0",
         "datum": "2026-07-29",
+        "video_lokal": None, "video_link": None, "video_titel": None, "video_quelle": None, "video_lizenz": None,
         "felder": {
-            "deep_squat": {"label": "Deep Squat", "kurzhilfe": "Bewertung 0–3: 3 = symmetrisch korrekt, 2 = korrekt mit Kompensation, 1 = nicht möglich, 0 = Schmerzen.", "einheit": "Punkte", "bereich": "0, 1, 2 oder 3"},
-            "hurdle_step": {"label": "Hurdle Step", "kurzhilfe": "Je Seite bewerten (0–3). Niedrigere Seite zählt.", "einheit": "Punkte", "bereich": "0, 1, 2 oder 3"},
-            "inline_lunge": {"label": "Inline Lunge", "kurzhilfe": "Je Seite bewerten (0–3). Niedrigere Seite zählt.", "einheit": "Punkte", "bereich": "0, 1, 2 oder 3"},
-            "shoulder": {"label": "Shoulder Mobility", "kurzhilfe": "Je Seite bewerten (0–3). Niedrigere Seite zählt.", "einheit": "Punkte", "bereich": "0, 1, 2 oder 3"},
-            "aslr": {"label": "Active Straight Leg Raise", "kurzhilfe": "Je Seite bewerten (0–3). Niedrigere Seite zählt.", "einheit": "Punkte", "bereich": "0, 1, 2 oder 3"},
-            "trunk_stability": {"label": "Trunk Stability Push-up", "kurzhilfe": "Bewertung 0–3.", "einheit": "Punkte", "bereich": "0, 1, 2 oder 3"},
-            "rotary_stability": {"label": "Rotary Stability", "kurzhilfe": "Je Seite bewerten (0–3). Niedrigere Seite zählt.", "einheit": "Punkte", "bereich": "0, 1, 2 oder 3"},
+            "deep_squat":       {"label": "Deep Squat",              "ziel": "Bilaterale Hüft-, Knie- und Sprunggelenkmobilität, Schulter- und Rumpfkontrolle.", "kurzhilfe": "Spieler hält Stab über Kopf und führt tiefe Kniebeuge aus. 3 = vollständig, 2 = mit Fersenkeil, 1 = nicht möglich, 0 = Schmerzen.", "eingabehilfe": "Wert 0, 1, 2 oder 3 eintragen", "einheit": "Punkte", "bereich": "0, 1, 2 oder 3"},
+            "hurdle_step":      {"label": "Hurdle Step",             "ziel": "Einbeinige Standbeinsstabilität, Hüftmobilität, Koordination.", "kurzhilfe": "Spieler übersteigt Hürde auf Hüfthöhe ohne Berühren. Je Seite bewerten — niedrigere Seite zählt.", "eingabehilfe": "Wert 0, 1, 2 oder 3 je Seite", "einheit": "Punkte", "bereich": "0, 1, 2 oder 3"},
+            "inline_lunge":     {"label": "Inline Lunge",            "ziel": "Hüftmobilität, Kniestabilität, Rumpfkontrolle im Ausfallschritt.", "kurzhilfe": "Spieler führt Ausfallschritt auf Brett aus, Stab bleibt gerade. Je Seite bewerten.", "eingabehilfe": "Wert 0, 1, 2 oder 3 je Seite", "einheit": "Punkte", "bereich": "0, 1, 2 oder 3"},
+            "shoulder":         {"label": "Shoulder Mobility",       "ziel": "Schulterrotation und -mobilität — Innen-/Außenrotation kombiniert.", "kurzhilfe": "Beide Hände hinter Rücken — Abstand zwischen Fäusten messen. ≤ Handlänge = 3, ≤ 1.5 Handlänge = 2, sonst = 1. Schmerzprovokationstest extra.", "eingabehilfe": "Wert 0, 1, 2 oder 3 je Seite", "einheit": "Punkte", "bereich": "0, 1, 2 oder 3"},
+            "aslr":             {"label": "ASLR (Straight Leg Raise)","ziel": "Aktive Hüftbeugung, Hamstringsdehnbarkeit, Rumpfstabilität.", "kurzhilfe": "Spieler liegt, hebt gestrecktes Bein. Knöchel über Mittelpunkt Oberschenkel = 3, über Knie = 2, darunter = 1.", "eingabehilfe": "Wert 0, 1, 2 oder 3 je Seite", "einheit": "Punkte", "bereich": "0, 1, 2 oder 3"},
+            "trunk_stability":  {"label": "Trunk Stability Push-up", "ziel": "Rumpfstabilität in der Sagittalebene beim Liegestütz.", "kurzhilfe": "Spieler führt Liegestütz aus, ohne dass Hüfte absackt. Männer Daumen auf Stirnhöhe = 3, Kinnnhöhe = 2. Frauen Kinnnhöhe = 3, Schlüsselbein = 2.", "eingabehilfe": "Wert 0, 1, 2 oder 3", "einheit": "Punkte", "bereich": "0, 1, 2 oder 3"},
+            "rotary_stability": {"label": "Rotary Stability",        "ziel": "Multiplanare Rumpfstabilität im Vierfüßlerstand.", "kurzhilfe": "Spieler streckt Arm und Gegenbein gleichzeitig — kein Ausweichen. Diagonal = 3, unilateral = 2, nicht möglich = 1.", "eingabehilfe": "Wert 0, 1, 2 oder 3 je Seite", "einheit": "Punkte", "bereich": "0, 1, 2 oder 3"},
         },
     },
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # SPRUNG / JUMP
+    # ══════════════════════════════════════════════════════════════════════════
     "jump": {
         "name": "Sprung-Diagnostik",
-        "kurzbeschreibung": "Explosivkraft, Reaktivkraft und Seitenasymmetrie — CMJ, SJ, DJ, Standweit.",
-        "bild_pfad": None,
-        "version": "stub",
+        "kurzbeschreibung": "Explosivkraft, Reaktivkraft und Seitenasymmetrie — CMJ, Squat Jump, Drop Jump, Standweitsprung.",
+        "ziel": (
+            "Messung der Sprungkraft als Indikator für Explosivkraft und Reaktivkraft. "
+            "Seitenvergleich CMJ rechts/links zeigt muskuläre Asymmetrie. "
+            "RSI (Drop Jump) bewertet Reaktivkraft und Belastungstoleranz."
+        ),
+        "material": "Kontaktmatte oder Videoanalyse, ausreichend Kopffreiheit (> 3 m), rutschfester Untergrund.",
+        "aufbau": (
+            "Ebene, rutschfeste Fläche. Kontaktmatte oder Videomarkierung vorbereiten. "
+            "Für Drop Jump: Absprungbox in 30–40 cm Höhe. "
+            "Für Standweitsprung: Klebeband-Markierung als Absprunglinie."
+        ),
+        "aufwaermung": "10 Minuten allgemeines Aufwärmen, 3–5 submaximale CMJ-Versuche.",
+        "durchfuehrung": (
+            "CMJ beidbeinig: Aus dem Stand mit Gegenbewegung maximal abspringen, Arme frei. "
+            "CMJ einbeinig: Gleiches Prinzip auf je einem Bein. "
+            "Squat Jump: Aus 90°-Kniebeugeposition ohne Gegenbewegung abspringen, Hände in Hüfte. "
+            "Drop Jump: Von Box springen, sofort maximal abspringen — minimale Kontaktzeit. "
+            "Standweit: Aus dem Stand so weit wie möglich springen, beidbeinige Landung."
+        ),
+        "trainerhinweis": (
+            "CMJ: Spieler soll Hände an Hüften lassen (nur Beine), wenn Armschwung ausgeschlossen sein soll. "
+            "SJ: Keine sichtbare Gegenbewegung vor Absprung — sonst ungültig. "
+            "Drop Jump: Absprungbox-Höhe notieren. Kontaktzeit so kurz wie möglich. "
+            "Standweit: Beide Füße gleichzeitig landen, kein Ausfallschritt."
+        ),
+        "versuche": "3 Versuche je Testvariante. Bester Wert wird gewertet.",
+        "pause": "30–60 Sekunden zwischen Versuchen, 2–3 Minuten zwischen Testvarianten.",
+        "messwert": "Sprunghöhe in cm (CMJ, SJ, DJ), Kontaktzeit in Sekunden (DJ), Weite in cm (SWJ)",
+        "einheit": "cm / s",
+        "gueltiger_versuch": "Vollständiger Absprung, beidbeinige Landung (bei beidbeinigen Tests), keine Vorabstützung.",
+        "ungueltiger_versuch": "Kein vollständiger Absprung, einseitige Landung bei beidbeinigem Test, Aufsetzen bei SJ.",
+        "fehler": [
+            "Gegenbewegung beim Squat Jump — gibt zu hohe Sprunghöhe",
+            "Zu lange Kontaktzeit beim Drop Jump — RSI wird unterschätzt",
+            "Armschwung beeinflusst Sprunghöhe — Bedingung für alle Versuche gleich halten",
+            "Zu kurze Pause — Ermüdung verfälscht Folgeversuche",
+        ],
+        "sicherheit": (
+            "Ausreichend Landeplatz. "
+            "Knieprobleme, Sprunggelenksbeschwerden oder akute Schmerzen: Test aussetzen. "
+            "Drop Jump nur auf sicherem, ebenen Untergrund."
+        ),
+        "bild_pfad": "assets/tests/jump/cmj_setup.svg",
+        "quelle": "Bosco et al. (1983); Flanagan & Comyns (2008)",
+        "version": "1.0",
         "datum": "2026-07-29",
+        "video_lokal": None, "video_link": None, "video_titel": None, "video_quelle": None, "video_lizenz": None,
         "felder": {
-            "cmj_beid": {"label": "CMJ beidbeinig", "kurzhilfe": "Sprunghöhe Countermovement Jump beidbeinig in cm. Z. B. 42", "einheit": "cm", "bereich": "Sinnvoller Bereich: 20 – 70 cm"},
-            "cmj_r": {"label": "CMJ rechts", "kurzhilfe": "Sprunghöhe einbeiniger CMJ rechts in cm. Z. B. 32", "einheit": "cm", "bereich": "Sinnvoller Bereich: 15 – 55 cm"},
-            "cmj_l": {"label": "CMJ links", "kurzhilfe": "Sprunghöhe einbeiniger CMJ links in cm. Z. B. 31", "einheit": "cm", "bereich": "Sinnvoller Bereich: 15 – 55 cm"},
-            "squat_jump": {"label": "Squat Jump", "kurzhilfe": "Sprunghöhe aus der Kniebeuge ohne Gegenbewegung in cm. Z. B. 38", "einheit": "cm", "bereich": "Sinnvoller Bereich: 18 – 65 cm"},
-            "dj_hoehe": {"label": "Drop Jump Höhe", "kurzhilfe": "Sprunghöhe nach Drop Jump in cm. Z. B. 36", "einheit": "cm", "bereich": "Sinnvoller Bereich: 15 – 55 cm"},
-            "dj_kontakt": {"label": "DJ Kontaktzeit", "kurzhilfe": "Bodenkontaktzeit beim Drop Jump in Sekunden. Z. B. 0.18", "einheit": "Sekunden", "bereich": "Sinnvoller Bereich: 0.08 – 0.35 s"},
-            "standweit": {"label": "Standweitsprung", "kurzhilfe": "Sprungweite in cm. Z. B. 215", "einheit": "cm", "bereich": "Sinnvoller Bereich: 100 – 320 cm"},
+            "cmj_beid":   {"label": "CMJ beidbeinig",        "ziel": "Beidbeinige Explosivkraft.", "kurzhilfe": "Sprunghöhe Countermovement Jump beidbeinig in cm. Besten Versuch eintragen.", "eingabehilfe": "Höhe in cm, z. B. 42.0", "einheit": "cm", "bereich": "Sinnvoll: 20 – 70 cm"},
+            "cmj_r":      {"label": "CMJ einbeinig rechts",  "ziel": "Einbeinige Explosivkraft rechts.", "kurzhilfe": "Sprunghöhe einbeiniger CMJ rechts in cm. Ermöglicht Seitenvergleich.", "eingabehilfe": "Höhe in cm, z. B. 32.0", "einheit": "cm", "bereich": "Sinnvoll: 15 – 55 cm"},
+            "cmj_l":      {"label": "CMJ einbeinig links",   "ziel": "Einbeinige Explosivkraft links.", "kurzhilfe": "Sprunghöhe einbeiniger CMJ links in cm. Seitenasymmetrie > 10 % = trainingsrelevant.", "eingabehilfe": "Höhe in cm, z. B. 31.0", "einheit": "cm", "bereich": "Sinnvoll: 15 – 55 cm"},
+            "squat_jump": {"label": "Squat Jump",            "ziel": "Konzentrische Explosivkraft ohne Vorspannung.", "kurzhilfe": "Sprunghöhe aus 90°-Kniebeugeposition ohne Gegenbewegung. Hände an Hüfte.", "eingabehilfe": "Höhe in cm, z. B. 38.0", "einheit": "cm", "bereich": "Sinnvoll: 18 – 65 cm"},
+            "dj_hoehe":   {"label": "Drop Jump Höhe",        "ziel": "Reaktivkraft — Absprunghöhe nach Drop.", "kurzhilfe": "Sprunghöhe nach Drop Jump (von Box fallen, sofort abspringen) in cm.", "eingabehilfe": "Höhe in cm, z. B. 35.0", "einheit": "cm", "bereich": "Sinnvoll: 15 – 55 cm"},
+            "dj_kontakt": {"label": "Drop Jump Kontaktzeit", "ziel": "Reaktivkraft — Bodenkontaktzeit soll minimal sein.", "kurzhilfe": "Bodenkontaktzeit beim Drop Jump in Sekunden. Kürzer = reaktiver. RSI = Höhe / Kontaktzeit.", "eingabehilfe": "Zeit in Sekunden, z. B. 0.18", "einheit": "s", "bereich": "Sinnvoll: 0.08 – 0.40 s"},
+            "standweit":  {"label": "Standweitsprung",       "ziel": "Horizontale Explosivkraft.", "kurzhilfe": "Sprungweite in cm ab Absprunglinie bis hinterste Ferse bei der Landung.", "eingabehilfe": "Weite in cm, z. B. 215", "einheit": "cm", "bereich": "Sinnvoll: 100 – 320 cm"},
         },
     },
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # AGILITÄT / RICHTUNGSWECHSEL
+    # ══════════════════════════════════════════════════════════════════════════
     "agility": {
-        "name": "Richtungswechsel-Diagnostik",
-        "kurzbeschreibung": "Agilität und Richtungswechselgeschwindigkeit — 505, 5-10-5, T-Test, Illinois.",
-        "bild_pfad": None,
-        "version": "stub",
+        "name": "Agilität & Richtungswechsel",
+        "kurzbeschreibung": "505-Test, 5-10-5 Shuttle, T-Test, Illinois Agility Run — Richtungswechselgeschwindigkeit und Abbremsstärke.",
+        "ziel": (
+            "Messung der Richtungswechselgeschwindigkeit als Schlüsselfähigkeit im Fußball. "
+            "505-Test bewertet 180°-Wendung getrennt für rechts und links. "
+            "T-Test und Illinois messen mehrdirektionale Agilität."
+        ),
+        "material": "Hütchen, Klebeband oder Kreide, Stoppuhr oder Lichtschranken, Maßband.",
+        "aufbau": (
+            "505-Test: 10 m Anlaufzone + 5 m Zeitmesszone + Wendepunkt markieren. "
+            "5-10-5: Drei Linien im Abstand von 5 m markieren. "
+            "T-Test: T-Form mit je 9,14 m vorwärts und 4,57 m seitwärts. "
+            "Illinois: 10 m × 5 m Kurs mit 4 Hütchen-Slalompunkten."
+        ),
+        "aufwaermung": "10 Minuten allgemeines Aufwärmen, 2–3 Probeläufe mit 70–80 % Intensität.",
+        "durchfuehrung": (
+            "505-Test: Aus dem Stand anlaufen, 10 m Anlauf, letzten 5 m gestoppt, auf Linie wenden, zurücksprinten. "
+            "Getrennt für rechts- und linksseitiges Wenden. "
+            "5-10-5: Start aus dem Stand, 5 m zu einer Seite, 10 m zur anderen, 5 m zurück. "
+            "T-Test: 9,14 m vorwärts, seitwärts links 4,57 m, rechts 9,14 m, links 4,57 m zurück, rückwärts zur Startlinie."
+        ),
+        "trainerhinweis": (
+            "Spieler muss die Wendepunkte klar berühren (505: Linie vollständig übertreten). "
+            "Keine Vorahnung der Wendeseite beim 5-10-5 — immer klar ansagen. "
+            "T-Test: Seitwärtsbewegung, kein Überkreuzen der Beine. "
+            "Reihenfolge: Erst alle Tests einer Art, dann nächster Test."
+        ),
+        "versuche": "2–3 Versuche je Test. Bester gültiger Versuch wird gewertet.",
+        "pause": "2–3 Minuten zwischen den Versuchen.",
+        "messwert": "Zeit in Sekunden",
+        "einheit": "Sekunden (s)",
+        "gueltiger_versuch": "Alle Wendepunkte klar berührt oder übertreten, korrekter Streckenverlauf.",
+        "ungueltiger_versuch": "Wendepunkt nicht berührt, falsche Reihenfolge, Abkürzung der Strecke.",
+        "fehler": [
+            "Wendepunkt nicht vollständig berührt — zu kurze gemessene Zeit",
+            "Beim T-Test Beine überkreuzen statt Seitwärtsschritte — verändert Bewegungsanforderung",
+            "Zu kurze Pause — Ermüdung überlagert Agilität",
+            "Illinois: Hütchen berühren ohne Strafe — immer Wiederholung ansagen",
+        ],
+        "sicherheit": (
+            "Rutschfester Untergrund obligatorisch. "
+            "Knie- und Sprunggelenksbeschwerden: Test aussetzen. "
+            "Ausreichend Platz hinter den Endmarkierungen."
+        ),
+        "bild_pfad": "assets/tests/agility/test_505.svg",
+        "quelle": "Draper & Lancaster (1985) — 505-Test; Johnson & Nelson (1986) — T-Test",
+        "version": "1.0",
         "datum": "2026-07-29",
+        "video_lokal": None, "video_link": None, "video_titel": None, "video_quelle": None, "video_lizenz": None,
         "felder": {
-            "t505_r": {"label": "505-Test rechts", "kurzhilfe": "Zeit rechts wenden in Sekunden. Zeitmesszone: 5 m vor und nach der Wendelinie. Z. B. 2.35", "einheit": "Sekunden", "bereich": "Sinnvoller Bereich: 1.80 – 3.20 s"},
-            "t505_l": {"label": "505-Test links", "kurzhilfe": "Zeit links wenden in Sekunden. Z. B. 2.40", "einheit": "Sekunden", "bereich": "Sinnvoller Bereich: 1.80 – 3.20 s"},
-            "t5_10_5": {"label": "5-10-5", "kurzhilfe": "Gesamtzeit 5-10-5-Test in Sekunden. Z. B. 4.80", "einheit": "Sekunden", "bereich": "Sinnvoller Bereich: 3.80 – 6.00 s"},
-            "t_test": {"label": "T-Test", "kurzhilfe": "Gesamtzeit T-Test in Sekunden. Z. B. 9.50", "einheit": "Sekunden", "bereich": "Sinnvoller Bereich: 8.00 – 13.00 s"},
-            "illinois": {"label": "Illinois-Test", "kurzhilfe": "Gesamtzeit Illinois-Test in Sekunden. Z. B. 15.50", "einheit": "Sekunden", "bereich": "Sinnvoller Bereich: 13.00 – 20.00 s"},
+            "t505_r":  {"label": "505-Test rechts",   "ziel": "Richtungswechsel 180° nach rechts.", "kurzhilfe": "Zeit für den 5-m-Abschnitt (Zeitmesszone) beim Rechtswenden in Sekunden.", "eingabehilfe": "Zeit in Sekunden, z. B. 2.35", "einheit": "s", "bereich": "Sinnvoll: 1.80 – 3.20 s"},
+            "t505_l":  {"label": "505-Test links",    "ziel": "Richtungswechsel 180° nach links.", "kurzhilfe": "Zeit für den 5-m-Abschnitt beim Linkswenden. Seitendifferenz > 10 % = trainingsrelevant.", "eingabehilfe": "Zeit in Sekunden, z. B. 2.40", "einheit": "s", "bereich": "Sinnvoll: 1.80 – 3.20 s"},
+            "t5_10_5": {"label": "5-10-5 Shuttle",   "ziel": "Shuttle-Beschleunigung und Abbremsfähigkeit.", "kurzhilfe": "Gesamtzeit 5-10-5-Shuttle in Sekunden (5 m + 10 m + 5 m).", "eingabehilfe": "Zeit in Sekunden, z. B. 4.80", "einheit": "s", "bereich": "Sinnvoll: 3.80 – 6.00 s"},
+            "t_test":  {"label": "T-Test",           "ziel": "Mehrdirektionale Agilität vorwärts, seitwärts, rückwärts.", "kurzhilfe": "Gesamtzeit T-Test in Sekunden.", "eingabehilfe": "Zeit in Sekunden, z. B. 9.50", "einheit": "s", "bereich": "Sinnvoll: 8.00 – 13.00 s"},
+            "illinois": {"label": "Illinois Agility", "ziel": "Gesamtagilität im Slalomkurs.", "kurzhilfe": "Gesamtzeit Illinois Agility Run in Sekunden.", "eingabehilfe": "Zeit in Sekunden, z. B. 15.50", "einheit": "s", "bereich": "Sinnvoll: 13.00 – 20.00 s"},
         },
     },
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # YO-YO / AUSDAUER
+    # ══════════════════════════════════════════════════════════════════════════
     "yoyo": {
         "name": "Yo-Yo Ausdauer-Diagnostik",
-        "kurzbeschreibung": "Intermittierende Ausdauer — Yo-Yo Intermittent Recovery Test Level 1 und 2.",
-        "bild_pfad": None,
-        "version": "stub",
+        "kurzbeschreibung": "Yo-Yo Intermittent Recovery Test Level 1 (IR1) und Level 2 (IR2) — Standardtest im Fußball.",
+        "ziel": (
+            "Messung der intermittierenden Ausdauerleistungsfähigkeit — für Fußball besonders relevant, "
+            "da das Spiel durch kurze intensive Aktionen und Erholungsphasen geprägt ist. "
+            "Ergebnis ist die Gesamtlaufdistanz in Metern."
+        ),
+        "material": "Zwei Linien im Abstand von 20 m, Erholungszone 5 m (hinter der Startlinie), Audio-CD oder App mit Yo-Yo-Beeps, Maßband.",
+        "aufbau": (
+            "Start-/Ziellinie und Wendelinie im Abstand von 20 m markieren. "
+            "5 m hinter der Startlinie: Erholungszone markieren (5 m bis zur dritten Linie). "
+            "Spieler laufen pendeln zwischen Start und Wendelinie hin und zurück — "
+            "dann 5 m in Erholungszone gehen/laufen, umkehren, bereit für nächsten Lauf."
+        ),
+        "aufwaermung": "10 Minuten allgemeines Aufwärmen. Testprotokoll erläutern, 2–3 Probeläufe.",
+        "durchfuehrung": (
+            "Spieler starten mit dem ersten Beep-Signal und laufen 20 m zur Wendelinie. "
+            "Vor dem nächsten Beep-Signal zurück zur Startlinie. "
+            "In der Erholungsphase (10 s bei IR1, 5 s bei IR2) in die Erholungszone und zurück. "
+            "Test endet, wenn Spieler zweimal hintereinander die Linie vor dem Beep nicht erreicht."
+        ),
+        "trainerhinweis": (
+            "Spieler muss die Linien mit einem Fuß berühren oder übertreten — kein Abschneiden. "
+            "Erste Warnung bei Verpassen der Linie, zweite Warnung = Testende. "
+            "Verbleibende Spieler nicht anfeuern (ablenkend). "
+            "Distanz zählen: jede vollständig absolvierte 20-m-Strecke = 20 m."
+        ),
+        "versuche": "Einmaliger Maximaltest bis zur Erschöpfung.",
+        "pause": "Kein weiterer Versuch. Mindestens 48 Stunden zwischen Yo-Yo-Tests.",
+        "messwert": "Gesamtlaufdistanz in Metern",
+        "einheit": "Meter (m)",
+        "gueltiger_versuch": "Alle Linien rechtzeitig erreicht, Erholungszone korrekt durchlaufen.",
+        "ungueltiger_versuch": "Zweimaliges Verpassen der Linie vor dem Beep — Testende.",
+        "fehler": [
+            "Startlinie abschneiden — Distanz wird zu groß gemessen",
+            "Zu früh starten — verfälscht VO₂max-Schätzung",
+            "Kühles Wetter ohne ausreichendes Aufwärmen — Leistung unterschätzt",
+            "Außentemperatur und Untergrund (Halle vs. Rasen) beeinflussen das Ergebnis",
+        ],
+        "sicherheit": (
+            "Test ist intensiv — nur für ausreichend aufgewärmte, beschwerdefreie Spieler. "
+            "Bei Herzrhythmusstörungen, starker Erschöpfung oder Übelkeit sofort stoppen. "
+            "Nach dem Test: Abwärmen, ausreichend trinken."
+        ),
+        "bild_pfad": "assets/tests/yoyo/yoyo_setup.svg",
+        "quelle": "Bangsbo et al. (2008) — Yo-Yo IR1/IR2",
+        "version": "1.0",
         "datum": "2026-07-29",
+        "video_lokal": None, "video_link": None, "video_titel": None, "video_quelle": None, "video_lizenz": None,
         "felder": {
-            "distanz": {"label": "Erzielte Distanz", "kurzhilfe": "Gesamtlaufstrecke beim Yo-Yo-Test in Metern. Jede absolvierte Stufe = 40 m. Z. B. 1200", "einheit": "Meter", "bereich": "Sinnvoller Bereich: 80 – 4000 m"},
-            "hf_max": {"label": "HF max", "kurzhilfe": "Maximale Herzfrequenz direkt nach dem Testende in Schlägen pro Minute. Z. B. 192", "einheit": "bpm", "bereich": "Sinnvoller Bereich: 120 – 220 bpm"},
-            "rpe": {"label": "RPE (Borg 6–20)", "kurzhilfe": "Subjektives Belastungsempfinden nach Borg (6 = keine Anstrengung, 20 = maximale Anstrengung). Z. B. 17", "einheit": "Borg-Skala", "bereich": "6 bis 20"},
+            "distanz":  {"label": "Erzielte Distanz", "ziel": "Gesamtlaufdistanz bis zum Testabbruch.", "kurzhilfe": "Gesamtlaufdistanz in Metern. Jede absolvierte Hin-und-Rück-Strecke = 40 m. Z. B. bei Stufe 15 = 920 m.", "eingabehilfe": "Distanz in Metern, z. B. 1200", "einheit": "m", "bereich": "Sinnvoll: 80 – 4000 m"},
+            "hf_max":   {"label": "HF max (bpm)",     "ziel": "Belastungsintensität — maximale Herzfrequenz direkt nach Testende.", "kurzhilfe": "Maximale Herzfrequenz direkt nach Testabbruch in Schlägen pro Minute. Sofort messen (innerhalb 10 Sekunden).", "eingabehilfe": "Herzfrequenz in bpm, z. B. 192", "einheit": "bpm", "bereich": "Sinnvoll: 120 – 220 bpm"},
+            "rpe":      {"label": "RPE (Borg 6–20)",   "ziel": "Subjektives Belastungsempfinden als ergänzende Information.", "kurzhilfe": "Borg-Skala: 6 = gar keine Anstrengung, 20 = maximale Anstrengung. Typisch nach Yo-Yo: 17–20.", "eingabehilfe": "Wert zwischen 6 und 20", "einheit": "Borg", "bereich": "6 bis 20"},
         },
     },
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # ANTHROPOMETRIE
+    # ══════════════════════════════════════════════════════════════════════════
     "anthropometrie": {
         "name": "Anthropometrie",
-        "kurzbeschreibung": "Körpermaße, BMI, Körperzusammensetzung und sportlicher Reifestatus.",
-        "bild_pfad": None,
-        "version": "stub",
+        "kurzbeschreibung": "Körpermaße, BMI, Körperzusammensetzung und sportlicher Reifestatus (PHV-Schätzung).",
+        "ziel": (
+            "Erfassung anthropometrischer Basisdaten für trainingsplanerische Entscheidungen. "
+            "PHV-Offset schätzt den Entwicklungsstand im Wachstumsprozess (Nachwuchs). "
+            "Kein medizinischer Befund — rein sportliche Dokumentation."
+        ),
+        "material": "Stadiometer (Messgerät für Körpergröße), Personenwaage, Maßband, Sitzmessgerät oder Brett.",
+        "aufbau": "Ruhige Umgebung, Spieler mit leichter Sportkleidung, ohne Schuhe.",
+        "aufwaermung": "Nicht zutreffend — Ruhemessung vor dem Sport bevorzugt.",
+        "durchfuehrung": (
+            "Körpergröße: Spieler aufrecht an der Wand, Blick gerade, Messung am Scheitelpunkt. "
+            "Körpergewicht: Morgens, nüchtern oder nach dem Training — immer gleiche Bedingung notieren. "
+            "Sitzhöhe: Spieler aufrecht auf Boden sitzen, Messung vom Boden bis zum Scheitel. "
+            "Beinlänge: Körpergröße minus Sitzhöhe, oder direktes Messen ASIS bis Innenknöchel. "
+            "Armspann: Beide Arme waagerecht, Fingerspitze bis Fingerspitze. "
+            "Körperfett: Methode dokumentieren (Caliper-Messung, BIA, DEXA)."
+        ),
+        "trainerhinweis": (
+            "Immer gleiche Bedingungen für Verlaufsmessungen (Tageszeit, Kleidung, Messstelle). "
+            "Körperfett-Methode im Verlauf nicht wechseln. "
+            "PHV-Schätzung ist eine mathematische Näherung — keine medizinische Aussage. "
+            "Messwerte vertraulich behandeln."
+        ),
+        "versuche": "Einfachmessung (oder Doppelmessung bei abweichenden Werten).",
+        "pause": "Nicht zutreffend.",
+        "messwert": "Verschiedene Maße in cm, kg und %",
+        "einheit": "cm / kg / %",
+        "gueltiger_versuch": "Standardisierte Messbedingungen eingehalten.",
+        "ungueltiger_versuch": "Abweichende Bedingungen (Schuhe, andere Tageszeit) — im Bemerkungsfeld notieren.",
+        "fehler": [
+            "Schuhe vergessen — Größe erscheint 2–3 cm zu groß",
+            "Körpergewicht nach dem Training ohne Hinweis — beeinflusst Verlauf",
+            "Sitzhöhe falsch gemessen — PHV-Schätzung stimmt nicht",
+            "Körperfett-Methode gewechselt — Verlaufsvergleich nicht möglich",
+        ],
+        "sicherheit": "Keine besonderen Sicherheitsanforderungen.",
+        "bild_pfad": "assets/tests/anthropometrie/anthro_punkte.svg",
+        "quelle": "Mirwald et al. (2002) — PHV-Schätzung; WHO — BMI-Klassifikation",
+        "version": "1.0",
         "datum": "2026-07-29",
+        "video_lokal": None, "video_link": None, "video_titel": None, "video_quelle": None, "video_lizenz": None,
         "felder": {
-            "groesse": {"label": "Körpergröße", "kurzhilfe": "Körpergröße in cm, aufrecht stehend ohne Schuhe. Z. B. 175", "einheit": "cm", "bereich": "Sinnvoller Bereich: 100 – 220 cm"},
-            "gewicht": {"label": "Körpergewicht", "kurzhilfe": "Körpergewicht in kg, möglichst nach dem Sport ohne schwere Kleidung. Z. B. 68", "einheit": "kg", "bereich": "Sinnvoller Bereich: 30 – 150 kg"},
-            "koerperfett": {"label": "Körperfettanteil", "kurzhilfe": "Körperfettanteil in Prozent. Z. B. 12.5", "einheit": "%", "bereich": "Sinnvoller Bereich: 4 – 40 %"},
-            "muskelmasse": {"label": "Muskelmasse", "kurzhilfe": "Muskelmasse in Prozent der Körpermasse. Z. B. 42.0", "einheit": "%", "bereich": "Sinnvoller Bereich: 25 – 65 %"},
-            "sitzhoehe": {"label": "Sitzhöhe", "kurzhilfe": "Sitzhöhe in cm (Scheitel bis Sitzfläche, aufrecht sitzend). Z. B. 91", "einheit": "cm", "bereich": "Sinnvoller Bereich: 50 – 110 cm"},
-            "beinlaenge": {"label": "Beinlänge", "kurzhilfe": "Beinlänge in cm (Körpergröße minus Sitzhöhe). Z. B. 84", "einheit": "cm", "bereich": "Sinnvoller Bereich: 40 – 120 cm"},
-            "armspann": {"label": "Armspann", "kurzhilfe": "Armspann in cm, beide Arme waagerecht ausgestreckt, Fingerspitze zu Fingerspitze. Z. B. 178", "einheit": "cm", "bereich": "Sinnvoller Bereich: 100 – 250 cm"},
+            "groesse":      {"label": "Körpergröße",    "ziel": "Grundmaß für alle weiteren Berechnungen.", "kurzhilfe": "Körpergröße in cm, aufrecht stehend ohne Schuhe, Blick geradeaus.", "eingabehilfe": "Größe in cm, z. B. 175.0", "einheit": "cm", "bereich": "Sinnvoll: 100 – 220 cm"},
+            "gewicht":      {"label": "Körpergewicht",  "ziel": "Grundmaß für BMI und Körperzusammensetzung.", "kurzhilfe": "Gewicht in kg. Möglichst gleiche Bedingung wie bei Vortestungen (Tageszeit, Kleidung).", "eingabehilfe": "Gewicht in kg, z. B. 68.5", "einheit": "kg", "bereich": "Sinnvoll: 30 – 150 kg"},
+            "koerperfett":  {"label": "Körperfettanteil","ziel": "Einschätzung der Körperzusammensetzung.", "kurzhilfe": "Körperfettanteil in %. Methode dokumentieren (Caliper, BIA, o. ä.).", "eingabehilfe": "Prozent, z. B. 12.5", "einheit": "%", "bereich": "Sinnvoll: 4 – 40 %"},
+            "muskelmasse":  {"label": "Muskelmasse",    "ziel": "Anteil der Muskelmasse am Körpergewicht.", "kurzhilfe": "Muskelmasse in kg (BIA-Gerät) oder als % eintragen.", "eingabehilfe": "Wert in kg oder %, z. B. 32.0", "einheit": "kg", "bereich": "Sinnvoll: 25 – 65 kg"},
+            "sitzhoehe":    {"label": "Sitzhöhe",       "ziel": "Für PHV-Schätzung nach Mirwald et al. (2002).", "kurzhilfe": "Aufrecht sitzen, Messung vom Boden bis zum Scheitel in cm. Für PHV-Berechnung wichtig!", "eingabehilfe": "Sitzhöhe in cm, z. B. 91.0", "einheit": "cm", "bereich": "Sinnvoll: 50 – 110 cm"},
+            "beinlaenge":   {"label": "Beinlänge",      "ziel": "Abgeleitetes Maß für PHV-Schätzung.", "kurzhilfe": "Beinlänge = Körpergröße minus Sitzhöhe. Oder direkt messen (ASIS bis Innenknöchel).", "eingabehilfe": "Beinlänge in cm, z. B. 84.0", "einheit": "cm", "bereich": "Sinnvoll: 40 – 120 cm"},
+            "armspann":     {"label": "Armspann",       "ziel": "Verhältnis zum Körperwuchs — ergänzende Information.", "kurzhilfe": "Beide Arme waagerecht ausgestreckt, Fingerspitze zu Fingerspitze in cm.", "eingabehilfe": "Armspann in cm, z. B. 178.0", "einheit": "cm", "bereich": "Sinnvoll: 100 – 250 cm"},
         },
     },
 }
