@@ -1,0 +1,278 @@
+Prüfe jetzt vollständig, ob das standardisierte Trainerbeobachtungssystem aus meinem vorherigen Auftrag tatsächlich umgesetzt wurde.
+
+Wichtig: Ich habe zwischenzeitlich bereits weitere Änderungen am Projekt vorgenommen.
+
+Deshalb gelten folgende Regeln:
+
+Schutz meiner bisherigen Änderungen
+Überschreibe keine meiner zwischenzeitlichen Änderungen.
+Setze keine Dateien auf einen früheren Stand zurück.
+Verwende kein pauschales Rollback.
+Lösche keine neuen Funktionen.
+Ersetze keine vollständigen Dateien, ohne vorher zu prüfen, welche Änderungen inzwischen vorhanden sind.
+Ändere keine bestehenden Formeln, Testergebnisse oder Auswertungslogiken.
+Ändere keine Datenbankstruktur, bevor du den aktuellen Zustand geprüft hast.
+Arbeite immer auf Basis des aktuellen Projektstands.
+Führe bestehende und fehlende Funktionen zusammen, anstatt alte Versionen wiederherzustellen.
+Erstelle vor Änderungen eine Sicherung der betroffenen Dateien und der Datenbank.
+Zuerst nur prüfen
+
+Ändere zunächst noch keinen produktiven Code.
+
+Analysiere den aktuellen Stand des gesamten Projekts und prüfe, ob die folgenden Bestandteile vorhanden und funktionsfähig sind.
+
+1. Zentrale Beobachtungsstruktur
+
+Prüfe, ob eine zentrale Datei oder zentrale Datenstruktur für alle Trainerbeobachtungen existiert, zum Beispiel:
+
+data/test_observations.py
+
+oder:
+
+config/test_observations.py
+
+Prüfe:
+
+Welche Datei tatsächlich verwendet wird.
+Welche Test-IDs vorhanden sind.
+Welche Tests Beobachtungen besitzen.
+Welche Tests noch keine Beobachtungen besitzen.
+Ob die Beobachtungen direkt in einzelnen Seiten doppelt hinterlegt wurden.
+Ob jede Beobachtung eine eindeutige ID besitzt.
+Ob Kategorie, sichtbarer Text und Berichtstext vorhanden sind.
+Ob positive, neutrale und auffällige Beobachtungen unterschieden werden.
+Ob Standardmodus und Expertenmodus berücksichtigt werden.
+Ob Seitenangaben unterstützt werden.
+Ob Ausprägungen wie leicht, mittel und deutlich unterstützt werden.
+Ob widersprüchliche Beobachtungen erkannt werden können.
+2. Wiederverwendbare UI-Komponente
+
+Prüfe, ob eine zentrale Funktion vorhanden ist, beispielsweise:
+
+render_observation_selector(...)
+
+Prüfe, ob sie tatsächlich auf den Testseiten verwendet wird.
+
+Kontrolliere:
+
+Checkboxen
+Kategorien
+Standardmodus
+Expertenmodus
+Seitenangabe
+Ausprägung
+Freitext
+Zurücksetzen-Button
+Textvorschau
+Übernehmen oder Speichern
+Laden bereits gespeicherter Beobachtungen
+
+Suche auch nach doppeltem oder veraltetem Beobachtungscode in einzelnen Testseiten.
+
+3. Textgenerierung
+
+Prüfe, ob eine zentrale Funktion vorhanden ist, beispielsweise:
+
+generate_observation_text(...)
+
+Teste, ob sie aus den ausgewählten Beobachtungen vollständige und verständliche deutsche Sätze erzeugt.
+
+Prüfe insbesondere:
+
+eine einzelne Beobachtung
+zwei Beobachtungen
+mehrere Beobachtungen
+positive Beobachtungen
+auffällige Beobachtungen
+positive und auffällige Beobachtungen zusammen
+rechte Seite
+linke Seite
+beidseitige Beobachtung
+leichte Ausprägung
+mittlere Ausprägung
+deutliche Ausprägung
+zusätzlicher Freitext
+keine ausgewählte Beobachtung
+
+Die Texte dürfen keine medizinischen Diagnosen enthalten.
+
+4. Datenbankspeicherung
+
+Prüfe die aktuelle SQLite-Datenbank und alle Datenbankfunktionen.
+
+Kontrolliere:
+
+Existiert eine Tabelle für Trainerbeobachtungen?
+Wie heißt die Tabelle tatsächlich?
+Welche Spalten sind vorhanden?
+Werden Beobachtungs-IDs gespeichert?
+Werden Spieler-ID und Testdatensatz-ID gespeichert?
+Werden Test-ID und Testdatum gespeichert?
+Werden Seite und Ausprägung gespeichert?
+Wird Freitext gespeichert?
+Wird der generierte Beobachtungstext gespeichert?
+Werden Erstellungs- und Änderungszeitpunkt gespeichert?
+Können gespeicherte Beobachtungen erneut geladen werden?
+Können gespeicherte Beobachtungen bearbeitet werden?
+Entstehen beim erneuten Speichern doppelte Datensätze?
+Funktionieren alte Datensätze ohne Beobachtungen weiterhin?
+
+Ändere die Datenbank während dieser Prüfung noch nicht.
+
+5. Umsetzung auf den Testseiten
+
+Prüfe jede tatsächlich vorhandene Testseite einzeln.
+
+Erstelle eine Tabelle mit:
+
+Test	Test-ID	Beobachtungen vorhanden	UI eingebunden	Speichern möglich	Laden möglich	PDF-Ausgabe	Status
+
+Prüfe mindestens:
+
+alle vorhandenen FMS-Tests
+alle vorhandenen Y-Balance-Richtungen
+alle vorhandenen Sprinttests
+alle vorhandenen Sprungtests
+alle vorhandenen Richtungswechseltests
+vorhandene Ausdauertests
+vorhandene Krafttests
+vorhandene anthropometrische Messungen
+
+Erfinde keine Tests, die im Projekt nicht vorhanden sind.
+
+6. PDF-Bericht
+
+Prüfe, ob Trainerbeobachtungen im PDF-Bericht erscheinen.
+
+Kontrolliere:
+
+Der Abschnitt erscheint nur bei vorhandenen Beobachtungen.
+Der generierte Text wird dargestellt.
+Positives und Auffälliges werden verständlich getrennt.
+Freitext wird als zusätzliche Trainerbeobachtung ausgegeben.
+Umlaute und Sonderzeichen funktionieren.
+Lange Texte werden korrekt umgebrochen.
+Es entstehen keine abgeschnittenen Texte.
+Leere Beobachtungsabschnitte werden nicht angezeigt.
+Bestehende PDF-Inhalte bleiben unverändert.
+7. Beschwerden und Testabbruch
+
+Prüfe, ob Beschwerden nur neutral dokumentiert werden.
+
+Zulässige Formulierung:
+
+„Der Spieler gab während des Tests Beschwerden an. Der Test wurde abgebrochen beziehungsweise nicht weiter bewertet. Bei anhaltenden Beschwerden sollte eine medizinische oder therapeutische Fachperson hinzugezogen werden.“
+
+Prüfe, dass die App keine Diagnose, Verletzungserkennung oder Sportfreigabe erzeugt.
+
+8. Funktionsprüfung
+
+Führe echte Funktionstests durch.
+
+Teste mindestens:
+
+Deep Squat mit mehreren Beobachtungen.
+Y-Balance Anterior mit Seitenangabe.
+10-Meter-Sprint mit Ausprägung.
+Positive und auffällige Beobachtungen zusammen.
+Speichern eines neuen Testdatensatzes.
+Erneutes Öffnen des Testdatensatzes.
+Bearbeiten einer gespeicherten Beobachtung.
+Entfernen einer gespeicherten Beobachtung.
+Freitext speichern und erneut laden.
+PDF-Bericht erstellen.
+Test ohne Beobachtungen speichern.
+Alten Testdatensatz ohne Beobachtungsdaten öffnen.
+Widersprüchliche Beobachtungen auswählen.
+Beobachtungen zurücksetzen.
+Wechsel zwischen Standard- und Expertenmodus.
+App nach einem Neustart erneut öffnen.
+
+Prüfe auch die Konsole und Protokolle auf Fehler.
+
+Versions- und Änderungsprüfung
+
+Prüfe nach Möglichkeit:
+
+den aktuellen Git-Status
+nicht gespeicherte Änderungen
+zuletzt veränderte Dateien
+vorhandene Backups
+vorhandene Datenbankdateien
+mögliche doppelte oder veraltete Dateien
+
+Verwende Git nur zur Analyse.
+
+Kein Reset, Checkout, Revert oder Rollback ohne meine ausdrückliche Erlaubnis.
+
+Prüfbericht erstellen
+
+Gib mir nach der Prüfung einen ausführlichen Bericht mit diesen Abschnitten:
+
+A. Vollständig umgesetzt
+
+Liste alle Bestandteile auf, die vorhanden und funktionsfähig sind.
+
+B. Teilweise umgesetzt
+
+Liste alle Bestandteile auf, die vorhanden sind, aber Fehler oder Lücken besitzen.
+
+C. Nicht umgesetzt
+
+Liste alle Bestandteile auf, die vollständig fehlen.
+
+D. Fehler
+
+Liste konkrete Fehler mit:
+
+Datei
+Funktion
+ungefährer Codebereich
+Fehlerursache
+Auswirkung
+E. Beobachtungsabdeckung
+
+Zeige alle vorhandenen Tests mit:
+
+Test-ID
+Anzahl der Standardbeobachtungen
+Anzahl der Expertenbeobachtungen
+UI eingebunden: ja oder nein
+Datenbankspeicherung: ja oder nein
+PDF-Ausgabe: ja oder nein
+F. Schutz bestehender Änderungen
+
+Nenne alle Dateien, die seit dem ursprünglichen Auftrag zusätzlich verändert wurden und deshalb bei einer Korrektur besonders vorsichtig zusammengeführt werden müssen.
+
+G. Empfohlener Reparaturplan
+
+Erstelle einen schrittweisen Reparaturplan.
+
+Ordne die Punkte nach:
+
+Kritische Fehler
+Datenbank und Datenverlust
+Nicht funktionierende Speicherung
+Fehlende Testseiten
+PDF-Bericht
+Darstellung und Bedienung
+Optimierungen
+Noch nichts reparieren
+
+Nach dem Prüfbericht darfst du noch keine Änderungen durchführen.
+
+Warte nicht auf Vermutungen und behaupte nicht einfach, etwas sei umgesetzt.
+
+Prüfe den tatsächlichen Code, die Datenbank und die Einbindung auf den Seiten.
+
+Am Ende muss eindeutig stehen:
+
+vollständig umgesetzt
+teilweise umgesetzt
+nicht umgesetzt
+technisch vorhanden, aber nicht eingebunden
+eingebunden, aber nicht funktionsfähig
+
+Beginne jetzt mit der Analyse des aktuellen Projektstands.
+
+Ändere zunächst keine produktiven Dateien.
