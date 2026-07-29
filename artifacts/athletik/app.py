@@ -2892,6 +2892,32 @@ def page_export_pdf():
 
         st.markdown("---")
 
+        # ── Vereins-Personalisierung ─────────────────────────────────────────
+        st.markdown("### 🏟️ Vereins-Personalisierung")
+        _vn = st.session_state.get("cfg_vereinsname", "")
+        _sn = st.session_state.get("cfg_saison", "")
+        if _vn or _sn:
+            _info_parts = []
+            if _vn:
+                _info_parts.append(f"**Verein:** {_vn}")
+            if _sn:
+                _info_parts.append(f"**Saison:** {_sn}")
+            st.success("  ·  ".join(_info_parts) + "  — wird im PDF-Header und Deckblatt verwendet.")
+        else:
+            st.info(
+                "Kein Vereinsname oder Saison eingetragen. "
+                "Unter **⚙️ Einstellungen → Allgemein** eintragen, um das PDF zu personalisieren."
+            )
+
+        _logo_file = st.file_uploader(
+            "Vereinslogo (optional, PNG/JPG — nur für dieses PDF)",
+            type=["png", "jpg", "jpeg"],
+            key="pdf_logo_upload",
+        )
+        _logo_bytes: bytes | None = _logo_file.read() if _logo_file is not None else None
+
+        st.markdown("---")
+
         # ── Generieren ───────────────────────────────────────────────────────
         st.markdown("### 📥 PDF generieren")
         n_tests = len(selected_ids)
@@ -2907,6 +2933,9 @@ def page_export_pdf():
                     pdf_bytes = generate_anleitung_pdf(
                         selected_ids,
                         mit_deckblatt=mit_deckblatt,
+                        vereinsname=st.session_state.get("cfg_vereinsname", ""),
+                        saison=st.session_state.get("cfg_saison", ""),
+                        logo_bytes=_logo_bytes,
                     )
                     st.session_state["_pdf_bytes"]    = pdf_bytes
                     st.session_state["_pdf_ready"]    = True

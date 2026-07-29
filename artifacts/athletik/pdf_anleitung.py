@@ -78,6 +78,8 @@ class AnleitungPDF(FPDF):
     """FPDF-Subklasse für Testanleitungs-Dokumente."""
 
     _doc_title: str = "Testanleitungen"
+    _vereinsname: str = ""
+    _saison: str = ""
 
     def header(self):
         self.set_fill_color(*BRAND)
@@ -88,7 +90,13 @@ class AnleitungPDF(FPDF):
         self.cell(0, 10, "  FOOTBALL ATHLETIK DIAGNOSTIK  |  Testanleitungen", align="L")
         self.set_font("Helvetica", "", 7)
         self.set_xy(0, 5)
-        self.cell(0, 7, f"Erstellt am {date.today().strftime('%d.%m.%Y')}  ", align="R")
+        right_parts: list[str] = []
+        if self._vereinsname:
+            right_parts.append(_safe(self._vereinsname))
+        if self._saison:
+            right_parts.append(f"Saison {_safe(self._saison)}")
+        right_parts.append(date.today().strftime("%d.%m.%Y"))
+        self.cell(0, 7, "  |  ".join(right_parts) + "  ", align="R")
         self.set_text_color(*DARK)
         self.ln(13)
 
@@ -367,7 +375,11 @@ def _render_test(pdf: AnleitungPDF, test_id: str, assets_base: str = "assets") -
 
 # ─── Deckblatt ────────────────────────────────────────────────────────────────
 
-def _render_cover(pdf: AnleitungPDF, test_names: list[str]) -> None:
+def _render_cover(
+    pdf: AnleitungPDF,
+    test_names: list[str],
+    logo_bytes: bytes | None = None,
+) -> None:
     """Optionales Deckblatt mit Inhaltsverzeichnis."""
     pdf.add_page()
     pdf.ln(10)
@@ -384,12 +396,44 @@ def _render_cover(pdf: AnleitungPDF, test_names: list[str]) -> None:
     pdf.ln(6)
     pdf.set_text_color(*DARK)
 
-    # Datum
-    pdf.set_font("Helvetica", "", 9)
-    pdf.set_text_color(*MID)
-    pdf.cell(0, 6, f"Erstellt am {date.today().strftime('%d. %B %Y')}", align="C",
-             new_x="LMARGIN", new_y="NEXT")
-    pdf.ln(10)
+    # Vereins-Info-Block ─────────────────────────────────────────────────────
+    vereinsname = pdf._vereinsname
+    saison      = pdf._saison
+
+    if logo_bytes:
+        try:
+            img_buf = io.BytesIO(logo_bytes)
+            # Place logo centered, max 30 mm wide
+            pdf.image(img_buf, x=90, w=30)
+            pdf.ln(4)
+        except Exception:
+            pass  # Ungültiges Bild ignorieren
+
+    if vereinsname or saison:
+        pdf.set_fill_color(*LIGHT)
+        pdf.set_font("Helvetica", "", 10)
+        pdf.set_text_color(*DARK)
+        pdf.cell(0, 7, "", fill=True, new_x="LMARGIN", new_y="NEXT")  # spacer row
+        if vereinsname:
+            pdf.set_font("Helvetica", "B", 11)
+            pdf.cell(0, 7, f"Erstellt von: {_safe(vereinsname)}",
+                     fill=True, new_x="LMARGIN", new_y="NEXT", align="C")
+        if saison:
+            pdf.set_font("Helvetica", "", 10)
+            pdf.cell(0, 7, f"Saison: {_safe(saison)}",
+                     fill=True, new_x="LMARGIN", new_y="NEXT", align="C")
+        pdf.set_text_color(*MID)
+        pdf.set_font("Helvetica", "", 9)
+        pdf.cell(0, 7, f"Erstellt am {date.today().strftime('%d. %B %Y')}",
+                 fill=True, new_x="LMARGIN", new_y="NEXT", align="C")
+        pdf.ln(6)
+    else:
+        # Datum fallback when no club info set
+        pdf.set_font("Helvetica", "", 9)
+        pdf.set_text_color(*MID)
+        pdf.cell(0, 6, f"Erstellt am {date.today().strftime('%d. %B %Y')}", align="C",
+                 new_x="LMARGIN", new_y="NEXT")
+        pdf.ln(10)
 
     # Enthaltene Tests
     pdf.set_font("Helvetica", "B", 10)
@@ -430,13 +474,19 @@ def _render_cover(pdf: AnleitungPDF, test_names: list[str]) -> None:
 def generate_anleitung_pdf(
     test_ids: list[str],
     mit_deckblatt: bool = True,
+    vereinsname: str = "",
+    saison: str = "",
+    logo_bytes: bytes | None = None,
 ) -> bytes:
     """
     Erstellt ein PDF mit Testanleitungen für die angegebenen Test-IDs.
 
     Args:
-        test_ids: Liste von Test-IDs aus TEST_HELP (z.B. ["sprint", "agility"])
+        test_ids:      Liste von Test-IDs aus TEST_HELP (z.B. ["sprint", "agility"])
         mit_deckblatt: Ob ein Deckblatt mit Inhaltsverzeichnis eingefügt wird.
+        vereinsname:   Vereinsname für Header und Deckblatt.
+        saison:        Saison-Bezeichnung, z.B. "2025/26".
+        logo_bytes:    Optionales Vereinslogo (PNG/JPG) als Bytes für das Deckblatt.
 
     Returns:
         PDF als bytes.
@@ -444,13 +494,15 @@ def generate_anleitung_pdf(
     pdf = AnleitungPDF(orientation="P", unit="mm", format="A4")
     pdf.set_auto_page_break(auto=True, margin=16)
     pdf.set_margins(10, 20, 10)
+    pdf._vereinsname = vereinsname or ""
+    pdf._saison      = saison or ""
 
     # Nur existierende Test-IDs verwenden
     valid_ids = [tid for tid in test_ids if tid in TEST_HELP]
 
     if mit_deckblatt and valid_ids:
         names = [TEST_HELP[tid]["name"] for tid in valid_ids]
-        _render_cover(pdf, names)
+        _render_cover(pdf, names, logo_bytes=logo_bytes)
 
     for tid in valid_ids:
         _render_test(pdf, tid)
