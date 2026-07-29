@@ -12,6 +12,7 @@ import plotly.express as px
 import pandas as pd
 
 from theme import APP_CSS, C, PLOTLY_LAYOUT as _PL_BASE
+from help_ui import sicherheitshinweis_box, show_test_info, show_field_help, field_info_col
 from ui_components import (
     kpi_card, score_kpi, risk_kpi,
     player_banner, section_header, deficit_row, strength_row,
@@ -1481,13 +1482,24 @@ def page_anthropometrie():
 
 # ──────────────────────────────────────────────────────────────────────────────
 
-def _sprint_eingabe(distanz_label: str, key_prefix: str, letzter_row, col):
-    """Hilfsfunktion: 3-Versuch-Eingabe für eine Sprint-Distanz."""
-    col.markdown(f"**{distanz_label}**")
+def _sprint_eingabe(distanz_label: str, key_prefix: str, letzter_row, col,
+                    field_id: str = ""):
+    """Hilfsfunktion: 3-Versuch-Eingabe für eine Sprint-Distanz mit Info-Button."""
+    hdr, info_btn = col.columns([5, 1])
+    hdr.markdown(f"**{distanz_label}**")
+    if field_id:
+        field_info_col(info_btn, "sprint", field_id)
     c1, c2, c3 = col.columns(3)
-    v1 = c1.number_input("V1", 0.0, 20.0, 0.0, step=0.01, format="%.2f", key=f"{key_prefix}_v1", label_visibility="collapsed")
-    v2 = c2.number_input("V2", 0.0, 20.0, 0.0, step=0.01, format="%.2f", key=f"{key_prefix}_v2", label_visibility="collapsed")
-    v3 = c3.number_input("V3", 0.0, 20.0, 0.0, step=0.01, format="%.2f", key=f"{key_prefix}_v3", label_visibility="collapsed")
+    help_txt = show_field_help("sprint", field_id) if field_id else ""
+    v1 = c1.number_input("V1", 0.0, 20.0, 0.0, step=0.01, format="%.2f",
+                          key=f"{key_prefix}_v1", label_visibility="collapsed",
+                          help=f"Versuch 1 — {distanz_label}  \n{help_txt}" if help_txt else f"Versuch 1 — {distanz_label}")
+    v2 = c2.number_input("V2", 0.0, 20.0, 0.0, step=0.01, format="%.2f",
+                          key=f"{key_prefix}_v2", label_visibility="collapsed",
+                          help=f"Versuch 2 — {distanz_label}")
+    v3 = c3.number_input("V3", 0.0, 20.0, 0.0, step=0.01, format="%.2f",
+                          key=f"{key_prefix}_v3", label_visibility="collapsed",
+                          help=f"Versuch 3 — {distanz_label}")
     bester = min((v for v in [v1, v2, v3] if v > 0), default=None)
     if bester:
         col.markdown(f'<small style="color:#8b949e">Bester Versuch: <b style="color:#58a6ff">{bester:.2f} s</b></small>', unsafe_allow_html=True)
@@ -1497,6 +1509,10 @@ def _sprint_eingabe(distanz_label: str, key_prefix: str, letzter_row, col):
 def page_sprint():
     st.markdown("# ⚡ Sprint-Diagnostik")
     st.markdown("Lineare Beschleunigung und Maximalgeschwindigkeit — 5 m bis 30 m, je 3 Versuche.")
+
+    # ── Sicherheitshinweis & Testanleitung ────────────────────────────────────
+    sicherheitshinweis_box()
+    show_test_info("sprint")
 
     auswahl = _player_selector("sprint")
     if not auswahl:
@@ -1515,13 +1531,13 @@ def page_sprint():
     with tab_neu:
         datum = st.date_input("Testdatum", value=date.today(), key="sprint_datum")
         st.markdown("#### Zeiten eingeben (Sekunden) — Versuch 1 / 2 / 3")
-        st.caption("Nicht gemessene Distanzen einfach auf 0.00 lassen.")
+        st.caption("Nicht gemessene Distanzen auf 0.00 lassen. ℹ️-Button neben jeder Distanz für Eingabehilfe.")
 
         c_l, c_r = st.columns(2)
-        v1_5,  v2_5,  v3_5,  b5  = _sprint_eingabe("5 m",  "s5",  letzter, c_l)
-        v1_10, v2_10, v3_10, b10 = _sprint_eingabe("10 m", "s10", letzter, c_l)
-        v1_20, v2_20, v3_20, b20 = _sprint_eingabe("20 m", "s20", letzter, c_r)
-        v1_30, v2_30, v3_30, b30 = _sprint_eingabe("30 m", "s30", letzter, c_r)
+        v1_5,  v2_5,  v3_5,  b5  = _sprint_eingabe("5 m",  "s5",  letzter, c_l, "sprint_5m")
+        v1_10, v2_10, v3_10, b10 = _sprint_eingabe("10 m", "s10", letzter, c_l, "sprint_10m")
+        v1_20, v2_20, v3_20, b20 = _sprint_eingabe("20 m", "s20", letzter, c_r, "sprint_20m")
+        v1_30, v2_30, v3_30, b30 = _sprint_eingabe("30 m", "s30", letzter, c_r, "sprint_30m")
 
         from sprint import (beschleunigungsindex, bewertung_sprint, bewertung_farbe,
                             SprintErgebnis as _SE)
