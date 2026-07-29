@@ -1,0 +1,82 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 220"
+     style="width:100%;max-width:360px;border-radius:8px;display:block;margin:0 auto"
+     role="img" aria-label="Drop Jump: Von Box fallen, minimale Kontaktzeit, sofort abspringen">
+  <rect width="360" height="220" rx="8" fill="#161b22"/>
+  <text x="180" y="16" text-anchor="middle" fill="#c9d1d9" font-family="system-ui,sans-serif" font-size="12" font-weight="600">Drop Jump — Reaktivkraft (RSI)</text>
+
+  <defs>
+    <marker id="dj-up" markerWidth="7" markerHeight="6" refX="3.5" refY="0" orient="auto">
+      <polygon points="0,6 3.5,0 7,6" fill="#3fb950"/>
+    </marker>
+    <marker id="dj-down" markerWidth="7" markerHeight="6" refX="3.5" refY="6" orient="auto">
+      <polygon points="0,0 3.5,6 7,0" fill="#d29922"/>
+    </marker>
+    <marker id="dj-r" markerWidth="7" markerHeight="5" refX="6" refY="2.5" orient="auto">
+      <polygon points="0 0,7 2.5,0 5" fill="#8b949e"/>
+    </marker>
+    <marker id="dj-l" markerWidth="7" markerHeight="5" refX="1" refY="2.5" orient="auto-start-reverse">
+      <polygon points="0 0,7 2.5,0 5" fill="#8b949e"/>
+    </marker>
+  </defs>
+
+  <!-- Ground -->
+  <line x1="30" y1="178" x2="330" y2="178" stroke="#30363d" stroke-width="2"/>
+
+  <!-- === BOX (left) === -->
+  <rect x="38" y="130" width="52" height="48" rx="3" fill="#21262d" stroke="#30363d" stroke-width="1.5"/>
+  <text x="64" y="152" text-anchor="middle" fill="#8b949e" font-family="system-ui,sans-serif" font-size="9" font-weight="600">BOX</text>
+  <text x="64" y="163" text-anchor="middle" fill="#8b949e" font-family="system-ui,sans-serif" font-size="9">~30 cm</text>
+
+  <!-- Figure on box -->
+  <circle cx="64" cy="108" r="7" fill="none" stroke="#58a6ff" stroke-width="2.2"/>
+  <line x1="64" y1="115" x2="64" y2="130" stroke="#58a6ff" stroke-width="2.5" stroke-linecap="round"/>
+  <line x1="54" y1="121" x2="64" y2="119" stroke="#58a6ff" stroke-width="2" stroke-linecap="round"/>
+  <line x1="64" y1="119" x2="74" y2="121" stroke="#58a6ff" stroke-width="2" stroke-linecap="round"/>
+  <line x1="64" y1="130" x2="59" y2="142" stroke="#58a6ff" stroke-width="2.5" stroke-linecap="round"/>
+  <line x1="64" y1="130" x2="69" y2="142" stroke="#58a6ff" stroke-width="2.5" stroke-linecap="round"/>
+  <line x1="59" y1="142" x2="57" y2="148" stroke="#58a6ff" stroke-width="2" stroke-linecap="round"/>
+  <line x1="69" y1="142" x2="71" y2="148" stroke="#58a6ff" stroke-width="2" stroke-linecap="round"/>
+
+  <!-- Step off (dashed path from box edge down to ground) -->
+  <text x="64" y="90" text-anchor="middle" fill="#d29922" font-family="system-ui,sans-serif" font-size="8">① fallen</text>
+  <text x="64" y="100" text-anchor="middle" fill="#d29922" font-family="system-ui,sans-serif" font-size="8">(nicht springen)</text>
+  <line x1="92" y1="130" x2="130" y2="174" stroke="#d29922" stroke-width="1.8" stroke-dasharray="5,3" marker-end="url(#dj-down)"/>
+
+  <!-- Ground contact zone highlight -->
+  <rect x="120" y="172" width="50" height="8" rx="2" fill="#3b2a0d" opacity="0.9"/>
+  <text x="145" y="179" text-anchor="middle" fill="#d29922" font-family="system-ui,sans-serif" font-size="8" font-weight="600">② min. Kontakt</text>
+
+  <!-- Contact time bracket -->
+  <line x1="120" y1="185" x2="170" y2="185" stroke="#d29922" stroke-width="1" marker-start="url(#dj-l)" marker-end="url(#dj-r)"/>
+  <text x="145" y="196" text-anchor="middle" fill="#d29922" font-family="system-ui,sans-serif" font-size="8">t [s] → RSI = h/t</text>
+
+  <!-- Upward jump arrow from contact zone -->
+  <line x1="210" y1="174" x2="210" y2="55" stroke="#3fb950" stroke-width="2.5" stroke-dasharray="6,3" marker-end="url(#dj-up)"/>
+  <text x="222" y="85" fill="#3fb950" font-family="system-ui,sans-serif" font-size="8">③ sofort</text>
+  <text x="222" y="95" fill="#3fb950" font-family="system-ui,sans-serif" font-size="8">abspringen</text>
+
+  <!-- Airborne figure (right of arrow) -->
+  <circle cx="244" cy="74" r="7" fill="none" stroke="#3fb950" stroke-width="2.2"/>
+  <line x1="244" y1="81" x2="244" y2="106" stroke="#3fb950" stroke-width="2.5" stroke-linecap="round"/>
+  <line x1="234" y1="90" x2="244" y2="88" stroke="#3fb950" stroke-width="2" stroke-linecap="round"/>
+  <line x1="244" y1="88" x2="254" y2="90" stroke="#3fb950" stroke-width="2" stroke-linecap="round"/>
+  <circle cx="244" cy="106" r="2.5" fill="#3fb950"/>
+  <line x1="244" y1="106" x2="238" y2="128" stroke="#3fb950" stroke-width="2.5" stroke-linecap="round"/>
+  <line x1="244" y1="106" x2="250" y2="128" stroke="#3fb950" stroke-width="2.5" stroke-linecap="round"/>
+  <line x1="238" y1="128" x2="236" y2="148" stroke="#3fb950" stroke-width="2" stroke-linecap="round"/>
+  <line x1="250" y1="128" x2="252" y2="148" stroke="#3fb950" stroke-width="2" stroke-linecap="round"/>
+
+  <!-- Height measurement bracket -->
+  <line x1="296" y1="178" x2="296" y2="62" stroke="#8b949e" stroke-width="1" marker-start="url(#dj-l)" marker-end="url(#dj-r)"/>
+  <text x="314" y="122" text-anchor="middle" fill="#8b949e" font-family="system-ui,sans-serif" font-size="9">Höhe</text>
+  <text x="314" y="133" text-anchor="middle" fill="#8b949e" font-family="system-ui,sans-serif" font-size="9">[cm]</text>
+
+  <!-- RSI label -->
+  <rect x="38" y="36" width="130" height="24" rx="4" fill="#21262d" opacity="0.9"/>
+  <text x="103" y="50" text-anchor="middle" fill="#58a6ff" font-family="system-ui,sans-serif" font-size="10" font-weight="600">RSI = Höhe ÷ Kontaktzeit</text>
+  <text x="103" y="58" text-anchor="middle" fill="#8b949e" font-family="system-ui,sans-serif" font-size="8">Ziel: RSI ≥ 1.5 (Leistungssport)</text>
+
+  <!-- Footer -->
+  <rect x="10" y="204" width="340" height="14" rx="3" fill="#21262d" opacity="0.8"/>
+  <text x="180" y="214" text-anchor="middle" fill="#8b949e" font-family="system-ui,sans-serif" font-size="8">Boxhöhe ~30 cm · passiver Fall · Arme an Hüfte · Zeitmessung via Kontaktmatte</text>
+</svg>

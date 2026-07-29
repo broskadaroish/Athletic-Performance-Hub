@@ -1,0 +1,91 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 220"
+     style="width:100%;max-width:360px;border-radius:8px;display:block;margin:0 auto"
+     role="img" aria-label="Squat Jump: Sprung aus 90-Grad-Kniebeugeposition ohne Gegenbewegung">
+  <rect width="360" height="220" rx="8" fill="#161b22"/>
+  <text x="180" y="16" text-anchor="middle" fill="#c9d1d9" font-family="system-ui,sans-serif" font-size="12" font-weight="600">Squat Jump — Konzentrische Explosivkraft</text>
+
+  <defs>
+    <marker id="arr-up" markerWidth="7" markerHeight="6" refX="3.5" refY="0" orient="auto">
+      <polygon points="0,6 3.5,0 7,6" fill="#3fb950"/>
+    </marker>
+    <marker id="arr-h" markerWidth="7" markerHeight="5" refX="6" refY="2.5" orient="auto">
+      <polygon points="0 0,7 2.5,0 5" fill="#8b949e"/>
+    </marker>
+    <marker id="arr-h2" markerWidth="7" markerHeight="5" refX="1" refY="2.5" orient="auto-start-reverse">
+      <polygon points="0 0,7 2.5,0 5" fill="#8b949e"/>
+    </marker>
+  </defs>
+
+  <!-- Ground line -->
+  <line x1="40" y1="175" x2="320" y2="175" stroke="#30363d" stroke-width="2"/>
+
+  <!-- === LEFT: STATIC START POSITION (90° squat) === -->
+  <!-- Label -->
+  <text x="90" y="38" text-anchor="middle" fill="#8b949e" font-family="system-ui,sans-serif" font-size="10" font-weight="600">STARTPOSITION</text>
+  <text x="90" y="50" text-anchor="middle" fill="#d29922" font-family="system-ui,sans-serif" font-size="9">90° Kniebeugeposition</text>
+
+  <!-- Torso upright -->
+  <line x1="90" y1="100" x2="90" y2="135" stroke="#58a6ff" stroke-width="3" stroke-linecap="round"/>
+  <!-- Head -->
+  <circle cx="90" cy="93" r="8" fill="none" stroke="#58a6ff" stroke-width="2.5"/>
+  <!-- Arms on hips (horizontal) -->
+  <line x1="75" y1="115" x2="90" y2="112" stroke="#58a6ff" stroke-width="2.5" stroke-linecap="round"/>
+  <line x1="90" y1="112" x2="105" y2="115" stroke="#58a6ff" stroke-width="2.5" stroke-linecap="round"/>
+  <!-- Hip joint -->
+  <circle cx="90" cy="135" r="3" fill="#58a6ff"/>
+  <!-- Left thigh (angled down-left to 90°) -->
+  <line x1="90" y1="135" x2="72" y2="158" stroke="#58a6ff" stroke-width="3" stroke-linecap="round"/>
+  <!-- Right thigh (angled down-right) -->
+  <line x1="90" y1="135" x2="108" y2="158" stroke="#58a6ff" stroke-width="3" stroke-linecap="round"/>
+  <!-- Left shin (near-vertical, back up slightly — 90° knee) -->
+  <line x1="72" y1="158" x2="76" y2="175" stroke="#58a6ff" stroke-width="3" stroke-linecap="round"/>
+  <!-- Right shin -->
+  <line x1="108" y1="158" x2="104" y2="175" stroke="#58a6ff" stroke-width="3" stroke-linecap="round"/>
+  <!-- Feet -->
+  <line x1="68" y1="175" x2="83" y2="175" stroke="#58a6ff" stroke-width="3" stroke-linecap="round"/>
+  <line x1="96" y1="175" x2="111" y2="175" stroke="#58a6ff" stroke-width="3" stroke-linecap="round"/>
+
+  <!-- 90° angle indicator -->
+  <path d="M 79,155 Q 78,162 73,162" fill="none" stroke="#d29922" stroke-width="1.5"/>
+  <text x="60" y="163" fill="#d29922" font-family="system-ui,sans-serif" font-size="9">90°</text>
+
+  <!-- NO countermovement arrow — explicit label -->
+  <rect x="55" y="60" width="70" height="16" rx="3" fill="#3b0d0d" opacity="0.9"/>
+  <text x="90" y="71" text-anchor="middle" fill="#f85149" font-family="system-ui,sans-serif" font-size="9" font-weight="600">✕ keine Gegenbewegung</text>
+
+  <!-- Divider -->
+  <line x1="185" y1="35" x2="185" y2="185" stroke="#21262d" stroke-width="1" stroke-dasharray="4,3"/>
+  <text x="185" y="200" text-anchor="middle" fill="#30363d" font-family="system-ui,sans-serif" font-size="9">→</text>
+
+  <!-- === RIGHT: JUMP PHASE === -->
+  <text x="270" y="38" text-anchor="middle" fill="#8b949e" font-family="system-ui,sans-serif" font-size="10" font-weight="600">ABFLUGPHASE</text>
+
+  <!-- Jump arc / height arrow -->
+  <line x1="270" y1="170" x2="270" y2="60" stroke="#3fb950" stroke-width="2.5" stroke-dasharray="6,3" marker-end="url(#arr-up)"/>
+
+  <!-- Airborne figure (legs extended) -->
+  <!-- Head -->
+  <circle cx="270" cy="72" r="8" fill="none" stroke="#3fb950" stroke-width="2.5"/>
+  <!-- Torso -->
+  <line x1="270" y1="80" x2="270" y2="108" stroke="#3fb950" stroke-width="3" stroke-linecap="round"/>
+  <!-- Arms raised -->
+  <line x1="258" y1="90" x2="270" y2="87" stroke="#3fb950" stroke-width="2.5" stroke-linecap="round"/>
+  <line x1="270" y1="87" x2="282" y2="90" stroke="#3fb950" stroke-width="2.5" stroke-linecap="round"/>
+  <!-- Hip -->
+  <circle cx="270" cy="108" r="3" fill="#3fb950"/>
+  <!-- Left leg extended down -->
+  <line x1="270" y1="108" x2="262" y2="135" stroke="#3fb950" stroke-width="3" stroke-linecap="round"/>
+  <line x1="262" y1="135" x2="260" y2="155" stroke="#3fb950" stroke-width="3" stroke-linecap="round"/>
+  <!-- Right leg extended -->
+  <line x1="270" y1="108" x2="278" y2="135" stroke="#3fb950" stroke-width="3" stroke-linecap="round"/>
+  <line x1="278" y1="135" x2="280" y2="155" stroke="#3fb950" stroke-width="3" stroke-linecap="round"/>
+
+  <!-- Height measurement bracket -->
+  <line x1="300" y1="175" x2="300" y2="68" stroke="#8b949e" stroke-width="1" marker-start="url(#arr-h2)" marker-end="url(#arr-h)"/>
+  <text x="315" y="126" text-anchor="middle" fill="#8b949e" font-family="system-ui,sans-serif" font-size="9">Höhe</text>
+  <text x="315" y="137" text-anchor="middle" fill="#8b949e" font-family="system-ui,sans-serif" font-size="9">[cm]</text>
+
+  <!-- Footer -->
+  <rect x="10" y="204" width="340" height="14" rx="3" fill="#21262d" opacity="0.8"/>
+  <text x="180" y="214" text-anchor="middle" fill="#8b949e" font-family="system-ui,sans-serif" font-size="8">Hände an Hüfte · Statische Startposition halten · 3 Versuche · bester Wert</text>
+</svg>
