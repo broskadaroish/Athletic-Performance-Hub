@@ -461,21 +461,53 @@ def page_fms():
     st.caption("Bewertung: 3 = korrekt | 2 = mit Kompensation | 1 = nicht möglich | 0 = Schmerzen. ℹ️ Tooltip an jedem Feld für Details.")
 
     _fh = lambda fid: show_field_help("fms", fid)
-    c1, c2, c3 = st.columns(3)
-    deep        = c1.number_input("Deep Squat",             0, 3, key="ds",  help=_fh("deep_squat"))
-    trunk       = c2.number_input("Trunk Stability Push-up",0, 3, key="ts",  help=_fh("trunk_stability"))
-    st.markdown("##### Bilateral — Links / Rechts")
+
+    # Offizielle FMS-Reihenfolge: 1–7
+    # ── Test 1: Deep Squat (einseitig bewertet) ───────────────────────────────
+    st.markdown("**1 · Deep Squat** — bilateral, ein Score")
+    _c1, _gap = st.columns([3, 5])
+    deep = _c1.number_input("Deep Squat", 0, 3, key="ds", help=_fh("deep_squat"))
+
+    st.markdown("**Bilateral — Links / Rechts** (min. Seite zählt)")
     col_l, col_r = st.columns(2)
-    hurdle_l    = col_l.number_input("Hurdle Step Links",        0, 3, key="hl",  help=_fh("hurdle_step"))
-    hurdle_r    = col_r.number_input("Hurdle Step Rechts",       0, 3, key="hr",  help=_fh("hurdle_step"))
-    inline_l    = col_l.number_input("Inline Lunge Links",       0, 3, key="il",  help=_fh("inline_lunge"))
-    inline_r    = col_r.number_input("Inline Lunge Rechts",      0, 3, key="ir",  help=_fh("inline_lunge"))
-    shoulder_l  = col_l.number_input("Shoulder Mobility Links",  0, 3, key="shl", help=_fh("shoulder"))
-    shoulder_r  = col_r.number_input("Shoulder Mobility Rechts", 0, 3, key="shr", help=_fh("shoulder"))
-    aslr_l      = col_l.number_input("ASLR Links",               0, 3, key="al",  help=_fh("aslr"))
-    aslr_r      = col_r.number_input("ASLR Rechts",              0, 3, key="ar",  help=_fh("aslr"))
-    rotary_l    = col_l.number_input("Rotary Stability Links",   0, 3, key="rl",  help=_fh("rotary_stability"))
-    rotary_r    = col_r.number_input("Rotary Stability Rechts",  0, 3, key="rr",  help=_fh("rotary_stability"))
+    col_l.markdown("**Links**"); col_r.markdown("**Rechts**")
+
+    # ── Test 2: Hurdle Step ───────────────────────────────────────────────────
+    col_l.markdown("*2 · Hurdle Step*")
+    col_r.markdown("*2 · Hurdle Step*")
+    hurdle_l = col_l.number_input("Hurdle Step Links",  0, 3, key="hl", help=_fh("hurdle_step"), label_visibility="collapsed")
+    hurdle_r = col_r.number_input("Hurdle Step Rechts", 0, 3, key="hr", help=_fh("hurdle_step"), label_visibility="collapsed")
+
+    # ── Test 3: Inline Lunge ──────────────────────────────────────────────────
+    col_l.markdown("*3 · Inline Lunge*")
+    col_r.markdown("*3 · Inline Lunge*")
+    inline_l = col_l.number_input("Inline Lunge Links",  0, 3, key="il", help=_fh("inline_lunge"), label_visibility="collapsed")
+    inline_r = col_r.number_input("Inline Lunge Rechts", 0, 3, key="ir", help=_fh("inline_lunge"), label_visibility="collapsed")
+
+    # ── Test 4: Shoulder Mobility ─────────────────────────────────────────────
+    col_l.markdown("*4 · Shoulder Mobility*")
+    col_r.markdown("*4 · Shoulder Mobility*")
+    shoulder_l = col_l.number_input("Shoulder Mobility Links",  0, 3, key="shl", help=_fh("shoulder"), label_visibility="collapsed")
+    shoulder_r = col_r.number_input("Shoulder Mobility Rechts", 0, 3, key="shr", help=_fh("shoulder"), label_visibility="collapsed")
+
+    # ── Test 5: ASLR ──────────────────────────────────────────────────────────
+    col_l.markdown("*5 · ASLR*")
+    col_r.markdown("*5 · ASLR*")
+    aslr_l = col_l.number_input("ASLR Links",  0, 3, key="al", help=_fh("aslr"), label_visibility="collapsed")
+    aslr_r = col_r.number_input("ASLR Rechts", 0, 3, key="ar", help=_fh("aslr"), label_visibility="collapsed")
+
+    # ── Test 6: Trunk Stability Push-up (einseitig) ───────────────────────────
+    st.markdown("**6 · Trunk Stability Push-up** — bilateral, ein Score")
+    _c6, _gap6 = st.columns([3, 5])
+    trunk = _c6.number_input("Trunk Stability Push-up", 0, 3, key="ts", help=_fh("trunk_stability"))
+
+    # ── Test 7: Rotary Stability ──────────────────────────────────────────────
+    st.markdown("**Bilateral — Links / Rechts** (min. Seite zählt)")
+    col_l2, col_r2 = st.columns(2)
+    col_l2.markdown("*7 · Rotary Stability*")
+    col_r2.markdown("*7 · Rotary Stability*")
+    rotary_l = col_l2.number_input("Rotary Stability Links",  0, 3, key="rl", help=_fh("rotary_stability"), label_visibility="collapsed")
+    rotary_r = col_r2.number_input("Rotary Stability Rechts", 0, 3, key="rr", help=_fh("rotary_stability"), label_visibility="collapsed")
 
     if st.button("✅ FMS speichern & auswerten", use_container_width=False):
         result = FMSResult(
