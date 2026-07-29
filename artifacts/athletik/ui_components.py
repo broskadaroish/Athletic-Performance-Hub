@@ -148,6 +148,66 @@ def empty_state(icon: str, title: str, subtitle: str = "") -> str:
     )
 
 
+# ─── Anthropometrie summary card ─────────────────────────────────────────────
+
+def anthro_karte(anthro: dict | None) -> str:
+    """Compact Anthropometrie summary card — same tile style as test-status cards."""
+    if not anthro:
+        return (
+            f'<div class="card-sm" style="display:flex;justify-content:space-between;'
+            f'align-items:center;min-height:56px">'
+            f'<div>'
+            f'<div style="font-size:14px;font-weight:600;color:{C["text"]}">📐 Anthropometrie</div>'
+            f'<div style="font-size:11px;color:{C["muted"]};margin-top:2px">Noch keine Messung</div>'
+            f'</div>'
+            f'<div style="font-size:12px;font-weight:600;color:{C["muted"]}">—</div>'
+            f'</div>'
+        )
+
+    datum   = anthro.get("datum") or "—"
+    groesse = anthro.get("groesse")
+    gewicht = anthro.get("gewicht")
+    bmi     = anthro.get("bmi")
+    bmi_kat = anthro.get("bmi_kategorie") or "—"
+    reife   = anthro.get("reifestatus") or "—"
+
+    groesse_str = f"{groesse:.1f} cm" if groesse else "—"
+    gewicht_str = f"{gewicht:.1f} kg" if gewicht else "—"
+    bmi_str     = f"{bmi:.1f}" if bmi else "—"
+
+    # BMI badge colour
+    bmi_color = (
+        C["red"]    if bmi_kat and any(x in bmi_kat.lower() for x in ["übergewicht", "adipositas", "untergewicht"])
+        else C["yellow"] if bmi_kat and "grenzwertig" in bmi_kat.lower()
+        else C["green"]
+    )
+
+    return (
+        f'<div class="card-sm">'
+        f'<div style="display:flex;justify-content:space-between;align-items:flex-start">'
+        f'<div>'
+        f'<div style="font-size:14px;font-weight:600;color:{C["text"]}">📐 Anthropometrie</div>'
+        f'<div style="font-size:11px;color:{C["muted"]};margin-top:2px">Letzte Messung: {datum}</div>'
+        f'</div>'
+        f'<div style="text-align:right">'
+        f'<span style="font-size:11px;font-weight:600;color:{bmi_color};background:{C["surface2"]};'
+        f'border-radius:4px;padding:2px 7px">{bmi_kat}</span>'
+        f'</div>'
+        f'</div>'
+        f'<div style="display:flex;gap:16px;margin-top:10px;flex-wrap:wrap">'
+        f'<div><div style="font-size:10px;color:{C["muted"]};letter-spacing:.5px">GRÖSSE</div>'
+        f'<div style="font-size:15px;font-weight:700;color:{C["text"]}">{groesse_str}</div></div>'
+        f'<div><div style="font-size:10px;color:{C["muted"]};letter-spacing:.5px">GEWICHT</div>'
+        f'<div style="font-size:15px;font-weight:700;color:{C["text"]}">{gewicht_str}</div></div>'
+        f'<div><div style="font-size:10px;color:{C["muted"]};letter-spacing:.5px">BMI</div>'
+        f'<div style="font-size:15px;font-weight:700;color:{bmi_color}">{bmi_str}</div></div>'
+        f'<div><div style="font-size:10px;color:{C["muted"]};letter-spacing:.5px">REIFESTATUS</div>'
+        f'<div style="font-size:13px;font-weight:600;color:{C["text"]}">{reife}</div></div>'
+        f'</div>'
+        f'</div>'
+    )
+
+
 # ─── Score/risk badges (inline) ───────────────────────────────────────────────
 
 def score_badge_html(score: int) -> str:

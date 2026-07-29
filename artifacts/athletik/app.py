@@ -18,6 +18,7 @@ from ui_components import (
     player_banner, section_header, deficit_row, strength_row,
     test_status_card, empty_state,
     score_badge_html, risk_badge_html,
+    anthro_karte,
 )
 
 from database import (
@@ -1118,6 +1119,19 @@ def page_spieler_profil():
     else:
         m3.metric("Y-Balance",  "Kein Test")
         m4.metric("Y-Balance",  "—")
+
+    st.markdown("---")
+
+    # ── Anthropometrie-Karte ───────────────────────────────────────────────
+    ak_col, ak_btn_col = st.columns([5, 1])
+    with ak_col:
+        st.markdown(anthro_karte(anthro), unsafe_allow_html=True)
+    with ak_btn_col:
+        st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+        if st.button("📐 Messen →", key="profil_goto_anthro", use_container_width=True):
+            st.session_state["nav_section"]            = "👤  Spieler"
+            st.session_state["_nav_sub_spieler_goto"]  = "📐 Anthropometrie"
+            st.rerun()
 
     st.markdown("---")
 
@@ -3994,6 +4008,8 @@ with st.sidebar:
         st.session_state["nav_section"] = st.session_state.pop("_nav_goto")
     if "_nav_sub_diagnostik_goto" in st.session_state:
         st.session_state["nav_sub_diagnostik"] = st.session_state.pop("_nav_sub_diagnostik_goto")
+    if "_nav_sub_spieler_goto" in st.session_state:
+        st.session_state["nav_sub_spieler"] = st.session_state.pop("_nav_sub_spieler_goto")
 
     # ── Main navigation ───────────────────────────────────────────────────────
     section = st.radio(
