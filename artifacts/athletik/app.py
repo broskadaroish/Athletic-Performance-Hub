@@ -2132,17 +2132,17 @@ def page_startseite():
     st.markdown(f'<div style="font-size:13px;font-weight:600;letter-spacing:1px;color:{C["muted"]};margin-bottom:10px">SCHNELLZUGRIFF</div>', unsafe_allow_html=True)
     qa1, qa2, qa3, qa4 = st.columns(4)
     if qa1.button("👤 Spielerprofil", use_container_width=True):
-        st.session_state["nav_section"] = "👤  Spieler"
+        st.session_state["_nav_goto"] = "👤  Spieler"
         st.session_state["nav_sub_spieler"] = "🏃 Profil & Diagnostik"
         st.rerun()
     if qa2.button("🔬 Test starten", use_container_width=True):
-        st.session_state["nav_section"] = "🔬  Diagnostik"
+        st.session_state["_nav_goto"] = "🔬  Diagnostik"
         st.rerun()
     if qa3.button("📅 Trainingsplan", use_container_width=True):
-        st.session_state["nav_section"] = "📅  Training"
+        st.session_state["_nav_goto"] = "📅  Training"
         st.rerun()
     if qa4.button("📈 Verlauf", use_container_width=True):
-        st.session_state["nav_section"] = "📈  Entwicklung"
+        st.session_state["_nav_goto"] = "📈  Entwicklung"
         st.rerun()
 
 
@@ -2433,6 +2433,11 @@ with st.sidebar:
         )
 
     st.markdown(f'<hr style="border-color:{C["surface2"]};margin:10px 0">', unsafe_allow_html=True)
+
+    # ── Pending navigation from quick-action buttons ───────────────────────────
+    # Must be applied before the widget is instantiated to avoid StreamlitAPIException
+    if "_nav_goto" in st.session_state:
+        st.session_state["nav_section"] = st.session_state.pop("_nav_goto")
 
     # ── Main navigation ───────────────────────────────────────────────────────
     section = st.radio(
