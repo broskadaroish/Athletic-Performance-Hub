@@ -61,7 +61,7 @@ class FMSResult:
             return "Gut"
         if s >= 13:
             return "Beobachten"
-        return "Hohes Risiko"
+        return "Aktionsbedarf"
 
     @property
     def risiko_level(self) -> str:

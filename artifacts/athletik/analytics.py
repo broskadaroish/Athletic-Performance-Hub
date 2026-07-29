@@ -72,10 +72,10 @@ def risiko_score(fms_row, y_row, verletzungen=None) -> int:
 def risiko_label(score: int) -> tuple[str, str]:
     """Returns (label, level) where level is 'hoch'/'mittel'/'gering'."""
     if score >= 4:
-        return "HOHES RISIKO", "hoch"
+        return "HANDLUNGSBEDARF HOCH", "hoch"
     if score >= 2:
-        return "MITTLERES RISIKO", "mittel"
-    return "GERINGES RISIKO", "gering"
+        return "HANDLUNGSBEDARF", "mittel"
+    return "UNAUFFÄLLIG", "gering"
 
 
 # ─── Athletik Score ───────────────────────────────────────────────────────────
@@ -279,7 +279,7 @@ def defizite_ermitteln(
         sw = str(fms_row["schwerpunkt"]).lower()
 
         if s <= 12:
-            add("kritisch", "Ganzkörperstabilität", "FMS-Score unter 13 — hohes Verletzungsrisiko.", "FMS")
+            add("kritisch", "Ganzkörperstabilität", "FMS-Score unter 13 — deutlicher Trainingsbedarf.", "FMS")
         elif s <= 14:
             add("warnung", "Ganzkörperstabilität", "FMS-Score zeigt Verbesserungsbedarf.", "FMS")
 
@@ -339,7 +339,7 @@ def defizite_ermitteln(
             add("warnung", "Explosivkraft", "CMJ-Sprunghöhe im mittleren Bereich.", "Sprung")
         if asym and float(asym) > 10:
             add("kritisch", "Sprungasymmetrie",
-                f"Einbeinige Sprungasymmetrie {float(asym):.1f} % — Verletzungsrisiko erhöht.", "Sprung")
+                f"Einbeinige Sprungasymmetrie {float(asym):.1f} % — Asymmetrie auffällig, Trainingsschwerpunkt prüfen.", "Sprung")
         if rsi and float(rsi) < 1.5:
             add("warnung", "Reaktivkraft", f"RSI = {float(rsi):.2f} — Drop-Jump-Reaktivkraft verbessern.", "Sprung")
         if "Horizontalexplosivkraft" in defizit_text:
@@ -362,7 +362,7 @@ def defizite_ermitteln(
             add("warnung", "Gesamtagilität", "Illinois-Test unter Referenzwert — Gesamtagilität verbessern.", "Agilität")
         if asym505 and float(asym505) > 10:
             add("kritisch", "Richtungswechsel-Asymmetrie",
-                f"505-Test Seitenasymmetrie {float(asym505):.1f} % — erhöhtes Verletzungsrisiko.", "Agilität")
+                f"505-Test Seitenasymmetrie {float(asym505):.1f} % — Asymmetrie auffällig, Richtungswechseltraining anpassen.", "Agilität")
 
     # ── Ausdauer ──────────────────────────────────────────────────────────────
     if aus_row:

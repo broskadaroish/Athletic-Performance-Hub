@@ -263,8 +263,8 @@ def page_dashboard():
 
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Spieler gesamt", total)
-    c2.metric("Hohes Risiko 🔴", high_risk)
-    c3.metric("Mittleres Risiko 🟡", med_risk)
+    c2.metric("Handlungsbedarf Hoch 🔴", high_risk)
+    c3.metric("Handlungsbedarf 🟡", med_risk)
     c4.metric("Ø Athletik Score", f"{avg_score}/100")
 
     # ── Teamschnitt-Widgets für Sprint, CMJ, Yo-Yo (nur wenn ≥1 Datenpunkt) ──
@@ -302,9 +302,9 @@ def page_dashboard():
     col_left, col_right = st.columns([1, 2])
 
     with col_left:
-        st.markdown("### Risikoverteilung")
+        st.markdown("### Athletik-Status Verteilung")
         fig_pie = go.Figure(go.Pie(
-            labels=["Hohes Risiko", "Mittleres Risiko", "Geringes Risiko"],
+            labels=["Handlungsbedarf Hoch", "Handlungsbedarf", "Unauffällig"],
             values=[high_risk, med_risk, low_risk],
             hole=0.55,
             marker_colors=["#f85149", "#d29922", "#3fb950"],
@@ -658,7 +658,7 @@ def page_spieler_profil():
         st.markdown("**Athletik Score**")
         st.markdown(_score_badge(ascore), unsafe_allow_html=True)
     with h3:
-        st.markdown("**Verletzungsrisiko**")
+        st.markdown("**Athletik-Status**")
         st.markdown(_risk_badge(level), unsafe_allow_html=True)
 
     # ── Radar-Chart im Header (wenn ≥ 3 Module vorhanden) ─────────────────
@@ -762,7 +762,7 @@ def page_spieler_profil():
             v_koerper    = va1.selectbox("Körperteil", KOERPERTEILE, key="v_koerper")
             v_schwere    = va2.selectbox("Schweregrad", SCHWEREGRADE, key="v_schwere")
             v_ausfall    = va1.number_input("Ausfalltage (geschätzt)", 0, 365, 0, key="v_ausfall")
-            v_notizen    = st.text_area("Notizen / Diagnose", key="v_notizen", height=80)
+            v_notizen    = st.text_area("Notizen / Anmerkungen", key="v_notizen", height=80)
             if st.button("💾 Verletzung speichern", key="v_save"):
                 verletzung_speichern(sid, v_datum, v_art, v_koerper, v_schwere, int(v_ausfall), v_notizen)
                 st.success("✅ Verletzung gespeichert.")
@@ -1125,7 +1125,7 @@ def page_fortschritt():
             fig.add_hline(y=14, line_dash="dash", line_color="#d29922",
                           annotation_text="Beobachten ≤14", annotation_position="top right")
             fig.add_hline(y=12, line_dash="dash", line_color="#f85149",
-                          annotation_text="Hohes Risiko ≤12", annotation_position="top right")
+                          annotation_text="Aktionsbedarf ≤12", annotation_position="top right")
             fig.update_layout(**_pl(height=340, title="FMS Score Verlauf", yaxis=dict(range=[0, 22])))
             st.plotly_chart(fig, use_container_width=True)
             st.dataframe(df, use_container_width=True, hide_index=True)
@@ -1981,7 +1981,7 @@ def page_startseite():
     score_color = C["green"] if ascore >= 75 else C["yellow"] if ascore >= 50 else C["red"]
     risk_colors = {"hoch": C["red"], "mittel": C["yellow"], "gering": C["green"]}
     risk_icons  = {"hoch": "🔴", "mittel": "🟡", "gering": "🟢"}
-    risk_labels = {"hoch": "HOHES RISIKO", "mittel": "MITTLERES RISIKO", "gering": "GERINGES RISIKO"}
+    risk_labels = {"hoch": "HANDLUNGSBEDARF HOCH", "mittel": "HANDLUNGSBEDARF", "gering": "UNAUFFÄLLIG"}
 
     # Last test date across all modules
     dates = []
@@ -1996,7 +1996,7 @@ def page_startseite():
                              f'{ascore}<span style="font-size:16px;font-weight:400;color:{C["muted"]}">/100</span>',
                              color=score_color), unsafe_allow_html=True)
     with k2:
-        st.markdown(kpi_card("Verletzungsrisiko",
+        st.markdown(kpi_card("Athletik-Status",
                              f'{risk_icons[level]} {risk_labels[level]}',
                              color=risk_colors[level]), unsafe_allow_html=True)
     with k3:

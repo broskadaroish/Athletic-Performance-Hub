@@ -30,9 +30,9 @@ def score_kpi(score: int) -> str:
 def risk_kpi(level: str) -> str:
     """KPI card for risk level."""
     icons  = {"hoch": "🔴", "mittel": "🟡", "gering": "🟢"}
-    labels = {"hoch": "HOHES RISIKO", "mittel": "MITTLERES RISIKO", "gering": "GERINGES RISIKO"}
+    labels = {"hoch": "HANDLUNGSBEDARF HOCH", "mittel": "HANDLUNGSBEDARF", "gering": "UNAUFFÄLLIG"}
     colors = {"hoch": C["red"], "mittel": C["yellow"], "gering": C["green"]}
-    return kpi_card("Verletzungsrisiko", f'{icons.get(level,"")} {labels.get(level,"—")}', color=colors.get(level, C["text"]))
+    return kpi_card("Athletik-Status", f'{icons.get(level,"")} {labels.get(level,"—")}', color=colors.get(level, C["text"]))
 
 
 # ─── Player banner ────────────────────────────────────────────────────────────
@@ -158,5 +158,5 @@ def score_badge_html(score: int) -> str:
 def risk_badge_html(level: str) -> str:
     cls    = {"hoch": "badge-red", "mittel": "badge-yellow", "gering": "badge-green"}.get(level, "badge-green")
     icons  = {"hoch": "🔴", "mittel": "🟡", "gering": "🟢"}
-    labels = {"hoch": "HOHES RISIKO", "mittel": "MITTLERES RISIKO", "gering": "GERINGES RISIKO"}
+    labels = {"hoch": "HANDLUNGSBEDARF HOCH", "mittel": "HANDLUNGSBEDARF", "gering": "UNAUFFÄLLIG"}
     return f'<span class="score-badge {cls}">{icons[level]} {labels[level]}</span>'

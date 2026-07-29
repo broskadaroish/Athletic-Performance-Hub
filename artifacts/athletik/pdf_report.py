@@ -253,8 +253,8 @@ def generate_report(
     pdf.metric_box("Athletik Score", "%d/100" % athletik_score, a_col)
 
     rl    = _safe(risiko_label).upper()
-    r_col = RED if "HOCH" in rl else YELLOW if "MITTEL" in rl else GREEN
-    pdf.metric_box("Verletzungsrisiko", risiko_label, r_col)
+    r_col = RED if "HANDLUNGSBEDARF HOCH" in rl else YELLOW if "HANDLUNGSBEDARF" in rl else GREEN
+    pdf.metric_box("Athletik-Status", risiko_label, r_col)
 
     if fms_row:
         f_col = GREEN if fms_row["score"] >= 15 else YELLOW if fms_row["score"] >= 13 else RED
