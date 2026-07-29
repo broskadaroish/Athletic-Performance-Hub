@@ -231,9 +231,88 @@ def init_db():
             test_id TEXT NOT NULL UNIQUE,
             punkte  TEXT NOT NULL DEFAULT ''
         );
+
+        CREATE TABLE IF NOT EXISTS trainerbeobachtung (
+            id             INTEGER PRIMARY KEY AUTOINCREMENT,
+            spieler_id     INTEGER NOT NULL REFERENCES spieler(id),
+            test_id        TEXT    NOT NULL,
+            datum          TEXT    NOT NULL,
+            beob_ids       TEXT    NOT NULL DEFAULT '[]',
+            seite          TEXT,
+            auspraegung    TEXT,
+            freitext       TEXT,
+            text_generiert TEXT,
+            created_at     TEXT    DEFAULT (datetime('now')),
+            updated_at     TEXT    DEFAULT (datetime('now'))
+        );
         """)
     # Migration: neue Spalten für bestehende Datenbanken nachträglich anlegen
     _migrate_spieler_columns()
+
+
+# ─── Trainerbeobachtungen ─────────────────────────────────────────────────────
+
+def beobachtung_speichern(
+    spieler_id: int,
+    test_id: str,
+    datum: str,
+    beob_ids_json: str,
+    seite: str | None,
+    auspraegung: str | None,
+    freitext: str | None,
+    text_generiert: str | None,
+) -> None:
+    """Legt eine Beobachtung an oder überschreibt die für diesen Tag."""
+    with get_conn() as conn:
+        conn.execute(
+            """INSERT INTO trainerbeobachtung
+               (spieler_id, test_id, datum, beob_ids, seite, auspraegung, freitext, text_generiert, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+               ON CONFLICT DO NOTHING""",
+            (spieler_id, test_id, datum, beob_ids_json,
+             seite, auspraegung, freitext, text_generiert),
+        )
+        # Wenn bereits ein Datensatz für diesen Tag existiert, aktualisieren
+        conn.execute(
+            """UPDATE trainerbeobachtung
+               SET beob_ids=?, seite=?, auspraegung=?, freitext=?, text_generiert=?, updated_at=datetime('now')
+               WHERE spieler_id=? AND test_id=? AND datum=?""",
+            (beob_ids_json, seite, auspraegung, freitext, text_generiert,
+             spieler_id, test_id, datum),
+        )
+
+
+def beobachtung_laden(spieler_id: int, test_id: str, datum: str) -> dict | None:
+    """Lädt die Beobachtung für einen Spieler, Test und Tag (oder None)."""
+    with get_conn() as conn:
+        row = conn.execute(
+            """SELECT * FROM trainerbeobachtung
+               WHERE spieler_id=? AND test_id=? AND datum=?
+               ORDER BY id DESC LIMIT 1""",
+            (spieler_id, test_id, datum),
+        ).fetchone()
+    return _row(row)
+
+
+def beobachtung_loeschen(spieler_id: int, test_id: str, datum: str) -> None:
+    """Löscht alle Beobachtungen für diesen Spieler/Test/Tag."""
+    with get_conn() as conn:
+        conn.execute(
+            "DELETE FROM trainerbeobachtung WHERE spieler_id=? AND test_id=? AND datum=?",
+            (spieler_id, test_id, datum),
+        )
+
+
+def beobachtung_history(spieler_id: int, test_id: str) -> list[dict]:
+    """Gibt alle gespeicherten Beobachtungen für Spieler+Test zurück (neueste zuerst)."""
+    with get_conn() as conn:
+        return _rows(conn.execute(
+            """SELECT datum, beob_ids, seite, auspraegung, freitext, text_generiert
+               FROM trainerbeobachtung
+               WHERE spieler_id=? AND test_id=?
+               ORDER BY datum DESC""",
+            (spieler_id, test_id),
+        ).fetchall())
 
 
 # ─── Trainer-Checkliste (custom) ──────────────────────────────────────────────

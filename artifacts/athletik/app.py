@@ -19,6 +19,7 @@ from ui_components import (
     test_status_card, empty_state,
     score_badge_html, risk_badge_html,
     anthro_karte,
+    render_observation_selector,
 )
 
 from database import (
@@ -872,6 +873,10 @@ def page_fms():
         if result.asymmetrie != "Keine Asymmetrie":
             st.warning(f"⚠️ {result.asymmetrie}")
 
+    # ── Trainerbeobachtungen ──────────────────────────────────────────────────
+    st.markdown("---")
+    render_observation_selector("fms", spieler_id, date.today().strftime("%d.%m.%Y"), "fms")
+
     # ── Previous test
     last = fms_letzter(spieler_id)
     if last:
@@ -978,6 +983,10 @@ def page_ybalance():
         st.info(f"**Trainingsschwerpunkt:** {res.schwerpunkt}")
         if res.asymmetrien:
             st.warning(f"⚠️ Asymmetrien erkannt: {', '.join(res.asymmetrien)}")
+
+    # ── Trainerbeobachtungen ──────────────────────────────────────────────────
+    st.markdown("---")
+    render_observation_selector("y_balance", spieler_id, date.today().strftime("%d.%m.%Y"), "yb")
 
     last = y_balance_letzter(spieler_id)
     if last:
@@ -1889,6 +1898,10 @@ def page_anthropometrie():
                 st.warning("Letzte Messung gelöscht.")
                 st.rerun()
 
+        # ── Trainerbeobachtungen ────────────────────────────────────────────
+        st.markdown("---")
+        render_observation_selector("anthropometrie", sid, datum.strftime("%d.%m.%Y"), "anthro")
+
     with tab_verlauf:
         if not history:
             st.info("Noch keine Messungen vorhanden.")
@@ -2062,6 +2075,10 @@ def page_sprint():
                 st.success("✅ Sprint-Test gespeichert!")
                 st.rerun()
 
+        # ── Trainerbeobachtungen ────────────────────────────────────────────
+        st.markdown("---")
+        render_observation_selector("sprint", sid, datum.strftime("%d.%m.%Y"), "sprint")
+
     with tab_verlauf:
         if not hist:
             st.info("Noch keine Sprint-Tests vorhanden.")
@@ -2196,6 +2213,10 @@ def page_sprung():
                 )
                 st.success("✅ Sprung-Test gespeichert!")
                 st.rerun()
+
+        # ── Trainerbeobachtungen ────────────────────────────────────────────
+        st.markdown("---")
+        render_observation_selector("sprung", sid, datum.strftime("%d.%m.%Y"), "sprung")
 
     with tab_verlauf:
         if not hist:
@@ -2340,6 +2361,10 @@ def page_agilitaet():
                 )
                 st.success("✅ Agilität-Test gespeichert!")
                 st.rerun()
+
+        # ── Trainerbeobachtungen ────────────────────────────────────────────
+        st.markdown("---")
+        render_observation_selector("agilitaet", sid, datum.strftime("%d.%m.%Y"), "agil")
 
     with tab_verlauf:
         if not hist:
@@ -2505,6 +2530,10 @@ def page_ausdauer():
                 )
                 st.success("✅ Ausdauer-Test gespeichert!")
                 st.rerun()
+
+        # ── Trainerbeobachtungen ────────────────────────────────────────────
+        st.markdown("---")
+        render_observation_selector("ausdauer", sid, datum.strftime("%d.%m.%Y"), "aus")
 
     with tab_verlauf:
         if not hist:

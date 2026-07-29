@@ -210,6 +210,161 @@ def anthro_karte(anthro: dict | None) -> str:
 
 # ─── Score/risk badges (inline) ───────────────────────────────────────────────
 
+def render_observation_selector(
+    test_id: str,
+    spieler_id: int,
+    datum_str: str,
+    key_prefix: str,
+) -> None:
+    """Rendert den Trainerbeobachtungs-Selektor für einen Test.
+
+    - Lädt vorhandene Beobachtungen für spieler_id + test_id + datum_str
+    - Zeigt Checkboxen (Standard/Experte), Seite, Ausprägung, Freitext
+    - Eigener Speichern-Button — unabhängig vom Test-Speichern
+    - Konflikt-Warnung bei widersprüchlichen Auswahlen
+    """
+    import streamlit as st
+    import json
+    from test_observations import (
+        BEOBACHTUNGEN, get_beobachtungen, check_konflikte,
+        generate_observation_text,
+    )
+    from database import beobachtung_speichern, beobachtung_laden, beobachtung_loeschen
+
+    info = BEOBACHTUNGEN.get(test_id)
+    if not info:
+        return
+
+    with st.expander("🔍 Trainerbeobachtungen (optional)", expanded=False):
+        # Vorhandene Beobachtung laden
+        existing = beobachtung_laden(spieler_id, test_id, datum_str)
+        saved_ids: list[str] = json.loads(existing["beob_ids"]) if existing and existing.get("beob_ids") else []
+        saved_seite    = existing.get("seite")     if existing else None
+        saved_ausp     = existing.get("auspraegung") if existing else None
+        saved_freitext = existing.get("freitext")  if existing else ""
+        saved_text     = existing.get("text_generiert") if existing else ""
+
+        if existing:
+            st.success("✅ Beobachtung für dieses Datum gespeichert.")
+
+        # ── Modus-Auswahl ──────────────────────────────────────────────────────
+        modus = st.radio(
+            "Modus",
+            ["Standard", "Experte"],
+            horizontal=True,
+            key=f"{key_prefix}_obs_modus",
+            label_visibility="collapsed",
+        ).lower()
+
+        beob_list = get_beobachtungen(test_id, modus)
+
+        # ── Checkboxen nach Kategorie ──────────────────────────────────────────
+        selected_ids: list[str] = []
+        kategorien: dict[str, list[dict]] = {}
+        for b in beob_list:
+            kategorien.setdefault(b["kat"], []).append(b)
+
+        for kat, items in kategorien.items():
+            st.markdown(f'<div style="font-size:11px;color:#8b949e;letter-spacing:1px;'
+                        f'margin-top:10px;margin-bottom:4px">{kat.upper()}</div>',
+                        unsafe_allow_html=True)
+            for b in items:
+                icon = "✅" if b["typ"] == "positiv" else "⚠️"
+                checked = b["id"] in saved_ids
+                val = st.checkbox(
+                    f"{icon} {b['text']}",
+                    value=checked,
+                    key=f"{key_prefix}_obs_{b['id']}",
+                )
+                if val:
+                    selected_ids.append(b["id"])
+
+        # ── Konflikt-Warnung ───────────────────────────────────────────────────
+        konflikte = check_konflikte(test_id, selected_ids)
+        if konflikte:
+            beob_map = {b["id"]: b["text"] for b in beob_list}
+            for a, b_ in konflikte:
+                st.warning(
+                    f"\u26a0\ufe0f Widerspruch: \u201e{beob_map.get(a, a)}\u201c und "
+                    f"\u201e{beob_map.get(b_, b_)}\u201c wurden gleichzeitig "
+                    f"ausgew\u00e4hlt \u2014 bitte pr\u00fcfen."
+                )
+
+        # ── Seite (nur wenn test hat_seite) ───────────────────────────────────
+        seite = None
+        if info["hat_seite"]:
+            seite_opts = ["— keine Angabe —", "rechts", "links", "beidseitig"]
+            seite_idx  = seite_opts.index(saved_seite) if saved_seite in seite_opts else 0
+            seite_raw  = st.selectbox(
+                "Seite (optional)",
+                seite_opts,
+                index=seite_idx,
+                key=f"{key_prefix}_obs_seite",
+            )
+            seite = seite_raw if seite_raw != "— keine Angabe —" else None
+
+        # ── Ausprägung (nur wenn test hat_auspraegung) ────────────────────────
+        auspraegung = None
+        if info["hat_auspraegung"] and selected_ids:
+            ausp_opts = ["— keine Angabe —", "leicht", "mittel", "deutlich"]
+            ausp_idx  = ausp_opts.index(saved_ausp) if saved_ausp in ausp_opts else 0
+            ausp_raw  = st.selectbox(
+                "Ausprägung (optional)",
+                ausp_opts,
+                index=ausp_idx,
+                key=f"{key_prefix}_obs_ausp",
+            )
+            auspraegung = ausp_raw if ausp_raw != "— keine Angabe —" else None
+
+        # ── Freitext ───────────────────────────────────────────────────────────
+        freitext = st.text_area(
+            "Zusätzliche Trainernotiz (optional)",
+            value=saved_freitext or "",
+            height=80,
+            placeholder="Freie Beobachtungen, die nicht in den Kategorien abgedeckt sind …",
+            key=f"{key_prefix}_obs_freitext",
+        )
+
+        # ── Vorschau ───────────────────────────────────────────────────────────
+        preview_text = generate_observation_text(
+            test_id, selected_ids, seite, auspraegung, freitext
+        )
+        if preview_text:
+            st.markdown(
+                f'<div style="background:#161b22;border:1px solid #30363d;border-radius:8px;'
+                f'padding:10px 14px;margin:8px 0">'
+                f'<div style="font-size:11px;color:#8b949e;margin-bottom:4px">TEXTVORSCHAU</div>'
+                f'<div style="color:#e6edf3;font-size:13px">{preview_text}</div>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+
+        # ── Buttons ────────────────────────────────────────────────────────────
+        bc1, bc2, bc3 = st.columns([2, 2, 3])
+        if bc1.button("💾 Beobachtung speichern", key=f"{key_prefix}_obs_save",
+                      use_container_width=True):
+            beobachtung_speichern(
+                spieler_id, test_id, datum_str,
+                json.dumps(selected_ids, ensure_ascii=False),
+                seite, auspraegung,
+                freitext.strip() or None,
+                preview_text or None,
+            )
+            st.success("✅ Beobachtung gespeichert.")
+            st.rerun()
+
+        if bc2.button("🔄 Zurücksetzen", key=f"{key_prefix}_obs_reset",
+                      use_container_width=True):
+            beobachtung_loeschen(spieler_id, test_id, datum_str)
+            st.info("Beobachtungen für dieses Datum gelöscht.")
+            st.rerun()
+
+        # ── Gespeicherter Text (Anzeige, falls vorhanden) ──────────────────────
+        if existing and saved_text:
+            with st.expander("📋 Gespeicherter Beobachtungstext"):
+                st.write(saved_text)
+
+
 def score_badge_html(score: int) -> str:
     cls = "badge-green" if score >= 75 else "badge-yellow" if score >= 50 else "badge-red"
     return f'<span class="score-badge {cls}">{score}<span style="font-size:13px;font-weight:400">/100</span></span>'
