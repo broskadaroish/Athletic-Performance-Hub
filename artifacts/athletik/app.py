@@ -1005,7 +1005,8 @@ def page_spieler_profil():
     sprung = sprung_letzter(sid)
     agil   = agilitaet_letzter(sid)
     aus    = ausdauer_letzter(sid)
-    anthro = anthropometrie_letzter(sid)
+    anthro      = anthropometrie_letzter(sid)
+    anthro_hist = anthropometrie_history(sid)
     verlet = verletzungen_laden(sid)
     rs     = risiko_score(fms, y, verlet)
     label, level = risiko_label(rs)
@@ -1132,6 +1133,43 @@ def page_spieler_profil():
             st.session_state["nav_section"]            = "👤  Spieler"
             st.session_state["_nav_sub_spieler_goto"]  = "📐 Anthropometrie"
             st.rerun()
+
+    # ── Anthropometrie-Verlauf (nur bei ≥ 2 Messungen) ────────────────────
+    if len(anthro_hist) >= 2:
+        df_ah = pd.DataFrame(anthro_hist)
+        # Metric selector (compact, inline)
+        metrik_opt = {"Größe (cm)": "groesse", "Gewicht (kg)": "gewicht", "BMI": "bmi"}
+        metrik_label = st.radio(
+            "Verlauf anzeigen",
+            list(metrik_opt.keys()),
+            horizontal=True,
+            key="profil_anthro_metrik",
+            label_visibility="collapsed",
+        )
+        metrik_col  = metrik_opt[metrik_label]
+        metrik_farbe = {"groesse": "#3b82f6", "gewicht": "#3fb950", "bmi": "#d29922"}[metrik_col]
+        metrik_einheit = {"groesse": "cm", "gewicht": "kg", "bmi": ""}[metrik_col]
+
+        fig_ah = go.Figure()
+        fig_ah.add_trace(go.Scatter(
+            x=df_ah["datum"],
+            y=df_ah[metrik_col],
+            mode="lines+markers+text",
+            text=[f"{v:.1f}{metrik_einheit}" if v else "" for v in df_ah[metrik_col]],
+            textposition="top center",
+            textfont=dict(size=10, color=metrik_farbe),
+            line=dict(color=metrik_farbe, width=2),
+            marker=dict(size=7, color=metrik_farbe),
+            name=metrik_label,
+        ))
+        fig_ah.update_layout(**_pl(
+            height=220,
+            margin=dict(l=40, r=20, t=12, b=36),
+            showlegend=False,
+            xaxis=dict(title=None, tickfont=dict(size=10)),
+            yaxis=dict(title=metrik_label, tickfont=dict(size=10)),
+        ))
+        st.plotly_chart(fig_ah, use_container_width=True)
 
     st.markdown("---")
 
