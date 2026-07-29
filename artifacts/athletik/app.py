@@ -165,7 +165,7 @@ def _zweck_bestaetigt() -> bool:
 
 # ─── Page config ──────────────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="Football Athletik Diagnostik",
+    page_title="Bruce Athletik Diagnostik",
     page_icon="⚽",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -5312,7 +5312,7 @@ with st.sidebar:
     st.markdown(
         f'<div style="padding:18px 0 10px;text-align:center">'
         f'<div style="font-size:38px">⚽</div>'
-        f'<div style="font-weight:800;font-size:14px;color:{C["text"]};letter-spacing:1px;margin-top:4px">ATHLETIK DIAGNOSTIK</div>'
+        f'<div style="font-weight:800;font-size:14px;color:{C["text"]};letter-spacing:1px;margin-top:4px">BRUCE ATHLETIK DIAGNOSTIK</div>'
         f'<div style="font-size:10px;color:{C["muted"]};margin-top:2px">Football Performance System</div>'
         f'</div>',
         unsafe_allow_html=True,
@@ -5426,7 +5426,7 @@ elif section == "⚙️  Einstellungen":
     st.markdown(
         '<div style="text-align:center;padding:16px 0 8px">'
         '<div style="font-size:36px">⚽</div>'
-        '<div style="font-weight:700;font-size:15px;color:#e6edf3;letter-spacing:0.5px">ATHLETIK DIAGNOSTIK</div>'
+        '<div style="font-weight:700;font-size:15px;color:#e6edf3;letter-spacing:0.5px">BRUCE ATHLETIK DIAGNOSTIK</div>'
         '<div style="font-size:11px;color:#8b949e;margin-top:2px">Football Performance System</div>'
         '</div>',
         unsafe_allow_html=True,
