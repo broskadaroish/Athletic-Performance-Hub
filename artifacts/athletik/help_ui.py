@@ -138,9 +138,103 @@ def field_info_col(col, test_id: str, field_id: str) -> None:
         if feld.get("ziel"):
             st.markdown(f"*{feld['ziel']}*")
             st.markdown("")
+        # ── Übungs-SVG (wenn vorhanden, z. B. je FMS-Muster) ─────────────
+        bild = feld.get("bild_pfad")
+        if bild:
+            bild_abs = os.path.join(_BASE, bild)
+            if os.path.exists(bild_abs):
+                with open(bild_abs, encoding="utf-8") as fh:
+                    st.markdown(fh.read(), unsafe_allow_html=True)
+                st.markdown("")
         if feld.get("kurzhilfe"):
             st.info(feld["kurzhilfe"])
         if feld.get("eingabehilfe"):
             st.caption(f"✏️ Eingabe: {feld['eingabehilfe']}")
         if feld.get("bereich"):
             st.caption(f"📊 {feld['bereich']}")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Trainer-Checkliste
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Standard-Checkliste falls kein Test spezifische liefert
+_DEFAULT_CHECKLISTE: list[tuple[str, str]] = [
+    ("🏟️", "Testfläche frei, rutschfest und ausreichend groß"),
+    ("🛠️", "Material vollständig bereitgestellt und geprüft"),
+    ("🔥", "Spieler mind. 10 Min. allgemein aufgewärmt"),
+    ("📋", "Spieler über Ablauf, Ziel und Abbruchsignal informiert"),
+    ("❓", "Akute Beschwerden oder Schmerzen beim Spieler abgefragt"),
+    ("⏱️", "Stoppuhr / Messgerät bereit und kalibriert"),
+    ("📝", "Testprotokoll / App geöffnet, Spieler ausgewählt"),
+]
+
+# Testspezifische Zusätze
+_TEST_CHECKLISTE: dict[str, list[tuple[str, str]]] = {
+    "sprint": [
+        ("📐", "Startlinie und Lichtschrankenpositionen (10 m, 20 m, 30 m) ausgemessen"),
+        ("🚦", "Lichtschranken oder manuelle Stoppuhr synchronisiert"),
+        ("👟", "Spieler trägt Spikes oder geeignetes Schuhwerk"),
+    ],
+    "y_balance": [
+        ("📏", "Y-Balance-Kit aufgebaut, Skalen auf 0 gesetzt"),
+        ("🦵", "Standbeinlänge gemessen und notiert"),
+        ("🔁", "3 Probewiederholungen je Seite absolviert"),
+    ],
+    "fms": [
+        ("📏", "Hürde auf Hüfthöhe des Spielers eingestellt"),
+        ("🪵", "FMS-Brett auf ebenem Untergrund ausgerichtet"),
+        ("👣", "Spieler barfuß oder mit einheitlichem Schuhwerk"),
+        ("🔕", "Kein Coaching während der Ausführung — nur beobachten"),
+        ("📋", "Reihenfolge: Deep Squat → Hurdle → Lunge → Shoulder → ASLR → Trunk → Rotary"),
+    ],
+    "jump": [
+        ("📐", "Kontaktmatte / Videokamera positioniert und gestartet"),
+        ("📦", "Drop-Jump-Box auf Standsicherheit geprüft"),
+        ("🦵", "3–5 submaximale Einsprünge als Einstimmung"),
+    ],
+    "agility": [
+        ("📏", "Hütchen-Abstände nach Testprotokoll (T-Test / Illinois / 505 / 5-10-5) ausgemessen"),
+        ("🚦", "Lichtschrankenstartlinie markiert"),
+        ("🏃", "2 Probeläufe mit ~70% Intensität"),
+    ],
+    "yoyo": [
+        ("🔊", "Audio-CD oder App-Ton geprüft (20 m korrekt kalibriert)"),
+        ("📏", "20-m-Pendellinie und 5-m-Erholungszone markiert"),
+        ("💧", "Spieler ist ausreichend hydriert"),
+    ],
+    "anthropometrie": [
+        ("📏", "Maßband und Messzirkel gereinigt und auf 0 gesetzt"),
+        ("🧍", "Spieler in Sportunterwäsche oder engem Outfit"),
+        ("🔄", "Messungen je 2× — bei Abweichung > 5 mm: 3. Messung"),
+    ],
+}
+
+
+def show_trainer_checkliste(test_id: str | None = None) -> None:
+    """Zeigt eine interaktive Trainer-Checkliste vor dem Test.
+
+    Ohne test_id erscheint nur die allgemeine Checkliste.
+    Mit test_id werden testspezifische Punkte ergänzt.
+    """
+    punkte = list(_DEFAULT_CHECKLISTE)
+    if test_id and test_id in _TEST_CHECKLISTE:
+        punkte += _TEST_CHECKLISTE[test_id]
+
+    test_name = ""
+    if test_id:
+        info = TEST_HELP.get(test_id)
+        if info:
+            test_name = f": {info['name']}"
+
+    with st.expander(f"✅ Trainer-Checkliste{test_name}", expanded=False):
+        st.caption("Bitte vor dem Test abhaken — alle Punkte erfüllt?")
+        alle_ok = True
+        for icon, text in punkte:
+            checked = st.checkbox(f"{icon} {text}", key=f"chk_{test_id}_{text[:20]}")
+            if not checked:
+                alle_ok = False
+        if alle_ok:
+            st.success("✅ Alle Punkte erledigt — Test kann beginnen!", icon="🚀")
+        else:
+            st.warning("Noch nicht alle Punkte abgehakt.", icon="⏳")
