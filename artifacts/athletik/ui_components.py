@@ -215,13 +215,17 @@ def render_observation_selector(
     spieler_id: int,
     datum_str: str,
     key_prefix: str,
-) -> None:
+    standalone: bool = True,
+) -> dict:
     """Rendert den Trainerbeobachtungs-Selektor für einen Test.
 
-    - Lädt vorhandene Beobachtungen für spieler_id + test_id + datum_str
-    - Zeigt Checkboxen (Standard/Experte), Seite, Ausprägung, Freitext
-    - Eigener Speichern-Button — unabhängig vom Test-Speichern
-    - Konflikt-Warnung bei widersprüchlichen Auswahlen
+    standalone=True  → eigene Speichern/Zurücksetzen-Buttons (Einzelmodus)
+    standalone=False → keine eigenen Buttons; Rückgabewert wird vom aufrufenden
+                       Test-Speichern-Button mitgespeichert.
+
+    Gibt immer ein Dict zurück:
+      {"beob_ids": list, "seite": str|None, "auspraegung": str|None,
+       "freitext": str|None, "text_generiert": str|None}
     """
     import streamlit as st
     import json
@@ -233,7 +237,7 @@ def render_observation_selector(
 
     info = BEOBACHTUNGEN.get(test_id)
     if not info:
-        return
+        return {"beob_ids": [], "seite": None, "auspraegung": None, "freitext": None, "text_generiert": None}
 
     with st.expander("🔍 Trainerbeobachtungen (optional)", expanded=False):
         # Vorhandene Beobachtung laden
@@ -339,30 +343,42 @@ def render_observation_selector(
                 unsafe_allow_html=True,
             )
 
-        # ── Buttons ────────────────────────────────────────────────────────────
-        bc1, bc2, bc3 = st.columns([2, 2, 3])
-        if bc1.button("💾 Beobachtung speichern", key=f"{key_prefix}_obs_save",
-                      use_container_width=True):
-            beobachtung_speichern(
-                spieler_id, test_id, datum_str,
-                json.dumps(selected_ids, ensure_ascii=False),
-                seite, auspraegung,
-                freitext.strip() or None,
-                preview_text or None,
-            )
-            st.success("✅ Beobachtung gespeichert.")
-            st.rerun()
+        # ── Buttons (nur im standalone-Modus) ────────────────────────────────
+        if standalone:
+            bc1, bc2, _bc3 = st.columns([2, 2, 3])
+            if bc1.button("💾 Beobachtung speichern", key=f"{key_prefix}_obs_save",
+                          use_container_width=True):
+                beobachtung_speichern(
+                    spieler_id, test_id, datum_str,
+                    json.dumps(selected_ids, ensure_ascii=False),
+                    seite, auspraegung,
+                    freitext.strip() or None,
+                    preview_text or None,
+                )
+                st.success("✅ Beobachtung gespeichert.")
+                st.rerun()
 
-        if bc2.button("🔄 Zurücksetzen", key=f"{key_prefix}_obs_reset",
-                      use_container_width=True):
-            beobachtung_loeschen(spieler_id, test_id, datum_str)
-            st.info("Beobachtungen für dieses Datum gelöscht.")
-            st.rerun()
+            if bc2.button("🔄 Zurücksetzen", key=f"{key_prefix}_obs_reset",
+                          use_container_width=True):
+                beobachtung_loeschen(spieler_id, test_id, datum_str)
+                st.info("Beobachtungen für dieses Datum gelöscht.")
+                st.rerun()
 
-        # ── Gespeicherter Text (Anzeige, falls vorhanden) ──────────────────────
-        if existing and saved_text:
-            with st.expander("📋 Gespeicherter Beobachtungstext"):
-                st.write(saved_text)
+            # Gespeicherter Text
+            if existing and saved_text:
+                with st.expander("📋 Gespeicherter Beobachtungstext"):
+                    st.write(saved_text)
+        else:
+            # Im integrierten Modus: Hinweis dass beim Test-Speichern mitgespeichert wird
+            st.caption("💡 Wird beim Speichern des Tests automatisch mitgespeichert.")
+
+        return {
+            "beob_ids": selected_ids,
+            "seite": seite,
+            "auspraegung": auspraegung,
+            "freitext": freitext.strip() if freitext else None,
+            "text_generiert": preview_text or None,
+        }
 
 
 def score_badge_html(score: int) -> str:

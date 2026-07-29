@@ -38,6 +38,7 @@ from database import (
     einwilligung_speichern, einwilligung_letzter, einwilligung_alle,
     db_komplett_zuruecksetzen,
     checkliste_custom_laden, checkliste_custom_speichern,
+    beobachtung_speichern,
 )
 from safety_texts import (
     ZWECKBESTIMMUNG_VERSION,
@@ -841,7 +842,12 @@ def page_fms():
     # ── Test 7: Rotary Stability ──────────────────────────────────────────────
     rotary_l, rotary_r     = _fms_row(7, "Rotary Stability",  "rl",  "rr",  "rotary_stability")
 
+    # ── Trainerbeobachtungen ──────────────────────────────────────────────────
+    st.markdown("---")
+    obs_fms = render_observation_selector("fms", spieler_id, date.today().strftime("%d.%m.%Y"), "fms", standalone=False)
+
     if st.button("✅ FMS speichern & auswerten", use_container_width=False):
+        import json as _j
         result = FMSResult(
             deep_squat=deep, hurdle_l=hurdle_l, hurdle_r=hurdle_r,
             inline_l=inline_l, inline_r=inline_r,
@@ -855,6 +861,13 @@ def page_fms():
             shoulder_l, shoulder_r, aslr_l, aslr_r, trunk, rotary_l, rotary_r,
             result.score, result.bewertung, result.asymmetrie, result.schwerpunkt,
         )
+        if obs_fms["beob_ids"] or obs_fms.get("freitext"):
+            beobachtung_speichern(
+                spieler_id, "fms", date.today().strftime("%d.%m.%Y"),
+                _j.dumps(obs_fms["beob_ids"], ensure_ascii=False),
+                obs_fms["seite"], obs_fms["auspraegung"],
+                obs_fms["freitext"], obs_fms["text_generiert"],
+            )
         st.success("✅ FMS Test gespeichert!")
 
         st.markdown("---")
@@ -872,10 +885,6 @@ def page_fms():
         st.info(f"**Trainingsschwerpunkt:** {result.schwerpunkt}")
         if result.asymmetrie != "Keine Asymmetrie":
             st.warning(f"⚠️ {result.asymmetrie}")
-
-    # ── Trainerbeobachtungen ──────────────────────────────────────────────────
-    st.markdown("---")
-    render_observation_selector("fms", spieler_id, date.today().strftime("%d.%m.%Y"), "fms")
 
     # ── Previous test
     last = fms_letzter(spieler_id)
@@ -933,7 +942,12 @@ def page_ybalance():
     pll_h, pll_i = ch2.columns([5, 1]); pll_h.markdown("**Posterolateral L (cm)**"); field_info_col(pll_i, "y_balance", "posterolateral")
     pl_l   = ch2.number_input("Posterolateral L", 0.0, 200.0, 0.0, step=0.5, key="pll",  label_visibility="collapsed", help=_fh("posterolateral"))
 
+    # ── Trainerbeobachtungen ──────────────────────────────────────────────────
+    st.markdown("---")
+    obs_yb = render_observation_selector("y_balance", spieler_id, date.today().strftime("%d.%m.%Y"), "yb", standalone=False)
+
     if st.button("💾 Y-Balance berechnen & speichern"):
+        import json as _j
         res = YBalanceResult(
             anterior_r=ant_r, anterior_l=ant_l,
             posteromedial_r=pm_r, posteromedial_l=pm_l,
@@ -947,6 +961,13 @@ def page_ybalance():
             res.composite_r, res.composite_l,
             res.asymmetrie_text, res.schwerpunkt,
         )
+        if obs_yb["beob_ids"] or obs_yb.get("freitext"):
+            beobachtung_speichern(
+                spieler_id, "y_balance", date.today().strftime("%d.%m.%Y"),
+                _j.dumps(obs_yb["beob_ids"], ensure_ascii=False),
+                obs_yb["seite"], obs_yb["auspraegung"],
+                obs_yb["freitext"], obs_yb["text_generiert"],
+            )
         st.success("✅ Y-Balance Test gespeichert!")
 
         st.markdown("---")
@@ -983,10 +1004,6 @@ def page_ybalance():
         st.info(f"**Trainingsschwerpunkt:** {res.schwerpunkt}")
         if res.asymmetrien:
             st.warning(f"⚠️ Asymmetrien erkannt: {', '.join(res.asymmetrien)}")
-
-    # ── Trainerbeobachtungen ──────────────────────────────────────────────────
-    st.markdown("---")
-    render_observation_selector("y_balance", spieler_id, date.today().strftime("%d.%m.%Y"), "yb")
 
     last = y_balance_letzter(spieler_id)
     if last:
@@ -1881,15 +1898,27 @@ def page_anthropometrie():
             unsafe_allow_html=True,
         )
 
+        # ── Trainerbeobachtungen ────────────────────────────────────────────
+        st.markdown("---")
+        obs_anthro = render_observation_selector("anthropometrie", sid, datum.strftime("%d.%m.%Y"), "anthro", standalone=False)
+
         col_sv, col_del = st.columns([3, 1])
         with col_sv:
             if st.button("💾 Messung speichern", use_container_width=True, key="anthro_save"):
+                import json as _j
                 anthropometrie_speichern(
                     sid, datum.strftime("%d.%m.%Y"),
                     groesse, gewicht, sitzhoehe, beinlaenge, armspann,
                     koerperfett, muskelmasse,
                     bmi, bmi_kat, phv, reife,
                 )
+                if obs_anthro["beob_ids"] or obs_anthro.get("freitext"):
+                    beobachtung_speichern(
+                        sid, "anthropometrie", datum.strftime("%d.%m.%Y"),
+                        _j.dumps(obs_anthro["beob_ids"], ensure_ascii=False),
+                        obs_anthro["seite"], obs_anthro["auspraegung"],
+                        obs_anthro["freitext"], obs_anthro["text_generiert"],
+                    )
                 st.success("✅ Messung gespeichert!")
                 st.rerun()
         with col_del:
@@ -1897,10 +1926,6 @@ def page_anthropometrie():
                 anthropometrie_loeschen_letzten(sid)
                 st.warning("Letzte Messung gelöscht.")
                 st.rerun()
-
-        # ── Trainerbeobachtungen ────────────────────────────────────────────
-        st.markdown("---")
-        render_observation_selector("anthropometrie", sid, datum.strftime("%d.%m.%Y"), "anthro")
 
     with tab_verlauf:
         if not history:
@@ -2056,6 +2081,10 @@ def page_sprint():
         if b20 and b30 and b30 < b20:
             st.warning("⚠️ Plausibilitätsprüfung: Die 30-m-Zeit ist kleiner als die 20-m-Zeit — bitte Eingaben prüfen.")
 
+        # ── Trainerbeobachtungen ────────────────────────────────────────────
+        st.markdown("---")
+        obs_sprint = render_observation_selector("sprint", sid, datum.strftime("%d.%m.%Y"), "sprint", standalone=False)
+
         if st.button("💾 Test speichern", use_container_width=True, key="sprint_save"):
             if not any([b5, b10, b20, b30]):
                 st.error("Bitte mindestens eine Distanz eingeben.")
@@ -2072,12 +2101,15 @@ def page_sprint():
                     res.bewertung_10m, res.bewertung_30m,
                     json.dumps(res.defizite, ensure_ascii=False),
                 )
+                if obs_sprint["beob_ids"] or obs_sprint.get("freitext"):
+                    beobachtung_speichern(
+                        sid, "sprint", datum.strftime("%d.%m.%Y"),
+                        json.dumps(obs_sprint["beob_ids"], ensure_ascii=False),
+                        obs_sprint["seite"], obs_sprint["auspraegung"],
+                        obs_sprint["freitext"], obs_sprint["text_generiert"],
+                    )
                 st.success("✅ Sprint-Test gespeichert!")
                 st.rerun()
-
-        # ── Trainerbeobachtungen ────────────────────────────────────────────
-        st.markdown("---")
-        render_observation_selector("sprint", sid, datum.strftime("%d.%m.%Y"), "sprint")
 
     with tab_verlauf:
         if not hist:
@@ -2197,6 +2229,10 @@ def page_sprung():
                 for d in res.defizite:
                     st.markdown(f"- {d}")
 
+        # ── Trainerbeobachtungen ────────────────────────────────────────────
+        st.markdown("---")
+        obs_sprung = render_observation_selector("sprung", sid, datum.strftime("%d.%m.%Y"), "sprung", standalone=False)
+
         if st.button("💾 Test speichern", use_container_width=True, key="sprung_save"):
             if not any([cmj_beid, cmj_r, cmj_l, squat, dj_h, swj]):
                 st.error("Bitte mindestens einen Testwert eingeben.")
@@ -2211,12 +2247,15 @@ def page_sprung():
                     res.bewertung_cmj,
                     json.dumps(res.defizite, ensure_ascii=False),
                 )
+                if obs_sprung["beob_ids"] or obs_sprung.get("freitext"):
+                    beobachtung_speichern(
+                        sid, "sprung", datum.strftime("%d.%m.%Y"),
+                        json.dumps(obs_sprung["beob_ids"], ensure_ascii=False),
+                        obs_sprung["seite"], obs_sprung["auspraegung"],
+                        obs_sprung["freitext"], obs_sprung["text_generiert"],
+                    )
                 st.success("✅ Sprung-Test gespeichert!")
                 st.rerun()
-
-        # ── Trainerbeobachtungen ────────────────────────────────────────────
-        st.markdown("---")
-        render_observation_selector("sprung", sid, datum.strftime("%d.%m.%Y"), "sprung")
 
     with tab_verlauf:
         if not hist:
@@ -2347,6 +2386,10 @@ def page_agilitaet():
                 for d in res.defizite:
                     st.markdown(f"- {d}")
 
+        # ── Trainerbeobachtungen ────────────────────────────────────────────
+        st.markdown("---")
+        obs_agil = render_observation_selector("agilitaet", sid, datum.strftime("%d.%m.%Y"), "agil", standalone=False)
+
         if st.button("💾 Test speichern", use_container_width=True, key="agil_save"):
             if not any([t505_r, t505_l, t5_10_5, t_test, illinois]):
                 st.error("Bitte mindestens einen Testwert eingeben.")
@@ -2359,12 +2402,15 @@ def page_agilitaet():
                     res.bew_505, res.bew_t_test, res.bew_illinois,
                     json.dumps(res.defizite, ensure_ascii=False),
                 )
+                if obs_agil["beob_ids"] or obs_agil.get("freitext"):
+                    beobachtung_speichern(
+                        sid, "agilitaet", datum.strftime("%d.%m.%Y"),
+                        json.dumps(obs_agil["beob_ids"], ensure_ascii=False),
+                        obs_agil["seite"], obs_agil["auspraegung"],
+                        obs_agil["freitext"], obs_agil["text_generiert"],
+                    )
                 st.success("✅ Agilität-Test gespeichert!")
                 st.rerun()
-
-        # ── Trainerbeobachtungen ────────────────────────────────────────────
-        st.markdown("---")
-        render_observation_selector("agilitaet", sid, datum.strftime("%d.%m.%Y"), "agil")
 
     with tab_verlauf:
         if not hist:
@@ -2515,6 +2561,10 @@ def page_ausdauer():
                 for d in res.defizite:
                     st.markdown(f"- {d}")
 
+        # ── Trainerbeobachtungen ────────────────────────────────────────────
+        st.markdown("---")
+        obs_aus = render_observation_selector("ausdauer", sid, datum.strftime("%d.%m.%Y"), "aus", standalone=False)
+
         if st.button("💾 Test speichern", use_container_width=True, key="aus_save"):
             if distanz_m <= 0:
                 st.error("Bitte Distanz eingeben.")
@@ -2528,12 +2578,15 @@ def page_ausdauer():
                     altersgruppe,
                     json.dumps(res.defizite, ensure_ascii=False),
                 )
+                if obs_aus["beob_ids"] or obs_aus.get("freitext"):
+                    beobachtung_speichern(
+                        sid, "ausdauer", datum.strftime("%d.%m.%Y"),
+                        json.dumps(obs_aus["beob_ids"], ensure_ascii=False),
+                        obs_aus["seite"], obs_aus["auspraegung"],
+                        obs_aus["freitext"], obs_aus["text_generiert"],
+                    )
                 st.success("✅ Ausdauer-Test gespeichert!")
                 st.rerun()
-
-        # ── Trainerbeobachtungen ────────────────────────────────────────────
-        st.markdown("---")
-        render_observation_selector("ausdauer", sid, datum.strftime("%d.%m.%Y"), "aus")
 
     with tab_verlauf:
         if not hist:
