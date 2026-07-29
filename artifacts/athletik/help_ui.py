@@ -12,6 +12,7 @@ import os
 import streamlit as st
 from test_help import TEST_HELP, SICHERHEITSHINWEIS_ALLGEMEIN, COMPLIANCE_HINWEIS
 from field_eval import badge_html as _badge_html
+from database import checkliste_custom_laden
 
 _BASE = os.path.dirname(os.path.abspath(__file__))
 
@@ -245,6 +246,14 @@ def show_trainer_checkliste(test_id: str | None = None) -> None:
         info = TEST_HELP.get(test_id)
         if info:
             test_name = f": {info['name']}"
+
+    # Eigene Punkte aus DB laden und anhängen
+    custom_text = checkliste_custom_laden(test_id or "")
+    if custom_text:
+        for line in custom_text.splitlines():
+            line = line.strip()
+            if line:
+                punkte.append(("📌", line))
 
     with st.expander(f"✅ Trainer-Checkliste{test_name}", expanded=False):
         st.caption("Bitte vor dem Test abhaken — alle Punkte erfüllt?")

@@ -225,9 +225,37 @@ def init_db():
             haeufigkeit  TEXT,
             status       TEXT DEFAULT 'offen'
         );
+
+        CREATE TABLE IF NOT EXISTS checkliste_custom (
+            id      INTEGER PRIMARY KEY AUTOINCREMENT,
+            test_id TEXT NOT NULL UNIQUE,
+            punkte  TEXT NOT NULL DEFAULT ''
+        );
         """)
     # Migration: neue Spalten für bestehende Datenbanken nachträglich anlegen
     _migrate_spieler_columns()
+
+
+# ─── Trainer-Checkliste (custom) ──────────────────────────────────────────────
+
+def checkliste_custom_laden(test_id: str) -> str:
+    """Gibt gespeicherte Custom-Punkte als mehrzeiligen Text zurück (leer = keine)."""
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT punkte FROM checkliste_custom WHERE test_id = ?", (test_id,)
+        ).fetchone()
+    return row["punkte"] if row else ""
+
+
+def checkliste_custom_speichern(test_id: str, punkte_text: str) -> None:
+    """Speichert oder überschreibt Custom-Punkte für einen Test."""
+    with get_conn() as conn:
+        conn.execute(
+            """INSERT INTO checkliste_custom (test_id, punkte)
+               VALUES (?, ?)
+               ON CONFLICT(test_id) DO UPDATE SET punkte = excluded.punkte""",
+            (test_id, punkte_text.strip()),
+        )
 
 
 def _migrate_spieler_columns():

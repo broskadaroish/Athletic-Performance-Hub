@@ -35,6 +35,7 @@ from database import (
     ausdauer_speichern, ausdauer_letzter, ausdauer_history,
     einwilligung_speichern, einwilligung_letzter, einwilligung_alle,
     db_komplett_zuruecksetzen,
+    checkliste_custom_laden, checkliste_custom_speichern,
 )
 from safety_texts import (
     ZWECKBESTIMMUNG_VERSION,
@@ -2353,8 +2354,8 @@ def page_einstellungen():
     st.markdown(section_header("⚙️ Einstellungen", "App-Konfiguration und Datenverwaltung"),
                 unsafe_allow_html=True)
 
-    tab_allg, tab_zweck, tab_export, tab_dsg = st.tabs([
-        "⚙️ Allgemein", "📋 Zweckbestimmung", "💾 Export & Backup", "🔒 Datenschutz"
+    tab_allg, tab_zweck, tab_chk, tab_export, tab_dsg = st.tabs([
+        "⚙️ Allgemein", "📋 Zweckbestimmung", "✅ Checklisten", "💾 Export & Backup", "🔒 Datenschutz"
     ])
 
     with tab_allg:
@@ -2377,6 +2378,35 @@ def page_einstellungen():
 
     with tab_zweck:
         page_zweckbestimmung()
+
+    with tab_chk:
+        st.markdown("### ✅ Eigene Checklistenpunkte pro Test")
+        st.caption(
+            "Ergänze testspezifische Routineschritte, die nach den Standardpunkten "
+            "in der Trainer-Checkliste erscheinen. Ein Punkt pro Zeile."
+        )
+        st.markdown("---")
+        for tid in ALL_TEST_IDS:
+            label = TEST_LABELS[tid]
+            aktuell = checkliste_custom_laden(tid)
+            with st.expander(f"📋 {label}", expanded=False):
+                neuer_text = st.text_area(
+                    "Eigene Punkte (eine Zeile = ein Punkt)",
+                    value=aktuell,
+                    height=120,
+                    placeholder="z. B.\nVideoaufnahme starten\nTrikot-Nummer notiert\nEltern informiert",
+                    key=f"chk_custom_{tid}",
+                    label_visibility="collapsed",
+                )
+                col_save, col_reset = st.columns([2, 1])
+                if col_save.button("💾 Speichern", key=f"chk_save_{tid}",
+                                   use_container_width=True):
+                    checkliste_custom_speichern(tid, neuer_text)
+                    st.success("✅ Gespeichert.", icon="✅")
+                if col_reset.button("🗑️ Löschen", key=f"chk_del_{tid}",
+                                    use_container_width=True):
+                    checkliste_custom_speichern(tid, "")
+                    st.rerun()
 
     with tab_dsg:
         st.markdown("### 🔒 Datenschutz & Datenverwaltung")
