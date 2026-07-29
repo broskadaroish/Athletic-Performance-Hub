@@ -1,0 +1,848 @@
+Du bist ein Senior Python-Entwickler, Softwaretester, Datenbankexperte und Qualitätssicherungsingenieur.
+
+Ich habe eine bestehende Fußball-Athletik- und Diagnostik-App mit:
+
+* Python
+* Streamlit
+* SQLite
+* mehreren Python-Modulen
+* Spielerverwaltung
+* Anthropometrie
+* FMS
+* Y-Balance
+* Sprinttests
+* Sprungtests
+* Richtungswechseltests
+* Yo-Yo-Test
+* sportlicher Auswertung
+* Athletik-Score
+* Trainingsplanung
+* Periodisierung
+* Testhistorie
+* PDF-Protokollen
+* Druckfunktion
+* eventuell E-Mail-Versand
+* Sicherheits- und Datenschutzhinweisen
+
+Ich möchte jetzt einen vollständigen Systemtest durchführen.
+
+## Wichtigste Regel
+
+Ändere zunächst keinen Programmcode.
+
+Führe zuerst eine vollständige Analyse und Prüfung des vorhandenen Projekts durch.
+
+Erstelle anschließend einen strukturierten Testbericht.
+
+Erst nachdem alle Fehler und Probleme dokumentiert wurden, darfst du konkrete Verbesserungsvorschläge machen.
+
+Bestehende Daten dürfen nicht verändert oder gelöscht werden.
+
+Erstelle vor allen Tests eine Sicherung der SQLite-Datenbank.
+
+## 1. Projektanalyse
+
+Analysiere alle vorhandenen Dateien und dokumentiere:
+
+* vorhandene Python-Dateien
+* Aufgaben der einzelnen Module
+* verwendete Bibliotheken
+* Startdatei der Anwendung
+* Datenbankdatei
+* Datenbanktabellen
+* Abhängigkeiten zwischen den Modulen
+* vorhandene Navigation
+* zentrale Analysefunktionen
+* Trainingsplanlogik
+* PDF- und Exportfunktionen
+* E-Mail-Funktionen
+* Sicherheits- und Hinweistexte
+
+Prüfe außerdem:
+
+* doppelte Funktionen
+* ungenutzte Funktionen
+* ungenutzte Importe
+* veraltete Dateien
+* widersprüchliche Berechnungslogik
+* fest eingebaute Werte
+* fehlerhafte Dateipfade
+* mögliche Kreisimporte
+* fehlende Abhängigkeiten
+* fehlende Fehlerbehandlung
+
+## 2. Start- und Installationstest
+
+Prüfe:
+
+* Lässt sich das Projekt ohne Fehlermeldung installieren?
+* Sind alle benötigten Bibliotheken in requirements.txt eingetragen?
+* Sind die Versionen miteinander kompatibel?
+* Startet die App mit dem vorgesehenen Replit-Startbefehl?
+* Ist die Startdatei korrekt konfiguriert?
+* Funktioniert die App nach einem vollständigen Neustart?
+* Funktioniert die App auch bei einer leeren Datenbank?
+* Werden fehlende Tabellen automatisch sicher angelegt?
+* Werden fehlende Dateien verständlich gemeldet?
+* Gibt es Fehler in der Konsole?
+
+Gib den genauen Startbefehl an.
+
+Beispiel:
+
+streamlit run app.py --server.address 0.0.0.0 --server.port 5000
+
+Passe den Befehl an mein tatsächliches Projekt an.
+
+## 3. Datenbanksicherung
+
+Bevor Daten verändert werden:
+
+1. Ermittle die verwendete SQLite-Datenbank.
+2. Erstelle eine Sicherungskopie.
+3. Verwende einen eindeutigen Namen mit Datum und Uhrzeit.
+4. Prüfe, ob die Sicherungsdatei geöffnet werden kann.
+5. Führe Schreibtests möglichst mit separaten Testdaten durch.
+
+Verändere keine echten Spielerdaten ohne Notwendigkeit.
+
+Lösche keine echten Daten.
+
+## 4. Datenbanktest
+
+Prüfe alle Tabellen auf:
+
+* Primärschlüssel
+* Fremdschlüssel
+* Datentypen
+* Pflichtfelder
+* Standardwerte
+* Zeitstempel
+* doppelte Datensätze
+* verwaiste Datensätze
+* ungültige Spielerzuordnungen
+* fehlende Tabellen
+* fehlende Spalten
+* inkonsistente Spaltennamen
+* unsichere Datenbankabfragen
+
+Prüfe außerdem:
+
+* Spieler anlegen
+* Spieler bearbeiten
+* Spieler archivieren
+* Spieler löschen, sofern vorgesehen
+* Test speichern
+* Test bearbeiten
+* Testhistorie laden
+* mehrere Tests eines Spielers speichern
+* Spielerwechsel
+* Datenbank nach Neustart erneut laden
+* Sonderzeichen in Namen
+* Umlaute
+* Apostrophe
+* leere Eingaben
+* sehr lange Eingaben
+* ungültige Zahlen
+* Datumswerte
+
+Alle Tests müssen mit Testdatensätzen durchgeführt werden.
+
+Verwende einen eindeutig erkennbaren Testspieler, zum Beispiel:
+
+SYSTEMTEST MAX MUSTERMANN
+
+Nach Abschluss sollen die Testdaten wieder entfernt werden, aber nur, wenn zweifelsfrei feststeht, dass es sich um die neu angelegten Systemtestdaten handelt.
+
+## 5. Navigation und Benutzeroberfläche
+
+Prüfe jede Seite der App:
+
+* Startseite
+* Spieler
+* Spielerprofil
+* Anthropometrie
+* Diagnostik
+* Trainingsplanung
+* Entwicklung
+* Mannschaft
+* Berichte
+* Einstellungen
+* Hinweise und Datenschutz
+
+Prüfe:
+
+* Ist jede Seite erreichbar?
+* Funktioniert jeder Menüpunkt?
+* Funktionieren alle Tabs?
+* Funktionieren Zurück-Schaltflächen?
+* Funktionieren Speichern- und Abbrechen-Schaltflächen?
+* Bleibt der ausgewählte Spieler beim Seitenwechsel erhalten?
+* Werden Inhalte des richtigen Spielers angezeigt?
+* Gibt es doppelte Spielerauswahlen?
+* Gibt es leere oder abgeschnittene Seiten?
+* Gibt es überlappende Elemente?
+* Sind Texte verständlich?
+* Sind Buttons einheitlich benannt?
+* Sind Warnungen sichtbar?
+* Funktioniert die App auch auf kleineren Bildschirmen?
+* Sind Tabellen lesbar?
+* Sind Eingabefelder sinnvoll angeordnet?
+* Ist die App zu überladen?
+* Werden lange Inhalte über Tabs, Karten oder aufklappbare Bereiche gegliedert?
+
+Prüfe auch, ob die Anwendung wie eine moderne App und nicht wie eine unstrukturierte Streamlit-Seite wirkt.
+
+## 6. Vollständiger Testdurchlauf mit einem Testspieler
+
+Lege einen Testspieler mit realistischen, aber eindeutig künstlichen Daten an.
+
+Beispieldaten:
+
+* Name: SYSTEMTEST MAX MUSTERMANN
+* Geburtsdatum: 15.05.2013
+* Mannschaft: U13 Testmannschaft
+* Position: Mittelfeld
+* Spielbein: rechts
+* Trainingsniveau: Nachwuchsfußball
+
+Führe anschließend den vollständigen Ablauf durch:
+
+1. Spieler anlegen
+2. Spielerprofil öffnen
+3. Anthropometrie speichern
+4. FMS durchführen
+5. Y-Balance durchführen
+6. Sprinttest durchführen
+7. Sprungtest durchführen
+8. Richtungswechseltest durchführen
+9. Yo-Yo-Test durchführen
+10. Ergebnisse auswerten
+11. Athletik-Score prüfen
+12. Trainingsschwerpunkte prüfen
+13. Trainingsplan erstellen
+14. Periodisierung erstellen
+15. Verlauf öffnen
+16. Kurzprotokoll erstellen
+17. ausführlichen PDF-Bericht erstellen
+18. Druckansicht prüfen
+19. Excel-Export prüfen, sofern vorhanden
+20. E-Mail-Versand nur im Testmodus prüfen
+
+Prüfe nach jedem Schritt:
+
+* Wurde der Datensatz gespeichert?
+* Wurde er dem richtigen Spieler zugeordnet?
+* Wird er nach einem Neustart weiterhin angezeigt?
+* Stimmen Berechnung und Darstellung überein?
+* Entstehen Fehlermeldungen?
+* Werden alte Ergebnisse überschrieben?
+* Werden mehrere Testtermine korrekt gespeichert?
+
+## 7. Anthropometrie-Test
+
+Prüfe:
+
+* Körpergröße
+* Körpergewicht
+* Sitzhöhe
+* Beinlänge
+* Armspannweite
+* Körperfettanteil
+* Muskelmasse
+* BMI
+* Messdatum
+* Verlauf
+
+Teste:
+
+* normale Werte
+* fehlende Werte
+* Nullwerte
+* negative Werte
+* unrealistisch hohe Werte
+* Dezimalzahlen mit Komma
+* Dezimalzahlen mit Punkt
+* mehrere Messungen am selben Tag
+* Messungen in falscher zeitlicher Reihenfolge
+
+Die App muss unplausible Eingaben erkennen oder verständlich zurückweisen.
+
+Prüfe, ob Wachstums- und Reifestatus klar als rechnerische Schätzung bezeichnet werden.
+
+## 8. FMS-Test
+
+Prüfe:
+
+* alle vorgesehenen Übungen
+* Wertebereich
+* rechte und linke Seite
+* Gesamtpunktzahl
+* Asymmetrien
+* Speicherung
+* Historie
+* sportliche Auswertung
+* Trainingshinweise
+
+Teste Grenzwerte und ungültige Eingaben.
+
+Prüfe besonders, dass keine unzulässige medizinische Diagnose oder sichere Verletzungsvorhersage ausgegeben wird.
+
+Die App soll nicht „hohes Verletzungsrisiko“ anzeigen.
+
+Zulässige Formulierungen sind beispielsweise:
+
+* auffälliges Bewegungsprofil
+* beobachtungsbedürftiger Testwert
+* sportlicher Trainingsschwerpunkt
+* Seitenunterschied
+* Rücksprache mit einer Fachperson empfohlen
+
+## 9. Y-Balance-Test
+
+Prüfe:
+
+* Beinlänge rechts und links
+* drei Versuche je Richtung
+* bester Versuch
+* Composite Score
+* rechte Seite
+* linke Seite
+* Seitendifferenz
+* Anterior-Differenz
+* Speicherung
+* Historie
+* Auswertung
+
+Berechne die Ergebnisse unabhängig nach und vergleiche sie mit der App.
+
+Dokumentiere:
+
+* Eingabewerte
+* erwartetes Ergebnis
+* tatsächliches Ergebnis
+* Differenz
+* Bewertung
+
+Prüfe außerdem, ob Zentimeter und Prozentwerte korrekt voneinander getrennt sind.
+
+## 10. Sprinttest
+
+Prüfe:
+
+* 5 Meter
+* 10 Meter
+* 20 Meter
+* 30 Meter
+* mindestens drei Versuche
+* Zwischenzeiten
+* bester Versuch
+* Durchschnitt
+* Veränderung zum vorherigen Test
+
+Teste:
+
+* normale Zeiten
+* identische Zeiten
+* extrem unterschiedliche Versuche
+* Nullwerte
+* negative Zeiten
+* Zwischenzeit größer als Gesamtzeit
+* 10-Meter-Zeit kleiner als 5-Meter-Zeit
+* fehlende Zwischenzeit
+* Handstoppung
+* Lichtschrankenmessung
+
+Die App muss logisch unmögliche Eingaben erkennen.
+
+## 11. Sprungtest
+
+Prüfe je nach vorhandenen Funktionen:
+
+* Countermovement Jump
+* Squat Jump
+* Drop Jump
+* Reaktivkraftindex
+* Standweitsprung
+* einbeinige Sprünge
+* rechte und linke Seite
+* Asymmetrie
+* mehrere Versuche
+* bester Wert
+* Durchschnitt
+* Verlauf
+
+Prüfe die Einheiten:
+
+* Zentimeter
+* Meter
+* Sekunden
+* Millisekunden
+
+Berechne Asymmetrien unabhängig nach und vergleiche sie mit der App.
+
+## 12. Richtungswechseltest
+
+Prüfe:
+
+* 505-Test
+* 5-10-5 Shuttle
+* T-Test
+* Illinois-Test
+* rechte Wendeseite
+* linke Wendeseite
+* Seitenunterschied
+* bester Versuch
+* Durchschnitt
+* Verlauf
+
+Prüfe, ob Sprintleistung und Richtungswechselleistung getrennt ausgewertet werden.
+
+## 13. Yo-Yo-Test
+
+Prüfe:
+
+* Yo-Yo Intermittent Recovery Test Level 1
+* Yo-Yo Intermittent Recovery Test Level 2
+* Gesamtdistanz
+* letzte absolvierte Stufe
+* Testdauer
+* Herzfrequenz
+* subjektive Belastung
+* Abbruchgrund
+* Leistungsbewertung
+* Verlauf
+* mögliche geschätzte VO₂max
+
+Prüfe, ob alle Umrechnungen nachvollziehbar sind.
+
+Eine geschätzte VO₂max muss eindeutig als Schätzung gekennzeichnet werden.
+
+Die App darf den Yo-Yo-Test nicht mit einer direkten medizinischen Leistungsdiagnostik gleichsetzen.
+
+## 14. Zentrale Auswertungslogik
+
+Prüfe, ob alle sportlichen Auswertungen aus einer zentralen Analysefunktion kommen.
+
+Achte darauf, dass keine wichtigen Auswertungen nur durch die Suche nach Wörtern in Beschreibungstexten entstehen.
+
+Prüfe folgende Fälle:
+
+* nur FMS vorhanden
+* nur Y-Balance vorhanden
+* nur Sprint vorhanden
+* nur Sprung vorhanden
+* nur Richtungswechsel vorhanden
+* nur Yo-Yo vorhanden
+* nur Anthropometrie vorhanden
+* FMS und Y-Balance vorhanden
+* alle Tests vorhanden
+* keine Tests vorhanden
+
+Für jeden Fall muss die App sinnvoll reagieren.
+
+Es darf keine Fehlermeldung entstehen, wenn einzelne Testarten fehlen.
+
+## 15. Athletik-Score
+
+Prüfe:
+
+* Welche Tests fließen ein?
+* Wie werden fehlende Tests behandelt?
+* Werden fehlende Tests fälschlich mit null Punkten bewertet?
+* Sind Gewichtungen nachvollziehbar?
+* Kann der Score zwischen 0 und 100 bleiben?
+* Verändert sich der Score korrekt?
+* Werden Alter, Position oder Testumfang berücksichtigt?
+* Wird ein Score auch dann angezeigt, wenn zu wenige Daten vorhanden sind?
+
+Wenn zu wenige Daten vorhanden sind, soll die App besser anzeigen:
+
+„Noch nicht genügend Testdaten für einen vollständigen Athletik-Score.“
+
+Prüfe, ob ein Spieler mit nur einem Test nicht irreführend mit einem vollständigen Gesamtscore bewertet wird.
+
+## 16. Trainingsplan
+
+Prüfe, ob ein Trainingsplan erstellt wird bei:
+
+* nur FMS
+* nur Y-Balance
+* nur Sprint
+* nur Sprung
+* nur Yo-Yo
+* mehreren Tests
+* allen Tests
+* fehlenden Tests
+
+Prüfe:
+
+* passende Trainingsschwerpunkte
+* Prioritäten
+* Übungen
+* Sätze
+* Wiederholungen
+* Dauer
+* Pausen
+* Intensität
+* Trainingshäufigkeit
+* Progression
+* Retest-Empfehlung
+
+Prüfe auf doppelte Übungen und widersprüchliche Empfehlungen.
+
+Prüfe außerdem, ob bei gemeldeten starken Beschwerden kein automatischer Belastungsplan erzeugt wird.
+
+Der Trainingsplan muss deutlich als allgemeine sportliche Empfehlung gekennzeichnet sein.
+
+## 17. Periodisierung
+
+Prüfe:
+
+* Wochenanzahl
+* Wochentage
+* Belastungssteigerung
+* Regeneration
+* Mannschaftstraining
+* Spieltage
+* Wiederholungen
+* Progression
+* Retest
+
+Prüfe, ob die Periodisierung bei fehlenden Angaben trotzdem sinnvoll reagiert.
+
+Es dürfen keine negativen oder unrealistischen Belastungswerte entstehen.
+
+## 18. Berechnungsprüfung
+
+Suche alle wichtigen Berechnungsfunktionen im Projekt.
+
+Prüfe jede Berechnung mit mindestens:
+
+* einem normalen Beispiel
+* einem Grenzwert
+* einem ungültigen Wert
+* einem fehlenden Wert
+
+Erstelle für jede geprüfte Berechnung eine Tabelle:
+
+| Funktion | Eingabe | Erwartet | Tatsächlich | Status |
+
+Prüfe besonders:
+
+* Altersberechnung
+* BMI
+* Wachstumsgeschwindigkeit
+* Y-Balance Composite Score
+* Y-Balance Asymmetrie
+* Sprungasymmetrie
+* Sprintdurchschnitt
+* Athletik-Score
+* Trainingsprioritäten
+* Yo-Yo-Distanz
+* geschätzte VO₂max
+* Belastungsberechnung
+
+## 19. Sicherheitsprüfung
+
+Prüfe:
+
+* SQL-Injection
+* unsichere String-Abfragen
+* Klartextpasswörter
+* sensible Daten in Logdateien
+* geheime Zugangsdaten im Quellcode
+* API-Schlüssel im Quellcode
+* E-Mail-Passwort im Quellcode
+* frei zugängliche Datenbank
+* unsichere Datei-Uploads
+* unkontrollierte Dateipfade
+* fehlende Zugriffskontrolle
+* Fehlerausgaben mit internen Informationen
+
+Zeige niemals geheime Schlüssel oder Passwörter im Testbericht vollständig an.
+
+Melde nur Datei und ungefähre Fundstelle.
+
+## 20. Medizinische und sprachliche Sicherheitsprüfung
+
+Durchsuche alle Dateien nach:
+
+* Diagnose
+* Verletzungsrisiko
+* hohes Risiko
+* geringes Risiko
+* gesund
+* krank
+* Therapie
+* Behandlung
+* Reha
+* Patient
+* medizinische Freigabe
+* spielfähig
+* Verletzung erkannt
+* keine Auffälligkeit, Training möglich
+* Return-to-Play-Freigabe
+
+Dokumentiere jede Fundstelle.
+
+Erstelle sichere Ersatzformulierungen.
+
+Prüfe, ob auf allen wichtigen Berichten und Ansichten steht:
+
+„Sportliche Trainings- und Dokumentationshilfe – keine medizinische Diagnose oder Freigabe.“
+
+Prüfe außerdem:
+
+* Bestätigung beim ersten Start
+* gespeicherte Bestätigung
+* Version des Hinweises
+* Hinweis im PDF
+* Hinweis vor dem E-Mail-Versand
+* Sperre automatischer Belastungsempfehlungen bei starken Beschwerden
+
+## 21. PDF- und Drucktest
+
+Prüfe:
+
+* Kurzprotokoll
+* ausführlicher Spielerbericht
+* Mannschaftsbericht
+* PDF-Erstellung ohne Fehler
+* korrekte Umlaute
+* Seitenumbrüche
+* abgeschnittene Tabellen
+* Diagramme
+* Vereinslogo
+* Spielername
+* Testdatum
+* Seitenzahlen
+* Trainername
+* rechtlicher Hinweis
+* DIN-A4-Darstellung
+* Dateiname
+* Download
+* Druckansicht
+
+Teste auch:
+
+* Spieler ohne Foto
+* Spieler ohne Anthropometrie
+* Spieler mit nur einem Test
+* Spieler mit vielen historischen Tests
+* lange Spielernamen
+* leere Trainerangabe
+
+## 22. E-Mail-Test
+
+Versende während des Systemtests keine echte E-Mail an reale Empfänger.
+
+Verwende einen Testmodus oder eine lokale Vorschau.
+
+Prüfe:
+
+* Empfängerprüfung
+* Betreff
+* Nachricht
+* PDF-Anhang
+* Einwilligungsbestätigung
+* Versandprotokoll
+* verständliche Fehlermeldung bei fehlender Konfiguration
+* keine Zugangsdaten im Quellcode
+* kein automatischer Versand ohne Bestätigung
+
+Falls kein sicherer Testmodus vorhanden ist, stoppe vor dem tatsächlichen Versand und dokumentiere dies als offenen Testpunkt.
+
+## 23. Fehler- und Grenzfälle
+
+Teste:
+
+* kein Spieler vorhanden
+* kein Spieler ausgewählt
+* Spieler ohne Tests
+* gelöschter Spieler
+* unvollständiger Test
+* falsche Zahleneingabe
+* Text statt Zahl
+* Komma statt Punkt
+* negatives Ergebnis
+* sehr großer Wert
+* fehlendes Datum
+* zukünftiges Testdatum
+* doppeltes Speichern
+* schnelles mehrmaliges Klicken
+* Seitenwechsel ohne Speichern
+* Browser-Neuladen
+* Neustart der App
+* beschädigte oder gesperrte Datenbank
+* fehlende PDF-Bibliothek
+* fehlende Internetverbindung
+* fehlende E-Mail-Konfiguration
+
+Die App darf nicht einfach abstürzen.
+
+Sie soll verständliche Fehlermeldungen anzeigen.
+
+## 24. Leistungstest
+
+Prüfe die App mit Testdaten für:
+
+* 1 Spieler
+* 20 Spieler
+* 100 Spieler
+* 500 Spieler
+* viele historische Tests
+
+Beobachte:
+
+* Startzeit
+* Ladezeit der Spielerliste
+* Ladezeit des Dashboards
+* Ladezeit der Diagramme
+* Ladezeit der Berichte
+* Datenbankabfragen
+* unnötige Neuberechnungen
+* unnötige vollständige Datenbankabfragen
+
+Verwende keine echten Spieler für den Massentest.
+
+Erstelle Testdaten nur in einer separaten Testdatenbank.
+
+## 25. Automatisierte Tests
+
+Prüfe, ob bereits automatisierte Tests vorhanden sind.
+
+Falls nicht, erstelle zunächst einen Vorschlag für:
+
+* Unit-Tests
+* Datenbanktests
+* Berechnungstests
+* Integrationstests
+* Smoke-Tests
+
+Verwende vorzugsweise pytest.
+
+Erstelle noch keine große Teststruktur, bevor du die vorhandene Architektur analysiert hast.
+
+Schlage anschließend mindestens Tests für folgende Funktionen vor:
+
+* Spieler anlegen
+* Altersberechnung
+* FMS-Gesamtwert
+* Y-Balance Composite Score
+* Asymmetrie
+* Sprintauswertung
+* Sprungauswertung
+* Yo-Yo-Auswertung
+* zentrale Defizitanalyse
+* Athletik-Score
+* Trainingsplan bei fehlenden Tests
+* PDF-Erstellung
+
+## 26. Ergebnisbericht
+
+Erstelle nach der Prüfung einen vollständigen Testbericht mit diesen Abschnitten:
+
+### A. Zusammenfassung
+
+* Gesamtergebnis
+* Anwendung startfähig: Ja/Nein
+* Datenbank funktionsfähig: Ja/Nein
+* zentrale Funktionen funktionsfähig: Ja/Teilweise/Nein
+* PDF funktionsfähig: Ja/Teilweise/Nein
+* E-Mail funktionsfähig: Ja/Teilweise/Nein
+* medizinische Abgrenzung ausreichend: Ja/Teilweise/Nein
+* kritische Fehler
+* Anzahl hoher, mittlerer und niedriger Fehler
+
+### B. Testumgebung
+
+* Python-Version
+* Streamlit-Version
+* Betriebssystem
+* Datenbank
+* Startbefehl
+* Testdatum
+
+### C. Geprüfte Bereiche
+
+Liste alle geprüften Module und Funktionen auf.
+
+### D. Fehlerliste
+
+Verwende folgende Tabelle:
+
+| ID | Priorität | Bereich | Datei | Fehler | Auswirkung | Reproduktion | Lösungsvorschlag |
+
+Prioritäten:
+
+* Kritisch: Datenverlust, App startet nicht oder erhebliche Sicherheitslücke
+* Hoch: wichtige Funktion arbeitet falsch
+* Mittel: Funktion eingeschränkt oder Darstellung irreführend
+* Niedrig: kleinere Darstellungs- oder Bedienprobleme
+
+### E. Berechnungsprüfung
+
+| Berechnung | Eingabe | Erwartet | Tatsächlich | Status |
+
+### F. Nicht getestete Punkte
+
+Nenne alles, was nicht zuverlässig geprüft werden konnte.
+
+### G. Empfohlene Reihenfolge der Fehlerbehebung
+
+Beginne mit:
+
+1. Datenverlust- und Sicherheitsrisiken
+2. Start- und Datenbankfehler
+3. falsche Berechnungen
+4. falsche Spielerzuordnungen
+5. PDF- und Berichtfehler
+6. medizinisch problematische Formulierungen
+7. Bedienungsprobleme
+8. optische Verbesserungen
+
+### H. Abschlussbewertung
+
+Bewerte das System mit:
+
+* einsatzbereit
+* einsatzbereit mit kleineren Korrekturen
+* nur eingeschränkt einsatzbereit
+* noch nicht einsatzbereit
+
+Begründe die Bewertung sachlich.
+
+## 27. Keine eigenmächtigen Änderungen
+
+Nach dem Test darfst du Fehler nicht sofort automatisch korrigieren.
+
+Gib mir zuerst:
+
+1. den vollständigen Testbericht
+2. die Liste aller gefundenen Fehler
+3. die Prioritäten
+4. einen konkreten Reparaturplan
+5. die Dateien, die geändert werden müssten
+
+Warte danach auf meine Anweisung, mit welcher Fehlerbehebung begonnen werden soll.
+
+Ausnahme:
+
+Wenn für die Durchführung des Tests eine kleine, reversible Testkonfiguration zwingend erforderlich ist, dokumentiere sie genau und verändere keine produktiven Daten.
+
+## 28. Abschlussbereinigung
+
+Nach dem Test:
+
+* entferne nur eindeutig erstellte Testspieler
+* entferne nur eindeutig erstellte Testdatensätze
+* lösche keine echten Daten
+* behalte die Datenbanksicherung
+* dokumentiere, welche Testdaten entfernt wurden
+* dokumentiere, welche Testdateien erstellt wurden
+* lasse den ursprünglichen Programmzustand unverändert
+
+Beginne jetzt mit der Projektanalyse und der Datenbanksicherung.
+
+Ändere noch keinen produktiven Programmcode.
