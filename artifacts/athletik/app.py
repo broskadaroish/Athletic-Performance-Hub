@@ -2562,7 +2562,7 @@ def page_export_pdf():
                     f"""
                     <div style="background:{C['surface']};border:1px solid {C['border']};
                                 border-radius:8px;padding:12px 14px;margin-bottom:10px">
-                      <div style="font-weight:700;font-size:12px;color:{C['accent']};
+                      <div style="font-weight:700;font-size:12px;color:{C['blue']};
                                   margin-bottom:4px">{data['name']}</div>
                       <div style="font-size:11px;color:{C['muted']};line-height:1.5">
                         {data['kurzbeschreibung'][:100]}…
