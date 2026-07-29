@@ -2623,6 +2623,439 @@ def page_export_pdf():
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+# PAGE: SPIELER-VERGLEICH
+# ══════════════════════════════════════════════════════════════════════════════
+
+def page_spieler_vergleich():
+    st.markdown("# ⚖️ Spieler-Vergleich")
+    st.markdown(
+        '<p style="color:#8b949e;margin-top:-8px">Zwei Athleten direkt gegenüberstellen — '
+        'Testwerte, Stärken und Defizite auf einen Blick.</p>',
+        unsafe_allow_html=True,
+    )
+    st.markdown("---")
+
+    alle_spieler = spieler_laden()
+    if len(alle_spieler) < 2:
+        st.info("⚠️ Mindestens **zwei Spieler** werden für den Vergleich benötigt. "
+                "Bitte unter **Spieler → Verwaltung** weitere Spieler anlegen.")
+        return
+
+    # ── Player selectors ──────────────────────────────────────────────────────
+    c1, _gap, c2 = st.columns([5, 1, 5])
+    with c1:
+        sp1 = st.selectbox(
+            "🔵 Spieler A",
+            alle_spieler,
+            format_func=lambda x: x["name"],
+            key="vergl_sp1",
+        )
+    with c2:
+        # Default to a different player
+        sp2_default = next(
+            (p for p in alle_spieler if p["id"] != sp1["id"]),
+            alle_spieler[0],
+        )
+        sp2_idx = next(
+            (i for i, p in enumerate(alle_spieler) if p["id"] == sp2_default["id"]), 0
+        )
+        sp2 = st.selectbox(
+            "🟢 Spieler B",
+            alle_spieler,
+            index=sp2_idx,
+            format_func=lambda x: x["name"],
+            key="vergl_sp2",
+        )
+
+    if sp1["id"] == sp2["id"]:
+        st.warning("⚠️ Bitte zwei **verschiedene** Spieler auswählen.")
+        return
+
+    # ── Load data ─────────────────────────────────────────────────────────────
+    pid1, pid2 = sp1["id"], sp2["id"]
+    fms1  = fms_letzter(pid1);        fms2  = fms_letzter(pid2)
+    y1    = y_balance_letzter(pid1);  y2    = y_balance_letzter(pid2)
+    spr1  = sprint_letzter(pid1);     spr2  = sprint_letzter(pid2)
+    spg1  = sprung_letzter(pid1);     spg2  = sprung_letzter(pid2)
+    agil1 = agilitaet_letzter(pid1);  agil2 = agilitaet_letzter(pid2)
+    aus1  = ausdauer_letzter(pid1);   aus2  = ausdauer_letzter(pid2)
+
+    # ── Composite scores ──────────────────────────────────────────────────────
+    sc1 = athletik_score(fms1, y1, spr1, spg1, agil1, aus1)
+    sc2 = athletik_score(fms2, y2, spr2, spg2, agil2, aus2)
+    sub1 = athletik_sub_scores(fms1, y1, spr1, spg1, agil1, aus1)
+    sub2 = athletik_sub_scores(fms2, y2, spr2, spg2, agil2, aus2)
+
+    # ── Score banner ──────────────────────────────────────────────────────────
+    def _score_color(s: int) -> str:
+        if s >= 75: return C["green"]
+        if s >= 50: return C["yellow"]
+        return C["red"]
+
+    b1, _bm, b2 = st.columns([5, 1, 5])
+    with b1:
+        col = _score_color(sc1)
+        st.markdown(
+            f'<div style="background:{C["surface"]};border:1px solid {C["border"]};'
+            f'border-left:4px solid #1f6feb;border-radius:10px;padding:16px 20px;text-align:center">'
+            f'<div style="font-size:12px;color:{C["muted"]};letter-spacing:1px">SPIELER A</div>'
+            f'<div style="font-size:22px;font-weight:800;color:{C["text"]};margin:4px 0">{sp1["name"]}</div>'
+            f'<div style="font-size:11px;color:{C["muted"]}">'
+            f'{sp1.get("hauptposition") or sp1.get("position") or "—"} · '
+            f'{sp1.get("mannschaft") or "—"}</div>'
+            f'<div style="font-size:32px;font-weight:900;color:{col};margin-top:8px">{sc1}</div>'
+            f'<div style="font-size:11px;color:{C["muted"]}">Athletik-Score / 100</div>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+    with _bm:
+        st.markdown(
+            '<div style="display:flex;align-items:center;justify-content:center;'
+            'height:100%;font-size:24px;color:#30363d;padding-top:30px">VS</div>',
+            unsafe_allow_html=True,
+        )
+    with b2:
+        col = _score_color(sc2)
+        st.markdown(
+            f'<div style="background:{C["surface"]};border:1px solid {C["border"]};'
+            f'border-left:4px solid #3fb950;border-radius:10px;padding:16px 20px;text-align:center">'
+            f'<div style="font-size:12px;color:{C["muted"]};letter-spacing:1px">SPIELER B</div>'
+            f'<div style="font-size:22px;font-weight:800;color:{C["text"]};margin:4px 0">{sp2["name"]}</div>'
+            f'<div style="font-size:11px;color:{C["muted"]}">'
+            f'{sp2.get("hauptposition") or sp2.get("position") or "—"} · '
+            f'{sp2.get("mannschaft") or "—"}</div>'
+            f'<div style="font-size:32px;font-weight:900;color:{col};margin-top:8px">{sc2}</div>'
+            f'<div style="font-size:11px;color:{C["muted"]}">Athletik-Score / 100</div>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # ── Radar chart ───────────────────────────────────────────────────────────
+    _CAT_KEYS   = ["FMS", "Y-Balance", "Sprint", "Sprungkraft", "Agilitaet", "Ausdauer"]
+    _CAT_LABELS = ["FMS", "Y-Balance", "Sprint", "Sprungkraft", "Agilität", "Ausdauer"]
+
+    v1 = [sub1.get(k, 0) for k in _CAT_KEYS]
+    v2 = [sub2.get(k, 0) for k in _CAT_KEYS]
+
+    fig_radar = go.Figure()
+    fig_radar.add_trace(go.Scatterpolar(
+        r=v1 + [v1[0]],
+        theta=_CAT_LABELS + [_CAT_LABELS[0]],
+        fill="toself",
+        fillcolor="rgba(31,111,235,0.15)",
+        line=dict(color="#1f6feb", width=2),
+        name=sp1["name"],
+    ))
+    fig_radar.add_trace(go.Scatterpolar(
+        r=v2 + [v2[0]],
+        theta=_CAT_LABELS + [_CAT_LABELS[0]],
+        fill="toself",
+        fillcolor="rgba(63,185,80,0.15)",
+        line=dict(color="#3fb950", width=2),
+        name=sp2["name"],
+    ))
+    fig_radar.update_layout(
+        polar=dict(
+            radialaxis=dict(
+                visible=True, range=[0, 100],
+                tickfont=dict(size=9, color=C["muted"]),
+                gridcolor=C["surface2"],
+                linecolor=C["border"],
+            ),
+            angularaxis=dict(gridcolor=C["surface2"], linecolor=C["border"]),
+            bgcolor=C["bg"],
+        ),
+        paper_bgcolor=C["bg"],
+        font=dict(color=C["text"], family="Inter, Segoe UI, system-ui"),
+        legend=dict(
+            bgcolor=C["surface"],
+            bordercolor=C["border"],
+            borderwidth=1,
+            orientation="h",
+            x=0.5, xanchor="center",
+            y=-0.08,
+        ),
+        margin=dict(l=40, r=40, t=60, b=60),
+        title=dict(
+            text="Athletisches Profil (normiert 0–100)",
+            font=dict(size=15, color=C["text"]),
+            x=0.5,
+        ),
+        height=460,
+    )
+    st.plotly_chart(fig_radar, use_container_width=True)
+
+    # ── Detailed comparison table ─────────────────────────────────────────────
+    st.markdown("### 📊 Testwerte im Detail")
+
+    # Helper: render a metric cell with traffic-light color
+    def _cell(label: str, val, unit: str = "", color: str | None = None) -> str:
+        if val is None:
+            return (
+                f'<div style="padding:8px 0">'
+                f'<div style="font-size:11px;color:{C["muted"]}">{label}</div>'
+                f'<div style="font-size:13px;color:{C["muted"]};font-style:italic">—</div>'
+                f'</div>'
+            )
+        c = color or C["text"]
+        return (
+            f'<div style="padding:8px 0">'
+            f'<div style="font-size:11px;color:{C["muted"]}">{label}</div>'
+            f'<div style="font-size:16px;font-weight:700;color:{c}">{val}{unit}</div>'
+            f'</div>'
+        )
+
+    def _bewertung_farbe(bew: str | None) -> str:
+        if not bew:
+            return C["muted"]
+        if "Sehr gut" in bew or bew == "Gut":
+            return C["green"]
+        if "Mittel" in bew:
+            return C["yellow"]
+        if "Verbesserung" in bew:
+            return C["red"]
+        return C["muted"]
+
+    def _missing_notice(name: str) -> str:
+        return (
+            f'<div style="padding:12px 16px;background:{C["surface"]};border-radius:8px;'
+            f'border:1px solid {C["border"]};color:{C["muted"]};font-style:italic;font-size:13px">'
+            f'ℹ️ {name} hat diesen Test noch nicht absolviert.</div>'
+        )
+
+    def _section_header(icon: str, title: str):
+        st.markdown(
+            f'<div style="margin:24px 0 8px;padding:10px 16px;background:{C["surface2"]};'
+            f'border-radius:8px;border-left:3px solid {C["border"]}">'
+            f'<span style="font-weight:700;color:{C["text"]}">{icon} {title}</span>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+
+    def _row_card(html1: str, html2: str):
+        """Render two side-by-side data cards."""
+        ca, cb = st.columns(2)
+        ca.markdown(
+            f'<div style="background:{C["surface"]};border:1px solid {C["border"]};'
+            f'border-top:3px solid #1f6feb;border-radius:10px;padding:14px 18px">{html1}</div>',
+            unsafe_allow_html=True,
+        )
+        cb.markdown(
+            f'<div style="background:{C["surface"]};border:1px solid {C["border"]};'
+            f'border-top:3px solid #3fb950;border-radius:10px;padding:14px 18px">{html2}</div>',
+            unsafe_allow_html=True,
+        )
+
+    # ── Column headers ────────────────────────────────────────────────────────
+    ha, hb = st.columns(2)
+    ha.markdown(
+        f'<div style="text-align:center;font-size:12px;color:#1f6feb;font-weight:700;'
+        f'letter-spacing:1px;padding:4px 0">🔵 {sp1["name"].upper()}</div>',
+        unsafe_allow_html=True,
+    )
+    hb.markdown(
+        f'<div style="text-align:center;font-size:12px;color:#3fb950;font-weight:700;'
+        f'letter-spacing:1px;padding:4px 0">🟢 {sp2["name"].upper()}</div>',
+        unsafe_allow_html=True,
+    )
+
+    # ── FMS ───────────────────────────────────────────────────────────────────
+    _section_header("📝", "FMS — Functional Movement Screen")
+    if fms1 or fms2:
+        def _fms_html(row, name):
+            if not row:
+                return _missing_notice(name)
+            sc  = row["score"]
+            col = C["green"] if sc >= 17 else (C["yellow"] if sc >= 14 else C["red"])
+            asym = row.get("asymmetrie") or "—"
+            asym_col = C["red"] if "Asymmetrie" in str(asym) else C["green"]
+            bew = row.get("bewertung") or "—"
+            return (
+                _cell("Gesamtscore", f"{sc}/21", color=col)
+                + _cell("Bewertung", bew, color=_bewertung_farbe(bew))
+                + _cell("Asymmetrie", asym, color=asym_col)
+            )
+        _row_card(_fms_html(fms1, sp1["name"]), _fms_html(fms2, sp2["name"]))
+    else:
+        st.markdown(
+            f'<div style="color:{C["muted"]};font-style:italic;padding:8px 4px">'
+            f'Keiner der beiden Spieler hat den FMS-Test absolviert.</div>',
+            unsafe_allow_html=True,
+        )
+
+    # ── Y-Balance ─────────────────────────────────────────────────────────────
+    _section_header("📏", "Y-Balance Test")
+    if y1 or y2:
+        def _ybal_html(row, name):
+            if not row:
+                return _missing_notice(name)
+            cr = row.get("composite_rechts") or 0
+            cl = row.get("composite_links") or 0
+            avg = (cr + cl) / 2
+            col = C["green"] if avg >= 94 else (C["yellow"] if avg >= 89 else C["red"])
+            asym = row.get("asymmetrie") or "—"
+            asym_col = C["red"] if "Asymmetrie" in str(asym) else C["green"]
+            return (
+                _cell("Composite Rechts", f"{cr:.1f}", "%", col)
+                + _cell("Composite Links", f"{cl:.1f}", "%", col)
+                + _cell("Ø Composite", f"{avg:.1f}", "%", col)
+                + _cell("Asymmetrie", asym, color=asym_col)
+            )
+        _row_card(_ybal_html(y1, sp1["name"]), _ybal_html(y2, sp2["name"]))
+    else:
+        st.markdown(
+            f'<div style="color:{C["muted"]};font-style:italic;padding:8px 4px">'
+            f'Keiner der beiden Spieler hat den Y-Balance-Test absolviert.</div>',
+            unsafe_allow_html=True,
+        )
+
+    # ── Sprint ────────────────────────────────────────────────────────────────
+    _section_header("⚡", "Sprint-Diagnostik")
+    if spr1 or spr2:
+        def _spr_html(row, name):
+            if not row:
+                return _missing_notice(name)
+            t10 = row.get("beste_10m")
+            t30 = row.get("beste_30m")
+            bew10 = row.get("bewertung_10m") or "—"
+            bew30 = row.get("bewertung_30m") or "—"
+            # Lower is better for sprint times
+            def _t_col(t, gut, mittel):
+                if t is None: return C["muted"]
+                return C["green"] if t <= gut else (C["yellow"] if t <= mittel else C["red"])
+            return (
+                _cell("10-m Zeit", f"{t10:.2f}" if t10 else "—", " s",
+                      _t_col(t10, 1.80, 1.95))
+                + _cell("Bewertung 10 m", bew10, color=_bewertung_farbe(bew10))
+                + _cell("30-m Zeit", f"{t30:.2f}" if t30 else "—", " s",
+                        _t_col(t30, 4.00, 4.30))
+                + _cell("Bewertung 30 m", bew30, color=_bewertung_farbe(bew30))
+            )
+        _row_card(_spr_html(spr1, sp1["name"]), _spr_html(spr2, sp2["name"]))
+    else:
+        st.markdown(
+            f'<div style="color:{C["muted"]};font-style:italic;padding:8px 4px">'
+            f'Keiner der beiden Spieler hat die Sprint-Diagnostik absolviert.</div>',
+            unsafe_allow_html=True,
+        )
+
+    # ── Sprung ────────────────────────────────────────────────────────────────
+    _section_header("🦘", "Sprung-Diagnostik")
+    if spg1 or spg2:
+        def _spg_html(row, name):
+            if not row:
+                return _missing_notice(name)
+            cmj  = row.get("cmj_beid")
+            asym = row.get("cmj_asymmetrie")
+            rsi  = row.get("rsi")
+            sw   = row.get("standweit")
+            bew  = row.get("bewertung_cmj") or "—"
+            cmj_col = C["green"] if (cmj and cmj >= 40) else (C["yellow"] if (cmj and cmj >= 30) else C["red"])
+            asym_col = (C["red"] if (asym and float(asym) > 10) else C["green"]) if asym is not None else C["muted"]
+            return (
+                _cell("CMJ beidbeinig", f"{cmj:.1f}" if cmj else "—", " cm", cmj_col)
+                + _cell("Bewertung CMJ", bew, color=_bewertung_farbe(bew))
+                + _cell("CMJ-Asymmetrie", f"{float(asym):.1f}" if asym is not None else "—", " %", asym_col)
+                + _cell("RSI", f"{float(rsi):.2f}" if rsi else "—",
+                        color=(C["green"] if rsi and float(rsi) >= 1.5 else C["yellow"]) if rsi else C["muted"])
+                + _cell("Standweit", f"{sw:.2f}" if sw else "—", " m")
+            )
+        _row_card(_spg_html(spg1, sp1["name"]), _spg_html(spg2, sp2["name"]))
+    else:
+        st.markdown(
+            f'<div style="color:{C["muted"]};font-style:italic;padding:8px 4px">'
+            f'Keiner der beiden Spieler hat die Sprung-Diagnostik absolviert.</div>',
+            unsafe_allow_html=True,
+        )
+
+    # ── Agilität ──────────────────────────────────────────────────────────────
+    _section_header("🔀", "Agilität")
+    if agil1 or agil2:
+        def _agil_html(row, name):
+            if not row:
+                return _missing_notice(name)
+            t505r = row.get("t505_r")
+            t505l = row.get("t505_l")
+            asym  = row.get("asym_505")
+            t_test = row.get("t_test")
+            bew505 = row.get("bew_505") or "—"
+            bew_t  = row.get("bew_t_test") or "—"
+            asym_col = (C["red"] if asym and float(asym) > 10 else C["green"]) if asym is not None else C["muted"]
+            return (
+                _cell("505-Test rechts", f"{t505r:.2f}" if t505r else "—", " s")
+                + _cell("505-Test links", f"{t505l:.2f}" if t505l else "—", " s")
+                + _cell("Asymmetrie 505", f"{float(asym):.1f}" if asym is not None else "—", " %", asym_col)
+                + _cell("T-Test", f"{t_test:.2f}" if t_test else "—", " s")
+                + _cell("Bewertung T-Test", bew_t, color=_bewertung_farbe(bew_t))
+            )
+        _row_card(_agil_html(agil1, sp1["name"]), _agil_html(agil2, sp2["name"]))
+    else:
+        st.markdown(
+            f'<div style="color:{C["muted"]};font-style:italic;padding:8px 4px">'
+            f'Keiner der beiden Spieler hat den Agilitätstest absolviert.</div>',
+            unsafe_allow_html=True,
+        )
+
+    # ── Ausdauer ──────────────────────────────────────────────────────────────
+    _section_header("🫁", "Ausdauer (Yo-Yo)")
+    if aus1 or aus2:
+        def _aus_html(row, name):
+            if not row:
+                return _missing_notice(name)
+            dist = row.get("distanz_m")
+            vo2  = row.get("vo2max")
+            bew  = row.get("bewertung") or "—"
+            dist_col = C["green"] if dist and dist >= 1600 else (C["yellow"] if dist and dist >= 800 else C["red"])
+            vo2_col  = C["green"] if vo2 and float(vo2) >= 55 else (C["yellow"] if vo2 and float(vo2) >= 45 else C["red"])
+            return (
+                _cell("Distanz", f"{int(dist)}" if dist else "—", " m", dist_col)
+                + _cell("VO₂max", f"{float(vo2):.1f}" if vo2 else "—", " ml/kg/min", vo2_col)
+                + _cell("Bewertung", bew, color=_bewertung_farbe(bew))
+            )
+        _row_card(_aus_html(aus1, sp1["name"]), _aus_html(aus2, sp2["name"]))
+    else:
+        st.markdown(
+            f'<div style="color:{C["muted"]};font-style:italic;padding:8px 4px">'
+            f'Keiner der beiden Spieler hat den Ausdauertest absolviert.</div>',
+            unsafe_allow_html=True,
+        )
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # ── Missing tests summary ─────────────────────────────────────────────────
+    def _fehlende_tests(name, fms, y, spr, spg, agil, aus):
+        fehlend = []
+        if not fms:  fehlend.append("FMS")
+        if not y:    fehlend.append("Y-Balance")
+        if not spr:  fehlend.append("Sprint")
+        if not spg:  fehlend.append("Sprung")
+        if not agil: fehlend.append("Agilität")
+        if not aus:  fehlend.append("Ausdauer")
+        return fehlend
+
+    f1 = _fehlende_tests(sp1["name"], fms1, y1, spr1, spg1, agil1, aus1)
+    f2 = _fehlende_tests(sp2["name"], fms2, y2, spr2, spg2, agil2, aus2)
+
+    if f1 or f2:
+        st.markdown("#### ℹ️ Ausstehende Tests")
+        nc1, nc2 = st.columns(2)
+        with nc1:
+            if f1:
+                st.warning(
+                    f"**{sp1['name']}** hat folgende Tests noch nicht absolviert: "
+                    + ", ".join(f1)
+                )
+        with nc2:
+            if f2:
+                st.warning(
+                    f"**{sp2['name']}** hat folgende Tests noch nicht absolviert: "
+                    + ", ".join(f2)
+                )
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # NAVIGATION  (7-section structure)
 # ══════════════════════════════════════════════════════════════════════════════
 
@@ -2651,6 +3084,7 @@ _MAIN_SECTIONS = [
     "🔬  Diagnostik",
     "📅  Training",
     "📈  Entwicklung",
+    "⚖️  Vergleich",
     "👥  Mannschaft",
     "📄  Anleitungen",
     "⚙️  Einstellungen",
@@ -2758,6 +3192,8 @@ elif section == "📅  Training":
     _SUB_TRAINING[sub_choice]()
 elif section == "📈  Entwicklung":
     page_fortschritt()
+elif section == "⚖️  Vergleich":
+    page_spieler_vergleich()
 elif section == "👥  Mannschaft":
     page_dashboard()
 elif section == "📄  Anleitungen":
