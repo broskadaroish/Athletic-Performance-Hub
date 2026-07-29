@@ -95,7 +95,7 @@ from analytics import (
 from periodisierung import zyklus_erstellen, zyklus_laden
 from pdf_report import generate_report, generate_vergleich_pdf
 from pdf_anleitung import generate_anleitung_pdf, ALL_TEST_IDS, TEST_LABELS
-from export import kader_excel_bytes
+from export import kader_excel_bytes, spieler_excel_bytes
 from field_eval import alter_zu_altersgruppe, asymmetrie_badge_html, fms_asymmetrie_badge_html
 
 
@@ -1047,15 +1047,28 @@ def page_spieler_profil():
         st.markdown("**Athletik-Status**")
         st.markdown(_risk_badge(level), unsafe_allow_html=True)
 
-    # ── Vergleich-Shortcut ─────────────────────────────────────────────────
-    _btn_col, _ = st.columns([2, 5])
-    with _btn_col:
+    # ── Schnellaktionen ────────────────────────────────────────────────────
+    _btn_a, _btn_b, _ = st.columns([2, 2, 3])
+    with _btn_a:
         if st.button("⚖️ Mit anderem Spieler vergleichen",
                      key="profil_goto_vergleich",
                      use_container_width=True):
             st.session_state["vergl_preset_pid"] = sid
             st.session_state["nav_section"] = "⚖️  Vergleich"
             st.rerun()
+    with _btn_b:
+        # Kein Cache — damit Änderungen (neue Tests, neue Verletzungen) sofort
+        # im Export sichtbar sind und keine veralteten Daten ausgeliefert werden.
+        _xlsx = spieler_excel_bytes(sid)
+        _name_safe = auswahl["name"].replace(" ", "_")
+        st.download_button(
+            label="⬇️ Spieler exportieren (Excel)",
+            data=_xlsx,
+            file_name=f"Spieler_{_name_safe}_{date.today()}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=True,
+            key="profil_xlsx_dl",
+        )
 
     # ── Radar-Chart im Header (wenn ≥ 3 Module vorhanden) ─────────────────
     sub_scores_header = athletik_sub_scores(fms, y, sprint, sprung, agil, aus)
