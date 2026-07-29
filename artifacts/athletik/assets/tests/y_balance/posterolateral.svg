@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 220"
+     style="width:100%;max-width:480px;border-radius:8px;display:block;margin:0 auto"
+     role="img" aria-label="Y-Balance Posterolateral: hinten-außen Reichweite">
+  <rect width="480" height="220" rx="8" fill="#161b22"/>
+  <text x="240" y="22" text-anchor="middle" fill="#c9d1d9" font-family="system-ui,sans-serif" font-size="13" font-weight="600">Posterolateral — hinten-außen</text>
+
+  <defs>
+    <marker id="arr-pl-main" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#a371f7"/>
+    </marker>
+    <marker id="arr-pl-gray1" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#444c56"/>
+    </marker>
+    <marker id="arr-pl-gray2" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#444c56"/>
+    </marker>
+  </defs>
+
+  <!-- Anterior arm (gray) -->
+  <line x1="240" y1="100" x2="240" y2="36" stroke="#444c56" stroke-width="2" stroke-dasharray="6,3" marker-end="url(#arr-pl-gray1)"/>
+  <text x="240" y="30" text-anchor="middle" fill="#444c56" font-family="system-ui,sans-serif" font-size="11">ANTERIOR</text>
+
+  <!-- Posteromedial arm (gray) -->
+  <line x1="225" y1="134" x2="96" y2="192" stroke="#444c56" stroke-width="2" stroke-dasharray="6,3" marker-end="url(#arr-pl-gray2)"/>
+  <text x="60" y="208" text-anchor="middle" fill="#444c56" font-family="system-ui,sans-serif" font-size="11">POSTERO-</text>
+  <text x="60" y="218" text-anchor="middle" fill="#444c56" font-family="system-ui,sans-serif" font-size="11">MEDIAL</text>
+
+  <!-- Center: Standfläche -->
+  <circle cx="240" cy="120" r="18" fill="#21262d" stroke="#58a6ff" stroke-width="2"/>
+  <text x="240" y="124" text-anchor="middle" fill="#58a6ff" font-family="system-ui,sans-serif" font-size="10" font-weight="600">STAND</text>
+
+  <!-- Posterolateral arm (highlighted in purple) -->
+  <line x1="255" y1="134" x2="390" y2="197" stroke="#a371f7" stroke-width="3" marker-end="url(#arr-pl-main)"/>
+  <text x="428" y="208" text-anchor="middle" fill="#a371f7" font-family="system-ui,sans-serif" font-size="13" font-weight="700">POSTERO-</text>
+  <text x="428" y="220" text-anchor="middle" fill="#a371f7" font-family="system-ui,sans-serif" font-size="13" font-weight="700">LATERAL</text>
+
+  <!-- Distance tick marks along the arm -->
+  <line x1="268" y1="147" x2="275" y2="141" stroke="#a371f7" stroke-width="1.5" opacity="0.7" transform="rotate(180 271.5 144)"/>
+  <line x1="284" y1="158" x2="291" y2="152" stroke="#a371f7" stroke-width="1.5" opacity="0.7" transform="rotate(180 287.5 155)"/>
+  <line x1="302" y1="170" x2="309" y2="164" stroke="#a371f7" stroke-width="1.5" opacity="0.7" transform="rotate(180 305.5 167)"/>
+
+  <!-- Info box -->
+  <rect x="136" y="148" width="216" height="32" rx="4" fill="#21262d" opacity="0.9"/>
+  <circle cx="150" cy="164" r="5" fill="#a371f7"/>
+  <text x="162" y="168" fill="#c9d1d9" font-family="system-ui,sans-serif" font-size="11">Schräg hinten-außen (~225°)</text>
+</svg>

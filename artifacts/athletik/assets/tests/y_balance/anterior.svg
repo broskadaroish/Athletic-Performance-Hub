@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 220"
+     style="width:100%;max-width:480px;border-radius:8px;display:block;margin:0 auto"
+     role="img" aria-label="Y-Balance Anterior: Vorwärts-Reichweite">
+  <rect width="480" height="220" rx="8" fill="#161b22"/>
+  <text x="240" y="22" text-anchor="middle" fill="#c9d1d9" font-family="system-ui,sans-serif" font-size="13" font-weight="600">Anterior — Vorwärts-Reichweite</text>
+
+  <!-- Gray arms (other directions) -->
+  <defs>
+    <marker id="arr-ant-main" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#3fb950"/>
+    </marker>
+    <marker id="arr-ant-gray1" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#444c56"/>
+    </marker>
+    <marker id="arr-ant-gray2" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#444c56"/>
+    </marker>
+  </defs>
+
+  <!-- Posteromedial arm (gray) -->
+  <line x1="225" y1="134" x2="96" y2="192" stroke="#444c56" stroke-width="2" stroke-dasharray="6,3" marker-end="url(#arr-ant-gray1)"/>
+  <text x="60" y="208" text-anchor="middle" fill="#444c56" font-family="system-ui,sans-serif" font-size="11">POSTERO-</text>
+  <text x="60" y="218" text-anchor="middle" fill="#444c56" font-family="system-ui,sans-serif" font-size="11">MEDIAL</text>
+
+  <!-- Posterolateral arm (gray) -->
+  <line x1="255" y1="134" x2="384" y2="192" stroke="#444c56" stroke-width="2" stroke-dasharray="6,3" marker-end="url(#arr-ant-gray2)"/>
+  <text x="420" y="208" text-anchor="middle" fill="#444c56" font-family="system-ui,sans-serif" font-size="11">POSTERO-</text>
+  <text x="420" y="218" text-anchor="middle" fill="#444c56" font-family="system-ui,sans-serif" font-size="11">LATERAL</text>
+
+  <!-- Center: Standfläche -->
+  <circle cx="240" cy="120" r="18" fill="#21262d" stroke="#58a6ff" stroke-width="2"/>
+  <text x="240" y="124" text-anchor="middle" fill="#58a6ff" font-family="system-ui,sans-serif" font-size="10" font-weight="600">STAND</text>
+
+  <!-- Anterior arm (highlighted in green) -->
+  <line x1="240" y1="100" x2="240" y2="36" stroke="#3fb950" stroke-width="3" marker-end="url(#arr-ant-main)"/>
+  <text x="240" y="30" text-anchor="middle" fill="#3fb950" font-family="system-ui,sans-serif" font-size="13" font-weight="700">ANTERIOR</text>
+
+  <!-- Distance tick marks -->
+  <line x1="235" y1="85" x2="245" y2="85" stroke="#3fb950" stroke-width="1.5" opacity="0.7"/>
+  <line x1="235" y1="65" x2="245" y2="65" stroke="#3fb950" stroke-width="1.5" opacity="0.7"/>
+  <line x1="235" y1="48" x2="245" y2="48" stroke="#3fb950" stroke-width="1.5" opacity="0.7"/>
+
+  <!-- Info box -->
+  <rect x="136" y="148" width="208" height="32" rx="4" fill="#21262d" opacity="0.9"/>
+  <circle cx="150" cy="164" r="5" fill="#3fb950"/>
+  <text x="162" y="168" fill="#c9d1d9" font-family="system-ui,sans-serif" font-size="11">Vorwärts (0°) — so weit wie möglich</text>
+</svg>

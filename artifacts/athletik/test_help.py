@@ -138,9 +138,9 @@ TEST_HELP: dict[str, dict] = {
         "video_lokal": None, "video_link": None, "video_titel": None, "video_quelle": None, "video_lizenz": None,
         "felder": {
             "beinlaenge":     {"label": "Beinlänge", "ziel": "Normierungsbasis für den Composite Score.", "kurzhilfe": "Beinlänge in cm messen: ASIS (Beckenvorsprung) bis Innenknöchel bei gestrecktem Knie. Z. B. 87.5", "eingabehilfe": "Länge in cm, z. B. 87.5", "einheit": "cm", "bereich": "Sinnvoll: 50 – 95 cm"},
-            "anterior":       {"label": "Anterior", "ziel": "Vorwärts-Gleichgewicht, Sprunggelenkmobilität.", "kurzhilfe": "Reichweite in Vorwärtsrichtung (anterior) in cm. Besten Versuch eintragen.", "eingabehilfe": "Reichweite in cm, z. B. 65.0", "einheit": "cm", "bereich": "Sinnvoll: 40 – 90 cm"},
-            "posteromedial":  {"label": "Posteromedial", "ziel": "Hintere mediale Gleichgewichtsstabilität.", "kurzhilfe": "Reichweite schräg hinten-innen in cm. Besten Versuch eintragen.", "eingabehilfe": "Reichweite in cm, z. B. 110.0", "einheit": "cm", "bereich": "Sinnvoll: 80 – 145 cm"},
-            "posterolateral": {"label": "Posterolateral", "ziel": "Hintere laterale Gleichgewichtsstabilität.", "kurzhilfe": "Reichweite schräg hinten-außen in cm. Besten Versuch eintragen.", "eingabehilfe": "Reichweite in cm, z. B. 100.0", "einheit": "cm", "bereich": "Sinnvoll: 75 – 135 cm"},
+            "anterior":       {"label": "Anterior", "ziel": "Vorwärts-Gleichgewicht, Sprunggelenkmobilität.", "kurzhilfe": "Reichweite in Vorwärtsrichtung (anterior) in cm. Besten Versuch eintragen.", "eingabehilfe": "Reichweite in cm, z. B. 65.0", "einheit": "cm", "bereich": "Sinnvoll: 40 – 90 cm", "bild_pfad": "assets/tests/y_balance/anterior.svg"},
+            "posteromedial":  {"label": "Posteromedial", "ziel": "Hintere mediale Gleichgewichtsstabilität.", "kurzhilfe": "Reichweite schräg hinten-innen in cm. Besten Versuch eintragen.", "eingabehilfe": "Reichweite in cm, z. B. 110.0", "einheit": "cm", "bereich": "Sinnvoll: 80 – 145 cm", "bild_pfad": "assets/tests/y_balance/posteromedial.svg"},
+            "posterolateral": {"label": "Posterolateral", "ziel": "Hintere laterale Gleichgewichtsstabilität.", "kurzhilfe": "Reichweite schräg hinten-außen in cm. Besten Versuch eintragen.", "eingabehilfe": "Reichweite in cm, z. B. 100.0", "einheit": "cm", "bereich": "Sinnvoll: 75 – 135 cm", "bild_pfad": "assets/tests/y_balance/posterolateral.svg"},
         },
     },
 
