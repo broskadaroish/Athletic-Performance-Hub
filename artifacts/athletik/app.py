@@ -95,6 +95,7 @@ from analytics import (
 from periodisierung import zyklus_erstellen, zyklus_laden
 from pdf_report import generate_report
 from pdf_anleitung import generate_anleitung_pdf, ALL_TEST_IDS, TEST_LABELS
+from export import kader_excel_bytes
 
 # ─── Bootstrap ────────────────────────────────────────────────────────────────
 init_db()
@@ -356,6 +357,22 @@ def page_dashboard():
             "Risiko":         f"{icon} {level.capitalize()}",
         })
     st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+
+    st.markdown("---")
+    st.markdown("### 📥 Kader-Export")
+    col_exp, _ = st.columns([1, 3])
+    with col_exp:
+        with st.spinner("Excel wird vorbereitet …"):
+            excel_data = kader_excel_bytes()
+        filename = f"Kader_Export_{date.today().strftime('%Y-%m-%d')}.xlsx"
+        st.download_button(
+            label="⬇️ Kader-Export (Excel)",
+            data=excel_data,
+            file_name=filename,
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=True,
+            help="Exportiert alle Spieler-Stammdaten, letzte Testwerte und die gesamte Verletzungshistorie als Excel-Datei (2 Tabellenblätter).",
+        )
 
 
 # ──────────────────────────────────────────────────────────────────────────────
