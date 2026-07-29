@@ -53,11 +53,11 @@ def vo2max_schaetzen_ir2(distanz_m: float) -> float:
 
 def trainingsbereiche(vo2max: float) -> list[dict]:
     return [
-        {"Bereich": "Regeneration",         "% VO₂max": "< 60 %",  "HF": f"< {int(vo2max*0.60):.0f} ml/kg/min"},
-        {"Bereich": "Grundlagenausdauer 1",  "% VO₂max": "60–70 %", "HF": f"{int(vo2max*0.60):.0f}–{int(vo2max*0.70):.0f}"},
-        {"Bereich": "Grundlagenausdauer 2",  "% VO₂max": "70–80 %", "HF": f"{int(vo2max*0.70):.0f}–{int(vo2max*0.80):.0f}"},
-        {"Bereich": "Entwicklungsbereich",   "% VO₂max": "80–90 %", "HF": f"{int(vo2max*0.80):.0f}–{int(vo2max*0.90):.0f}"},
-        {"Bereich": "VO₂max-Training",       "% VO₂max": "90–100 %","HF": f"{int(vo2max*0.90):.0f}–{int(vo2max):.0f}"},
+        {"Bereich": "Regeneration",         "% VO₂max": "< 60 %",  "VO₂max (ml/kg/min)": f"< {int(vo2max*0.60):.0f}"},
+        {"Bereich": "Grundlagenausdauer 1",  "% VO₂max": "60–70 %", "VO₂max (ml/kg/min)": f"{int(vo2max*0.60):.0f}–{int(vo2max*0.70):.0f}"},
+        {"Bereich": "Grundlagenausdauer 2",  "% VO₂max": "70–80 %", "VO₂max (ml/kg/min)": f"{int(vo2max*0.70):.0f}–{int(vo2max*0.80):.0f}"},
+        {"Bereich": "Entwicklungsbereich",   "% VO₂max": "80–90 %", "VO₂max (ml/kg/min)": f"{int(vo2max*0.80):.0f}–{int(vo2max*0.90):.0f}"},
+        {"Bereich": "VO₂max-Training",       "% VO₂max": "90–100 %","VO₂max (ml/kg/min)": f"{int(vo2max*0.90):.0f}–{int(vo2max):.0f}"},
     ]
 
 
