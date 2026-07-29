@@ -11,6 +11,7 @@ from __future__ import annotations
 import os
 import streamlit as st
 from test_help import TEST_HELP, SICHERHEITSHINWEIS_ALLGEMEIN, COMPLIANCE_HINWEIS
+from field_eval import badge_html as _badge_html
 
 _BASE = os.path.dirname(os.path.abspath(__file__))
 
@@ -118,6 +119,24 @@ def show_field_help(test_id: str, field_id: str) -> str:
     if feld.get("bereich"):     parts.append(feld["bereich"])
     if feld.get("eingabehilfe"):parts.append(f"Eingabe: {feld['eingabehilfe']}")
     return "  \n".join(parts) if parts else ""
+
+
+def norm_badge(
+    value: float | int | None,
+    test_id: str,
+    field_id: str,
+    container=None,
+) -> None:
+    """Rendert einen farbigen Norm-Badge unterhalb eines Eingabefelds.
+
+    container — Streamlit-Container (z. B. eine Spalte). None → globaler st-Kontext.
+    Zeigt nichts, wenn kein Normwert definiert ist oder value ist None/0.
+    """
+    html = _badge_html(value, test_id, field_id)
+    if not html:
+        return
+    target = container if container is not None else st
+    target.markdown(html, unsafe_allow_html=True)
 
 
 def field_info_col(col, test_id: str, field_id: str) -> None:

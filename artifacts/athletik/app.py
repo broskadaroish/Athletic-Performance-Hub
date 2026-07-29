@@ -12,7 +12,7 @@ import plotly.express as px
 import pandas as pd
 
 from theme import APP_CSS, C, PLOTLY_LAYOUT as _PL_BASE
-from help_ui import sicherheitshinweis_box, show_test_info, show_field_help, field_info_col
+from help_ui import sicherheitshinweis_box, show_test_info, show_field_help, field_info_col, norm_badge
 from ui_components import (
     kpi_card, score_kpi, risk_kpi,
     player_banner, section_header, deficit_row, strength_row,
@@ -470,6 +470,8 @@ def page_fms():
         _cl, _cr = st.columns(2)
         l_val = _cl.number_input("Links",  0, 3, key=key_l, help=_fh(fid))
         r_val = _cr.number_input("Rechts", 0, 3, key=key_r, help=_fh(fid))
+        norm_badge(l_val, "fms", fid, _cl)
+        norm_badge(r_val, "fms", fid, _cr)
         return l_val, r_val
 
     # ── Test 1: Deep Squat (ein Gesamtscore) ─────────────────────────────────
@@ -478,6 +480,7 @@ def page_fms():
     field_info_col(ds_info, "fms", "deep_squat")
     _c1, _gap = st.columns([2, 4])
     deep = _c1.number_input("Punkte", 0, 3, key="ds", help=_fh("deep_squat"))
+    norm_badge(deep, "fms", "deep_squat", _c1)
 
     st.markdown("---")
     st.markdown("*Bilateral: niedrigerer Seitenwert zählt für den Gesamtscore*")
@@ -497,6 +500,7 @@ def page_fms():
     field_info_col(ts_info, "fms", "trunk_stability")
     _c6, _gap6 = st.columns([2, 4])
     trunk = _c6.number_input("Punkte", 0, 3, key="ts", help=_fh("trunk_stability"))
+    norm_badge(trunk, "fms", "trunk_stability", _c6)
 
     st.markdown("---")
     st.markdown("*Bilateral: niedrigerer Seitenwert zählt für den Gesamtscore*")
@@ -1416,6 +1420,7 @@ def page_anthropometrie():
         koerperfett  = c1.number_input("Körperfett (%)", 0.0, 50.0,
                                         float(letzter["koerperfett"]) if letzter else 12.0,
                                         step=0.1, key="anthro_kf", label_visibility="collapsed", help=_fh("koerperfett"))
+        if koerperfett > 0: norm_badge(koerperfett, "anthropometrie", "koerperfett", c1)
         mm_h, mm_i = c1.columns([5, 1]); mm_h.markdown("**Muskelmasse (kg)**"); field_info_col(mm_i, "anthropometrie", "muskelmasse")
         muskelmasse  = c1.number_input("Muskelmasse (kg)", 0.0, 100.0,
                                         float(letzter["muskelmasse"]) if letzter else 0.0,
@@ -1559,6 +1564,8 @@ def _sprint_eingabe(distanz_label: str, key_prefix: str, letzter_row, col,
     bester = min((v for v in [v1, v2, v3] if v > 0), default=None)
     if bester:
         col.markdown(f'<small style="color:#8b949e">Bester Versuch: <b style="color:#58a6ff">{bester:.2f} s</b></small>', unsafe_allow_html=True)
+        if field_id:
+            norm_badge(bester, "sprint", field_id, col)
     return v1, v2, v3, bester
 
 
@@ -1698,30 +1705,37 @@ def page_sprung():
         lc1, li1 = c1.columns([5,1])
         lc1.markdown("**CMJ beidbeinig (cm)**"); field_info_col(li1, "jump", "cmj_beid")
         cmj_beid = c1.number_input("CMJ beidbeinig", 0.0, 100.0, 0.0, step=0.5, key="cmj_beid", label_visibility="collapsed", help=_fh("cmj_beid"))
+        if cmj_beid > 0: norm_badge(cmj_beid, "jump", "cmj_beid", c1)
 
         lc2, li2 = c1.columns([5,1])
         lc2.markdown("**CMJ einbeinig rechts (cm)**"); field_info_col(li2, "jump", "cmj_r")
         cmj_r    = c1.number_input("CMJ rechts", 0.0, 80.0, 0.0, step=0.5, key="cmj_r", label_visibility="collapsed", help=_fh("cmj_r"))
+        if cmj_r > 0: norm_badge(cmj_r, "jump", "cmj_r", c1)
 
         lc3, li3 = c1.columns([5,1])
         lc3.markdown("**CMJ einbeinig links (cm)**"); field_info_col(li3, "jump", "cmj_l")
         cmj_l    = c1.number_input("CMJ links", 0.0, 80.0, 0.0, step=0.5, key="cmj_l", label_visibility="collapsed", help=_fh("cmj_l"))
+        if cmj_l > 0: norm_badge(cmj_l, "jump", "cmj_l", c1)
 
         lc4, li4 = c1.columns([5,1])
         lc4.markdown("**Squat Jump (cm)**"); field_info_col(li4, "jump", "squat_jump")
         squat    = c1.number_input("Squat Jump", 0.0, 100.0, 0.0, step=0.5, key="squat", label_visibility="collapsed", help=_fh("squat_jump"))
+        if squat > 0: norm_badge(squat, "jump", "squat_jump", c1)
 
         rc1, ri1 = c2.columns([5,1])
         rc1.markdown("**Drop Jump — Höhe (cm)**"); field_info_col(ri1, "jump", "dj_hoehe")
         dj_h  = c2.number_input("Drop Jump Höhe", 0.0, 80.0, 0.0, step=0.5, key="dj_h", label_visibility="collapsed", help=_fh("dj_hoehe"))
+        if dj_h > 0: norm_badge(dj_h, "jump", "dj_hoehe", c2)
 
         rc2, ri2 = c2.columns([5,1])
         rc2.markdown("**Drop Jump — Kontaktzeit (s)**"); field_info_col(ri2, "jump", "dj_kontakt")
         dj_kz = c2.number_input("Drop Jump Kontaktzeit", 0.0, 2.0, 0.0, step=0.01, format="%.2f", key="dj_kz", label_visibility="collapsed", help=_fh("dj_kontakt"))
+        if dj_kz > 0: norm_badge(dj_kz, "jump", "dj_kontakt", c2)
 
         rc3, ri3 = c2.columns([5,1])
         rc3.markdown("**Standweitsprung (cm)**"); field_info_col(ri3, "jump", "standweit")
         swj   = c2.number_input("Standweitsprung", 0.0, 400.0, 0.0, step=1.0, key="swj", label_visibility="collapsed", help=_fh("standweit"))
+        if swj > 0: norm_badge(swj, "jump", "standweit", c2)
 
         from sprung import SprungErgebnis as _SpE, asymmetrie_prozent, rsi_berechnen
         res = _SpE(cmj_beid=cmj_beid or None, cmj_rechts=cmj_r or None,
@@ -1817,6 +1831,8 @@ def _zeit_eingabe(label: str, key: str, col, letzter=None, letzter_key=None,
     help_txt = show_field_help(test_id, field_id) if (test_id and field_id) else None
     v = col.number_input(label, 0.0, 30.0, default, step=0.01, format="%.2f",
                          key=key, label_visibility="collapsed", help=help_txt)
+    if v > 0 and test_id and field_id:
+        norm_badge(v, test_id, field_id, col)
     return v if v > 0 else None
 
 
@@ -1999,6 +2015,7 @@ def page_ausdauer():
         distanz_m = c3.number_input("Erzielte Distanz (m)", 0, 5000,
                                      int(letzter["distanz_m"]) if letzter else 0,
                                      step=40, key="aus_dist", label_visibility="collapsed", help=_fh("distanz"))
+        if distanz_m > 0: norm_badge(distanz_m, "yoyo", "distanz", c3)
         hf_h, hf_i = c4.columns([5, 1]); hf_h.markdown("**HF max (bpm)**"); field_info_col(hf_i, "yoyo", "hf_max")
         hf_max    = c4.number_input("HF max (bpm)", 0, 230,
                                      int(letzter["hf_max"]) if letzter and letzter.get("hf_max") else 0,
