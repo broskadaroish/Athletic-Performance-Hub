@@ -349,6 +349,19 @@ def spieler_loeschen(spieler_id):
         conn.execute("DELETE FROM spieler WHERE id=?", (spieler_id,))
 
 
+def db_komplett_zuruecksetzen():
+    """Löscht alle Bewegungsdaten — Spieler, Tests, Verletzungen, Einwilligungen.
+    Die Datenbankstruktur bleibt erhalten; nur Datensätze werden entfernt."""
+    _TABELLEN = [
+        "verletzung", "anthropometrie", "agilitaet_test", "ausdauer_test",
+        "sprint_test", "sprung_test", "fms_test", "y_balance_test",
+        "trainingsplan", "periodisierung", "einwilligung", "spieler",
+    ]
+    with get_conn() as conn:
+        for tabelle in _TABELLEN:
+            conn.execute(f"DELETE FROM {tabelle}")
+
+
 # ─── Verletzungshistorie ────────────────────────────────────────────────────
 
 def verletzung_speichern(spieler_id, datum, art, koerperteil, schwere, ausfall_tage, notizen):

@@ -33,6 +33,7 @@ from database import (
     agilitaet_speichern, agilitaet_letzter, agilitaet_history,
     ausdauer_speichern, ausdauer_letzter, ausdauer_history,
     einwilligung_speichern, einwilligung_letzter, einwilligung_alle,
+    db_komplett_zuruecksetzen,
 )
 from safety_texts import (
     ZWECKBESTIMMUNG_VERSION,
@@ -46,6 +47,7 @@ from safety_texts import (
     ABBRUCH_HINWEIS,
     PDF_FUSSZEILE,
     KURZ_HINWEIS,
+    EMAIL_NACHRICHT_VORLAGE,
 )
 from anthropometrie import (
     bmi_berechnen, bmi_kategorie, phv_offset_berechnen,
@@ -851,6 +853,7 @@ def page_spieler_profil():
                 defizite=defizite,
                 plan_rows=plan_rows,
             )
+            st.session_state["pdf_bytes_cache"] = pdf_bytes
             st.download_button(
                 label="⬇️ PDF herunterladen",
                 data=pdf_bytes,
@@ -858,6 +861,48 @@ def page_spieler_profil():
                 mime="application/pdf",
                 key="pdf_dl",
             )
+
+        st.markdown("---")
+        st.markdown("### 📧 E-Mail vorbereiten")
+        st.caption(
+            "Erstelle eine vorbereitete E-Mail mit dem Pflichthinweis aus den "
+            "Anwendungshinweisen. Die E-Mail wird in deinem Standard-Mail-Programm geöffnet."
+        )
+        ec1, ec2 = st.columns(2)
+        email_empfaenger = ec1.text_input(
+            "Empfänger-Adresse", placeholder="spieler@beispiel.de", key="email_to"
+        )
+        email_trainername = ec2.text_input(
+            "Absender / Trainername", key="email_trainer",
+            value=st.session_state.get("cfg_vereinsname", ""),
+            placeholder="Dein Name oder Vereinsname"
+        )
+        spieler_name = auswahl.get("name", "Spieler")
+        email_betreff = f"Athletik Testprotokoll – {spieler_name} – {date.today().strftime('%d.%m.%Y')}"
+        email_text = EMAIL_NACHRICHT_VORLAGE.format(
+            trainername=email_trainername.strip() or "Trainer"
+        )
+        email_text_edit = email_text
+        with st.expander("📋 E-Mail-Text Vorschau / bearbeiten"):
+            email_text_edit = st.text_area(
+                "E-Mail-Text (bearbeitbar)", value=email_text,
+                height=160, key="email_text_edit",
+                label_visibility="collapsed"
+            )
+
+        import urllib.parse
+        mailto_body  = urllib.parse.quote(email_text_edit)
+        mailto_subj  = urllib.parse.quote(email_betreff)
+        mailto_link  = f"mailto:{email_empfaenger}?subject={mailto_subj}&body={mailto_body}"
+        st.link_button(
+            "📨 E-Mail-Programm öffnen",
+            url=mailto_link,
+            use_container_width=True,
+        )
+        st.info(
+            "💡 Der Pflichthinweis ist im E-Mail-Text enthalten. "
+            "Hänge den heruntergeladenen PDF-Report manuell als Anhang an."
+        )
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -2157,8 +2202,8 @@ def page_einstellungen():
     st.markdown(section_header("⚙️ Einstellungen", "App-Konfiguration und Datenverwaltung"),
                 unsafe_allow_html=True)
 
-    tab_allg, tab_zweck, tab_export = st.tabs([
-        "⚙️ Allgemein", "📋 Zweckbestimmung", "💾 Export & Backup"
+    tab_allg, tab_zweck, tab_export, tab_dsg = st.tabs([
+        "⚙️ Allgemein", "📋 Zweckbestimmung", "💾 Export & Backup", "🔒 Datenschutz"
     ])
 
     with tab_allg:
@@ -2181,6 +2226,75 @@ def page_einstellungen():
 
     with tab_zweck:
         page_zweckbestimmung()
+
+    with tab_dsg:
+        st.markdown("### 🔒 Datenschutz & Datenverwaltung")
+
+        st.info(
+            "**Was wird gespeichert?** Name, Geburtsdatum, Positions- und "
+            "Vereinsangaben sowie alle eingegebenen Testergebnisse und "
+            "Verletzungseinträge.\n\n"
+            "**Wo?** Ausschließlich lokal in der Datei `athletik.db` auf diesem "
+            "Gerät. Es erfolgt keine Übertragung an externe Server oder Cloud-Dienste.\n\n"
+            "**Wie lange?** Bis zur manuellen Löschung — es gibt keine automatische "
+            "Löschfrist. Erstelle regelmäßig Sicherungskopien der Datenbankdatei."
+        )
+
+        st.markdown("---")
+        st.markdown("### 🗑️ Einzelnen Spieler vollständig löschen")
+        st.caption(
+            "Löscht den Spieler samt aller Testdaten, Verletzungshistorie und "
+            "Trainingsplan. Diese Aktion kann nicht rückgängig gemacht werden."
+        )
+        alle_spieler = spieler_laden()
+        if not alle_spieler:
+            st.info("Keine Spieler vorhanden.")
+        else:
+            del_namen = {p["name"]: p["id"] for p in alle_spieler}
+            del_auswahl_name = st.selectbox(
+                "Spieler auswählen", options=list(del_namen.keys()),
+                key="dsg_del_spieler"
+            )
+            bestaetigung = st.text_input(
+                f'Zur Bestätigung den Namen **{del_auswahl_name}** eintippen:',
+                key="dsg_del_confirm"
+            )
+            if st.button("🗑️ Spieler unwiderruflich löschen", key="dsg_del_btn",
+                         type="primary"):
+                if bestaetigung.strip() == del_auswahl_name:
+                    spieler_loeschen(del_namen[del_auswahl_name])
+                    if st.session_state.get("aktiver_spieler_id") == del_namen[del_auswahl_name]:
+                        del st.session_state["aktiver_spieler_id"]
+                    st.success(f"✅ Spieler **{del_auswahl_name}** und alle zugehörigen Daten gelöscht.")
+                    st.rerun()
+                else:
+                    st.error("❌ Name stimmt nicht überein — Löschung abgebrochen.")
+
+        st.markdown("---")
+        st.markdown("### ⚠️ Gesamte Datenbank zurücksetzen")
+        st.warning(
+            "Löscht **alle** Spieler, Testergebnisse, Verletzungshistorien und "
+            "Einwilligungseinträge. Die App-Struktur bleibt erhalten. "
+            "**Diese Aktion ist endgültig und kann nicht rückgängig gemacht werden.**"
+        )
+        reset_check = st.checkbox(
+            "Ich habe eine Sicherungskopie erstellt und bestätige den vollständigen Reset.",
+            key="dsg_reset_check"
+        )
+        reset_confirm = st.text_input(
+            "Zur Bestätigung **RESET** eintippen:", key="dsg_reset_text"
+        )
+        if st.button("🔥 Alle Daten löschen", key="dsg_reset_btn",
+                     type="primary", disabled=not reset_check):
+            if reset_confirm.strip() == "RESET":
+                db_komplett_zuruecksetzen()
+                for key in list(st.session_state.keys()):
+                    if key.startswith("aktiver_spieler") or key == "zweck_bestaetigt":
+                        del st.session_state[key]
+                st.success("✅ Alle Daten wurden gelöscht. Die App ist zurückgesetzt.")
+                st.rerun()
+            else:
+                st.error("❌ Bestätigungswort falsch — Reset abgebrochen.")
 
     with tab_export:
         st.markdown("### Daten exportieren")
