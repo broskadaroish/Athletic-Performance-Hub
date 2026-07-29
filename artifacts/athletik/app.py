@@ -1047,6 +1047,16 @@ def page_spieler_profil():
         st.markdown("**Athletik-Status**")
         st.markdown(_risk_badge(level), unsafe_allow_html=True)
 
+    # ── Vergleich-Shortcut ─────────────────────────────────────────────────
+    _btn_col, _ = st.columns([2, 5])
+    with _btn_col:
+        if st.button("⚖️ Mit anderem Spieler vergleichen",
+                     key="profil_goto_vergleich",
+                     use_container_width=True):
+            st.session_state["vergl_preset_pid"] = sid
+            st.session_state["nav_section"] = "⚖️  Vergleich"
+            st.rerun()
+
     # ── Radar-Chart im Header (wenn ≥ 3 Module vorhanden) ─────────────────
     sub_scores_header = athletik_sub_scores(fms, y, sprint, sprung, agil, aus)
     if len(sub_scores_header) >= 3:
@@ -3047,6 +3057,13 @@ def page_spieler_vergleich():
         st.info("⚠️ Mindestens **zwei Spieler** werden für den Vergleich benötigt. "
                 "Bitte unter **Spieler → Verwaltung** weitere Spieler anlegen.")
         return
+
+    # ── Preset from profile page ───────────────────────────────────────────────
+    if "vergl_preset_pid" in st.session_state:
+        _preset_pid = st.session_state.pop("vergl_preset_pid")
+        _preset_player = next((p for p in alle_spieler if p["id"] == _preset_pid), None)
+        if _preset_player:
+            st.session_state["vergl_sp1"] = _preset_player
 
     # ── Player selectors ──────────────────────────────────────────────────────
     c1, _gap, c2 = st.columns([5, 1, 5])
