@@ -1,0 +1,1223 @@
+Du bist ein Senior Python-Entwickler, Streamlit-Experte, UI/UX-Designer und Experte für sportliche Test- und Trainingssoftware.
+
+Ich habe eine bestehende Fußball-Athletik-App mit Python, Streamlit und SQLite.
+
+Die App enthält verschiedene sportliche Tests und Eingabemasken, unter anderem:
+
+* FMS
+* Y-Balance-Test
+* Sprinttests
+* Sprungtests
+* Richtungswechseltests
+* Yo-Yo-Test
+* funktionelle Krafttests
+* Anthropometrie
+* Trainingsauswertung
+* Athletik-Score
+* Trainingsplanung
+* Testhistorie
+* PDF-Berichte
+
+Ich möchte jetzt für jeden Test und jeden einzelnen Prüfpunkt verständliche Trainerinformationen, echte Skizzen und Eingabehilfen ergänzen.
+
+## Wichtigste Arbeitsregel
+
+Analysiere zuerst das vorhandene Projekt.
+
+Verändere nicht sofort alle Dateien.
+
+Lösche keine bestehenden Funktionen, Tests oder Spielerdaten.
+
+Ändere keine bestehenden Formeln, Grenzwerte oder Testprotokolle, ohne die Änderung vorher zu dokumentieren.
+
+Erstelle vor Datenbankänderungen eine Sicherung.
+
+Die App muss nach jeder Phase weiterhin startfähig sein.
+
+## Hauptziel
+
+Jeder Test und jeder einzelne Prüfpunkt soll folgende Unterstützung erhalten:
+
+* kleine Kurzhilfe direkt am Eingabefeld
+* Info-Button mit dem Symbol „i“ oder „ⓘ“
+* vollständige Testanleitung
+* echte Skizze oder Abbildung
+* Erklärung der Einheit
+* Erklärung der Durchführung
+* Hinweis auf gültige und ungültige Versuche
+* Sicherheitshinweis
+* verständliche Eingabekontrolle
+
+Die normale Eingabemaske soll trotzdem einfach, übersichtlich und kompakt bleiben.
+
+Die ausführlichen Informationen sollen nur erscheinen, wenn der Trainer sie öffnet.
+
+## Grundaufbau jeder Testseite
+
+Jede Testseite soll nach Möglichkeit so aufgebaut sein:
+
+1. Testname
+2. kurze Erklärung des Testziels
+3. Button „Testanleitung öffnen“
+4. optional kleine Vorschau der Skizze
+5. Eingabebereich
+6. Info-Button an jedem Prüfpunkt
+7. Kennzeichnung gültiger oder ungültiger Versuche
+8. Bemerkungsfeld
+9. Speichern
+10. Ergebnisanzeige
+
+Verwende keine langen Erklärungstexte dauerhaft zwischen den Eingabefeldern.
+
+Nutze stattdessen stabile Streamlit-Funktionen wie:
+
+* `help=` bei Eingabefeldern
+* `st.expander`
+* `st.popover`, falls stabil verfügbar
+* `st.dialog`, falls stabil verfügbar
+* kleine Schaltflächen oder Info-Symbole
+* kompakte Hilfetexte
+
+## Info-Button an jedem Prüfpunkt
+
+Neben jedem Prüfpunkt beziehungsweise Eingabefeld soll ein Info-Button stehen.
+
+Beispiele:
+
+* Deep Squat ⓘ
+* Hurdle Step links ⓘ
+* Hurdle Step rechts ⓘ
+* Anterior rechts ⓘ
+* Posteromedial links ⓘ
+* Versuch 1 über 10 Meter ⓘ
+* Countermovement Jump ⓘ
+* Herzfrequenz nach dem Yo-Yo-Test ⓘ
+* Körpergröße ⓘ
+* Sitzhöhe ⓘ
+
+Beim Öffnen des Info-Buttons sollen nur die Informationen zu diesem Prüfpunkt erscheinen.
+
+Der Nutzer darf dabei nicht auf eine andere Seite weitergeleitet werden.
+
+## Zwei Hilfestufen
+
+Baue zwei unterschiedliche Hilfestufen ein.
+
+### 1. Kurzhilfe
+
+Die Kurzhilfe erscheint direkt über das Info-Symbol oder über die Hilfe am Eingabefeld.
+
+Sie enthält nur:
+
+* Was wird eingetragen?
+* Welche Einheit wird verwendet?
+* Worauf muss der Trainer kurz achten?
+* Beispielwert
+
+Beispiel:
+
+**10-Meter-Zeit**
+
+„Trage die gemessene Sprintzeit in Sekunden ein. Der Spieler muss vollständig durch die Ziellinie sprinten. Beispiel: 1,92 Sekunden.“
+
+### 2. Vollständige Testanleitung
+
+Die vollständige Anleitung wird über „Testanleitung öffnen“ angezeigt.
+
+Sie enthält:
+
+* Testname
+* Ziel
+* benötigtes Material
+* Testaufbau
+* Skizze
+* Aufwärmung
+* Durchführung
+* Trainerhinweise
+* Anzahl der Versuche
+* Pausenzeiten
+* Messung
+* Einheit
+* gültiger Versuch
+* ungültiger Versuch
+* häufige Fehler
+* Sicherheit
+* Eingabehilfe
+* kurze sportliche Auswertung
+* rechtlicher Hinweis
+
+## Inhalt jeder Testanleitung
+
+Für jeden Test und Prüfpunkt sollen mindestens folgende Informationen hinterlegt werden:
+
+### Ziel
+
+Was wird mit dem Test sportlich überprüft?
+
+### Material
+
+Welche Materialien werden benötigt?
+
+Beispiele:
+
+* Hütchen
+* Maßband
+* Lichtschranke
+* Stoppuhr
+* Sprungmatte
+* FMS-Testset
+* Y-Balance-Testgerät
+* Markierungsband
+
+### Aufbau
+
+Wie wird der Test aufgebaut?
+
+### Durchführung
+
+Was muss der Spieler konkret machen?
+
+### Trainerhinweis
+
+Worauf muss der Trainer besonders achten?
+
+### Anzahl der Versuche
+
+Wie viele Versuche sind vorgesehen?
+
+### Pause
+
+Wie lange soll zwischen den Versuchen pausiert werden?
+
+### Messung
+
+Was wird gemessen?
+
+### Einheit
+
+Beispiele:
+
+* Sekunden
+* Zentimeter
+* Meter
+* Punkte
+* Wiederholungen
+* Schläge pro Minute
+* Belastungsempfinden von 1 bis 10
+
+### Gültiger Versuch
+
+Wann darf der Versuch gewertet werden?
+
+### Ungültiger Versuch
+
+Wann muss der Versuch wiederholt werden?
+
+### Häufige Fehler
+
+Welche Fehler können das Ergebnis verfälschen?
+
+### Sicherheit
+
+Wann muss der Test abgebrochen werden?
+
+### Eingabehilfe
+
+Was muss der Trainer in das Feld eintragen?
+
+Die Texte sollen kurz, klar und in einfacher deutscher Sprache geschrieben sein.
+
+## Beispiel für den 10-Meter-Sprint
+
+Die vollständige Trainerinformation soll ungefähr folgende Inhalte enthalten:
+
+**Ziel:**
+Überprüfung der Beschleunigungsleistung über 10 Meter.
+
+**Material:**
+Maßband, Startmarkierung, Ziellinie, Hütchen und möglichst eine Lichtschranke.
+
+**Aufbau:**
+Startlinie und Ziellinie mit einem Abstand von 10 Metern markieren. Die Auslaufzone hinter dem Ziel soll ausreichend lang sein.
+
+**Durchführung:**
+Der Spieler startet aus einer festgelegten Ausgangsposition und sprintet mit maximaler Geschwindigkeit durch die Ziellinie.
+
+**Trainerhinweis:**
+Der Spieler beginnt deutlich hinter der Startlinie. Keine Ausholbewegung und kein fliegender Start. Der Spieler darf vor der Ziellinie nicht abbremsen.
+
+**Messung:**
+Sprintzeit in Sekunden.
+
+**Gültiger Versuch:**
+Korrekter Start, keine Behinderung und vollständiges Durchlaufen der Ziellinie.
+
+**Ungültiger Versuch:**
+Frühstart, Ausrutschen, Messfehler, Behinderung oder vorzeitiges Abbremsen.
+
+**Eingabehilfe:**
+Gemessene Zeit in Sekunden eintragen, zum Beispiel 1,92.
+
+## Bilder und Skizzen
+
+Jeder Test soll mindestens eine echte und verständliche Skizze erhalten.
+
+Die Bilder dürfen nicht nur geplant oder als Platzhalter angelegt werden.
+
+Nicht zulässig sind:
+
+* leere Bildflächen
+* graue Platzhalter
+* Texte wie „Bild folgt“
+* nur Dateinamen ohne Bildinhalt
+* kaputte Bildpfade
+* automatisch kopierte Google-Bilder
+* externe Bildlinks als einzige Lösung
+* urheberrechtlich geschützte Bilder ohne Nutzungsrecht
+
+## Herkunft der Bilder
+
+Die App soll die Bilder nicht automatisch aus dem Internet laden.
+
+Alle grundlegenden Bilder und Skizzen müssen lokal im Replit-Projekt gespeichert werden.
+
+Verwende dafür den Ordner:
+
+`assets/testbilder/`
+
+Die Skizzen sollen nach Möglichkeit direkt als eigene SVG-Dateien erstellt werden.
+
+SVG ist zu bevorzugen, weil die Skizzen:
+
+* scharf skalierbar sind
+* wenig Speicher benötigen
+* offline funktionieren
+* auf Smartphone, Tablet und Computer gut aussehen
+* in PDF-Berichte eingebunden werden können
+* ohne fremde Bildrechte erstellt werden können
+
+## Vorgesehene Ordnerstruktur
+
+Erstelle oder verwende folgende Struktur:
+
+```text
+assets/
+└── testbilder/
+    ├── fms/
+    │   ├── deep_squat.svg
+    │   ├── hurdle_step.svg
+    │   ├── inline_lunge.svg
+    │   ├── shoulder_mobility.svg
+    │   ├── aslr.svg
+    │   ├── trunk_stability_pushup.svg
+    │   └── rotary_stability.svg
+    │
+    ├── y_balance/
+    │   ├── y_balance_overview.svg
+    │   ├── anterior.svg
+    │   ├── posteromedial.svg
+    │   └── posterolateral.svg
+    │
+    ├── sprint/
+    │   ├── sprint_5m.svg
+    │   ├── sprint_10m.svg
+    │   ├── sprint_20m.svg
+    │   ├── sprint_30m.svg
+    │   └── sprint_gesamtaufbau.svg
+    │
+    ├── sprung/
+    │   ├── countermovement_jump.svg
+    │   ├── squat_jump.svg
+    │   ├── drop_jump.svg
+    │   ├── standweitsprung.svg
+    │   └── einbeiniger_sprung.svg
+    │
+    ├── richtungswechsel/
+    │   ├── test_505.svg
+    │   ├── shuttle_5_10_5.svg
+    │   ├── t_test.svg
+    │   └── illinois_test.svg
+    │
+    ├── yoyo/
+    │   ├── yoyo_ir1.svg
+    │   └── yoyo_ir2.svg
+    │
+    ├── anthropometrie/
+    │   ├── koerpergroesse.svg
+    │   ├── sitzhoehe.svg
+    │   ├── beinlaenge.svg
+    │   └── armspannweite.svg
+    │
+    └── kraft/
+        └── funktionelle_krafttests.svg
+```
+
+Passe die Ordnerstruktur an das vorhandene Projekt an, falls bereits ein anderer geeigneter Asset-Ordner existiert.
+
+## Inhalt der SVG-Skizzen
+
+Jede SVG-Datei soll den tatsächlichen Testaufbau verständlich darstellen.
+
+Verwende je nach Test:
+
+* einfache neutrale Spielerfigur
+* Startposition
+* Zielposition
+* Bewegungsrichtung
+* Pfeile
+* Markierungslinien
+* Hütchen
+* Wendepunkte
+* Messstrecken
+* Maßangaben
+* Standbein
+* Spielbein
+* rechte und linke Seite
+* Landebereich
+* Lichtschrankenposition
+* relevante Beobachtungspunkte
+* deutsche Beschriftungen
+
+Die Skizze soll möglichst auch ohne langen Begleittext verständlich sein.
+
+## Gestaltung der Skizzen
+
+Alle Skizzen sollen einheitlich aussehen.
+
+Verwende:
+
+* gleiche Strichstärken
+* gleiche Pfeilarten
+* gleiche Hütchensymbole
+* gleiche Spielerfigur
+* gleiche Schriftart
+* klare Kontraste
+* weißer oder transparenter Hintergrund
+* ruhiges und professionelles Design
+
+Die Skizzen müssen auch in Schwarz-Weiß verständlich bleiben.
+
+Farben dürfen nur unterstützend verwendet werden.
+
+Verwende Farbe niemals als einzige Information.
+
+## Technische Anforderungen an SVG-Dateien
+
+Jede SVG-Datei muss:
+
+* gültiges SVG enthalten
+* ein korrektes `viewBox` besitzen
+* responsiv skalierbar sein
+* keine externen Bilder laden
+* keine externen Schriftarten benötigen
+* keine JavaScript-Inhalte enthalten
+* keine unsicheren eingebetteten Inhalte enthalten
+* lokal gespeichert sein
+* in Streamlit angezeigt werden können
+* nach Möglichkeit in PDF-Berichten verwendbar sein
+
+Verwende möglichst reine SVG-Elemente:
+
+* `<line>`
+* `<path>`
+* `<circle>`
+* `<rect>`
+* `<polygon>`
+* `<text>`
+* `<marker>`
+* `<g>`
+
+## Keine erfundenen Testaufbauten
+
+Erfinde keine Testabstände, Durchführungsvorgaben, Grenzwerte oder Bewertungstabellen.
+
+Verwende zuerst die bereits im Projekt hinterlegten Testdefinitionen.
+
+Falls im Projekt für einen Test keine eindeutige Durchführung hinterlegt ist:
+
+* dokumentiere die fehlende Information
+* verwende keinen erfundenen Abstand
+* markiere die Skizze als fachlich noch zu prüfen
+* ändere das bestehende Testprotokoll nicht automatisch
+
+## Zentrale Datenstruktur für Testanleitungen
+
+Lege die Testanleitungen nicht verteilt und doppelt in allen UI-Dateien ab.
+
+Erstelle eine zentrale Datei, zum Beispiel:
+
+* `test_instructions.py`
+* `test_help.py`
+* `test_definitions.py`
+* `help_content.py`
+
+Verwende die Bezeichnung, die am besten zur vorhandenen Projektstruktur passt.
+
+Jeder Test und jeder Prüfpunkt soll eine eindeutige ID erhalten.
+
+Beispiele:
+
+* `fms_deep_squat`
+* `fms_hurdle_step_left`
+* `fms_hurdle_step_right`
+* `y_balance_anterior_right`
+* `y_balance_posteromedial_left`
+* `sprint_10m_attempt_1`
+* `jump_cmj`
+* `agility_505_right`
+* `yoyo_ir1`
+* `anthropometry_body_height`
+
+Zu jeder Test-ID sollen strukturiert folgende Informationen gespeichert werden:
+
+```python
+{
+    "test_id": "sprint_10m",
+    "name": "10-Meter-Sprint",
+    "short_help": "Zeit in Sekunden eintragen.",
+    "goal": "Überprüfung der Beschleunigungsleistung.",
+    "material": [],
+    "setup": "",
+    "execution": "",
+    "coach_tip": "",
+    "attempts": 3,
+    "pause": "",
+    "measurement": "Zeit",
+    "unit": "Sekunden",
+    "valid_attempt": "",
+    "invalid_attempt": "",
+    "common_errors": [],
+    "safety": "",
+    "input_help": "",
+    "example_value": "1,92",
+    "image_path": "assets/testbilder/sprint/sprint_10m.svg",
+    "source": "",
+    "version": "1.0",
+    "updated_at": ""
+}
+```
+
+Passe diese Struktur an das vorhandene Projekt an.
+
+## Zentrale Bildzuordnung
+
+Erstelle eine zentrale Zuordnung zwischen Test-ID und Bilddatei.
+
+Beispiel:
+
+```python
+TEST_IMAGES = {
+    "fms_deep_squat": "assets/testbilder/fms/deep_squat.svg",
+    "y_balance": "assets/testbilder/y_balance/y_balance_overview.svg",
+    "y_balance_anterior": "assets/testbilder/y_balance/anterior.svg",
+    "sprint_10m": "assets/testbilder/sprint/sprint_10m.svg",
+    "jump_cmj": "assets/testbilder/sprung/countermovement_jump.svg",
+    "agility_505": "assets/testbilder/richtungswechsel/test_505.svg",
+    "yoyo_ir1": "assets/testbilder/yoyo/yoyo_ir1.svg",
+    "anthropometry_body_height": "assets/testbilder/anthropometrie/koerpergroesse.svg"
+}
+```
+
+Verwende dabei sichere Pfade relativ zum Projektordner.
+
+Vermeide fest eingebaute absolute Pfade.
+
+## Wiederverwendbare UI-Funktionen
+
+Erstelle zentrale wiederverwendbare Funktionen.
+
+Zum Beispiel:
+
+```python
+render_test_help(test_id)
+```
+
+Diese Funktion soll anzeigen:
+
+* Testname
+* Skizze
+* Ziel
+* Material
+* Aufbau
+* Durchführung
+* Trainerhinweis
+* Messung
+* gültiger Versuch
+* ungültiger Versuch
+* typische Fehler
+* Sicherheitshinweis
+* Eingabehilfe
+
+Erstelle zusätzlich eine kompakte Funktion:
+
+```python
+render_field_help(test_id, field_id=None)
+```
+
+Diese soll nur anzeigen:
+
+* kurze Eingabehilfe
+* Einheit
+* Beispielwert
+* wichtigsten Trainerhinweis
+
+Erstelle außerdem eine sichere Bildfunktion:
+
+```python
+render_test_image(test_id)
+```
+
+Diese Funktion soll:
+
+1. die zugeordnete Bilddatei ermitteln
+2. prüfen, ob die Datei existiert
+3. die Dateiendung prüfen
+4. die Datei sicher lesen
+5. das Bild responsiv anzeigen
+6. einen Alternativtext verwenden
+7. bei fehlender Datei eine verständliche Meldung anzeigen
+
+Falls ein Bild fehlt, soll die App nicht abstürzen.
+
+Zeige dann:
+
+„Für diesen Test ist noch keine Skizze hinterlegt.“
+
+## Anzeige der SVG-Dateien in Streamlit
+
+Verwende eine sichere und wiederverwendbare Lösung für lokale SVG-Dateien.
+
+Die Darstellung muss:
+
+* responsiv sein
+* auf kleinen Bildschirmen funktionieren
+* nicht über den Seitenrand hinausragen
+* ohne Internet funktionieren
+* keine externen Inhalte laden
+
+Prüfe, ob die bestehende Streamlit-Version SVG direkt unterstützt.
+
+Falls notwendig, kann SVG kontrolliert als HTML eingebunden werden.
+
+Dabei dürfen ausschließlich eigene lokale SVG-Dateien verwendet werden.
+
+Keine Benutzereingaben dürfen ungeprüft als HTML ausgegeben werden.
+
+## Info-Button direkt beim Eingabefeld
+
+Ordne das Eingabefeld und den Info-Button optisch zusammen an.
+
+Beispiel:
+
+```text
+10-Meter-Zeit                 ⓘ
+[ 1,92 ] Sekunden
+```
+
+Beim Öffnen des Info-Buttons sollen erscheinen:
+
+* kleine Skizze
+* kurze Durchführung
+* Einheit
+* gültiger Versuch
+* häufiger Fehler
+* Eingabehilfe
+
+Die vollständige Anleitung bleibt über „Testanleitung öffnen“ erreichbar.
+
+## Eingabehilfen
+
+Bei jedem Eingabefeld muss klar erkennbar sein:
+
+* was eingetragen wird
+* welche Einheit verwendet wird
+* welcher Wertebereich zulässig ist
+* ob Dezimalzahlen erlaubt sind
+* ob Komma und Punkt verarbeitet werden
+* ob das Feld zwingend erforderlich ist
+
+Verwende verständliche Platzhalter:
+
+* „z. B. 1,92 Sekunden“
+* „z. B. 65 cm“
+* „Wert zwischen 0 und 3“
+* „Herzfrequenz in Schlägen pro Minute“
+* „Belastung von 1 bis 10“
+
+## Komma und Punkt
+
+Deutsche Nutzer geben Dezimalzahlen häufig mit Komma ein.
+
+Die App soll daher nach Möglichkeit beide Schreibweisen akzeptieren:
+
+* `1,92`
+* `1.92`
+
+Beide Eingaben sollen korrekt als Dezimalzahl verarbeitet werden.
+
+Zeige keine technische Fehlermeldung bei Kommaeingabe.
+
+## Plausibilitätsprüfung
+
+Ergänze verständliche Eingabeprüfungen.
+
+Prüfe je nach Test:
+
+* negative Werte
+* Nullwerte, wenn nicht erlaubt
+* unrealistisch hohe Werte
+* falsche Einheit
+* unzulässige FMS-Werte
+* fehlende Beinlänge beim Y-Balance-Test
+* unlogische Sprintzwischenzeiten
+* Zwischenzeit größer als Gesamtzeit
+* 10-Meter-Zeit kleiner als 5-Meter-Zeit
+* starke Abweichungen zwischen Versuchen
+* fehlende Pflichtwerte
+* ungültige Herzfrequenz
+* ungültige Belastungsskala
+* zukünftiges Testdatum
+
+Fehlermeldungen müssen einfach und verständlich sein.
+
+Beispiele:
+
+„Die 10-Meter-Zeit muss größer als die 5-Meter-Zeit sein.“
+
+„Bitte trage einen FMS-Wert zwischen 0 und 3 ein.“
+
+„Für die Berechnung des Y-Balance-Werts wird die Beinlänge benötigt.“
+
+Nicht verwenden:
+
+* technische Tracebacks
+* interne Variablennamen
+* unverständliche Validation-Fehler
+
+## Gültige und ungültige Versuche
+
+Jeder Versuch soll als gültig oder ungültig markiert werden können.
+
+Ein ungültiger Versuch darf gespeichert werden, ohne dass ein falscher Messwert eingetragen werden muss.
+
+Mögliche Gründe:
+
+* Frühstart
+* ausgerutscht
+* Technikfehler
+* Messfehler
+* Behinderung
+* abgebrochen
+* falscher Aufbau
+* sonstiger Grund
+
+Speichere nach Möglichkeit:
+
+* Versuch
+* gültig oder ungültig
+* Messwert
+* Ungültigkeitsgrund
+* Bemerkung
+* Zeitpunkt
+
+Bestehende Datenbankstrukturen dürfen nicht ohne Migration verändert werden.
+
+## Trainer-Checkliste
+
+Vor dem Test soll optional eine kompakte Checkliste erreichbar sein.
+
+Inhalt:
+
+* Testfläche ist sicher
+* Material ist vollständig
+* Messgerät ist vorbereitet
+* Spieler wurde eingewiesen
+* Spieler ist aufgewärmt
+* aktuelle Beschwerden wurden abgefragt
+* Testabbruch wurde erklärt
+
+Die Checkliste soll nicht unnötig jeden Speichervorgang blockieren.
+
+## Darstellung während des Tests
+
+Auf der Eingabeseite sollen gut sichtbar sein:
+
+* Testname
+* aktueller Versuch
+* kurze Durchführung
+* Eingabefeld
+* Einheit
+* Info-Button
+* gültig oder ungültig
+* Bemerkungsfeld
+* nächster Versuch
+* Speichern
+
+Vermeide zu viele gleichzeitig sichtbare Informationen.
+
+## Anzeige nach dem Test
+
+Nach dem Speichern sollen je nach Test angezeigt werden:
+
+* bester Versuch
+* Durchschnitt
+* Anzahl gültiger Versuche
+* Anzahl ungültiger Versuche
+* rechter und linker Wert
+* Seitenunterschied
+* Veränderung zum letzten Test
+* kurzer sportlicher Hinweis
+* Button „Testanleitung erneut öffnen“
+* Button „Protokoll erstellen“
+
+## Testbezogene Skizzen
+
+Erstelle für die vorhandenen Tests passende Skizzen.
+
+### FMS
+
+Für jede FMS-Aufgabe eine eigene einfache Skizze:
+
+* Deep Squat
+* Hurdle Step
+* Inline Lunge
+* Shoulder Mobility
+* Active Straight Leg Raise
+* Trunk Stability Push-Up
+* Rotary Stability
+
+Die Skizze soll zeigen:
+
+* Ausgangsposition
+* Bewegungsrichtung
+* verwendete Testgeräte
+* wichtige Beobachtungspunkte
+* rechte oder linke Seite, falls erforderlich
+
+### Y-Balance
+
+Erstelle:
+
+* Gesamtübersicht
+* Anterior
+* Posteromedial
+* Posterolateral
+
+Darstellung:
+
+* Standfläche
+* drei Bewegungsrichtungen
+* Standbein
+* Spielbein
+* Messrichtung
+* Beinlänge
+* Bewegungsrichtung
+
+### Sprint
+
+Erstelle Skizzen für:
+
+* 5 Meter
+* 10 Meter
+* 20 Meter
+* 30 Meter
+* Gesamtaufbau
+
+Darstellung:
+
+* Startlinie
+* Zwischenlinien
+* Ziellinie
+* Laufrichtung
+* Hütchen
+* Lichtschrankenposition
+* Auslaufzone
+* Abstände
+
+### Sprung
+
+Erstelle Skizzen für:
+
+* Countermovement Jump
+* Squat Jump
+* Drop Jump
+* Standweitsprung
+* einbeinigen Sprung
+
+Darstellung:
+
+* Ausgangsposition
+* Absprung
+* Flugphase
+* Landung
+* Messrichtung
+* Landebereich
+
+### Richtungswechsel
+
+Erstelle Skizzen für:
+
+* 505-Test
+* 5-10-5 Shuttle
+* T-Test
+* Illinois-Test
+
+Darstellung:
+
+* Start
+* Hütchen
+* Laufwege
+* Wendepunkte
+* Strecken
+* rechte und linke Wendeseite
+
+### Yo-Yo-Test
+
+Erstelle Skizzen für:
+
+* Yo-Yo IR1
+* Yo-Yo IR2
+
+Darstellung:
+
+* zwei 20-Meter-Linien
+* fünf Meter Erholungszone
+* Startlinie
+* Wendelinie
+* Laufrichtung
+* Erholungsweg
+
+### Anthropometrie
+
+Erstelle Skizzen für:
+
+* Körpergröße
+* Sitzhöhe
+* Beinlänge
+* Armspannweite
+
+Darstellung:
+
+* korrekte Körperposition
+* Messpunkt
+* Messrichtung
+* Messgerät
+* wichtige Trainerhinweise
+
+## PDF-Berichte
+
+Die Skizzen sollen auch für PDF-Berichte vorbereitet sein.
+
+Beim PDF-Export soll der Nutzer auswählen können:
+
+* nur Testergebnisse
+* Testergebnisse mit Kurzbeschreibung
+* Testergebnisse mit vollständiger Anleitung und Skizze
+
+Erstelle zusätzlich die Möglichkeit für ein Testdurchführungsblatt.
+
+## Testdurchführungsblatt
+
+Das Testdurchführungsblatt soll enthalten:
+
+* Testname
+* Ziel
+* Material
+* Aufbau
+* Skizze
+* Durchführung
+* Anzahl Versuche
+* Pausenzeiten
+* gültiger Versuch
+* ungültiger Versuch
+* Sicherheitshinweis
+* freie Notizen
+
+Das Blatt soll auf DIN A4 ausdruckbar sein.
+
+## Mobile Bedienung
+
+Die Testhilfen müssen auch auf Smartphones und Tablets funktionieren.
+
+Prüfe:
+
+* Bilder werden responsiv dargestellt
+* Texte werden nicht abgeschnitten
+* Info-Buttons sind ausreichend groß
+* Dialoge ragen nicht über den Bildschirm hinaus
+* Zahlenfelder sind gut bedienbar
+* Eingabeelemente werden untereinander angeordnet, wenn wenig Platz vorhanden ist
+* keine horizontale Scrollleiste durch zu große Bilder
+
+## Barrierearme Bedienung
+
+Info-Buttons dürfen nicht nur aus einem unbeschrifteten Symbol bestehen.
+
+Verwende zugängliche Namen, zum Beispiel:
+
+* „Information zum 10-Meter-Sprint“
+* „Anleitung für Deep Squat öffnen“
+* „Eingabehilfe zur Beinlänge“
+* „Skizze zum Y-Balance-Test anzeigen“
+
+Die Hilfe soll auch per Tastatur erreichbar sein.
+
+Verwende ausreichende Schriftgrößen und Kontraste.
+
+## Offline-Funktion
+
+Alle grundlegenden Testanleitungen und Skizzen müssen offline funktionieren.
+
+Die App darf nicht von einer Internetverbindung abhängig sein.
+
+Externe Videos oder weiterführende Links können später optional ergänzt werden.
+
+## Vorbereitung für Videos
+
+Bereite die zentrale Datenstruktur so vor, dass später ein Anleitungsvideo ergänzt werden kann.
+
+Mögliche Felder:
+
+```python
+{
+    "video_path": None,
+    "video_url": None,
+    "video_title": None,
+    "video_source": None,
+    "video_license": None
+}
+```
+
+Programmiere zunächst keine automatische externe Videowiedergabe, wenn dafür unnötige Abhängigkeiten erforderlich sind.
+
+## Keine medizinische Diagnose
+
+Alle Testanleitungen müssen klar als sportliche Test- und Trainingsinformationen formuliert sein.
+
+Verwende keine Aussagen wie:
+
+* Verletzung erkannt
+* medizinische Diagnose
+* Krankheit erkannt
+* Behandlung notwendig
+* Therapie notwendig
+* Spieler ist gesund
+* Spieler ist spielfähig
+* sichere Freigabe
+* hohes Verletzungsrisiko
+* geringes Verletzungsrisiko
+
+Verwende stattdessen:
+
+* sportlicher Testwert
+* Bewegungsbeobachtung
+* auffälliger Messwert
+* Trainingshinweis
+* beobachtungsbedürftiger Wert
+* Durchführung bei Beschwerden abbrechen
+* bei gesundheitlichen Beschwerden fachlich abklären lassen
+
+Am Ende jeder vollständigen Testanleitung soll stehen:
+
+„Diese Testanleitung dient der standardisierten sportlichen Durchführung und Dokumentation. Sie stellt keine medizinische Untersuchung, Diagnose oder Freigabe dar.“
+
+## Sicherheitshinweis
+
+Vor körperlich belastenden Tests soll folgender Hinweis erreichbar oder sichtbar sein:
+
+„Der Test ist sofort abzubrechen, wenn Schmerzen, Schwindel, Atemnot, Brustschmerzen, ungewöhnliche Schwäche oder andere auffällige Beschwerden auftreten. Die App bewertet keine medizinischen Beschwerden.“
+
+Bei eingetragenen aktuellen Beschwerden darf die App nicht behaupten, dass der Test sicher durchgeführt werden kann.
+
+## Erste Phase: Projektanalyse
+
+Ändere zunächst keinen Code.
+
+Analysiere alle vorhandenen Dateien und erstelle folgende Tabelle:
+
+| Test | vorhandene Prüfstellen | Eingabefelder | vorhandene Anleitung | Skizze vorhanden | Info-Button vorhanden | Verbesserung notwendig |
+
+Prüfe mindestens:
+
+* FMS
+* Y-Balance
+* Sprint
+* Sprung
+* Richtungswechsel
+* Yo-Yo
+* Kraft
+* Anthropometrie
+
+Erstelle zusätzlich:
+
+1. Liste aller Testseiten
+2. Liste aller Test-IDs
+3. Liste aller Eingabefelder
+4. Liste vorhandener Bilder
+5. Liste fehlender Bilder
+6. Liste vorhandener Hilfetexte
+7. Liste fehlender Hilfetexte
+8. Übersicht der verwendeten Datenbanktabellen
+9. Übersicht der betroffenen Python-Dateien
+10. Vorschlag für die zentrale Hilfestruktur
+
+## Zweite Phase: Zentrale Hilfestruktur
+
+Erstelle nach der Analyse:
+
+* zentrale Datei für Testanleitungen
+* zentrale Bildzuordnung
+* zentrale Funktion für Kurzhilfe
+* zentrale Funktion für vollständige Testanleitung
+* zentrale Funktion für lokale SVG-Darstellung
+* sichere Fehlerbehandlung bei fehlenden Bildern
+
+Verändere noch nicht alle Testseiten gleichzeitig.
+
+## Dritte Phase: Drei vollständige Beispieltests
+
+Setze zuerst genau drei Beispieltests vollständig um:
+
+1. 10-Meter-Sprint
+2. Y-Balance-Test
+3. FMS Deep Squat
+
+Für jeden dieser Tests musst du tatsächlich erstellen:
+
+* echte SVG-Datei
+* lokale Speicherung im Asset-Ordner
+* zentrale Test-ID
+* zentrale Bildzuordnung
+* Kurzhilfe
+* vollständige Trainerinformation
+* Info-Button am Eingabefeld
+* vollständige Testanleitung
+* Eingabehilfe
+* Einheit
+* Plausibilitätsprüfung
+* gültige und ungültige Versuche
+* Sicherheitshinweis
+* mobile Darstellung
+
+Es dürfen keine Platzhalter verwendet werden.
+
+## Kontrolle der Beispieltests
+
+Prüfe nach der Umsetzung:
+
+* Bilddatei existiert
+* SVG ist gültig
+* Bild wird in Streamlit angezeigt
+* Bild wird mobil korrekt skaliert
+* Info-Button funktioniert
+* vollständige Anleitung öffnet sich
+* Eingabe kann gespeichert werden
+* bestehende Berechnung funktioniert weiter
+* bestehende Daten werden nicht verändert
+* fehlendes Bild führt nicht zum Absturz
+* Komma und Punkt werden bei Dezimalzahlen verarbeitet
+* Fehlermeldungen sind verständlich
+
+## Danach Bericht erstellen
+
+Zeige mir nach den drei Beispieltests:
+
+1. alle neu erstellten Dateien
+2. alle geänderten Dateien
+3. vollständigen Inhalt der SVG-Dateien
+4. vollständigen Inhalt der geänderten Python-Dateien
+5. zentrale Test-ID-Zuordnung
+6. Bildzuordnung
+7. Erklärung, wie der Info-Button funktioniert
+8. Erklärung, wie die Bilder lokal geladen werden
+9. Screenshots oder eine klare Beschreibung der Ansicht
+10. Ergebnis des Funktionstests
+
+## Vierte Phase: Übertragung auf weitere Tests
+
+Übertrage das System erst nach erfolgreichem Beispiel schrittweise auf:
+
+1. weitere Sprinttests
+2. alle Y-Balance-Prüfpunkte
+3. alle Sprungtests
+4. alle Richtungswechseltests
+5. Yo-Yo-Test
+6. alle FMS-Prüfpunkte
+7. Krafttests
+8. Anthropometrie
+
+## Qualitätsprüfung jeder Skizze
+
+Prüfe jede Skizze auf:
+
+* korrekter Test
+* korrekter Aufbau
+* verständliche Bewegungsrichtung
+* korrekte Beschriftung
+* richtige Abstände laut vorhandenem Testprotokoll
+* keine abgeschnittenen Elemente
+* mobile Darstellung
+* PDF-Tauglichkeit
+* Lesbarkeit in Schwarz-Weiß
+* korrekte Zuordnung zur Test-ID
+* lokaler Dateipfad funktioniert
+
+## Keine eigenmächtigen Komplettänderungen
+
+Ändere nicht das gesamte Projekt auf einmal.
+
+Arbeite kontrolliert und schrittweise.
+
+Nach jeder Phase:
+
+* App starten
+* Fehlerkonsole prüfen
+* betroffene Funktionen testen
+* geänderte Dateien dokumentieren
+* bestehende Tests erneut prüfen
+
+## Technische Qualitätsregeln
+
+* Verwende keine absoluten Dateipfade.
+* Verwende `pathlib.Path` für lokale Pfade.
+* Vermeide doppelten Code.
+* Verwende zentrale Funktionen.
+* Fang fehlende Dateien sauber ab.
+* Zeige keine technischen Tracebacks im normalen Benutzerbereich.
+* Bestehende Daten dürfen nicht verloren gehen.
+* Datenbankänderungen nur mit Migration und Sicherung.
+* Keine geheimen Zugangsdaten im Code.
+* Keine externen Bilddienste für grundlegende Skizzen.
+* Keine automatisch aus dem Internet geladenen Bilder.
+* Keine unvollständigen Codeschnipsel.
+* Gib bei Änderungen immer die vollständige betroffene Datei zurück.
+* Das Projekt muss nach jeder Änderung startfähig bleiben.
+
+## Startauftrag
+
+Beginne jetzt ausschließlich mit der Analyse des vorhandenen Projekts.
+
+Ändere noch keinen produktiven Code.
+
+Erstelle zuerst:
+
+1. Übersicht aller Tests und Prüfstellen
+2. Übersicht aller vorhandenen Eingabefelder
+3. Liste vorhandener und fehlender Trainerhilfen
+4. Liste vorhandener und fehlender Bilder
+5. Vorschlag für die zentrale Datenstruktur
+6. Vorschlag für die Bildordner
+7. Vorschlag für die wiederverwendbaren UI-Funktionen
+8. Liste der Dateien, die für die drei Beispieltests geändert oder neu erstellt werden müssen
+9. Prüfung, ob `st.popover`, `st.dialog` oder `st.expander` für das vorhandene Projekt am besten geeignet ist
+10. konkreten Umsetzungsplan für:
+
+* 10-Meter-Sprint
+* Y-Balance-Test
+* FMS Deep Squat
+
+Nach dieser Analyse darfst du mit den drei Beispieltests beginnen.
+
+Erstelle echte lokale SVG-Skizzen.
+
+Verwende keine Platzhalter.
