@@ -96,6 +96,7 @@ from periodisierung import zyklus_erstellen, zyklus_laden
 from pdf_report import generate_report
 from pdf_anleitung import generate_anleitung_pdf, ALL_TEST_IDS, TEST_LABELS
 from export import kader_excel_bytes
+from field_eval import alter_zu_altersgruppe
 
 
 # ─── Anleitung-Download-Button (wiederverwendbar auf jeder Testseite) ─────────
@@ -1728,6 +1729,7 @@ def page_anthropometrie():
     sp     = spieler_by_id(sid)
     alter  = berechne_alter(sp.get("geburtsdatum", "")) if sp else 0.0
     geschl = sp.get("geschlecht", "Männlich") if sp else "Männlich"
+    altersgruppe_norm = alter_zu_altersgruppe(alter)
 
     history = anthropometrie_history(sid)
     letzter = anthropometrie_letzter(sid)
@@ -1752,7 +1754,7 @@ def page_anthropometrie():
         koerperfett  = c1.number_input("Körperfett (%)", 0.0, 50.0,
                                         float(letzter["koerperfett"]) if letzter else 12.0,
                                         step=0.1, key="anthro_kf", label_visibility="collapsed", help=_fh("koerperfett"))
-        if koerperfett > 0: norm_badge(koerperfett, "anthropometrie", "koerperfett", c1)
+        if koerperfett > 0: norm_badge(koerperfett, "anthropometrie", "koerperfett", c1, altersgruppe=altersgruppe_norm)
         mm_h, mm_i = c1.columns([5, 1]); mm_h.markdown("**Muskelmasse (kg)**"); field_info_col(mm_i, "anthropometrie", "muskelmasse")
         muskelmasse  = c1.number_input("Muskelmasse (kg)", 0.0, 100.0,
                                         float(letzter["muskelmasse"]) if letzter else 0.0,
@@ -1876,7 +1878,7 @@ def page_anthropometrie():
 # ──────────────────────────────────────────────────────────────────────────────
 
 def _sprint_eingabe(distanz_label: str, key_prefix: str, letzter_row, col,
-                    field_id: str = ""):
+                    field_id: str = "", altersgruppe: str = "Senior"):
     """Hilfsfunktion: 3-Versuch-Eingabe für eine Sprint-Distanz mit Info-Button."""
     hdr, info_btn = col.columns([5, 1])
     hdr.markdown(f"**{distanz_label}**")
@@ -1897,7 +1899,7 @@ def _sprint_eingabe(distanz_label: str, key_prefix: str, letzter_row, col,
     if bester:
         col.markdown(f'<small style="color:#8b949e">Bester Versuch: <b style="color:#58a6ff">{bester:.2f} s</b></small>', unsafe_allow_html=True)
         if field_id:
-            norm_badge(bester, "sprint", field_id, col)
+            norm_badge(bester, "sprint", field_id, col, altersgruppe=altersgruppe)
     return v1, v2, v3, bester
 
 
@@ -1919,6 +1921,7 @@ def page_sprint():
     sp     = spieler_by_id(sid)
     geschl = sp.get("geschlecht", "Männlich") if sp else "Männlich"
     niveau = sp.get("leistungsniveau", "Leistungssport") if sp else "Leistungssport"
+    altersgruppe = alter_zu_altersgruppe(berechne_alter(sp.get("geburtsdatum", "")) if sp else 0)
 
     letzter = sprint_letzter(sid)
     hist    = sprint_history(sid)
@@ -1931,10 +1934,10 @@ def page_sprint():
         st.caption("Nicht gemessene Distanzen auf 0.00 lassen. ℹ️-Button neben jeder Distanz für Eingabehilfe.")
 
         c_l, c_r = st.columns(2)
-        v1_5,  v2_5,  v3_5,  b5  = _sprint_eingabe("5 m",  "s5",  letzter, c_l, "sprint_5m")
-        v1_10, v2_10, v3_10, b10 = _sprint_eingabe("10 m", "s10", letzter, c_l, "sprint_10m")
-        v1_20, v2_20, v3_20, b20 = _sprint_eingabe("20 m", "s20", letzter, c_r, "sprint_20m")
-        v1_30, v2_30, v3_30, b30 = _sprint_eingabe("30 m", "s30", letzter, c_r, "sprint_30m")
+        v1_5,  v2_5,  v3_5,  b5  = _sprint_eingabe("5 m",  "s5",  letzter, c_l, "sprint_5m",  altersgruppe)
+        v1_10, v2_10, v3_10, b10 = _sprint_eingabe("10 m", "s10", letzter, c_l, "sprint_10m", altersgruppe)
+        v1_20, v2_20, v3_20, b20 = _sprint_eingabe("20 m", "s20", letzter, c_r, "sprint_20m", altersgruppe)
+        v1_30, v2_30, v3_30, b30 = _sprint_eingabe("30 m", "s30", letzter, c_r, "sprint_30m", altersgruppe)
 
         from sprint import (beschleunigungsindex, bewertung_sprint, bewertung_farbe,
                             SprintErgebnis as _SE)
@@ -2025,6 +2028,7 @@ def page_sprung():
     sp     = spieler_by_id(sid)
     geschl = sp.get("geschlecht", "Männlich") if sp else "Männlich"
     niveau = sp.get("leistungsniveau", "Leistungssport") if sp else "Leistungssport"
+    altersgruppe = alter_zu_altersgruppe(berechne_alter(sp.get("geburtsdatum", "")) if sp else 0)
 
     letzter = sprung_letzter(sid)
     hist    = sprung_history(sid)
@@ -2041,37 +2045,37 @@ def page_sprung():
         lc1, li1 = c1.columns([5,1])
         lc1.markdown("**CMJ beidbeinig (cm)**"); field_info_col(li1, "jump", "cmj_beid")
         cmj_beid = c1.number_input("CMJ beidbeinig", 0.0, 100.0, 0.0, step=0.5, key="cmj_beid", label_visibility="collapsed", help=_fh("cmj_beid"))
-        if cmj_beid > 0: norm_badge(cmj_beid, "jump", "cmj_beid", c1)
+        if cmj_beid > 0: norm_badge(cmj_beid, "jump", "cmj_beid", c1, altersgruppe=altersgruppe)
 
         lc2, li2 = c1.columns([5,1])
         lc2.markdown("**CMJ einbeinig rechts (cm)**"); field_info_col(li2, "jump", "cmj_r")
         cmj_r    = c1.number_input("CMJ rechts", 0.0, 80.0, 0.0, step=0.5, key="cmj_r", label_visibility="collapsed", help=_fh("cmj_r"))
-        if cmj_r > 0: norm_badge(cmj_r, "jump", "cmj_r", c1)
+        if cmj_r > 0: norm_badge(cmj_r, "jump", "cmj_r", c1, altersgruppe=altersgruppe)
 
         lc3, li3 = c1.columns([5,1])
         lc3.markdown("**CMJ einbeinig links (cm)**"); field_info_col(li3, "jump", "cmj_l")
         cmj_l    = c1.number_input("CMJ links", 0.0, 80.0, 0.0, step=0.5, key="cmj_l", label_visibility="collapsed", help=_fh("cmj_l"))
-        if cmj_l > 0: norm_badge(cmj_l, "jump", "cmj_l", c1)
+        if cmj_l > 0: norm_badge(cmj_l, "jump", "cmj_l", c1, altersgruppe=altersgruppe)
 
         lc4, li4 = c1.columns([5,1])
         lc4.markdown("**Squat Jump (cm)**"); field_info_col(li4, "jump", "squat_jump")
         squat    = c1.number_input("Squat Jump", 0.0, 100.0, 0.0, step=0.5, key="squat", label_visibility="collapsed", help=_fh("squat_jump"))
-        if squat > 0: norm_badge(squat, "jump", "squat_jump", c1)
+        if squat > 0: norm_badge(squat, "jump", "squat_jump", c1, altersgruppe=altersgruppe)
 
         rc1, ri1 = c2.columns([5,1])
         rc1.markdown("**Drop Jump — Höhe (cm)**"); field_info_col(ri1, "jump", "dj_hoehe")
         dj_h  = c2.number_input("Drop Jump Höhe", 0.0, 80.0, 0.0, step=0.5, key="dj_h", label_visibility="collapsed", help=_fh("dj_hoehe"))
-        if dj_h > 0: norm_badge(dj_h, "jump", "dj_hoehe", c2)
+        if dj_h > 0: norm_badge(dj_h, "jump", "dj_hoehe", c2, altersgruppe=altersgruppe)
 
         rc2, ri2 = c2.columns([5,1])
         rc2.markdown("**Drop Jump — Kontaktzeit (s)**"); field_info_col(ri2, "jump", "dj_kontakt")
         dj_kz = c2.number_input("Drop Jump Kontaktzeit", 0.0, 2.0, 0.0, step=0.01, format="%.2f", key="dj_kz", label_visibility="collapsed", help=_fh("dj_kontakt"))
-        if dj_kz > 0: norm_badge(dj_kz, "jump", "dj_kontakt", c2)
+        if dj_kz > 0: norm_badge(dj_kz, "jump", "dj_kontakt", c2, altersgruppe=altersgruppe)
 
         rc3, ri3 = c2.columns([5,1])
         rc3.markdown("**Standweitsprung (cm)**"); field_info_col(ri3, "jump", "standweit")
         swj   = c2.number_input("Standweitsprung", 0.0, 400.0, 0.0, step=1.0, key="swj", label_visibility="collapsed", help=_fh("standweit"))
-        if swj > 0: norm_badge(swj, "jump", "standweit", c2)
+        if swj > 0: norm_badge(swj, "jump", "standweit", c2, altersgruppe=altersgruppe)
 
         from sprung import SprungErgebnis as _SpE, asymmetrie_prozent, rsi_berechnen
         res = _SpE(cmj_beid=cmj_beid or None, cmj_rechts=cmj_r or None,
@@ -2155,7 +2159,7 @@ def page_sprung():
 # ──────────────────────────────────────────────────────────────────────────────
 
 def _zeit_eingabe(label: str, key: str, col, letzter=None, letzter_key=None,
-                  test_id: str = "", field_id: str = ""):
+                  test_id: str = "", field_id: str = "", altersgruppe: str = "Senior"):
     """Hilfsfunktion: Zeiteingabe mit optionalem ℹ️-Button."""
     if field_id and test_id:
         hdr, info_btn = col.columns([5, 1])
@@ -2168,7 +2172,7 @@ def _zeit_eingabe(label: str, key: str, col, letzter=None, letzter_key=None,
     v = col.number_input(label, 0.0, 30.0, default, step=0.01, format="%.2f",
                          key=key, label_visibility="collapsed", help=help_txt)
     if v > 0 and test_id and field_id:
-        norm_badge(v, test_id, field_id, col)
+        norm_badge(v, test_id, field_id, col, altersgruppe=altersgruppe)
     return v if v > 0 else None
 
 
@@ -2189,6 +2193,7 @@ def page_agilitaet():
     sp     = spieler_by_id(sid)
     geschl = sp.get("geschlecht", "Männlich") if sp else "Männlich"
     niveau = sp.get("leistungsniveau", "Leistungssport") if sp else "Leistungssport"
+    altersgruppe = alter_zu_altersgruppe(berechne_alter(sp.get("geburtsdatum", "")) if sp else 0)
 
     letzter = agilitaet_letzter(sid)
     hist    = agilitaet_history(sid)
@@ -2200,11 +2205,11 @@ def page_agilitaet():
         st.markdown("#### Zeiten (s) — nicht gemessene Tests auf 0.00 lassen")
 
         c1, c2 = st.columns(2)
-        t505_r  = _zeit_eingabe("505-Test rechts (s)", "a505r", c1, letzter, "t505_r",  "agility", "t505_r")
-        t505_l  = _zeit_eingabe("505-Test links (s)",  "a505l", c1, letzter, "t505_l",  "agility", "t505_l")
-        t5_10_5 = _zeit_eingabe("5-10-5 Shuttle (s)",  "a5105", c2, letzter, "t5_10_5", "agility", "t5_10_5")
-        t_test  = _zeit_eingabe("T-Test (s)",           "att",   c2, letzter, "t_test",  "agility", "t_test")
-        illinois = _zeit_eingabe("Illinois Agility (s)","aill",  c1, letzter, "illinois","agility", "illinois")
+        t505_r  = _zeit_eingabe("505-Test rechts (s)", "a505r", c1, letzter, "t505_r",  "agility", "t505_r",  altersgruppe)
+        t505_l  = _zeit_eingabe("505-Test links (s)",  "a505l", c1, letzter, "t505_l",  "agility", "t505_l",  altersgruppe)
+        t5_10_5 = _zeit_eingabe("5-10-5 Shuttle (s)",  "a5105", c2, letzter, "t5_10_5", "agility", "t5_10_5", altersgruppe)
+        t_test  = _zeit_eingabe("T-Test (s)",           "att",   c2, letzter, "t_test",  "agility", "t_test",  altersgruppe)
+        illinois = _zeit_eingabe("Illinois Agility (s)","aill",  c1, letzter, "illinois","agility", "illinois",altersgruppe)
 
         from agilitaet import AgilitaetErgebnis as _AE
         res = _AE(t505_r=t505_r, t505_l=t505_l, t5_10_5=t5_10_5,
@@ -2325,6 +2330,7 @@ def page_ausdauer():
     sp     = spieler_by_id(sid)
     geschl = sp.get("geschlecht", "Männlich") if sp else "Männlich"
     alter  = berechne_alter(sp.get("geburtsdatum","")) if sp else 0
+    ag_norm = alter_zu_altersgruppe(alter or 0)   # für field_eval-Normbadge
 
     letzter = ausdauer_letzter(sid)
     hist    = ausdauer_history(sid)
@@ -2355,7 +2361,7 @@ def page_ausdauer():
         distanz_m = c3.number_input("Erzielte Distanz (m)", 0, 5000,
                                      int(letzter["distanz_m"]) if letzter else 0,
                                      step=40, key="aus_dist", label_visibility="collapsed", help=_fh("distanz"))
-        if distanz_m > 0: norm_badge(distanz_m, "yoyo", "distanz", c3)
+        if distanz_m > 0: norm_badge(distanz_m, "yoyo", "distanz", c3, altersgruppe=ag_norm)
         hf_h, hf_i = c4.columns([5, 1]); hf_h.markdown("**HF max (bpm)**"); field_info_col(hf_i, "yoyo", "hf_max")
         hf_max    = c4.number_input("HF max (bpm)", 0, 230,
                                      int(letzter["hf_max"]) if letzter and letzter.get("hf_max") else 0,

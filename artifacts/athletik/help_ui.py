@@ -11,7 +11,7 @@ from __future__ import annotations
 import os
 import streamlit as st
 from test_help import TEST_HELP, SICHERHEITSHINWEIS_ALLGEMEIN, COMPLIANCE_HINWEIS
-from field_eval import badge_html as _badge_html
+from field_eval import badge_html as _badge_html, alter_zu_altersgruppe as _alter_zu_ag
 from database import checkliste_custom_laden
 
 _BASE = os.path.dirname(os.path.abspath(__file__))
@@ -127,13 +127,16 @@ def norm_badge(
     test_id: str,
     field_id: str,
     container=None,
+    altersgruppe: str | None = None,
 ) -> None:
     """Rendert einen farbigen Norm-Badge unterhalb eines Eingabefelds.
 
-    container — Streamlit-Container (z. B. eine Spalte). None → globaler st-Kontext.
+    container    — Streamlit-Container (z. B. eine Spalte). None → globaler st-Kontext.
+    altersgruppe — Optional: "U10" | "U12" | "U14" | "U16" | "U18" | "Senior"
+                   Aktiviert altersgerechte Normwerte statt Senior-Pauschalnormen.
     Zeigt nichts, wenn kein Normwert definiert ist oder value ist None/0.
     """
-    html = _badge_html(value, test_id, field_id)
+    html = _badge_html(value, test_id, field_id, altersgruppe)
     if not html:
         return
     target = container if container is not None else st

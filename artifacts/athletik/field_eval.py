@@ -1,14 +1,20 @@
 """
-Normbereiche für Athletik-Testfelder.
+Normbereiche für Athletik-Testfelder — mit Altersgruppen-Korrekturen.
 
 Öffentliche API
 ───────────────
-bewerte_feld(value, test_id, field_id)
+alter_zu_altersgruppe(alter)
+    → "U10" | "U12" | "U14" | "U16" | "U18" | "Senior"
+
+bewerte_feld(value, test_id, field_id, altersgruppe=None)
     → (stufe, label, icon)
     stufe: "gut" | "grenz" | "auffaellig" | "kritisch" | None
 
-Typen in _NORMEN
-────────────────
+badge_html(value, test_id, field_id, altersgruppe=None)
+    → HTML-String oder ""
+
+Norm-Typen in _NORMEN / _NORMEN_ALTERSGRUPPE
+─────────────────────────────────────────────
 ("niedriger_besser", gut_max, grenz_max)
     gut   : value ≤ gut_max
     grenz : gut_max < value ≤ grenz_max
@@ -28,6 +34,8 @@ Typen in _NORMEN
     3 → gut  · 2 → grenz  · 1 → auffällig  · 0 → kritisch
 """
 from __future__ import annotations
+
+# ── Pauschal-Normen (Fallback / Senior-Niveau) ───────────────────────────────
 
 _NORMEN: dict[str, dict[str, tuple | None]] = {
 
@@ -60,13 +68,13 @@ _NORMEN: dict[str, dict[str, tuple | None]] = {
 
     # ── Sprung (cm / s) ───────────────────────────────────────────────────────
     "jump": {
-        "cmj_beid":   ("höher_besser",  35.0, 25.0),   # cm – beidbeinig
-        "cmj_r":      ("höher_besser",  28.0, 20.0),   # cm – einbeinig
+        "cmj_beid":   ("höher_besser",  35.0, 25.0),
+        "cmj_r":      ("höher_besser",  28.0, 20.0),
         "cmj_l":      ("höher_besser",  28.0, 20.0),
-        "squat_jump": ("höher_besser",  30.0, 22.0),   # cm
-        "dj_hoehe":   ("höher_besser",  28.0, 18.0),   # cm
-        "dj_kontakt": ("niedriger_besser", 0.20, 0.30),# s – kürzer = besser
-        "standweit":  ("höher_besser", 200.0, 170.0),  # cm
+        "squat_jump": ("höher_besser",  30.0, 22.0),
+        "dj_hoehe":   ("höher_besser",  28.0, 18.0),
+        "dj_kontakt": ("niedriger_besser", 0.20, 0.30),
+        "standweit":  ("höher_besser", 200.0, 170.0),
     },
 
     # ── Agilität (s) – niedriger = besser ─────────────────────────────────────
@@ -80,16 +88,16 @@ _NORMEN: dict[str, dict[str, tuple | None]] = {
 
     # ── Yo-Yo / Ausdauer ─────────────────────────────────────────────────────
     "yoyo": {
-        "distanz": ("höher_besser", 1200.0, 600.0),  # m – IR1-Orientierung
-        "hf_max":  None,   # individuell
-        "rpe":     None,   # subjektiv
+        "distanz": ("höher_besser", 1200.0, 600.0),
+        "hf_max":  None,
+        "rpe":     None,
     },
 
     # ── Anthropometrie ────────────────────────────────────────────────────────
     "anthropometrie": {
         "groesse":     None,
         "gewicht":     None,
-        "koerperfett": ("bereich", 6.0, 20.0, 3.0, 26.0),  # % — sportartübergreifend
+        "koerperfett": ("bereich", 6.0, 20.0, 3.0, 26.0),
         "muskelmasse": None,
         "sitzhoehe":   None,
         "beinlaenge":  None,
@@ -97,7 +105,183 @@ _NORMEN: dict[str, dict[str, tuple | None]] = {
     },
 }
 
+# ── Altersgruppen-spezifische Normen ─────────────────────────────────────────
+# Struktur: _NORMEN_ALTERSGRUPPE[altersgruppe][test_id][field_id] = norm_tuple
+# FMS und y_balance werden nicht überschrieben (kategorisch bzw. None).
+# Fehlende Einträge fallen auf _NORMEN zurück.
+
+_NORMEN_ALTERSGRUPPE: dict[str, dict[str, dict[str, tuple | None]]] = {
+
+    "U10": {
+        "sprint": {
+            "sprint_5m":  ("niedriger_besser", 1.35, 1.55),
+            "sprint_10m": ("niedriger_besser", 2.30, 2.60),
+            "sprint_20m": ("niedriger_besser", 3.85, 4.25),
+            "sprint_30m": ("niedriger_besser", 5.60, 6.20),
+        },
+        "jump": {
+            "cmj_beid":   ("höher_besser",  17.0, 11.0),
+            "cmj_r":      ("höher_besser",  12.0,  8.0),
+            "cmj_l":      ("höher_besser",  12.0,  8.0),
+            "squat_jump": ("höher_besser",  14.0,  9.0),
+            "dj_hoehe":   ("höher_besser",  13.0,  8.0),
+            "dj_kontakt": ("niedriger_besser", 0.32, 0.45),
+            "standweit":  ("höher_besser", 120.0, 90.0),
+        },
+        "agility": {
+            "t505_r":   ("niedriger_besser",  2.75,  3.15),
+            "t505_l":   ("niedriger_besser",  2.75,  3.15),
+            "t5_10_5":  ("niedriger_besser",  5.80,  6.50),
+            "t_test":   ("niedriger_besser", 11.50, 13.00),
+            "illinois": ("niedriger_besser", 18.00, 20.50),
+        },
+        "yoyo": {
+            "distanz": ("höher_besser", 380.0, 160.0),
+            "hf_max":  None,
+            "rpe":     None,
+        },
+        "anthropometrie": {
+            "koerperfett": ("bereich", 9.0, 24.0, 4.0, 30.0),
+        },
+    },
+
+    "U12": {
+        "sprint": {
+            "sprint_5m":  ("niedriger_besser", 1.22, 1.42),
+            "sprint_10m": ("niedriger_besser", 2.10, 2.40),
+            "sprint_20m": ("niedriger_besser", 3.55, 3.95),
+            "sprint_30m": ("niedriger_besser", 5.10, 5.70),
+        },
+        "jump": {
+            "cmj_beid":   ("höher_besser",  22.0, 14.0),
+            "cmj_r":      ("höher_besser",  16.0, 10.0),
+            "cmj_l":      ("höher_besser",  16.0, 10.0),
+            "squat_jump": ("höher_besser",  18.0, 12.0),
+            "dj_hoehe":   ("höher_besser",  17.0, 11.0),
+            "dj_kontakt": ("niedriger_besser", 0.28, 0.40),
+            "standweit":  ("höher_besser", 150.0, 115.0),
+        },
+        "agility": {
+            "t505_r":   ("niedriger_besser",  2.58,  2.97),
+            "t505_l":   ("niedriger_besser",  2.58,  2.97),
+            "t5_10_5":  ("niedriger_besser",  5.40,  6.10),
+            "t_test":   ("niedriger_besser", 10.80, 12.20),
+            "illinois": ("niedriger_besser", 17.00, 19.50),
+        },
+        "yoyo": {
+            "distanz": ("höher_besser", 580.0, 260.0),
+            "hf_max":  None,
+            "rpe":     None,
+        },
+        "anthropometrie": {
+            "koerperfett": ("bereich", 8.0, 22.0, 4.0, 28.0),
+        },
+    },
+
+    "U14": {
+        "sprint": {
+            "sprint_5m":  ("niedriger_besser", 1.14, 1.33),
+            "sprint_10m": ("niedriger_besser", 1.95, 2.22),
+            "sprint_20m": ("niedriger_besser", 3.28, 3.68),
+            "sprint_30m": ("niedriger_besser", 4.75, 5.25),
+        },
+        "jump": {
+            "cmj_beid":   ("höher_besser",  27.0, 18.0),
+            "cmj_r":      ("höher_besser",  20.0, 14.0),
+            "cmj_l":      ("höher_besser",  20.0, 14.0),
+            "squat_jump": ("höher_besser",  23.0, 16.0),
+            "dj_hoehe":   ("höher_besser",  21.0, 14.0),
+            "dj_kontakt": ("niedriger_besser", 0.25, 0.36),
+            "standweit":  ("höher_besser", 175.0, 140.0),
+        },
+        "agility": {
+            "t505_r":   ("niedriger_besser",  2.43,  2.80),
+            "t505_l":   ("niedriger_besser",  2.43,  2.80),
+            "t5_10_5":  ("niedriger_besser",  5.05,  5.75),
+            "t_test":   ("niedriger_besser", 10.20, 11.60),
+            "illinois": ("niedriger_besser", 16.20, 18.50),
+        },
+        "yoyo": {
+            "distanz": ("höher_besser", 800.0, 380.0),
+            "hf_max":  None,
+            "rpe":     None,
+        },
+        "anthropometrie": {
+            "koerperfett": ("bereich", 7.0, 21.0, 3.0, 27.0),
+        },
+    },
+
+    "U16": {
+        "sprint": {
+            "sprint_5m":  ("niedriger_besser", 1.08, 1.26),
+            "sprint_10m": ("niedriger_besser", 1.86, 2.12),
+            "sprint_20m": ("niedriger_besser", 3.12, 3.50),
+            "sprint_30m": ("niedriger_besser", 4.50, 5.00),
+        },
+        "jump": {
+            "cmj_beid":   ("höher_besser",  31.0, 22.0),
+            "cmj_r":      ("höher_besser",  25.0, 17.0),
+            "cmj_l":      ("höher_besser",  25.0, 17.0),
+            "squat_jump": ("höher_besser",  27.0, 19.0),
+            "dj_hoehe":   ("höher_besser",  25.0, 16.0),
+            "dj_kontakt": ("niedriger_besser", 0.22, 0.32),
+            "standweit":  ("höher_besser", 188.0, 155.0),
+        },
+        "agility": {
+            "t505_r":   ("niedriger_besser",  2.30,  2.67),
+            "t505_l":   ("niedriger_besser",  2.30,  2.67),
+            "t5_10_5":  ("niedriger_besser",  4.75,  5.45),
+            "t_test":   ("niedriger_besser",  9.80, 11.20),
+            "illinois": ("niedriger_besser", 15.80, 18.00),
+        },
+        "yoyo": {
+            "distanz": ("höher_besser", 980.0, 490.0),
+            "hf_max":  None,
+            "rpe":     None,
+        },
+        "anthropometrie": {
+            "koerperfett": ("bereich", 7.0, 21.0, 3.0, 26.0),
+        },
+    },
+
+    "U18": {
+        "sprint": {
+            "sprint_5m":  ("niedriger_besser", 1.06, 1.22),
+            "sprint_10m": ("niedriger_besser", 1.82, 2.07),
+            "sprint_20m": ("niedriger_besser", 3.08, 3.43),
+            "sprint_30m": ("niedriger_besser", 4.38, 4.83),
+        },
+        "jump": {
+            "cmj_beid":   ("höher_besser",  34.0, 24.0),
+            "cmj_r":      ("höher_besser",  27.0, 19.0),
+            "cmj_l":      ("höher_besser",  27.0, 19.0),
+            "squat_jump": ("höher_besser",  29.0, 21.0),
+            "dj_hoehe":   ("höher_besser",  27.0, 17.0),
+            "dj_kontakt": ("niedriger_besser", 0.21, 0.31),
+            "standweit":  ("höher_besser", 197.0, 165.0),
+        },
+        "agility": {
+            "t505_r":   ("niedriger_besser",  2.23,  2.62),
+            "t505_l":   ("niedriger_besser",  2.23,  2.62),
+            "t5_10_5":  ("niedriger_besser",  4.58,  5.28),
+            "t_test":   ("niedriger_besser",  9.60, 11.05),
+            "illinois": ("niedriger_besser", 15.60, 17.70),
+        },
+        "yoyo": {
+            "distanz": ("höher_besser", 1100.0, 540.0),
+            "hf_max":  None,
+            "rpe":     None,
+        },
+        "anthropometrie": {
+            "koerperfett": ("bereich", 6.0, 20.0, 3.0, 26.0),
+        },
+    },
+
+    # Senior = _NORMEN (Fallback — keine eigene Überschreibung nötig)
+}
+
 # ── Stufen-Definitionen ───────────────────────────────────────────────────────
+
 _STUFEN: dict[str, tuple[str, str]] = {
     "gut":        ("✅", "Normbereich"),
     "grenz":      ("⚠️",  "Grenzbereich"),
@@ -106,7 +290,6 @@ _STUFEN: dict[str, tuple[str, str]] = {
 }
 
 _HTML_COLORS: dict[str, tuple[str, str]] = {
-    # (bg, text)
     "gut":        ("#1a3326", "#3fb950"),
     "grenz":      ("#2d2a14", "#d29922"),
     "auffaellig": ("#3d1a1a", "#f85149"),
@@ -114,23 +297,70 @@ _HTML_COLORS: dict[str, tuple[str, str]] = {
 }
 
 
+# ── Öffentliche Hilfsfunktion ─────────────────────────────────────────────────
+
+def alter_zu_altersgruppe(alter: float | None) -> str:
+    """Mappt ein Dezimalter auf die Altersgruppen-Bezeichnung.
+
+    Returns:
+        "U10" | "U12" | "U14" | "U16" | "U18" | "Senior"
+    """
+    if not alter:
+        return "Senior"
+    if alter < 10:
+        return "U10"
+    if alter < 12:
+        return "U12"
+    if alter < 14:
+        return "U14"
+    if alter < 16:
+        return "U16"
+    if alter < 18:
+        return "U18"
+    return "Senior"
+
+
+def _get_norm(
+    test_id: str,
+    field_id: str,
+    altersgruppe: str | None,
+) -> tuple | None:
+    """Gibt die Norm-Tuple zurück — altersgruppiert wenn vorhanden, sonst Fallback."""
+    if altersgruppe and altersgruppe != "Senior":
+        ag_norms = _NORMEN_ALTERSGRUPPE.get(altersgruppe, {})
+        test_norms = ag_norms.get(test_id, {})
+        if field_id in test_norms:
+            return test_norms[field_id]
+    # Fallback: Pauschal-Normen
+    return _NORMEN.get(test_id, {}).get(field_id)
+
+
 def bewerte_feld(
     value: float | int | None,
     test_id: str,
     field_id: str,
+    altersgruppe: str | None = None,
 ) -> tuple[str | None, str, str]:
     """Bewertet einen eingegebenen Wert gegen die hinterlegten Normen.
 
-    Rückgabe: (stufe, label, icon)
+    Args:
+        value:        Messwert
+        test_id:      Test-ID (z.B. "sprint", "jump")
+        field_id:     Feld-ID (z.B. "sprint_10m", "cmj_beid")
+        altersgruppe: Optional — "U10" | "U12" | "U14" | "U16" | "U18" | "Senior"
+                      Wird für altersgerechte Normen verwendet.
+
+    Returns:
+        (stufe, label, icon)
         stufe  — "gut" | "grenz" | "auffaellig" | "kritisch" | None
-        label  — lesbarer Text, z. B. "Normbereich"
+        label  — lesbarer Text, z. B. "Normbereich (U14)"
         icon   — Emoji, z. B. "✅"
-    Gibt (None, "", "") zurück, wenn kein Normwert vorhanden.
+        Gibt (None, "", "") zurück wenn kein Normwert vorhanden.
     """
     if value is None:
         return None, "", ""
 
-    norm = _NORMEN.get(test_id, {}).get(field_id)
+    norm = _get_norm(test_id, field_id, altersgruppe)
     if norm is None:
         return None, "", ""
 
@@ -173,7 +403,12 @@ def bewerte_feld(
     else:
         return None, "", ""
 
-    icon, label = _STUFEN[stufe]
+    icon, label_base = _STUFEN[stufe]
+    # Altersgruppen-Label anhängen wenn nicht Senior
+    if altersgruppe and altersgruppe != "Senior":
+        label = f"{label_base} ({altersgruppe})"
+    else:
+        label = label_base
     return stufe, label, icon
 
 
@@ -181,9 +416,10 @@ def badge_html(
     value: float | int | None,
     test_id: str,
     field_id: str,
+    altersgruppe: str | None = None,
 ) -> str:
     """Gibt einen fertigen HTML-Badge-String zurück oder '' wenn kein Norm vorhanden."""
-    stufe, label, icon = bewerte_feld(value, test_id, field_id)
+    stufe, label, icon = bewerte_feld(value, test_id, field_id, altersgruppe)
     if stufe is None:
         return ""
     bg, color = _HTML_COLORS[stufe]

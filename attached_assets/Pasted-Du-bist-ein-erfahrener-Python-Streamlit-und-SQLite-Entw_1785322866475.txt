@@ -1,0 +1,1375 @@
+Du bist ein erfahrener Python-, Streamlit- und SQLite-Entwickler sowie Experte für sportliche Leistungsdiagnostik im Fußball.
+
+Ich habe eine bestehende Fußball-Athletik-App mit Python, Streamlit und SQLite.
+
+Erweitere meine App um ein vollständiges System für standardisierte Trainerbeobachtungen bei jedem einzelnen Test.
+
+## Hauptziel
+
+Bei jeder einzelnen Testübung soll der Trainer typische Beobachtungen einfach per Checkbox auswählen können.
+
+Zusätzlich soll es ein Freitextfeld für weitere Beobachtungen geben.
+
+Aus den ausgewählten Beobachtungen soll die App automatisch einen gut lesbaren und professionellen Beobachtungstext erstellen.
+
+Beispiel:
+
+Ausgewählte Beobachtungen:
+
+* Knie fallen nach innen
+* Fersen heben vom Boden ab
+* Oberkörper kippt deutlich nach vorne
+
+Automatisch erzeugter Text:
+
+„Während des Deep Squats fiel auf, dass die Knie wiederholt nach innen auswichen, die Fersen den Bodenkontakt verloren und der Oberkörper deutlich nach vorne kippte.“
+
+## Wichtige Grundregel
+
+Die App darf keine medizinischen Diagnosen erstellen.
+
+Verwende ausschließlich Formulierungen wie:
+
+* Während des Tests fiel auf …
+* Es war zu beobachten …
+* Die Bewegung wirkte …
+* Der Spieler zeigte …
+* Die Ausführung erfolgte …
+* Es zeigte sich ein Seitenunterschied …
+* Die Bewegung konnte nicht durchgehend kontrolliert werden.
+
+Nicht verwenden:
+
+* Diagnose
+* Verletzung erkannt
+* krankhaft
+* Therapie erforderlich
+* Spieler ist verletzt
+* Verletzungsrisiko
+* medizinische Einschränkung
+* Behandlung notwendig
+* Sporttauglichkeit
+* Spieler ist gesund
+* Freigabe zum Sport
+
+Bei Beschwerden darf nur stehen:
+
+„Der Spieler gab während des Tests Beschwerden an. Der Test wurde abgebrochen beziehungsweise nicht weiter bewertet. Bei anhaltenden Beschwerden sollte eine medizinische oder therapeutische Fachperson hinzugezogen werden.“
+
+## Vorhandenes Projekt zuerst analysieren
+
+Analysiere zunächst alle vorhandenen Dateien.
+
+Ändere nicht sofort den gesamten Code.
+
+Prüfe:
+
+1. Welche Tests bereits vorhanden sind.
+2. Wie die Testseiten aufgebaut sind.
+3. Wo die Ergebnisse gespeichert werden.
+4. Welche Datenbanktabellen verwendet werden.
+5. Ob bereits Bemerkungs- oder Kommentarfelder vorhanden sind.
+6. Ob bereits Beobachtungsfelder existieren.
+7. Wie PDF-Berichte erstellt werden.
+8. Wie Spieler und Testtermine zugeordnet werden.
+9. Welche Testnamen und internen IDs verwendet werden.
+10. Welche Formeln und Bewertungen bereits vorhanden sind.
+
+Lösche keine bestehenden Funktionen.
+
+Ändere keine bestehenden Testergebnisse oder Formeln.
+
+Erstelle vor Datenbankänderungen eine Sicherung.
+
+## Zentrale Beobachtungsdatei
+
+Lege alle Beobachtungen zentral ab.
+
+Verteile die Texte nicht doppelt auf viele Streamlit-Seiten.
+
+Erstelle beispielsweise:
+
+```text
+data/test_observations.py
+```
+
+oder:
+
+```text
+config/test_observations.py
+```
+
+Passe den Pfad an die vorhandene Projektstruktur an.
+
+Die zentrale Struktur soll ungefähr so aufgebaut sein:
+
+```python
+TEST_OBSERVATIONS = {
+    "fms_deep_squat": {
+        "name": "FMS Deep Squat",
+        "categories": {
+            "Fuß und Sprunggelenk": [
+                {
+                    "id": "heels_lift",
+                    "label": "Fersen heben vom Boden ab.",
+                    "report_text": "die Fersen den Bodenkontakt verloren",
+                    "positive": False
+                }
+            ]
+        }
+    }
+}
+```
+
+Jede Beobachtung benötigt:
+
+* eindeutige ID
+* sichtbare Bezeichnung
+* Textbaustein für den Bericht
+* Kategorie
+* Kennzeichnung positiv, neutral oder auffällig
+* optional Seite rechts, links oder beidseitig
+* optional Intensität
+* optional automatischen Trainingsschwerpunkt
+
+## Beobachtungsarten
+
+Die App soll drei Beobachtungsarten unterscheiden:
+
+### Positive Beobachtung
+
+Beispiele:
+
+* Bewegung kontrolliert ausgeführt
+* stabile Beinachse
+* gleichmäßiger Bewegungsablauf
+* sichere Landung
+* aktiver Armeinsatz
+
+### Neutrale Beobachtung
+
+Beispiele:
+
+* Test wurde nach Wiederholung abgeschlossen
+* bevorzugte Wendeseite rechts
+* bevorzugtes Absprungbein links
+* gewählte Startposition
+
+### Auffällige sportliche Beobachtung
+
+Beispiele:
+
+* Knie weichen nach innen aus
+* Gleichgewicht geht verloren
+* Rumpf rotiert
+* Beine schwingen nach außen
+* deutlicher Seitenunterschied
+
+Verwende nicht das Wort „pathologisch“.
+
+## Bedienung in der App
+
+Auf jeder Testseite soll ein Bereich vorhanden sein:
+
+```text
+Trainerbeobachtungen
+```
+
+Dieser Bereich soll standardmäßig eingeklappt sein, zum Beispiel mit:
+
+```python
+st.expander("Trainerbeobachtungen")
+```
+
+Innerhalb des Bereichs sollen die Beobachtungen übersichtlich nach Kategorien dargestellt werden.
+
+Beispiel:
+
+```text
+Trainerbeobachtungen
+
+Fuß und Sprunggelenk
+☐ Fersen heben vom Boden ab.
+☐ Füße drehen deutlich nach außen.
+☐ Fußaufsatz wirkt instabil.
+
+Knie und Beinachse
+☐ Knie fallen nach innen.
+☐ Knie weichen nach außen aus.
+☐ Rechte und linke Seite bewegen sich unterschiedlich.
+
+Rumpf
+☐ Oberkörper kippt deutlich nach vorne.
+☐ Rumpf weicht seitlich aus.
+```
+
+## Standardmodus und Expertenmodus
+
+Erstelle zwei Ansichten.
+
+### Standardmodus
+
+Zeigt nur die 5 bis 10 häufigsten und wichtigsten Beobachtungen des jeweiligen Tests.
+
+### Expertenmodus
+
+Zeigt alle hinterlegten Beobachtungen nach Kategorien.
+
+Verwende beispielsweise:
+
+```python
+mode = st.radio(
+    "Umfang der Beobachtungen",
+    ["Standard", "Experte"],
+    horizontal=True
+)
+```
+
+Die Auswahl soll die normalen Testeingaben nicht beeinflussen.
+
+## Ausprägung
+
+Für auffällige Beobachtungen soll optional eine Ausprägung gewählt werden können:
+
+* leicht
+* mittel
+* deutlich
+
+Die Ausprägung darf nur sichtbar werden, wenn die Beobachtung ausgewählt wurde.
+
+Beispiel:
+
+```text
+☑ Knie fallen nach innen.
+
+Ausprägung:
+○ leicht
+○ mittel
+○ deutlich
+```
+
+Die Ausprägung soll im Bericht berücksichtigt werden:
+
+* leichtes Nach-innen-Ausweichen
+* mittleres Nach-innen-Ausweichen
+* deutliches Nach-innen-Ausweichen
+
+Die Auswahl der Ausprägung soll optional bleiben.
+
+## Seitenangabe
+
+Bei seitenspezifischen Beobachtungen soll auswählbar sein:
+
+* rechts
+* links
+* beidseitig
+* keine Seite
+
+Beispiel:
+
+```text
+☑ Standbein wirkt instabil.
+
+Seite:
+○ rechts
+○ links
+○ beidseitig
+```
+
+Bericht:
+
+„Während des Tests wirkte das linke Standbein zeitweise instabil.“
+
+## Freitext
+
+Unter jeder Beobachtungsliste soll ein Freitextfeld stehen:
+
+```text
+Weitere Beobachtungen
+```
+
+Beispiel:
+
+```python
+st.text_area(
+    "Weitere Beobachtungen",
+    placeholder="Zusätzliche Beobachtungen des Trainers …"
+)
+```
+
+Der Freitext darf nicht automatisch medizinisch umformuliert werden.
+
+Er soll im Bericht als eigener Abschnitt erscheinen:
+
+```text
+Zusätzliche Trainerbeobachtung:
+…
+```
+
+## Automatische Textgenerierung
+
+Erstelle eine zentrale Funktion:
+
+```python
+generate_observation_text(
+    test_id,
+    selected_observations,
+    custom_text=None
+)
+```
+
+Die Funktion soll aus den ausgewählten Beobachtungen einen flüssigen deutschen Text erstellen.
+
+Sie soll keine einfache Aufzählung mit Kommas erzeugen, sondern vollständige Sätze.
+
+Beispiel mit einer Beobachtung:
+
+„Während des 10-Meter-Sprints fiel auf, dass sich der Oberkörper bereits in der frühen Beschleunigungsphase deutlich aufrichtete.“
+
+Beispiel mit zwei Beobachtungen:
+
+„Während des 10-Meter-Sprints fiel auf, dass sich der Oberkörper früh aufrichtete und die Arme nur wenig aktiv mitarbeiteten.“
+
+Beispiel mit mehreren Beobachtungen:
+
+„Während des 10-Meter-Sprints fiel auf, dass sich der Oberkörper früh aufrichtete, die Arme nur wenig aktiv mitarbeiteten und beide Beine in der Schwungphase wiederholt nach außen geführt wurden.“
+
+Positive Beobachtungen sollen gesondert formuliert werden:
+
+„Positiv fiel auf, dass der Start reaktiv erfolgte und die Beschleunigung kontrolliert aufgebaut wurde.“
+
+Wenn positive und auffällige Beobachtungen ausgewählt wurden:
+
+„Positiv fiel der reaktive Start auf. Im weiteren Verlauf war jedoch zu beobachten, dass sich der Oberkörper früh aufrichtete und die Arme nur wenig aktiv mitarbeiteten.“
+
+Verwende abwechslungsreiche Satzanfänge:
+
+* Während des Tests fiel auf …
+* Es war zu beobachten …
+* Bei der Ausführung zeigte sich …
+* Positiv fiel auf …
+* Im Seitenvergleich zeigte sich …
+* Während der Landung war zu erkennen …
+* In der Beschleunigungsphase fiel auf …
+* Beim Richtungswechsel zeigte sich …
+
+Vermeide immer denselben Satzanfang.
+
+## Vorschau
+
+Zeige unter den Checkboxen eine Vorschau:
+
+```text
+Vorschau des Beobachtungstextes
+```
+
+Der Text soll sich aktualisieren, sobald Beobachtungen ausgewählt oder geändert werden.
+
+Ergänze einen Button:
+
+```text
+Beobachtungstext übernehmen
+```
+
+Beim Speichern sollen sowohl die strukturierten Beobachtungen als auch der generierte Text gespeichert werden.
+
+## Datenbank
+
+Prüfe zuerst, welche Tabellen bereits vorhanden sind.
+
+Speichere nach Möglichkeit:
+
+* Spieler-ID
+* Test-ID
+* Testdatensatz-ID
+* Testdatum
+* Beobachtungs-ID
+* ausgewählt ja/nein
+* Ausprägung
+* Seite
+* positiver, neutraler oder auffälliger Typ
+* Textbaustein
+* Freitext
+* generierter Beobachtungstext
+* Erstellungszeitpunkt
+* Änderungszeitpunkt
+* Trainer oder Benutzer, falls vorhanden
+
+Verwende möglichst eine eigene Tabelle, zum Beispiel:
+
+```sql
+test_observations
+```
+
+oder:
+
+```sql
+test_observation_entries
+```
+
+Eine mögliche Struktur:
+
+```sql
+CREATE TABLE IF NOT EXISTS test_observation_entries (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    player_id INTEGER NOT NULL,
+    test_result_id INTEGER,
+    test_id TEXT NOT NULL,
+    observation_id TEXT NOT NULL,
+    observation_label TEXT NOT NULL,
+    observation_type TEXT,
+    severity TEXT,
+    side TEXT,
+    report_text TEXT,
+    created_at TEXT,
+    updated_at TEXT
+);
+```
+
+Für den Gesamttext kann eine weitere Tabelle oder ein bestehendes Bemerkungsfeld verwendet werden.
+
+Ändere die Datenbank nur mit einer sauberen Migration.
+
+Vorher Sicherung erstellen.
+
+Bestehende Daten dürfen nicht verloren gehen.
+
+## PDF-Bericht
+
+Ergänze den Beobachtungstext im PDF-Bericht.
+
+Abschnitt:
+
+```text
+Trainerbeobachtungen
+```
+
+Darstellung:
+
+```text
+Positiv fiel auf, dass …
+
+Während des Tests war jedoch zu beobachten, dass …
+
+Zusätzliche Trainerbeobachtung:
+…
+```
+
+Der Abschnitt soll nur erscheinen, wenn Beobachtungen oder Freitext vorhanden sind.
+
+Optional soll im PDF zusätzlich eine kompakte strukturierte Übersicht angezeigt werden:
+
+| Kategorie | Beobachtung | Seite | Ausprägung |
+| --------- | ----------- | ----- | ---------- |
+
+Im normalen Bericht soll jedoch zuerst der flüssige Beobachtungstext stehen.
+
+## Beobachtungen für alle Tests
+
+Erstelle für jeden tatsächlich vorhandenen Test eigene Beobachtungen.
+
+Erfinde keine Tests, die in meinem Projekt nicht vorhanden sind.
+
+Wenn die folgenden Tests vorhanden sind, hinterlege mindestens die folgenden Beobachtungen.
+
+# 1. FMS Deep Squat
+
+## Fuß und Sprunggelenk
+
+* Fersen heben vom Boden ab.
+* Füße drehen deutlich nach außen.
+* Füße drehen deutlich nach innen.
+* Fußgewölbe fällt nach innen ab.
+* Standfläche verändert sich während der Bewegung.
+* Belastung der Füße erfolgt ungleichmäßig.
+* Fußposition bleibt stabil.
+* Fersen behalten durchgehend Bodenkontakt.
+
+## Knie und Beinachse
+
+* Knie fallen nach innen.
+* Knie weichen nach außen aus.
+* Knie bewegen sich nicht parallel.
+* Rechte und linke Kniebewegung sind unterschiedlich.
+* Kniebewegung bleibt kontrolliert.
+* Beinachse bleibt stabil.
+
+## Hüfte und Becken
+
+* Becken weicht nach rechts aus.
+* Becken weicht nach links aus.
+* Gewicht wird stärker auf das rechte Bein verlagert.
+* Gewicht wird stärker auf das linke Bein verlagert.
+* Becken kippt am tiefsten Punkt nach hinten.
+* Hüfte erreicht keine ausreichende Tiefe.
+* Hüfte bewegt sich kontrolliert nach hinten und unten.
+* Becken bleibt stabil ausgerichtet.
+
+## Rumpf
+
+* Oberkörper kippt deutlich nach vorne.
+* Rumpf weicht seitlich aus.
+* Rumpf rotiert.
+* Rücken rundet sich im unteren Bewegungsabschnitt.
+* Rumpf bleibt stabil.
+* Oberkörper bleibt kontrolliert aufgerichtet.
+
+## Arme und Schulterbereich
+
+* Arme fallen nach vorne.
+* Arme bewegen sich asymmetrisch.
+* Stab bleibt nicht über der Körpermitte.
+* Ellenbogen beugen sich.
+* Arme bleiben stabil über dem Kopf.
+
+## Bewegungsqualität
+
+* Bewegung wirkt ruckartig.
+* Gleichgewicht geht verloren.
+* Bewegung wird vorzeitig beendet.
+* Bewegungstempo ist uneinheitlich.
+* Bewegung erfolgt kontrolliert.
+* Bewegung erfolgt flüssig und gleichmäßig.
+
+# 2. FMS Hurdle Step
+
+## Standbein
+
+* Standbein wirkt instabil.
+* Knie des Standbeins fällt nach innen.
+* Knie des Standbeins weicht nach außen aus.
+* Ferse des Standbeins hebt ab.
+* Standfuß verändert seine Position.
+* Standbein bleibt stabil.
+
+## Spielbein
+
+* Spielbein schwingt nach außen.
+* Spielbein schwingt nach innen.
+* Fuß berührt die Hürde.
+* Fußspitze wird nicht angezogen.
+* Bein wird nicht geradlinig über die Hürde geführt.
+* Beinbewegung erfolgt kontrolliert.
+
+## Becken
+
+* Becken kippt zur Seite.
+* Becken rotiert.
+* Becken hebt sich auf einer Seite an.
+* Becken bleibt stabil.
+
+## Rumpf
+
+* Oberkörper weicht zur Seite aus.
+* Oberkörper kippt nach vorne.
+* Rumpf rotiert.
+* Rumpf bleibt aufgerichtet.
+
+## Gleichgewicht und Bewegung
+
+* Gleichgewicht geht verloren.
+* Fuß muss zusätzlich aufgesetzt werden.
+* Bewegung wird zu schnell ausgeführt.
+* Bewegung wirkt unsicher.
+* Bewegung erfolgt ruhig und kontrolliert.
+
+# 3. FMS Inline Lunge
+
+## Fußstellung
+
+* Füße verlassen die vorgegebene Linie.
+* Vorderer Fuß dreht nach außen.
+* Vorderer Fuß dreht nach innen.
+* Hinterer Fuß verändert seine Position.
+* Füße bleiben korrekt auf der Linie.
+
+## Knie und Beinachse
+
+* Vorderes Knie fällt nach innen.
+* Vorderes Knie weicht nach außen aus.
+* Hinteres Knie verfehlt die vorgesehene Position.
+* Beinachse wirkt instabil.
+* Kniebewegung bleibt kontrolliert.
+
+## Hüfte und Becken
+
+* Becken dreht sich.
+* Becken weicht seitlich aus.
+* Hüfte wird nicht ausreichend abgesenkt.
+* Becken bleibt stabil.
+
+## Rumpf
+
+* Oberkörper kippt nach vorne.
+* Oberkörper weicht zur Seite aus.
+* Rumpf rotiert.
+* Stab verliert den Kontakt zum Körper.
+* Rumpf bleibt aufgerichtet und stabil.
+
+## Gleichgewicht
+
+* Gleichgewicht geht verloren.
+* Bewegung wird unterbrochen.
+* Zusätzlicher Ausgleichsschritt notwendig.
+* Bewegung erfolgt kontrolliert.
+
+# 4. FMS Shoulder Mobility
+
+## Bewegungsumfang
+
+* Hände erreichen den vorgegebenen Abstand nicht.
+* Rechte Seite zeigt einen geringeren Bewegungsumfang.
+* Linke Seite zeigt einen geringeren Bewegungsumfang.
+* Deutlicher Seitenunterschied.
+* Bewegungsumfang ist beidseitig vergleichbar.
+
+## Ausführung
+
+* Hände werden nicht geradlinig hinter dem Rücken geführt.
+* Finger werden geöffnet.
+* Rumpf wird verdreht.
+* Kopf oder Oberkörper weicht aus.
+* Bewegung wird kontrolliert ausgeführt.
+
+## Beschwerden
+
+* Spieler gibt Beschwerden auf der rechten Seite an.
+* Spieler gibt Beschwerden auf der linken Seite an.
+* Test wird wegen Beschwerden abgebrochen.
+
+# 5. FMS Active Straight Leg Raise
+
+## Angehobenes Bein
+
+* Knie des angehobenen Beins beugt sich.
+* Bein wird nach außen geführt.
+* Bein wird nach innen geführt.
+* Fußspitze wird nicht angezogen.
+* Bewegungsumfang ist eingeschränkt.
+* Bein wird kontrolliert angehoben.
+
+## Gegenbein
+
+* Gegenbein hebt vom Boden ab.
+* Knie des Gegenbeins beugt sich.
+* Gegenbein dreht nach außen.
+* Gegenbein bleibt stabil am Boden.
+
+## Becken und Rumpf
+
+* Becken dreht sich mit.
+* Becken kippt.
+* Rumpf bewegt sich sichtbar mit.
+* Becken und Rumpf bleiben stabil.
+
+## Seitenvergleich
+
+* Rechte Seite zeigt einen geringeren Bewegungsumfang.
+* Linke Seite zeigt einen geringeren Bewegungsumfang.
+* Bewegung ist beidseitig vergleichbar.
+
+# 6. FMS Trunk Stability Push-Up
+
+## Ausgangsposition
+
+* Hände befinden sich nicht in der vorgesehenen Position.
+* Füße stehen zu weit auseinander.
+* Kopfposition wird verändert.
+* Ausgangsposition wird korrekt gehalten.
+
+## Rumpfkontrolle
+
+* Hüfte hebt vor dem Oberkörper ab.
+* Oberkörper hebt vor der Hüfte ab.
+* Becken sinkt während der Bewegung ab.
+* Rücken wird überstreckt.
+* Rumpf bleibt als Einheit stabil.
+
+## Arme und Schultern
+
+* Ellenbogen weichen stark nach außen aus.
+* Schulterposition wirkt instabil.
+* Arme strecken sich nicht vollständig.
+* Arme arbeiten gleichmäßig.
+
+## Bewegung
+
+* Bewegung kann nicht vollständig ausgeführt werden.
+* Mehrere Anläufe notwendig.
+* Bewegung erfolgt ruckartig.
+* Bewegung erfolgt kontrolliert.
+
+# 7. FMS Rotary Stability
+
+## Stützseite
+
+* Stützarm wirkt instabil.
+* Stützbein wirkt instabil.
+* Ellenbogen beugt sich deutlich.
+* Standfläche wird verändert.
+* Stützseite bleibt stabil.
+
+## Bewegungsseite
+
+* Arm und Bein werden nicht gleichzeitig bewegt.
+* Arm oder Bein weicht seitlich aus.
+* Knie und Ellenbogen finden nicht kontrolliert zusammen.
+* Bewegung wird kontrolliert ausgeführt.
+
+## Rumpf und Becken
+
+* Rumpf rotiert.
+* Becken kippt zur Seite.
+* Rücken wird überstreckt.
+* Rumpf und Becken bleiben stabil.
+
+## Gleichgewicht
+
+* Gleichgewicht geht verloren.
+* Hand oder Knie muss zusätzlich aufgesetzt werden.
+* Bewegung wird unterbrochen.
+* Bewegung erfolgt ruhig und kontrolliert.
+
+# 8. Y-Balance Anterior
+
+## Standbein
+
+* Standbein wirkt instabil.
+* Knie fällt nach innen.
+* Knie weicht nach außen aus.
+* Ferse hebt ab.
+* Standfuß verändert seine Position.
+* Standbein bleibt stabil.
+
+## Bewegungsbein
+
+* Fuß setzt auf dem Boden auf.
+* Reichweite wird mit Schwung erreicht.
+* Fuß schiebt den Messkörper nicht kontrolliert.
+* Bewegungsbein wird kontrolliert geführt.
+
+## Becken und Rumpf
+
+* Becken kippt zur Seite.
+* Becken rotiert.
+* Oberkörper weicht stark aus.
+* Rumpf und Becken bleiben stabil.
+
+## Testdurchführung
+
+* Gleichgewicht geht verloren.
+* Versuch muss wiederholt werden.
+* Rückkehr in die Ausgangsposition gelingt nicht kontrolliert.
+* Versuch wird korrekt abgeschlossen.
+
+# 9. Y-Balance Posteromedial
+
+* Standbein wirkt instabil.
+* Knie des Standbeins fällt nach innen.
+* Ferse hebt ab.
+* Becken rotiert.
+* Becken kippt zur Seite.
+* Oberkörper weicht stark aus.
+* Bewegungsfuß setzt auf.
+* Messkörper wird nicht kontrolliert bewegt.
+* Gleichgewicht geht verloren.
+* Rückkehr in die Ausgangsposition gelingt nicht kontrolliert.
+* Bewegung wird kontrolliert ausgeführt.
+* Versuch wird korrekt abgeschlossen.
+
+# 10. Y-Balance Posterolateral
+
+* Standbein wirkt instabil.
+* Knie des Standbeins fällt nach innen.
+* Ferse hebt ab.
+* Hüfte weicht seitlich aus.
+* Becken dreht auf.
+* Rumpf rotiert.
+* Bewegungsfuß setzt auf.
+* Bewegungsbein wird nicht kontrolliert geführt.
+* Gleichgewicht geht verloren.
+* Versuch muss wiederholt werden.
+* Bewegung erfolgt kontrolliert.
+* Versuch wird korrekt abgeschlossen.
+
+# 11. Sprint 5 Meter
+
+## Start
+
+* Reaktion auf das Startsignal erfolgt verzögert.
+* Startposition wirkt instabil.
+* Gewicht liegt zu weit hinten.
+* Erster Schritt erfolgt seitlich.
+* Erster Schritt ist sehr kurz.
+* Start erfolgt explosiv.
+* Startposition wird stabil gehalten.
+
+## Beschleunigung
+
+* Oberkörper richtet sich sehr früh auf.
+* Schrittfrequenz ist gering.
+* Arme arbeiten wenig aktiv mit.
+* Arme bewegen sich seitlich.
+* Beine schwingen nach außen.
+* Beine schwingen nach innen.
+* Beschleunigung erfolgt kontrolliert.
+* Schritte werden zunehmend länger.
+
+## Fußaufsatz
+
+* Fuß setzt weit vor dem Körper auf.
+* Fußaufsatz wirkt laut oder bremsend.
+* Rechte und linke Seite unterscheiden sich deutlich.
+* Fußaufsatz erfolgt aktiv unter dem Körper.
+
+# 12. Sprint 10 Meter
+
+* Start erfolgt verzögert.
+* Erster Schritt erfolgt seitlich.
+* Oberkörper richtet sich früh auf.
+* Beschleunigungsposition wird zu früh verlassen.
+* Arme arbeiten wenig aktiv mit.
+* Arme kreuzen vor dem Körper.
+* Beine schwingen nach außen.
+* Beine schwingen nach innen.
+* Schritte wirken sehr kurz.
+* Schrittfrequenz wirkt gering.
+* Fußaufsatz erfolgt weit vor dem Körper.
+* Laufbewegung wirkt asymmetrisch.
+* Beschleunigung erfolgt gleichmäßig.
+* Armeinsatz unterstützt die Laufbewegung.
+* Laufbewegung wirkt flüssig.
+
+# 13. Sprint 20 Meter
+
+* Beschleunigung wird nicht durchgehend aufgebaut.
+* Oberkörper richtet sich sehr früh auf.
+* Tempo nimmt vor der Ziellinie ab.
+* Armeinsatz wird im Verlauf geringer.
+* Beine schwingen nach außen.
+* Beine schwingen nach innen.
+* Laufbewegung wirkt seitlich unruhig.
+* Schrittlänge ist rechts und links unterschiedlich.
+* Fußaufsatz wirkt bremsend.
+* Spieler läuft nicht vollständig durch die Ziellinie.
+* Geschwindigkeit wird gleichmäßig aufgebaut.
+* Sprint wird vollständig durchgezogen.
+
+# 14. Sprint 30 Meter
+
+* Maximale Laufgeschwindigkeit wird nicht gehalten.
+* Tempo fällt vor dem Ziel ab.
+* Spieler beginnt vor der Ziellinie abzubremsen.
+* Oberkörper bewegt sich stark seitlich.
+* Schultern wirken angespannt.
+* Arme arbeiten nicht geradlinig.
+* Beine schwingen nach außen.
+* Schrittlänge ist asymmetrisch.
+* Schrittfrequenz nimmt deutlich ab.
+* Fußaufsatz erfolgt weit vor dem Körper.
+* Laufbewegung bleibt stabil.
+* Sprint wird bis hinter die Ziellinie durchgeführt.
+
+# 15. Countermovement Jump
+
+## Ausgangsbewegung
+
+* Abwärtsbewegung erfolgt sehr langsam.
+* Abwärtsbewegung erfolgt ruckartig.
+* Knie fallen nach innen.
+* Knie weichen nach außen aus.
+* Gewicht wird auf eine Seite verlagert.
+* Bewegung erfolgt kontrolliert.
+
+## Absprung
+
+* Arme werden unterschiedlich eingesetzt.
+* Absprung erfolgt überwiegend über ein Bein.
+* Hüfte wird nicht vollständig gestreckt.
+* Absprung erfolgt explosiv und beidbeinig.
+
+## Flugphase
+
+* Körper dreht sich in der Luft.
+* Beine werden seitlich geführt.
+* Körper bleibt stabil ausgerichtet.
+
+## Landung
+
+* Knie fallen bei der Landung nach innen.
+* Landung erfolgt mit gestreckten Knien.
+* Landung erfolgt überwiegend auf einem Bein.
+* Füße landen deutlich versetzt.
+* Spieler muss einen Ausgleichsschritt machen.
+* Landung ist laut und hart.
+* Landung erfolgt weich und kontrolliert.
+* Gleichgewicht wird nach der Landung gehalten.
+
+# 16. Squat Jump
+
+* Ausgangsposition wird nicht ruhig gehalten.
+* Spieler nutzt eine zusätzliche Gegenbewegung.
+* Kniewinkel verändert sich vor dem Absprung.
+* Gewicht ist ungleichmäßig verteilt.
+* Knie fallen nach innen.
+* Absprung erfolgt überwiegend einbeinig.
+* Arme werden trotz Vorgabe eingesetzt.
+* Hüfte wird nicht vollständig gestreckt.
+* Landung erfolgt instabil.
+* Landung erfolgt überwiegend auf einer Seite.
+* Ausgangsposition wird korrekt gehalten.
+* Absprung erfolgt explosiv.
+* Landung erfolgt kontrolliert.
+
+# 17. Drop Jump
+
+* Landung nach dem Heruntertreten erfolgt instabil.
+* Spieler springt aktiv von der Box ab.
+* Bodenkontakt dauert sichtbar lange.
+* Knie fallen beim Bodenkontakt nach innen.
+* Oberkörper kippt stark nach vorne.
+* Fersen setzen deutlich auf.
+* Absprung erfolgt verzögert.
+* Armeinsatz ist uneinheitlich.
+* Absprung erfolgt überwiegend über ein Bein.
+* Zweite Landung ist instabil.
+* Bodenkontakt erfolgt kurz und aktiv.
+* Absprung erfolgt reaktiv.
+* Landung erfolgt kontrolliert.
+
+# 18. Standweitsprung
+
+* Ausholbewegung erfolgt ruckartig.
+* Arme werden wenig genutzt.
+* Absprung erfolgt überwiegend über ein Bein.
+* Knie fallen beim Absprung nach innen.
+* Hüfte wird nicht vollständig gestreckt.
+* Körper dreht sich in der Flugphase.
+* Füße landen versetzt.
+* Hände berühren nach der Landung den Boden.
+* Spieler fällt nach hinten.
+* Spieler macht einen Ausgleichsschritt.
+* Absprung erfolgt beidbeinig und explosiv.
+* Landung erfolgt stabil und kontrolliert.
+
+# 19. Einbeiniger Sprung
+
+* Standbein wirkt vor dem Absprung instabil.
+* Knie fällt vor dem Absprung nach innen.
+* Absprung erfolgt seitlich statt nach vorne oder oben.
+* Armeinsatz ist unkoordiniert.
+* Becken kippt während des Absprungs.
+* Landung erfolgt nicht auf dem vorgesehenen Bein.
+* Knie fällt bei der Landung nach innen.
+* Landung kann nicht stabil gehalten werden.
+* Zusätzlicher Ausgleichsschritt notwendig.
+* Seitenunterschied zwischen rechts und links sichtbar.
+* Absprung erfolgt kontrolliert.
+* Landung wird stabil gehalten.
+
+# 20. 505-Richtungswechseltest
+
+## Anlauf
+
+* Anlaufgeschwindigkeit ist zu gering.
+* Schritte vor der Wende werden deutlich verkürzt.
+* Spieler bremst sehr früh ab.
+* Anlauf erfolgt kontrolliert und schnell.
+
+## Abbremsen
+
+* Fuß setzt weit vor dem Körper auf.
+* Oberkörper bleibt zu aufrecht.
+* Körperschwerpunkt wird nicht ausreichend abgesenkt.
+* Knie fällt beim Abbremsen nach innen.
+* Mehrere kleine Bremsschritte notwendig.
+* Abbremsen erfolgt kontrolliert.
+
+## Wende
+
+* Wendefuß steht nicht vollständig auf.
+* Fuß dreht stark nach außen.
+* Spieler verliert das Gleichgewicht.
+* Spieler berührt die Linie nicht korrekt.
+* Wende erfolgt über die falsche Seite.
+* Wende erfolgt schnell und stabil.
+
+## Beschleunigung nach der Wende
+
+* Erster Schritt erfolgt seitlich.
+* Oberkörper richtet sich zu früh auf.
+* Arme arbeiten wenig aktiv mit.
+* Spieler beschleunigt schnell aus der Wende.
+
+## Seitenvergleich
+
+* Rechte Wendeseite wirkt langsamer.
+* Linke Wendeseite wirkt langsamer.
+* Rechte Wendeseite wirkt instabiler.
+* Linke Wendeseite wirkt instabiler.
+* Beide Seiten werden vergleichbar ausgeführt.
+
+# 21. 5-10-5 Shuttle
+
+* Startposition wirkt instabil.
+* Erster Schritt erfolgt in die falsche Richtung.
+* Spieler richtet sich vor dem Start zu früh auf.
+* Linie wird nicht korrekt berührt.
+* Wendeschritte sind zu groß.
+* Mehrere kleine Bremsschritte notwendig.
+* Knie fällt bei der Wende nach innen.
+* Oberkörper bleibt bei der Wende zu aufrecht.
+* Spieler verliert das Gleichgewicht.
+* Richtungswechsel zur rechten Seite wirkt langsamer.
+* Richtungswechsel zur linken Seite wirkt langsamer.
+* Arme unterstützen den Richtungswechsel wenig.
+* Richtungswechsel erfolgen schnell und kontrolliert.
+* Linien werden korrekt berührt.
+* Laufweg wird vollständig eingehalten.
+
+# 22. T-Test
+
+* Start erfolgt verzögert.
+* Vorwärtsbeschleunigung ist gering.
+* Seitbewegung wird mit Überkreuzschritten durchgeführt.
+* Füße kreuzen sich entgegen der Testvorgabe.
+* Oberkörper richtet sich bei der Seitbewegung stark auf.
+* Hütchen werden nicht korrekt berührt.
+* Spieler dreht den Körper vollständig zur Seite.
+* Richtungswechsel erfolgen mit zusätzlichen Schritten.
+* Rückwärtslauf wirkt unsicher.
+* Gleichgewicht geht verloren.
+* Laufweg wird nicht vollständig eingehalten.
+* Seitbewegung erfolgt kontrolliert.
+* Richtungswechsel erfolgen schnell.
+* Rückwärtslauf wird stabil ausgeführt.
+
+# 23. Illinois-Test
+
+* Start aus der Bauchlage erfolgt verzögert.
+* Aufstehen dauert lange.
+* Spieler berührt Markierungen.
+* Slalomweg wird nicht korrekt eingehalten.
+* Richtungswechsel erfolgen sehr weitläufig.
+* Oberkörper bleibt bei Wendungen zu aufrecht.
+* Spieler verliert das Gleichgewicht.
+* Schrittlänge ist bei den Wendungen ungeeignet.
+* Tempo nimmt im Test deutlich ab.
+* Spieler bremst vor der Ziellinie ab.
+* Laufweg wird korrekt eingehalten.
+* Slalom wird eng und kontrolliert durchgeführt.
+* Spieler läuft vollständig durch das Ziel.
+
+# 24. Yo-Yo-Test
+
+## Laufverhalten
+
+* Spieler erreicht die Linie zu früh.
+* Spieler erreicht die Linie zu spät.
+* Linie wird nicht vollständig überquert.
+* Wendung erfolgt vor der Linie.
+* Wendung erfolgt mit vielen kleinen Schritten.
+* Spieler verliert bei der Wende das Gleichgewicht.
+* Laufgeschwindigkeit wird gut an das Signal angepasst.
+* Linien werden korrekt erreicht.
+
+## Erholungsphase
+
+* Erholungszone wird nicht vollständig genutzt.
+* Spieler bleibt während der Erholung stehen.
+* Spieler beginnt zu spät mit dem nächsten Lauf.
+* Erholungsphase wird regelgerecht durchgeführt.
+
+## Belastungsverhalten
+
+* Lauftechnik verändert sich im Testverlauf deutlich.
+* Oberkörperhaltung wird zunehmend instabil.
+* Armeinsatz nimmt deutlich ab.
+* Schritte werden deutlich kürzer.
+* Tempo kann nicht mehr gehalten werden.
+* Spieler bricht ohne vorherige Fehlversuche ab.
+* Spieler hält das vorgegebene Tempo kontrolliert ein.
+
+## Abbruch und Beschwerden
+
+* Test wird nach zwei Fehlversuchen beendet.
+* Test wird auf Wunsch des Spielers beendet.
+* Spieler gibt Beschwerden an.
+* Test wird aus Sicherheitsgründen abgebrochen.
+
+# 25. Körpergröße
+
+* Spieler steht nicht vollständig aufrecht.
+* Kopf befindet sich nicht in neutraler Position.
+* Fersen stehen nicht zusammen.
+* Fersen verlieren den Bodenkontakt.
+* Messgerät liegt nicht waagerecht auf.
+* Spieler trägt Schuhe.
+* Messung wird nach Korrektur wiederholt.
+* Messposition wird korrekt eingehalten.
+
+# 26. Sitzhöhe
+
+* Spieler sitzt nicht vollständig aufrecht.
+* Becken ist seitlich verschoben.
+* Füße stehen nicht ruhig.
+* Kopfposition ist nicht neutral.
+* Messgerät liegt nicht korrekt auf.
+* Spieler richtet sich während der Messung auf.
+* Sitzposition wird korrekt eingehalten.
+
+# 27. Beinlänge
+
+* Messpunkte sind nicht eindeutig bestimmt.
+* Spieler verändert während der Messung seine Position.
+* Becken steht nicht gerade.
+* Rechter und linker Messwert unterscheiden sich deutlich.
+* Messung muss wiederholt werden.
+* Messposition bleibt stabil.
+
+# 28. Armspannweite
+
+* Arme werden nicht vollständig ausgestreckt.
+* Arme befinden sich nicht auf Schulterhöhe.
+* Rücken verliert den Kontakt zur Wand.
+* Fingerspitzen werden nicht korrekt erfasst.
+* Rechte und linke Armposition sind unterschiedlich.
+* Messposition wird korrekt eingehalten.
+
+# 29. Funktionelle Krafttests
+
+Erstelle für jeden tatsächlich vorhandenen Krafttest eigene Beobachtungen.
+
+Mögliche Kategorien:
+
+* Ausgangsposition
+* Bewegungsumfang
+* Rumpfstabilität
+* Beinachse
+* Schulterposition
+* Bewegungstempo
+* Symmetrie
+* Kompensation
+* Wiederholungsqualität
+* Testabbruch
+* positive Ausführung
+
+Beispiele:
+
+* Ausgangsposition wird nicht stabil gehalten.
+* Bewegungsumfang nimmt im Verlauf ab.
+* Bewegung wird zunehmend schneller.
+* Rumpf weicht seitlich aus.
+* Becken verliert die stabile Position.
+* Knie fällt nach innen.
+* Rechte und linke Seite unterscheiden sich.
+* Wiederholungen werden nicht vollständig ausgeführt.
+* Bewegung erfolgt kontrolliert.
+* Vorgegebener Bewegungsumfang wird eingehalten.
+
+## Keine widersprüchlichen Beobachtungen
+
+Verhindere möglichst widersprüchliche Auswahl.
+
+Beispiele:
+
+Nicht gleichzeitig auswählbar:
+
+* „Landung erfolgt instabil.“
+* „Landung erfolgt stabil und kontrolliert.“
+
+Oder:
+
+* „Knie fallen nach innen.“
+* „Beinachse bleibt durchgehend stabil.“
+
+Falls beide dennoch ausgewählt werden, zeige eine verständliche Warnung:
+
+„Bitte prüfe die Auswahl. Die Beobachtungen zur Beinachse widersprechen sich.“
+
+Hinterlege dafür optional:
+
+```python
+"conflicts_with": ["stable_leg_axis"]
+```
+
+## Beobachtungen zurücksetzen
+
+Ergänze einen Button:
+
+```text
+Beobachtungen zurücksetzen
+```
+
+Dieser Button darf nur die Beobachtungen des aktuell geöffneten Tests löschen.
+
+Andere Testergebnisse dürfen nicht verändert werden.
+
+## Vorhandene Beobachtungen bearbeiten
+
+Wenn ein gespeicherter Test erneut geöffnet wird:
+
+* gespeicherte Checkboxen vorauswählen
+* Ausprägung anzeigen
+* Seite anzeigen
+* Freitext laden
+* generierten Text anzeigen
+* Änderungen ermöglichen
+* Änderungen mit Zeitstempel speichern
+
+## Wiederverwendbare UI-Komponente
+
+Erstelle eine zentrale Funktion, zum Beispiel:
+
+```python
+render_observation_selector(
+    test_id: str,
+    player_id: int,
+    test_result_id: int | None = None,
+    mode: str = "standard"
+)
+```
+
+Rückgabe:
+
+```python
+{
+    "selected_observations": [],
+    "custom_text": "",
+    "generated_text": "",
+    "has_complaints": False
+}
+```
+
+Die Testseiten sollen nicht jeweils eigenen doppelten Beobachtungscode enthalten.
+
+## Fehlerbehandlung
+
+Die App darf nicht abstürzen, wenn:
+
+* zu einer Test-ID keine Beobachtungen vorhanden sind
+* eine alte Beobachtungs-ID nicht mehr existiert
+* ein Datenbankfeld leer ist
+* kein Freitext eingegeben wurde
+* keine Checkbox ausgewählt wurde
+* ein Test noch keine Ergebnis-ID besitzt
+* eine Datenbankmigration noch nicht durchgeführt wurde
+
+Zeige dann verständliche Hinweise.
+
+Beispiel:
+
+„Für diesen Test sind derzeit noch keine standardisierten Beobachtungen hinterlegt.“
+
+## Qualitätskontrolle
+
+Teste mindestens:
+
+1. Eine einzelne Beobachtung.
+2. Mehrere Beobachtungen.
+3. Positive und auffällige Beobachtungen zusammen.
+4. Beobachtung mit rechter Seite.
+5. Beobachtung mit linker Seite.
+6. Beobachtung mit beidseitiger Angabe.
+7. Beobachtung mit leichter Ausprägung.
+8. Beobachtung mit mittlerer Ausprägung.
+9. Beobachtung mit deutlicher Ausprägung.
+10. Beobachtung mit Freitext.
+11. Speichern und erneutes Laden.
+12. Bearbeiten einer gespeicherten Beobachtung.
+13. PDF-Ausgabe.
+14. Mobile Ansicht.
+15. Keine ausgewählte Beobachtung.
+16. Widersprüchliche Auswahl.
+17. Testabbruch wegen Beschwerden.
+18. Alte Datensätze ohne Beobachtungen.
+
+## Schrittweise Umsetzung
+
+Arbeite in diesen Phasen:
+
+### Phase 1
+
+Analysiere das Projekt und ändere noch keinen Code.
+
+Zeige:
+
+* alle gefundenen Tests
+* Test-IDs
+* betroffene Dateien
+* vorhandene Datenbanktabellen
+* vorhandene Berichtsfunktionen
+* vorhandene Bemerkungsfelder
+* geplante zentrale Beobachtungsstruktur
+* geplante Datenbankmigration
+
+### Phase 2
+
+Erstelle das zentrale Beobachtungssystem.
+
+Noch nicht alle Testseiten ändern.
+
+### Phase 3
+
+Setze zuerst drei Tests vollständig um:
+
+1. FMS Deep Squat
+2. Y-Balance Anterior
+3. 10-Meter-Sprint
+
+Teste:
+
+* Checkboxen
+* Standardmodus
+* Expertenmodus
+* Seite
+* Ausprägung
+* Freitext
+* Textvorschau
+* Speichern
+* erneutes Laden
+* PDF-Ausgabe
+
+### Phase 4
+
+Übertrage das System auf alle weiteren vorhandenen Tests.
+
+### Phase 5
+
+Führe einen vollständigen Funktionstest durch.
+
+## Abschlussbericht
+
+Zeige nach der Umsetzung:
+
+1. Neu erstellte Dateien.
+2. Geänderte Dateien.
+3. Datenbankmigration.
+4. Vollständige zentrale Beobachtungsstruktur.
+5. Vollständige UI-Komponente.
+6. Vollständige Textgenerierungsfunktion.
+7. Anpassungen am PDF-Bericht.
+8. Testergebnisse.
+9. Noch offene Punkte.
+10. Alle Test-IDs ohne Beobachtungseinträge.
+11. Alle Beobachtungen, die fachlich noch geprüft werden sollten.
+
+## Startauftrag
+
+Beginne jetzt mit Phase 1.
+
+Analysiere zuerst das gesamte bestehende Projekt.
+
+Ändere noch keinen produktiven Code.
+
+Erstelle danach die zentrale Struktur und implementiere zunächst nur:
+
+* FMS Deep Squat
+* Y-Balance Anterior
+* 10-Meter-Sprint
+
+Verwende keine Platzhalter.
+
+Gib immer vollständige geänderte Dateien aus.
+
+Die App muss nach jeder Änderung startfähig bleiben.
