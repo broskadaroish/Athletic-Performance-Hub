@@ -1,0 +1,80 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 200"
+     style="width:100%;max-width:360px;border-radius:8px;display:block;margin:0 auto"
+     role="img" aria-label="5-10-5 Shuttle: Drei Linien im Abstand von 4,57 m — Start Mitte, rechts, links, Mitte">
+  <rect width="360" height="200" rx="8" fill="#161b22"/>
+  <text x="180" y="18" text-anchor="middle" fill="#c9d1d9" font-family="system-ui,sans-serif" font-size="12" font-weight="600">5-10-5 Shuttle (Pro Agility)</text>
+
+  <!-- 3 vertical lines -->
+  <!-- Scale: 4.57 m each side → 110 px per side -->
+  <!-- Left line x=70, Center x=180, Right x=290 -->
+
+  <!-- Left line -->
+  <line x1="70" y1="45" x2="70" y2="155" stroke="#f0883e" stroke-width="2.5"/>
+  <text x="70" y="38" text-anchor="middle" fill="#f0883e" font-family="system-ui,sans-serif" font-size="10" font-weight="600">Linie L</text>
+  <!-- Cone left -->
+  <polygon points="70,143 78,159 62,159" fill="#f0883e" opacity="0.9"/>
+
+  <!-- Center line -->
+  <line x1="180" y1="45" x2="180" y2="155" stroke="#3fb950" stroke-width="2.5"/>
+  <text x="180" y="38" text-anchor="middle" fill="#3fb950" font-family="system-ui,sans-serif" font-size="10" font-weight="600">START / Mitte</text>
+  <!-- Cone center -->
+  <polygon points="180,143 188,159 172,159" fill="#3fb950" opacity="0.9"/>
+
+  <!-- Right line -->
+  <line x1="290" y1="45" x2="290" y2="155" stroke="#58a6ff" stroke-width="2.5"/>
+  <text x="290" y="38" text-anchor="middle" fill="#58a6ff" font-family="system-ui,sans-serif" font-size="10" font-weight="600">Linie R</text>
+  <!-- Cone right -->
+  <polygon points="290,143 298,159 282,159" fill="#58a6ff" opacity="0.9"/>
+
+  <!-- Floor line -->
+  <line x1="30" y1="160" x2="330" y2="160" stroke="#30363d" stroke-width="1.5"/>
+
+  <!-- === MOVEMENT PATHS (3 lanes to separate arrows) === -->
+  <defs>
+    <marker id="s-arr-r" markerWidth="7" markerHeight="5" refX="6" refY="2.5" orient="auto">
+      <polygon points="0 0,7 2.5,0 5" fill="#58a6ff"/>
+    </marker>
+    <marker id="s-arr-l" markerWidth="7" markerHeight="5" refX="6" refY="2.5" orient="auto">
+      <polygon points="0 0,7 2.5,0 5" fill="#f0883e"/>
+    </marker>
+    <marker id="s-arr-fin" markerWidth="7" markerHeight="5" refX="6" refY="2.5" orient="auto">
+      <polygon points="0 0,7 2.5,0 5" fill="#d29922"/>
+    </marker>
+  </defs>
+
+  <!-- ① Center → Right (y=80) -->
+  <line x1="182" y1="80" x2="288" y2="80" stroke="#58a6ff" stroke-width="2.5" marker-end="url(#s-arr-r)"/>
+  <text x="235" y="74" text-anchor="middle" fill="#58a6ff" font-family="system-ui,sans-serif" font-size="10" font-weight="600">① 5 m →</text>
+
+  <!-- Touch right line indicator -->
+  <circle cx="290" cy="80" r="5" fill="none" stroke="#58a6ff" stroke-width="2"/>
+  <text x="308" y="84" fill="#58a6ff" font-family="system-ui,sans-serif" font-size="8">touch</text>
+
+  <!-- ② Right → Left (y=100) -->
+  <line x1="288" y1="100" x2="72" y2="100" stroke="#f0883e" stroke-width="2.5" marker-end="url(#s-arr-l)"/>
+  <text x="180" y="94" text-anchor="middle" fill="#f0883e" font-family="system-ui,sans-serif" font-size="10" font-weight="600">② ← 10 m</text>
+
+  <!-- Touch left line indicator -->
+  <circle cx="70" cy="100" r="5" fill="none" stroke="#f0883e" stroke-width="2"/>
+  <text x="30" y="104" text-anchor="middle" fill="#f0883e" font-family="system-ui,sans-serif" font-size="8">touch</text>
+
+  <!-- ③ Left → Center/Finish (y=120) -->
+  <line x1="72" y1="120" x2="178" y2="120" stroke="#d29922" stroke-width="2.5" marker-end="url(#s-arr-fin)"/>
+  <text x="124" y="114" text-anchor="middle" fill="#d29922" font-family="system-ui,sans-serif" font-size="10" font-weight="600">③ 5 m → Ziel</text>
+
+  <!-- === DIMENSION LABELS === -->
+  <!-- Left side -->
+  <line x1="70" y1="168" x2="180" y2="168" stroke="#8b949e" stroke-width="1"/>
+  <line x1="70" y1="163" x2="70" y2="173" stroke="#8b949e" stroke-width="1"/>
+  <line x1="180" y1="163" x2="180" y2="173" stroke="#8b949e" stroke-width="1"/>
+  <text x="125" y="179" text-anchor="middle" fill="#8b949e" font-family="system-ui,sans-serif" font-size="9">4,57 m (5 yd)</text>
+
+  <!-- Right side -->
+  <line x1="180" y1="168" x2="290" y2="168" stroke="#8b949e" stroke-width="1"/>
+  <line x1="290" y1="163" x2="290" y2="173" stroke="#8b949e" stroke-width="1"/>
+  <text x="235" y="179" text-anchor="middle" fill="#8b949e" font-family="system-ui,sans-serif" font-size="9">4,57 m (5 yd)</text>
+
+  <!-- Total -->
+  <line x1="70" y1="185" x2="290" y2="185" stroke="#8b949e" stroke-width="1" stroke-dasharray="3,2"/>
+  <text x="180" y="196" text-anchor="middle" fill="#8b949e" font-family="system-ui,sans-serif" font-size="9">Gesamt: 9,14 m (10 yd) · Richtung frei wählbar (R oder L zuerst)</text>
+</svg>

@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 220"
+     style="width:100%;max-width:360px;border-radius:8px;display:block;margin:0 auto"
+     role="img" aria-label="T-Test: T-förmiger Agilitätsparcours mit 4 Hütchen, Maße 9,14 m × 9,14 m">
+  <rect width="360" height="220" rx="8" fill="#161b22"/>
+  <text x="180" y="18" text-anchor="middle" fill="#c9d1d9" font-family="system-ui,sans-serif" font-size="12" font-weight="600">T-Test — Mehrdirektionale Agilität</text>
+
+  <!-- Grid reference lines (light) -->
+  <!-- Vertical center -->
+  <line x1="180" y1="40" x2="180" y2="185" stroke="#21262d" stroke-width="1"/>
+  <!-- Horizontal top bar -->
+  <line x1="60" y1="55" x2="300" y2="55" stroke="#21262d" stroke-width="1"/>
+
+  <!-- === CONES === -->
+  <!-- Cone A (top-left) -->
+  <polygon points="60,44 68,60 52,60" fill="#f0883e" opacity="0.9"/>
+  <text x="60" y="74" text-anchor="middle" fill="#f0883e" font-family="system-ui,sans-serif" font-size="11" font-weight="700">A</text>
+
+  <!-- Cone C (top-center) -->
+  <polygon points="180,44 188,60 172,60" fill="#3fb950" opacity="0.9"/>
+  <text x="180" y="74" text-anchor="middle" fill="#3fb950" font-family="system-ui,sans-serif" font-size="11" font-weight="700">C</text>
+
+  <!-- Cone B (top-right) -->
+  <polygon points="300,44 308,60 292,60" fill="#f0883e" opacity="0.9"/>
+  <text x="300" y="74" text-anchor="middle" fill="#f0883e" font-family="system-ui,sans-serif" font-size="11" font-weight="700">B</text>
+
+  <!-- Start / D (bottom-center) -->
+  <polygon points="180,168 188,184 172,184" fill="#58a6ff" opacity="0.9"/>
+  <text x="180" y="198" text-anchor="middle" fill="#58a6ff" font-family="system-ui,sans-serif" font-size="11" font-weight="700">Start / D</text>
+
+  <!-- === MOVEMENT PATH === -->
+  <!-- 1: Start → C (forward sprint) -->
+  <defs>
+    <marker id="arr" markerWidth="7" markerHeight="5" refX="6" refY="2.5" orient="auto">
+      <polygon points="0 0,7 2.5,0 5" fill="#d29922"/>
+    </marker>
+    <marker id="arr-b" markerWidth="7" markerHeight="5" refX="1" refY="2.5" orient="auto-start-reverse">
+      <polygon points="0 0,7 2.5,0 5" fill="#58a6ff"/>
+    </marker>
+  </defs>
+
+  <!-- Sprint up: Start → C -->
+  <line x1="180" y1="168" x2="180" y2="68" stroke="#d29922" stroke-width="2" stroke-dasharray="6,3" marker-end="url(#arr)"/>
+  <text x="188" y="120" fill="#d29922" font-family="system-ui,sans-serif" font-size="9">① sprint</text>
+
+  <!-- Shuffle left: C → A -->
+  <line x1="174" y1="58" x2="74" y2="58" stroke="#3fb950" stroke-width="2" marker-end="url(#arr)"/>
+  <text x="117" y="50" text-anchor="middle" fill="#3fb950" font-family="system-ui,sans-serif" font-size="9">② seitwärts L</text>
+
+  <!-- Shuffle right: A → B -->
+  <line x1="68" y1="52" x2="292" y2="52" stroke="#f0883e" stroke-width="2" marker-end="url(#arr)"/>
+  <text x="180" y="44" text-anchor="middle" fill="#f0883e" font-family="system-ui,sans-serif" font-size="9">③ seitwärts R</text>
+
+  <!-- Shuffle left: B → C -->
+  <line x1="293" y1="58" x2="188" y2="58" stroke="#3fb950" stroke-width="2" marker-end="url(#arr)"/>
+  <text x="244" y="72" text-anchor="middle" fill="#3fb950" font-family="system-ui,sans-serif" font-size="9">④ seitwärts L</text>
+
+  <!-- Backward: C → Start -->
+  <line x1="176" y1="68" x2="176" y2="164" stroke="#58a6ff" stroke-width="2" stroke-dasharray="6,3" marker-end="url(#arr)"/>
+  <text x="163" y="120" text-anchor="middle" fill="#58a6ff" font-family="system-ui,sans-serif" font-size="9">⑤ rück</text>
+
+  <!-- === DIMENSIONS === -->
+  <!-- A-C distance -->
+  <line x1="60" y1="85" x2="180" y2="85" stroke="#8b949e" stroke-width="1" marker-start="url(#arr-b)" marker-end="url(#arr)"/>
+  <text x="120" y="96" text-anchor="middle" fill="#8b949e" font-family="system-ui,sans-serif" font-size="9">4,57 m</text>
+
+  <!-- C-B distance -->
+  <line x1="180" y1="85" x2="300" y2="85" stroke="#8b949e" stroke-width="1" marker-start="url(#arr-b)" marker-end="url(#arr)"/>
+  <text x="240" y="96" text-anchor="middle" fill="#8b949e" font-family="system-ui,sans-serif" font-size="9">4,57 m</text>
+
+  <!-- C-Start distance -->
+  <line x1="310" y1="60" x2="310" y2="180" stroke="#8b949e" stroke-width="1" marker-start="url(#arr-b)" marker-end="url(#arr)"/>
+  <text x="332" y="122" text-anchor="middle" fill="#8b949e" font-family="system-ui,sans-serif" font-size="9">9,14 m</text>
+
+  <!-- Footer -->
+  <rect x="10" y="204" width="340" height="14" rx="3" fill="#21262d" opacity="0.8"/>
+  <text x="180" y="214" text-anchor="middle" fill="#8b949e" font-family="system-ui,sans-serif" font-size="8">Seitwärts immer Kreuzschritt · nie Hütchen überqueren · Zeitmessung manuell oder Lichtschranke</text>
+</svg>

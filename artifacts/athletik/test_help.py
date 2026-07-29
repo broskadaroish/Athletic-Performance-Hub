@@ -325,11 +325,11 @@ TEST_HELP: dict[str, dict] = {
         "datum": "2026-07-29",
         "video_lokal": None, "video_link": None, "video_titel": None, "video_quelle": None, "video_lizenz": None,
         "felder": {
-            "t505_r":  {"label": "505-Test rechts",   "ziel": "Richtungswechsel 180° nach rechts.", "kurzhilfe": "Zeit für den 5-m-Abschnitt (Zeitmesszone) beim Rechtswenden in Sekunden.", "eingabehilfe": "Zeit in Sekunden, z. B. 2.35", "einheit": "s", "bereich": "Sinnvoll: 1.80 – 3.20 s"},
-            "t505_l":  {"label": "505-Test links",    "ziel": "Richtungswechsel 180° nach links.", "kurzhilfe": "Zeit für den 5-m-Abschnitt beim Linkswenden. Seitendifferenz > 10 % = trainingsrelevant.", "eingabehilfe": "Zeit in Sekunden, z. B. 2.40", "einheit": "s", "bereich": "Sinnvoll: 1.80 – 3.20 s"},
-            "t5_10_5": {"label": "5-10-5 Shuttle",   "ziel": "Shuttle-Beschleunigung und Abbremsfähigkeit.", "kurzhilfe": "Gesamtzeit 5-10-5-Shuttle in Sekunden (5 m + 10 m + 5 m).", "eingabehilfe": "Zeit in Sekunden, z. B. 4.80", "einheit": "s", "bereich": "Sinnvoll: 3.80 – 6.00 s"},
-            "t_test":  {"label": "T-Test",           "ziel": "Mehrdirektionale Agilität vorwärts, seitwärts, rückwärts.", "kurzhilfe": "Gesamtzeit T-Test in Sekunden.", "eingabehilfe": "Zeit in Sekunden, z. B. 9.50", "einheit": "s", "bereich": "Sinnvoll: 8.00 – 13.00 s"},
-            "illinois": {"label": "Illinois Agility", "ziel": "Gesamtagilität im Slalomkurs.", "kurzhilfe": "Gesamtzeit Illinois Agility Run in Sekunden.", "eingabehilfe": "Zeit in Sekunden, z. B. 15.50", "einheit": "s", "bereich": "Sinnvoll: 13.00 – 20.00 s"},
+            "t505_r":  {"label": "505-Test rechts",   "ziel": "Richtungswechsel 180° nach rechts.", "kurzhilfe": "Zeit für den 5-m-Abschnitt (Zeitmesszone) beim Rechtswenden in Sekunden.", "eingabehilfe": "Zeit in Sekunden, z. B. 2.35", "einheit": "s", "bereich": "Sinnvoll: 1.80 – 3.20 s", "bild_pfad": "assets/tests/agility/test_505.svg"},
+            "t505_l":  {"label": "505-Test links",    "ziel": "Richtungswechsel 180° nach links.", "kurzhilfe": "Zeit für den 5-m-Abschnitt beim Linkswenden. Seitendifferenz > 10 % = trainingsrelevant.", "eingabehilfe": "Zeit in Sekunden, z. B. 2.40", "einheit": "s", "bereich": "Sinnvoll: 1.80 – 3.20 s", "bild_pfad": "assets/tests/agility/test_505.svg"},
+            "t5_10_5": {"label": "5-10-5 Shuttle",   "ziel": "Shuttle-Beschleunigung und Abbremsfähigkeit.", "kurzhilfe": "Gesamtzeit 5-10-5-Shuttle in Sekunden (5 m + 10 m + 5 m).", "eingabehilfe": "Zeit in Sekunden, z. B. 4.80", "einheit": "s", "bereich": "Sinnvoll: 3.80 – 6.00 s", "bild_pfad": "assets/tests/agility/shuttle_5_10_5.svg"},
+            "t_test":  {"label": "T-Test",           "ziel": "Mehrdirektionale Agilität vorwärts, seitwärts, rückwärts.", "kurzhilfe": "Gesamtzeit T-Test in Sekunden.", "eingabehilfe": "Zeit in Sekunden, z. B. 9.50", "einheit": "s", "bereich": "Sinnvoll: 8.00 – 13.00 s", "bild_pfad": "assets/tests/agility/t_test.svg"},
+            "illinois": {"label": "Illinois Agility", "ziel": "Gesamtagilität im Slalomkurs.", "kurzhilfe": "Gesamtzeit Illinois Agility Run in Sekunden.", "eingabehilfe": "Zeit in Sekunden, z. B. 15.50", "einheit": "s", "bereich": "Sinnvoll: 13.00 – 20.00 s", "bild_pfad": "assets/tests/agility/illinois.svg"},
         },
     },
 
