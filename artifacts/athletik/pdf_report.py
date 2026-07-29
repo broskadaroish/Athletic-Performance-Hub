@@ -10,6 +10,18 @@ from fpdf import FPDF
 from datetime import date
 import io
 
+from safety_texts import (
+    PDF_FUSSZEILE,
+    ZWECKBESTIMMUNG_TEXT,
+    AMPEL_GRUEN,
+    AMPEL_GELB,
+    AMPEL_ROT,
+    FMS_HINWEIS,
+    TRAININGSPLAN_HINWEIS,
+    KURZ_HINWEIS,
+    ABBRUCH_HINWEIS,
+)
+
 
 # ─── Encoding-Schutz ─────────────────────────────────────────────────────────
 
@@ -89,9 +101,10 @@ class AthletikReport(FPDF):
         self.set_draw_color(*self.BRAND)
         self.set_line_width(0.4)
         self.line(10, self.get_y(), 200, self.get_y())
-        self.set_font("Helvetica", "I", 8)
+        self.set_font("Helvetica", "I", 7)
         self.set_text_color(*self.MID)
-        self.cell(0, 8, "Seite %d - Vertraulich - Football Athletik Diagnostik System" % self.page_no(), align="C")
+        footer_text = "Seite %d  |  %s" % (self.page_no(), _safe(PDF_FUSSZEILE))
+        self.cell(0, 8, footer_text, align="C")
 
     def section_title(self, title: str):
         self.ln(3)
@@ -193,6 +206,55 @@ class AthletikReport(FPDF):
         if self.get_y() > 270 - needed_mm:
             self.add_page()
 
+    def disclaimer_box(self, text: str, border_color=None):
+        """Renders a highlighted notice box with optional coloured left border."""
+        if border_color is None:
+            border_color = (230, 126, 34)   # orange
+        x, y = self.get_x(), self.get_y()
+        # measure text height: ~4.5 mm per line at font size 7.5, 170 mm wide
+        safe_text = _safe(text)
+        # background
+        self.set_fill_color(253, 246, 230)
+        self.set_draw_color(*border_color)
+        self.set_line_width(0.3)
+        self.rect(x, y, 190, 8, "FD")
+        # left accent bar
+        self.set_fill_color(*border_color)
+        self.rect(x, y, 3, 8, "F")
+        # text
+        self.set_xy(x + 5, y + 1)
+        self.set_font("Helvetica", "I", 7)
+        self.set_text_color(80, 50, 10)
+        self.cell(183, 6, safe_text[:155], new_x="LMARGIN", new_y="NEXT")
+        self.set_text_color(*self.DARK)
+        self.ln(2)
+
+    def ampel_legend(self):
+        """Renders a compact 3-column ampel explanation."""
+        self.check_page_break(18)
+        self.ln(2)
+        self.set_font("Helvetica", "B", 7)
+        self.set_text_color(*self.MID)
+        self.cell(0, 4, "AMPELFARBEN - ERKLAERUNG:", new_x="LMARGIN", new_y="NEXT")
+        entries = [
+            (GREEN,  "UNAUFFAELLIG",        _safe(AMPEL_GRUEN)[:85]),
+            (YELLOW, "HANDLUNGSBEDARF",      _safe(AMPEL_GELB)[:85]),
+            (RED,    "HANDLUNGSBEDARF HOCH", _safe(AMPEL_ROT)[:85]),
+        ]
+        for color, label, explain in entries:
+            x, y = self.get_x(), self.get_y()
+            self.set_fill_color(*color)
+            self.rect(x, y + 1, 3, 5, "F")
+            self.set_xy(x + 5, y)
+            self.set_font("Helvetica", "B", 7)
+            self.set_text_color(*self.DARK)
+            self.cell(38, 6, label)
+            self.set_font("Helvetica", "", 7)
+            self.set_text_color(*self.MID)
+            self.cell(0, 6, explain, new_x="LMARGIN", new_y="NEXT")
+        self.set_text_color(*self.DARK)
+        self.ln(2)
+
 
 # ─── Hauptfunktion ────────────────────────────────────────────────────────────
 
@@ -245,6 +307,9 @@ def generate_report(
     pdf.kv("Trainingsstatus", spieler.get("trainingsstatus") or "-")
     pdf.ln(3)
 
+    # ── Pflicht-Disclaimer ───────────────────────────────────────────────────
+    pdf.disclaimer_box(_safe(KURZ_HINWEIS))
+
     # ── Athletik-Kennzahlen ──────────────────────────────────────────────────
     pdf.section_title("ATHLETIK-KENNZAHLEN")
     pdf.ln(2)
@@ -282,6 +347,7 @@ def generate_report(
                        ampel(anthro_row.get("bmi_kategorie", "")))
 
     pdf.ln(22)
+    pdf.ampel_legend()
 
     # ════════════════════════════════════════════════════════════════════════════
     # ANTHROPOMETRIE
@@ -326,7 +392,9 @@ def generate_report(
         ]
         for name, val in patterns:
             pdf.progress_bar(name, val, 3)
-        pdf.ln(2)
+        pdf.ln(1)
+        pdf.disclaimer_box(_safe(FMS_HINWEIS), border_color=(80, 100, 160))
+        pdf.ln(1)
 
     # ════════════════════════════════════════════════════════════════════════════
     # Y-BALANCE
@@ -504,6 +572,8 @@ def generate_report(
     if plan_rows:
         pdf.add_page()
         pdf.section_title("12-WOCHEN-PERIODISIERUNGSPLAN (AUSZUG)")
+        pdf.disclaimer_box(_safe(TRAININGSPLAN_HINWEIS), border_color=(80, 100, 160))
+        pdf.ln(1)
         cols = [("Wo.",12),("Phase",42),("Bereich",32),("Uebung",62),("Vol.",22),("Hz.",20)]
         pdf.table_header(cols)
         widths = [c[1] for c in cols]
