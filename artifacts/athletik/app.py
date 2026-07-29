@@ -463,15 +463,19 @@ def page_fms():
     _fh = lambda fid: show_field_help("fms", fid)
 
     def _fms_row(nr, label, key_l, key_r, fid):
-        """Eine FMS-Zeile: Testname | Links | Rechts"""
-        st.markdown(f"**{nr} · {label}**")
+        """Eine FMS-Zeile: Testname | Links | Rechts — mit ℹ️-Info-Button."""
+        lbl_col, info_col = st.columns([8, 1])
+        lbl_col.markdown(f"**{nr} · {label}**")
+        field_info_col(info_col, "fms", fid)
         _cl, _cr = st.columns(2)
         l_val = _cl.number_input("Links",  0, 3, key=key_l, help=_fh(fid))
         r_val = _cr.number_input("Rechts", 0, 3, key=key_r, help=_fh(fid))
         return l_val, r_val
 
     # ── Test 1: Deep Squat (ein Gesamtscore) ─────────────────────────────────
-    st.markdown("**1 · Deep Squat** — ein Score (kein L/R)")
+    ds_lbl, ds_info = st.columns([8, 1])
+    ds_lbl.markdown("**1 · Deep Squat** — ein Score (kein L/R)")
+    field_info_col(ds_info, "fms", "deep_squat")
     _c1, _gap = st.columns([2, 4])
     deep = _c1.number_input("Punkte", 0, 3, key="ds", help=_fh("deep_squat"))
 
@@ -488,7 +492,9 @@ def page_fms():
 
     st.markdown("---")
     # ── Test 6: Trunk Stability Push-up (ein Gesamtscore) ────────────────────
-    st.markdown("**6 · Trunk Stability Push-up** — ein Score (kein L/R)")
+    ts_lbl, ts_info = st.columns([8, 1])
+    ts_lbl.markdown("**6 · Trunk Stability Push-up** — ein Score (kein L/R)")
+    field_info_col(ts_info, "fms", "trunk_stability")
     _c6, _gap6 = st.columns([2, 4])
     trunk = _c6.number_input("Punkte", 0, 3, key="ts", help=_fh("trunk_stability"))
 
@@ -559,21 +565,29 @@ def page_ybalance():
 
     _fh = lambda fid: show_field_help("y_balance", fid)
     col1, col2 = st.columns(2)
+    br_h, br_i = col1.columns([5, 1]); br_h.markdown("**Beinlänge Rechts (cm) \\***"); field_info_col(br_i, "y_balance", "beinlaenge")
     bein_r = col1.number_input("Beinlänge Rechts (cm) *", min_value=1.0, value=90.0, step=0.5,
-                                help=_fh("beinlaenge"))
+                                label_visibility="collapsed", help=_fh("beinlaenge"))
+    bl_h, bl_i = col2.columns([5, 1]); bl_h.markdown("**Beinlänge Links (cm) \\***"); field_info_col(bl_i, "y_balance", "beinlaenge")
     bein_l = col2.number_input("Beinlänge Links (cm) *",  min_value=1.0, value=90.0, step=0.5,
-                                help=_fh("beinlaenge"))
+                                label_visibility="collapsed", help=_fh("beinlaenge"))
 
     st.markdown("#### Reichweiten (cm)")
     ch1, ch2 = st.columns(2)
     ch1.markdown("**Rechte Seite**")
     ch2.markdown("**Linke Seite**")
-    ant_r  = ch1.number_input("Anterior R",       0.0, 200.0, 0.0, step=0.5, key="antr", help=_fh("anterior"))
-    ant_l  = ch2.number_input("Anterior L",       0.0, 200.0, 0.0, step=0.5, key="antl", help=_fh("anterior"))
-    pm_r   = ch1.number_input("Posteromedial R",  0.0, 200.0, 0.0, step=0.5, key="pmr",  help=_fh("posteromedial"))
-    pm_l   = ch2.number_input("Posteromedial L",  0.0, 200.0, 0.0, step=0.5, key="pml",  help=_fh("posteromedial"))
-    pl_r   = ch1.number_input("Posterolateral R", 0.0, 200.0, 0.0, step=0.5, key="plr",  help=_fh("posterolateral"))
-    pl_l   = ch2.number_input("Posterolateral L", 0.0, 200.0, 0.0, step=0.5, key="pll",  help=_fh("posterolateral"))
+    ar_h, ar_i = ch1.columns([5, 1]); ar_h.markdown("**Anterior R (cm)**"); field_info_col(ar_i, "y_balance", "anterior")
+    ant_r  = ch1.number_input("Anterior R",       0.0, 200.0, 0.0, step=0.5, key="antr", label_visibility="collapsed", help=_fh("anterior"))
+    al_h, al_i = ch2.columns([5, 1]); al_h.markdown("**Anterior L (cm)**"); field_info_col(al_i, "y_balance", "anterior")
+    ant_l  = ch2.number_input("Anterior L",       0.0, 200.0, 0.0, step=0.5, key="antl", label_visibility="collapsed", help=_fh("anterior"))
+    pmr_h, pmr_i = ch1.columns([5, 1]); pmr_h.markdown("**Posteromedial R (cm)**"); field_info_col(pmr_i, "y_balance", "posteromedial")
+    pm_r   = ch1.number_input("Posteromedial R",  0.0, 200.0, 0.0, step=0.5, key="pmr",  label_visibility="collapsed", help=_fh("posteromedial"))
+    pml_h, pml_i = ch2.columns([5, 1]); pml_h.markdown("**Posteromedial L (cm)**"); field_info_col(pml_i, "y_balance", "posteromedial")
+    pm_l   = ch2.number_input("Posteromedial L",  0.0, 200.0, 0.0, step=0.5, key="pml",  label_visibility="collapsed", help=_fh("posteromedial"))
+    plr_h, plr_i = ch1.columns([5, 1]); plr_h.markdown("**Posterolateral R (cm)**"); field_info_col(plr_i, "y_balance", "posterolateral")
+    pl_r   = ch1.number_input("Posterolateral R", 0.0, 200.0, 0.0, step=0.5, key="plr",  label_visibility="collapsed", help=_fh("posterolateral"))
+    pll_h, pll_i = ch2.columns([5, 1]); pll_h.markdown("**Posterolateral L (cm)**"); field_info_col(pll_i, "y_balance", "posterolateral")
+    pl_l   = ch2.number_input("Posterolateral L", 0.0, 200.0, 0.0, step=0.5, key="pll",  label_visibility="collapsed", help=_fh("posterolateral"))
 
     if st.button("💾 Y-Balance berechnen & speichern"):
         res = YBalanceResult(
@@ -1367,6 +1381,7 @@ def page_anthropometrie():
     st.markdown("# 📐 Anthropometrie")
     st.markdown("Körpermessungen, BMI und Wachstumsverlauf — Grundlage für belastungsgerechtes Training.")
 
+    sicherheitshinweis_box()
     show_test_info("anthropometrie")
 
     auswahl = _player_selector("anthro")
@@ -1389,27 +1404,34 @@ def page_anthropometrie():
         c1, c2 = st.columns(2)
         datum        = c1.date_input("Datum", value=date.today(), key="anthro_datum")
         _fh = lambda fid: show_field_help("anthropometrie", fid)
+        g_h, g_i = c1.columns([5, 1]); g_h.markdown("**Körpergröße (cm)**"); field_info_col(g_i, "anthropometrie", "groesse")
         groesse      = c1.number_input("Körpergröße (cm)", 100.0, 220.0,
                                         float(letzter["groesse"]) if letzter else 175.0,
-                                        step=0.5, key="anthro_groesse", help=_fh("groesse"))
+                                        step=0.5, key="anthro_groesse", label_visibility="collapsed", help=_fh("groesse"))
+        gw_h, gw_i = c1.columns([5, 1]); gw_h.markdown("**Körpergewicht (kg)**"); field_info_col(gw_i, "anthropometrie", "gewicht")
         gewicht      = c1.number_input("Körpergewicht (kg)", 30.0, 150.0,
                                         float(letzter["gewicht"]) if letzter else 70.0,
-                                        step=0.5, key="anthro_gewicht", help=_fh("gewicht"))
+                                        step=0.5, key="anthro_gewicht", label_visibility="collapsed", help=_fh("gewicht"))
+        kf_h, kf_i = c1.columns([5, 1]); kf_h.markdown("**Körperfett (%)**"); field_info_col(kf_i, "anthropometrie", "koerperfett")
         koerperfett  = c1.number_input("Körperfett (%)", 0.0, 50.0,
                                         float(letzter["koerperfett"]) if letzter else 12.0,
-                                        step=0.1, key="anthro_kf", help=_fh("koerperfett"))
+                                        step=0.1, key="anthro_kf", label_visibility="collapsed", help=_fh("koerperfett"))
+        mm_h, mm_i = c1.columns([5, 1]); mm_h.markdown("**Muskelmasse (kg)**"); field_info_col(mm_i, "anthropometrie", "muskelmasse")
         muskelmasse  = c1.number_input("Muskelmasse (kg)", 0.0, 100.0,
                                         float(letzter["muskelmasse"]) if letzter else 0.0,
-                                        step=0.5, key="anthro_mm", help=_fh("muskelmasse"))
+                                        step=0.5, key="anthro_mm", label_visibility="collapsed", help=_fh("muskelmasse"))
+        sh_h, sh_i = c2.columns([5, 1]); sh_h.markdown("**Sitzhöhe (cm) — optional für PHV**"); field_info_col(sh_i, "anthropometrie", "sitzhoehe")
         sitzhoehe    = c2.number_input("Sitzhöhe (cm) — optional für PHV", 0.0, 120.0,
                                         float(letzter["sitzhoehe"]) if letzter else 0.0,
-                                        step=0.5, key="anthro_sh", help=_fh("sitzhoehe"))
+                                        step=0.5, key="anthro_sh", label_visibility="collapsed", help=_fh("sitzhoehe"))
+        bl_h, bl_i = c2.columns([5, 1]); bl_h.markdown("**Beinlänge (cm) — optional für PHV**"); field_info_col(bl_i, "anthropometrie", "beinlaenge")
         beinlaenge   = c2.number_input("Beinlänge (cm) — optional für PHV", 0.0, 120.0,
                                         float(letzter["beinlaenge"]) if letzter else 0.0,
-                                        step=0.5, key="anthro_bl", help=_fh("beinlaenge"))
+                                        step=0.5, key="anthro_bl", label_visibility="collapsed", help=_fh("beinlaenge"))
+        as_h, as_i = c2.columns([5, 1]); as_h.markdown("**Armspannweite (cm)**"); field_info_col(as_i, "anthropometrie", "armspann")
         armspann     = c2.number_input("Armspannweite (cm)", 0.0, 250.0,
                                         float(letzter["armspannweite"]) if letzter else 0.0,
-                                        step=0.5, key="anthro_arm", help=_fh("armspann"))
+                                        step=0.5, key="anthro_arm", label_visibility="collapsed", help=_fh("armspann"))
 
         bmi     = bmi_berechnen(gewicht, groesse)
         bmi_kat = bmi_kategorie(bmi)
@@ -1973,16 +1995,19 @@ def page_ausdauer():
         st.markdown("#### Testergebnis")
         _fh = lambda fid: show_field_help("yoyo", fid)
         c3, c4, c5 = st.columns(3)
+        dist_h, dist_i = c3.columns([5, 1]); dist_h.markdown("**Erzielte Distanz (m)**"); field_info_col(dist_i, "yoyo", "distanz")
         distanz_m = c3.number_input("Erzielte Distanz (m)", 0, 5000,
                                      int(letzter["distanz_m"]) if letzter else 0,
-                                     step=40, key="aus_dist", help=_fh("distanz"))
+                                     step=40, key="aus_dist", label_visibility="collapsed", help=_fh("distanz"))
+        hf_h, hf_i = c4.columns([5, 1]); hf_h.markdown("**HF max (bpm)**"); field_info_col(hf_i, "yoyo", "hf_max")
         hf_max    = c4.number_input("HF max (bpm)", 0, 230,
                                      int(letzter["hf_max"]) if letzter and letzter.get("hf_max") else 0,
-                                     step=1, key="aus_hf", help=_fh("hf_max"))
+                                     step=1, key="aus_hf", label_visibility="collapsed", help=_fh("hf_max"))
+        rpe_h, rpe_i = c5.columns([5, 1]); rpe_h.markdown("**RPE (Borg 6–20)**"); field_info_col(rpe_i, "yoyo", "rpe")
         rpe_val   = c5.selectbox("RPE (Borg 6–20)", list(range(6, 21)),
                                   index=9, key="aus_rpe",
                                   format_func=lambda x: RPE_LABELS.get(x, str(x)),
-                                  help=_fh("rpe"))
+                                  help=_fh("rpe"), label_visibility="collapsed")
 
         from ausdauer import AusdauerErgebnis as _AE, trainingsbereiche, bewertung_ir1
         res = _AE(test_typ=test_typ, distanz_m=distanz_m,
