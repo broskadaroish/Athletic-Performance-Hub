@@ -96,7 +96,7 @@ from periodisierung import zyklus_erstellen, zyklus_laden
 from pdf_report import generate_report
 from pdf_anleitung import generate_anleitung_pdf, ALL_TEST_IDS, TEST_LABELS
 from export import kader_excel_bytes
-from field_eval import alter_zu_altersgruppe
+from field_eval import alter_zu_altersgruppe, asymmetrie_badge_html, fms_asymmetrie_badge_html
 
 
 # ─── Anleitung-Download-Button (wiederverwendbar auf jeder Testseite) ─────────
@@ -792,7 +792,7 @@ def page_fms():
     _fh = lambda fid: show_field_help("fms", fid)
 
     def _fms_row(nr, label, key_l, key_r, fid):
-        """Eine FMS-Zeile: Testname | Links | Rechts — mit ℹ️-Info-Button."""
+        """Eine FMS-Zeile: Testname | Links | Rechts — mit ℹ️-Info-Button und Asymmetrie-Badge."""
         lbl_col, info_col = st.columns([8, 1])
         lbl_col.markdown(f"**{nr} · {label}**")
         field_info_col(info_col, "fms", fid)
@@ -801,6 +801,9 @@ def page_fms():
         r_val = _cr.number_input("Rechts", 0, 3, key=key_r, help=_fh(fid))
         norm_badge(l_val, "fms", fid, _cl)
         norm_badge(r_val, "fms", fid, _cr)
+        asym_html = fms_asymmetrie_badge_html(l_val, r_val)
+        if asym_html:
+            st.markdown(asym_html, unsafe_allow_html=True)
         return l_val, r_val
 
     # ── Test 1: Deep Squat (ein Gesamtscore) ─────────────────────────────────
@@ -2056,6 +2059,10 @@ def page_sprung():
         lc3.markdown("**CMJ einbeinig links (cm)**"); field_info_col(li3, "jump", "cmj_l")
         cmj_l    = c1.number_input("CMJ links", 0.0, 80.0, 0.0, step=0.5, key="cmj_l", label_visibility="collapsed", help=_fh("cmj_l"))
         if cmj_l > 0: norm_badge(cmj_l, "jump", "cmj_l", c1, altersgruppe=altersgruppe)
+        # CMJ Seitenasymmetrie — direkt nach L-Eingabe sichtbar
+        if cmj_r > 0 and cmj_l > 0:
+            c1.markdown(asymmetrie_badge_html(cmj_r, cmj_l, niedriger_besser=False),
+                        unsafe_allow_html=True)
 
         lc4, li4 = c1.columns([5,1])
         lc4.markdown("**Squat Jump (cm)**"); field_info_col(li4, "jump", "squat_jump")
@@ -2207,6 +2214,10 @@ def page_agilitaet():
         c1, c2 = st.columns(2)
         t505_r  = _zeit_eingabe("505-Test rechts (s)", "a505r", c1, letzter, "t505_r",  "agility", "t505_r",  altersgruppe)
         t505_l  = _zeit_eingabe("505-Test links (s)",  "a505l", c1, letzter, "t505_l",  "agility", "t505_l",  altersgruppe)
+        # 505 Seitenasymmetrie — direkt nach L-Eingabe sichtbar
+        if t505_r and t505_l:
+            c1.markdown(asymmetrie_badge_html(t505_r, t505_l, niedriger_besser=True),
+                        unsafe_allow_html=True)
         t5_10_5 = _zeit_eingabe("5-10-5 Shuttle (s)",  "a5105", c2, letzter, "t5_10_5", "agility", "t5_10_5", altersgruppe)
         t_test  = _zeit_eingabe("T-Test (s)",           "att",   c2, letzter, "t_test",  "agility", "t_test",  altersgruppe)
         illinois = _zeit_eingabe("Illinois Agility (s)","aill",  c1, letzter, "illinois","agility", "illinois",altersgruppe)

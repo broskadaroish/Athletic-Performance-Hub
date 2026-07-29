@@ -429,3 +429,84 @@ def badge_html(
         f'background:{bg};color:{color}">'
         f'{icon} {label}</div>'
     )
+
+
+# ── Asymmetrie-Badges ─────────────────────────────────────────────────────────
+
+def asymmetrie_badge_html(
+    val_r: float | None,
+    val_l: float | None,
+    niedriger_besser: bool = False,
+) -> str:
+    """HTML-Badge für die Seitenasymmetrie zwischen rechts (R) und links (L).
+
+    Args:
+        val_r:             Messwert rechte Seite.
+        val_l:             Messwert linke Seite.
+        niedriger_besser:  True für Zeittests (505, Sprint) — bessere Seite = kleinerer Wert.
+                           False für Sprungtests (CMJ) — bessere Seite = größerer Wert.
+
+    Formel:  ASI = |R − L| / Referenz × 100
+    Referenz = min(R, L) für niedriger_besser (schnellste Seite als Basis)
+               max(R, L) für höher_besser   (stärkste Seite als Basis)
+
+    Gibt '' zurück wenn nicht beide Werte > 0.
+    """
+    if not val_r or not val_l or val_r <= 0 or val_l <= 0:
+        return ""
+
+    diff = abs(val_r - val_l)
+    ref  = min(val_r, val_l) if niedriger_besser else max(val_r, val_l)
+    if ref <= 0:
+        return ""
+
+    asym_pct = diff / ref * 100
+
+    if asym_pct <= 10.0:
+        bg, color = "#1a3326", "#3fb950"
+        label = f"✅ Symmetrisch ({asym_pct:.1f} %)"
+    elif asym_pct <= 15.0:
+        bg, color = "#2d2a14", "#d29922"
+        label = f"⚠️ Asymmetrie {asym_pct:.1f} % — trainingsrelevant"
+    else:
+        bg, color = "#3d1a1a", "#f85149"
+        label = f"🔴 Asymmetrie {asym_pct:.1f} % — deutlich erhöht"
+
+    return (
+        f'<div style="display:inline-block;font-size:11px;font-weight:600;'
+        f'padding:3px 10px;border-radius:10px;margin:4px 0 6px;'
+        f'background:{bg};color:{color}">'
+        f'{label}</div>'
+    )
+
+
+def fms_asymmetrie_badge_html(
+    val_l: int | None,
+    val_r: int | None,
+) -> str:
+    """HTML-Badge für Seitenasymmetrie bei FMS-Bilateral-Tests (Skala 0–3).
+
+    Gibt '' zurück wenn beide Seiten 0 oder gleich.
+    """
+    if val_l is None or val_r is None:
+        return ""
+    if val_l == 0 and val_r == 0:
+        return ""
+
+    diff = abs(val_l - val_r)
+    if diff == 0:
+        return ""
+
+    if diff == 1:
+        bg, color = "#2d2a14", "#d29922"
+        label = "⚠️ Seitenunterschied 1 Pkt."
+    else:
+        bg, color = "#3d1a1a", "#f85149"
+        label = f"🔴 Seitenunterschied {diff} Pkt. — auffällig"
+
+    return (
+        f'<div style="display:inline-block;font-size:11px;font-weight:600;'
+        f'padding:3px 10px;border-radius:10px;margin:4px 0 6px;'
+        f'background:{bg};color:{color}">'
+        f'{label}</div>'
+    )
