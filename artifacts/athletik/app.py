@@ -3461,6 +3461,209 @@ def page_spieler_vergleich():
                     + ", ".join(f2)
                 )
 
+    # ── Entwicklungsverlauf ────────────────────────────────────────────────────
+    st.markdown("---")
+    st.markdown("### 📈 Entwicklungsverlauf")
+    st.markdown(
+        '<p style="color:#8b949e;margin-top:-8px">'
+        'Athletik-Score und Einzelmodule beider Spieler im Zeitverlauf.</p>',
+        unsafe_allow_html=True,
+    )
+
+    from datetime import timedelta as _tdd
+    _tf_col, _ = st.columns([2, 5])
+    zeitraum = _tf_col.selectbox(
+        "Zeitraum",
+        ["Letzte 3 Monate", "Letzte 6 Monate", "Letzte 12 Monate", "Alles"],
+        index=1,
+        key="vergl_zeitraum",
+    )
+    _today = date.today()
+    if zeitraum == "Letzte 3 Monate":
+        cutoff = str(_today - _tdd(days=90))
+    elif zeitraum == "Letzte 6 Monate":
+        cutoff = str(_today - _tdd(days=182))
+    elif zeitraum == "Letzte 12 Monate":
+        cutoff = str(_today - _tdd(days=365))
+    else:
+        cutoff = "0000-00-00"
+
+    def _filter(rows): return [r for r in rows if (r.get("datum") or "") >= cutoff]
+
+    h_fms1   = _filter(fms_history(pid1));          h_fms2   = _filter(fms_history(pid2))
+    h_y1     = _filter(y_balance_history(pid1));    h_y2     = _filter(y_balance_history(pid2))
+    h_spr1   = _filter(sprint_history(pid1));       h_spr2   = _filter(sprint_history(pid2))
+    h_spg1   = _filter(sprung_history(pid1));       h_spg2   = _filter(sprung_history(pid2))
+    h_agil1  = _filter(agilitaet_history(pid1));    h_agil2  = _filter(agilitaet_history(pid2))
+    h_aus1   = _filter(ausdauer_history(pid1));     h_aus2   = _filter(ausdauer_history(pid2))
+
+    def _score_timeline(fh, yh, sprh, spgh, agilh, aush):
+        """Berechnet Athletik-Score für jeden Testtermin (kumulativer Zustand)."""
+        state = {"fms": None, "y": None, "sprint": None, "sprung": None, "agil": None, "aus": None}
+        events = (
+            [(r["datum"], "fms",    r) for r in fh]
+            + [(r["datum"], "y",      r) for r in yh]
+            + [(r["datum"], "sprint", r) for r in sprh]
+            + [(r["datum"], "sprung", r) for r in spgh]
+            + [(r["datum"], "agil",   r) for r in agilh]
+            + [(r["datum"], "aus",    r) for r in aush]
+        )
+        events.sort(key=lambda x: x[0])
+        out = []
+        for datum, mod, row in events:
+            state[mod] = row
+            sc = athletik_score(state["fms"], state["y"], state["sprint"],
+                                state["sprung"], state["agil"], state["aus"])
+            if sc > 0:
+                out.append((datum, sc))
+        return out
+
+    tl1 = _score_timeline(h_fms1, h_y1, h_spr1, h_spg1, h_agil1, h_aus1)
+    tl2 = _score_timeline(h_fms2, h_y2, h_spr2, h_spg2, h_agil2, h_aus2)
+
+    # ── Gesamtscore-Chart ─────────────────────────────────────────────────────
+    if tl1 or tl2:
+        fig_tl = go.Figure()
+        if tl1:
+            _d1, _s1 = zip(*tl1)
+            fig_tl.add_trace(go.Scatter(
+                x=list(_d1), y=list(_s1),
+                mode="lines+markers", name=sp1["name"],
+                line=dict(color="#1f6feb", width=2.5),
+                marker=dict(size=7, color="#1f6feb"),
+            ))
+        if tl2:
+            _d2, _s2 = zip(*tl2)
+            fig_tl.add_trace(go.Scatter(
+                x=list(_d2), y=list(_s2),
+                mode="lines+markers", name=sp2["name"],
+                line=dict(color="#3fb950", width=2.5),
+                marker=dict(size=7, color="#3fb950"),
+            ))
+        fig_tl.update_layout(
+            title=dict(text="Athletik-Gesamtscore (0–100)",
+                       font=dict(size=14, color=C["text"]), x=0.0),
+            xaxis=dict(gridcolor=C["surface2"], linecolor=C["border"],
+                       tickfont=dict(color=C["muted"])),
+            yaxis=dict(title="Score", range=[0, 100], gridcolor=C["surface2"],
+                       linecolor=C["border"], tickfont=dict(color=C["muted"])),
+            paper_bgcolor=C["bg"], plot_bgcolor=C["bg"],
+            font=dict(color=C["text"], family="Inter, Segoe UI, system-ui"),
+            legend=dict(bgcolor=C["surface"], bordercolor=C["border"], borderwidth=1,
+                        orientation="h", x=0.5, xanchor="center", y=-0.18),
+            margin=dict(l=40, r=20, t=50, b=70),
+            height=320,
+        )
+        st.plotly_chart(fig_tl, use_container_width=True)
+    else:
+        st.info(f"Noch keine Testdaten im Zeitraum «{zeitraum}» vorhanden.")
+
+    # ── Einzelmodul-Charts (Expander) ─────────────────────────────────────────
+    def _modul_chart(title: str, rows1: list, rows2: list,
+                     field: str, label: str, unit: str = "",
+                     invert: bool = False, ymin=None, ymax=None):
+        """Hilfsfunktion: Liniendiagramm eines Rohwerts für beide Spieler."""
+        pts1 = [(r["datum"], float(r[field])) for r in rows1 if r.get(field)]
+        pts2 = [(r["datum"], float(r[field])) for r in rows2 if r.get(field)]
+        if not pts1 and not pts2:
+            return
+        fig = go.Figure()
+        if pts1:
+            _x1, _y1 = zip(*pts1)
+            fig.add_trace(go.Scatter(
+                x=list(_x1), y=list(_y1),
+                mode="lines+markers", name=sp1["name"],
+                line=dict(color="#1f6feb", width=2),
+                marker=dict(size=6),
+            ))
+        if pts2:
+            _x2, _y2 = zip(*pts2)
+            fig.add_trace(go.Scatter(
+                x=list(_x2), y=list(_y2),
+                mode="lines+markers", name=sp2["name"],
+                line=dict(color="#3fb950", width=2),
+                marker=dict(size=6),
+            ))
+        note = " (niedriger = besser)" if invert else ""
+        fig.update_layout(
+            title=dict(text=f"{title}{note}", font=dict(size=13, color=C["text"]), x=0.0),
+            xaxis=dict(gridcolor=C["surface2"], linecolor=C["border"],
+                       tickfont=dict(color=C["muted"], size=9)),
+            yaxis=dict(title=f"{label}{unit}", autorange="reversed" if invert else True,
+                       gridcolor=C["surface2"], linecolor=C["border"],
+                       tickfont=dict(color=C["muted"], size=9),
+                       range=[ymin, ymax] if ymin is not None else None),
+            paper_bgcolor=C["bg"], plot_bgcolor=C["bg"],
+            font=dict(color=C["text"], family="Inter, Segoe UI, system-ui"),
+            legend=dict(bgcolor=C["surface"], bordercolor=C["border"], borderwidth=1,
+                        orientation="h", x=0.5, xanchor="center", y=-0.22, font=dict(size=10)),
+            margin=dict(l=40, r=10, t=40, b=60),
+            height=260,
+        )
+        return fig
+
+    any_module_data = any([h_fms1, h_fms2, h_y1, h_y2, h_spr1, h_spr2,
+                           h_spg1, h_spg2, h_agil1, h_agil2, h_aus1, h_aus2])
+    if any_module_data:
+        with st.expander("📊 Einzelmodule im Detail anzeigen"):
+            # Row 1: FMS + Y-Balance
+            mc1, mc2 = st.columns(2)
+            with mc1:
+                fig = _modul_chart("FMS-Score", h_fms1, h_fms2,
+                                   "score", "Punkte", "/21", ymin=0, ymax=21)
+                if fig: st.plotly_chart(fig, use_container_width=True)
+                elif h_fms1 or h_fms2: st.caption("FMS — kein Wert im Zeitraum.")
+            with mc2:
+                # Y-Balance: compute average composite per row
+                def _yb_avg(rows):
+                    out = []
+                    for r in rows:
+                        cr = r.get("composite_rechts") or 0
+                        cl = r.get("composite_links") or 0
+                        if cr or cl:
+                            out.append({"datum": r["datum"], "_avg": (cr + cl) / 2})
+                    return out
+                h_y1a = _yb_avg(h_y1); h_y2a = _yb_avg(h_y2)
+                fig = _modul_chart("Y-Balance Ø Composite", h_y1a, h_y2a,
+                                   "_avg", "%", ymin=70, ymax=110)
+                if fig: st.plotly_chart(fig, use_container_width=True)
+                elif h_y1 or h_y2: st.caption("Y-Balance — kein Wert im Zeitraum.")
+
+            # Row 2: Sprint + Sprung
+            mc3, mc4 = st.columns(2)
+            with mc3:
+                fig = _modul_chart("Sprint 10 m", h_spr1, h_spr2,
+                                   "beste_10m", "Zeit", " s", invert=True)
+                if fig: st.plotly_chart(fig, use_container_width=True)
+                elif h_spr1 or h_spr2: st.caption("Sprint — kein 10-m-Wert im Zeitraum.")
+            with mc4:
+                fig = _modul_chart("CMJ beidbeinig", h_spg1, h_spg2,
+                                   "cmj_beid", "Höhe", " cm", ymin=0)
+                if fig: st.plotly_chart(fig, use_container_width=True)
+                elif h_spg1 or h_spg2: st.caption("Sprung — kein CMJ-Wert im Zeitraum.")
+
+            # Row 3: Agilität + Ausdauer
+            mc5, mc6 = st.columns(2)
+            with mc5:
+                # Prefer t_test, fall back to t505_r
+                def _agil_rows(rows):
+                    out = []
+                    for r in rows:
+                        v = r.get("t_test") or r.get("t505_r")
+                        if v:
+                            out.append({"datum": r["datum"], "_agil": float(v)})
+                    return out
+                h_ag1f = _agil_rows(h_agil1); h_ag2f = _agil_rows(h_agil2)
+                fig = _modul_chart("Agilität (T-Test / 505)", h_ag1f, h_ag2f,
+                                   "_agil", "Zeit", " s", invert=True)
+                if fig: st.plotly_chart(fig, use_container_width=True)
+                elif h_agil1 or h_agil2: st.caption("Agilität — kein Wert im Zeitraum.")
+            with mc6:
+                fig = _modul_chart("Yo-Yo Distanz", h_aus1, h_aus2,
+                                   "distanz_m", "Distanz", " m", ymin=0)
+                if fig: st.plotly_chart(fig, use_container_width=True)
+                elif h_aus1 or h_aus2: st.caption("Ausdauer — kein Wert im Zeitraum.")
+
 
 # ══════════════════════════════════════════════════════════════════════════════
 # PAGE: DIAGNOSTIK ÜBERSICHT (Kachel-Grid)
