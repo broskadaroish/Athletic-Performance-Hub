@@ -1,0 +1,1434 @@
+Überarbeite meine gesamte Fußball-Athletik-Diagnostik-App anhand des vollständigen Prüfberichts vom 29. Juli 2026 und ergänze ein neues, fachlich sauberes Kraftdiagnostik-Modul.
+
+Arbeite ausschließlich auf Basis des aktuellen Projektstands.
+
+## Grundregeln
+
+* Meine zwischenzeitlichen Änderungen müssen vollständig erhalten bleiben.
+* Kein Git-Reset, Checkout, Revert oder Rollback.
+* Keine Dateien auf ältere Versionen zurücksetzen.
+* Keine vollständigen Dateien blind ersetzen.
+* Bestehende Funktionen gezielt erweitern und zusammenführen.
+* Vor jeder Änderung eine Sicherung der betroffenen Datei erstellen.
+* Vor allen Datenbankänderungen die SQLite-Datenbank sichern.
+* Bestehende echte Spielerdaten dürfen nicht verändert oder gelöscht werden.
+* Funktionierende Berechnungen nicht ohne fachlichen Grund verändern.
+* Keine medizinischen Diagnosen, Verletzungsvorhersagen oder Sportfreigaben erzeugen.
+* Neue Funktionen müssen zum vorhandenen Aufbau, Design, Datenmodell und PDF-System passen.
+* Verwende Transaktionen für zusammengehörende Datenbankänderungen.
+* Führe Migrationen so durch, dass bestehende Installationen und vorhandene Datensätze erhalten bleiben.
+* Prüfe nach jeder Phase, ob die App startet und die vorhandenen Funktionen weiterhin arbeiten.
+
+# PHASE 1 – Sicherung und Bestandsaufnahme
+
+Bevor du Änderungen durchführst:
+
+1. Sichere die aktuelle SQLite-Datenbank mit Datum und Uhrzeit im Dateinamen.
+2. Sichere alle Dateien, die verändert werden.
+3. Prüfe den aktuellen Git-Status nur zur Information.
+4. Prüfe vorhandene Datenbanktabellen und Spalten.
+5. Ermittle vorhandene Duplikate und verwaiste Datensätze.
+6. Notiere den aktuellen Zustand, ohne zunächst Daten zu löschen.
+
+Erstelle intern eine Liste:
+
+* zu ändernde Dateien
+* geplante Datenbankmigrationen
+* vorhandene Duplikate
+* verwaiste Datensätze
+* mögliche Konflikte mit meinen Zwischenänderungen
+
+# PHASE 2 – Kritische Datenbankfehler beheben
+
+## 2.1 Trainerbeobachtungen ohne Duplikate speichern
+
+Der Prüfbericht hat festgestellt, dass die Tabelle `trainerbeobachtung` keinen wirksamen UNIQUE-Constraint besitzt.
+
+Prüfe zunächst die tatsächliche Tabellenstruktur und die Funktion `beobachtung_speichern()`.
+
+Danach:
+
+* Suche vorhandene Duplikate anhand von:
+
+  * `spieler_id`
+  * `test_id`
+  * `datum`
+* Behalte bei Duplikaten grundsätzlich den neuesten vollständig gespeicherten Datensatz.
+* Führe fehlende Inhalte nur dann zusammen, wenn dadurch keine Informationen verloren gehen.
+* Protokolliere die Anzahl der gefundenen und bereinigten Duplikate.
+* Erstelle anschließend einen eindeutigen Datenbankindex auf:
+
+  * `spieler_id`
+  * `test_id`
+  * `datum`
+* Passe die Speicherfunktion auf ein echtes Upsert-Verfahren an.
+* Beim erneuten Speichern desselben Tests am selben Tag soll der bestehende Datensatz aktualisiert werden.
+* Es darf keine neue Duplikatzeile entstehen.
+* Das Laden bereits gespeicherter Beobachtungen muss weiterhin funktionieren.
+
+## 2.2 Spieler vollständig löschen
+
+Ergänze in `spieler_loeschen()` die Tabelle `trainerbeobachtung`.
+
+Beim Löschen eines Spielers müssen alle eindeutig zu diesem Spieler gehörenden Datensätze kontrolliert entfernt werden.
+
+Prüfe zusätzlich alle vorhandenen Tabellen auf Spielerbezug.
+
+Das Löschen muss weiterhin durch eine deutliche Sicherheitsabfrage geschützt bleiben.
+
+## 2.3 Vollständiger Datenbank-Reset
+
+Ergänze beim vollständigen Zurücksetzen mindestens:
+
+* `trainerbeobachtung`
+* `checkliste_custom`
+* neue Krafttesttabellen, sobald diese erstellt wurden
+
+Der Reset darf ausschließlich nach einer deutlichen mehrfachen Bestätigung möglich sein.
+
+## 2.4 Fremdschlüssel aktivieren
+
+Aktiviere bei jeder SQLite-Verbindung:
+
+```python
+PRAGMA foreign_keys = ON
+```
+
+Vorher:
+
+* Prüfe bestehende verwaiste Datensätze.
+* Behebe Konflikte kontrolliert.
+* Verhindere, dass die App durch bestehende Alt-Daten nicht mehr startet.
+* Definiere bei neuen Tabellen passende Fremdschlüssel.
+* Verwende sinnvolle Löschregeln wie `ON DELETE CASCADE`, wenn Datensätze eindeutig vom Spieler abhängen.
+
+# PHASE 3 – Doppelte Testergebnisse verhindern
+
+Der Prüfbericht hat festgestellt, dass mehrfaches Speichern am selben Tag doppelte Testergebnisse erzeugen kann.
+
+Behebe dies für alle Testbereiche:
+
+* Anthropometrie
+* FMS
+* Y-Balance
+* Sprint
+* Sprung
+* Agilität
+* Ausdauer
+* Trainerbeobachtungen
+* neue Kraftdiagnostik
+
+Verwende eine fachlich sinnvolle Logik:
+
+* Ein Datensatz wird eindeutig über Spieler, Testart und Testzeitpunkt beziehungsweise Testsession identifiziert.
+* Nach erfolgreichem Speichern wird der Speicherbutton für den aktuellen Vorgang vorübergehend deaktiviert.
+* Mehrfachklicks dürfen nicht mehrere Datensätze erzeugen.
+* Existiert bereits ein Test am gleichen Datum, soll die App fragen:
+
+  * „Bestehenden Test bearbeiten“
+  * „Neuen separaten Test anlegen“
+  * „Abbrechen“
+* Ein neuer separater Test benötigt eine eindeutige Session-ID oder Uhrzeit.
+* Bestehende Testhistorien dürfen nicht versehentlich überschrieben werden.
+* Bearbeiten und Neuanlegen müssen klar unterschieden werden.
+
+Erstelle möglichst ein zentrales Testsession-Konzept:
+
+```text
+Testsession
+- session_id
+- spieler_id
+- datum
+- uhrzeit optional
+- mannschaft
+- testort
+- trainer
+- notiz
+- created_at
+- updated_at
+```
+
+Eine Testsession darf einzelne oder mehrere Testbereiche enthalten.
+
+Migriere bestehende Daten nur, wenn dies sicher und ohne Datenverlust möglich ist. Falls eine vollständige Migration zu riskant ist, ergänze das Session-Konzept ab jetzt für neue Tests und lasse alte Datensätze kompatibel.
+
+# PHASE 4 – Eingabe- und Plausibilitätsfehler beheben
+
+## 4.1 Anthropometrie
+
+Ändere die Untergrenze beim Körpergewicht so, dass auch jüngere Spieler korrekt erfasst werden können.
+
+Nutze eine sinnvolle technische Eingabegrenze, beispielsweise:
+
+* Minimum 15 kg
+* Maximum 200 kg
+
+Unterscheide zwischen:
+
+* technisch erlaubter Eingabe
+* fachlicher Plausibilitätswarnung
+
+Zeige bei ungewöhnlichen Werten eine Warnung, verhindere aber nicht automatisch jede Eingabe.
+
+Prüfe Plausibilität für:
+
+* Körpergröße
+* Körpergewicht
+* Sitzhöhe
+* Beinlänge
+* Armspannweite
+* weitere vorhandene Messwerte
+
+Beispiele:
+
+* Größe 1 cm
+* Größe 1500 cm
+* Gewicht 0 kg
+* Beinlänge 0 cm
+* Sitzhöhe größer als Körpergröße
+* unrealistische Armspannweite
+
+## 4.2 BMI bei Kindern und Jugendlichen
+
+Verwende bei U10 bis U18 keine Erwachsenen-BMI-Grenzwerte von 18,5, 25 und 30 für eine automatische Bewertung.
+
+Lösung:
+
+* BMI darf als rechnerischer Wert angezeigt werden.
+* Bei Minderjährigen keine Erwachsenen-Ampel verwenden.
+* Zeige den Hinweis:
+  „Der BMI wird bei Kindern und Jugendlichen alters- und geschlechtsspezifisch beurteilt. Der angezeigte Wert ist ohne geeignete Referenzperzentilen nicht abschließend zu bewerten.“
+* Keine medizinische Gewichtsdiagnose ausgeben.
+* Erwachsenen-Grenzwerte nur für Erwachsene verwenden.
+* Vorhandene Körperfettwerte, falls vorhanden, getrennt darstellen.
+
+## 4.3 Sprint und Agilität
+
+Eine Zeit von 0 Sekunden darf nicht als gültiges Ergebnis gespeichert oder als „sehr gut“ bewertet werden.
+
+Regeln:
+
+* Leere Versuche dürfen möglich sein.
+* Gültige Zeiten müssen größer als 0 sein.
+* Mindestens ein gültiger Versuch ist zum Speichern erforderlich.
+* Negative Werte sind unzulässig.
+* Zeige verständliche Fehlermeldungen.
+* Prüfe bei Sprintserien:
+
+  * 5-m-Zeit muss normalerweise kleiner als 10-m-Zeit sein.
+  * 10-m-Zeit muss normalerweise kleiner als 20-m-Zeit sein.
+  * 20-m-Zeit muss normalerweise kleiner als 30-m-Zeit sein.
+* Bei unplausibler Reihenfolge Warnung anzeigen und bewusste Bestätigung verlangen.
+* Keine Werte stillschweigend korrigieren.
+
+## 4.4 Datum
+
+Ein Datum in der Zukunft soll eine Warnung erzeugen.
+
+Zukünftige geplante Testtermine dürfen im Session-Modul möglich sein, aber noch keine Testergebnisse besitzen.
+
+# PHASE 5 – Y-Balance korrigieren
+
+Prüfe `y_balance_aus_row()`.
+
+Die Funktion darf nicht pauschal `beinlaenge_r=1` und `beinlaenge_l=1` setzen, wenn anschließend Composite-Scores berechnet werden können.
+
+Setze eine sichere Lösung um:
+
+* Lade die tatsächlich gespeicherten Beinlängen.
+* Falls die gespeicherten Beinlängen nicht vorhanden sind, verwende keine automatische Neuberechnung.
+* Nutze vorhandene gespeicherte Composite-Werte nur dann, wenn nachvollziehbar ist, mit welcher Beinlänge sie berechnet wurden.
+* Zeige bei fehlender Beinlänge:
+  „Composite Score nicht berechenbar – Beinlänge fehlt.“
+* Verändere nicht die korrekte Hauptformel:
+
+```text
+Composite Score =
+(Anterior + Posteromedial + Posterolateral)
+÷ (3 × Beinlänge)
+× 100
+```
+
+* Reichweite und Beinlänge müssen dieselbe Einheit verwenden.
+* Speichere bei neuen Tests die verwendete Beinlänge direkt mit dem Testdatensatz.
+* Historische Y-Balance-Ergebnisse müssen weiterhin lesbar bleiben.
+
+Prüfe außerdem die unterschiedlichen Schwellenwerte von 89 % und 94 % im Projekt.
+
+* Verwende nicht zwei widersprüchliche Grenzwerte ohne Erklärung.
+* Kennzeichne Grenzwerte als interne beziehungsweise populationsabhängige Orientierung.
+* Keine Verletzungsvorhersage.
+* Zeige die Rohwerte und Composite-Werte immer unabhängig von der Bewertung.
+
+# PHASE 6 – Sprungdiagnostik auf drei Versuche erweitern
+
+Derzeit wird laut Prüfbericht teilweise nur ein Versuch erfasst.
+
+Erweitere alle vorhandenen Sprungtests auf bis zu drei Versuche:
+
+* Countermovement Jump
+* Squat Jump
+* Drop Jump
+* Standweitsprung
+* einbeinige Sprünge rechts und links
+* weitere tatsächlich vorhandene Sprungtests
+
+Für jeden Test:
+
+* Versuch 1
+* Versuch 2
+* Versuch 3
+* ungültiger Versuch markierbar
+* Bestwert automatisch bestimmen
+* Mittelwert optional anzeigen
+* Bemerkung
+* Trainerbeobachtungen
+
+Regeln:
+
+* Bei Sprunghöhe und Sprungweite gilt der höchste gültige Wert als Bestwert.
+* Bei Kontaktzeit allein ist nicht automatisch der höchste Wert besser.
+* Beim Drop Jump müssen Sprunghöhe, Kontaktzeit und RSI fachlich getrennt behandelt werden.
+* RSI nur berechnen, wenn gültige Sprunghöhe und Kontaktzeit vorhanden sind.
+* Einheit eindeutig anzeigen.
+* Alte Datensätze mit nur einem Wert müssen weiterhin dargestellt werden.
+* Bestehende Verlaufsgrafiken müssen den Bestwert verwenden und dürfen nicht abbrechen.
+
+Passe an:
+
+* Datenbank
+* Eingabemaske
+* Speicherung
+* Laden und Bearbeiten
+* Verlauf
+* Spielerprofil
+* Mannschaftsübersicht
+* Vergleich
+* Ergebnis-PDF
+* Papier-Testprotokoll
+
+# PHASE 7 – Agilitätsdiagnostik auf drei Versuche erweitern
+
+Erweitere alle vorhandenen Richtungswechsel- und Agilitätstests auf bis zu drei Versuche:
+
+* 505-Test
+* T-Test
+* Illinois-Test
+* 5-10-5 Shuttle, falls vorhanden
+* weitere vorhandene Tests
+
+Für jeden Test:
+
+* Versuch 1
+* Versuch 2
+* Versuch 3
+* ungültiger Versuch
+* Bestzeit
+* Mittelwert optional
+* Wendeseite rechts und links, wenn testabhängig erforderlich
+* Trainerbeobachtung
+* Bemerkung
+
+Regeln:
+
+* Niedrigste gültige Zeit ist Bestzeit.
+* Bei rechts und links Werte getrennt speichern.
+* Seitendifferenz und prozentuale Asymmetrie berechnen, wenn sinnvoll.
+* Keine medizinische Risikobewertung ausgeben.
+* Alte Datensätze müssen kompatibel bleiben.
+
+Passe auch hier an:
+
+* Datenbank
+* Eingabemaske
+* Speicherung
+* Laden
+* Bearbeiten
+* Verlauf
+* Vergleich
+* Ergebnis-PDF
+* Testprotokoll-PDF
+
+# PHASE 8 – Trainerbeobachtungen im Ergebnis-PDF
+
+Ergänze den normalen Ergebnisbericht um den Abschnitt:
+
+## Trainerbeobachtungen
+
+Regeln:
+
+* Abschnitt nur anzeigen, wenn Beobachtungen vorhanden sind.
+* Gespeicherten generierten Text laden.
+* Positive Beobachtungen und Trainingsauffälligkeiten verständlich strukturieren.
+* Seitenangaben übernehmen.
+* Ausprägungen übernehmen.
+* Freitext als „Zusätzliche Trainerbeobachtung“ darstellen.
+* Keine leere Überschrift ausgeben.
+* Umlaute und Sonderzeichen korrekt darstellen.
+* Lange Texte umbrechen.
+* Seitenumbrüche sauber behandeln.
+* Bestehende PDF-Bereiche nicht beschädigen.
+* PDF-Werte müssen exakt mit den gespeicherten App-Werten übereinstimmen.
+
+Bei neutral dokumentierten Beschwerden verwende nur eine Formulierung wie:
+
+„Der Spieler gab während des Tests Beschwerden an. Der Test wurde abgebrochen beziehungsweise nicht weiter bewertet. Bei anhaltenden Beschwerden sollte eine medizinische oder therapeutische Fachperson hinzugezogen werden.“
+
+Keine Diagnose und keine Sportfreigabe.
+
+# PHASE 9 – Neues Kraftdiagnostik-Modul
+
+Erstelle einen neuen Testbereich:
+
+## Kraftdiagnostik
+
+Der Bereich soll in die vorhandene Diagnostik integriert werden und einen klaren Fußballbezug besitzen.
+
+Unterteile ihn in:
+
+1. Oberkörper-Maximalkraft
+2. Rumpfkraftausdauer
+3. Kraftübersicht
+4. Entwicklung
+5. Trainerbeobachtungen
+
+## 9.1 Wichtige fachliche Bezeichnung
+
+Die zeitbasierten Rumpftests dürfen nicht als direkte Maximalkraft bezeichnet werden.
+
+Verwende:
+
+* „Ventrale Rumpfkraftausdauer“
+* „Laterale Rumpfkraftausdauer rechts“
+* „Laterale Rumpfkraftausdauer links“
+* „Dorsale Rumpfkraftausdauer“
+
+Der zusammengefasste Bereich darf heißen:
+
+* „Rumpfkraftausdauer“
+* „Rumpfausdauer-Testbatterie“
+
+Nicht verwenden:
+
+* medizinische Rumpfdiagnose
+* Verletzungsrisiko
+* Rücken gesund oder krank
+* Sportfreigabe
+
+## 9.2 Bankdrücken – 1RM
+
+Erstelle den Test:
+
+### Bankdrücken – Einwiederholungsmaximum
+
+Erfassbare Angaben:
+
+* Testdatum
+* Testsession
+* Spieler
+* Körpergewicht am Testtag
+* Alter beziehungsweise Altersgruppe
+* Testart:
+
+  * direkt gemessenes 1RM
+  * geschätztes 1RM
+* Aufwärmsätze optional
+* Versuch 1 Gewicht
+* Versuch 1 Wiederholungen
+* Versuch gültig oder ungültig
+* Versuch 2 Gewicht
+* Versuch 2 Wiederholungen
+* Versuch gültig oder ungültig
+* Versuch 3 Gewicht
+* Versuch 3 Wiederholungen
+* Versuch gültig oder ungültig
+* direkt erreichtes 1RM in kg
+* geschätztes 1RM in kg
+* verwendete Berechnungsformel
+* relative Kraft
+* Trainerbeobachtungen
+* Abbruchgrund
+* Beschwerden
+* Bemerkungen
+
+### Direkt gemessenes 1RM
+
+Ein direktes 1RM liegt nur vor, wenn:
+
+* exakt eine technisch gültige Wiederholung ausgeführt wurde
+* keine zweite vollständige Wiederholung möglich war
+* der Versuch kontrolliert und beaufsichtigt durchgeführt wurde
+
+Speichere:
+
+```text
+1RM absolut = erfolgreich bewegtes Gewicht in kg
+```
+
+### Geschätztes 1RM
+
+Biete alternativ eine submaximale Schätzung an.
+
+Nutze eine klar benannte Formel, beispielsweise Epley:
+
+```text
+geschätztes 1RM = Gewicht × (1 + Wiederholungen ÷ 30)
+```
+
+Regeln:
+
+* Die Formel muss in der App sichtbar sein.
+* Ergebnis als „geschätztes 1RM“ kennzeichnen.
+* Niemals direktes und geschätztes 1RM vermischen.
+* Bei einer Wiederholung entspricht das geschätzte Ergebnis dem bewegten Gewicht.
+* Für die Schätzung nur technisch gültige Sätze verwenden.
+* Begrenze die Schätzung auf einen sinnvollen Wiederholungsbereich, zum Beispiel 2 bis 10 technisch saubere Wiederholungen.
+* Bei mehr als 10 Wiederholungen Warnung anzeigen, dass die Schätzung ungenauer wird.
+* Keine Berechnung bei 0 kg oder 0 Wiederholungen.
+* Das beste gültige geschätzte Ergebnis darf als geschätzter Bestwert angezeigt werden.
+
+### Relative Bankdrückkraft
+
+Berechne zusätzlich:
+
+```text
+Relative Kraft =
+1RM in kg ÷ Körpergewicht in kg
+```
+
+Unterscheide:
+
+* direkt gemessene relative Kraft
+* geschätzte relative Kraft
+
+Zeige beispielsweise:
+
+```text
+Bankdrücken 1RM: 60 kg
+Körpergewicht: 50 kg
+Relative Kraft: 1,20 × Körpergewicht
+```
+
+Keine automatische wissenschaftliche Leistungsnorm erfinden.
+
+Falls keine belastbaren, alters- und geschlechtsspezifischen Referenzwerte im Projekt vorhanden sind:
+
+* Rohwert anzeigen
+* relativen Wert anzeigen
+* Entwicklung anzeigen
+* keine rote, gelbe oder grüne Bewertung erzeugen
+* als „individuelle Verlaufsorientierung“ kennzeichnen
+
+## 9.3 Sicherheit beim Bankdrücken
+
+Gerade bei Kindern und Jugendlichen gelten folgende Regeln:
+
+* Direktes 1RM nicht automatisch empfehlen.
+* Vor der Eingabe deutlichen Sicherheitshinweis anzeigen.
+* Test nur bei gesunden, vorbereiteten und technisch geschulten Spielern.
+* Qualifizierte Aufsicht erforderlich.
+* Sicherheitsablage oder zuverlässige Spotter erforderlich.
+* Standardisierte Technik erforderlich.
+* Kein Test bei akuten Beschwerden.
+* Test jederzeit abbrechbar.
+* Bei jüngeren oder unerfahrenen Spielern standardmäßig die submaximale Schätzung anbieten.
+* Kein motivierender Text, der zu unkontrollierten Maximalversuchen auffordert.
+* Keine Aussage, dass 1RM für jeden Spieler notwendig ist.
+
+Möglicher Hinweis:
+
+„Ein direktes 1RM sollte nur bei technisch erfahrenen, entsprechend vorbereiteten und qualifiziert beaufsichtigten Spielern durchgeführt werden. Für jüngere oder unerfahrene Spieler ist eine submaximale Schätzung in der Regel die passendere Option.“
+
+Füge eine Pflichtbestätigung ein:
+
+* „Sicherheitsvoraussetzungen wurden geprüft.“
+* „Der Spieler beherrscht die Übungstechnik.“
+* „Eine geeignete Aufsicht und Sicherung ist vorhanden.“
+
+Ohne Bestätigung darf ein direktes 1RM nicht gespeichert werden.
+
+## 9.4 Standardisierte Bankdrücktechnik dokumentieren
+
+Erstelle auswählbare Beobachtungen:
+
+### Vorbereitung
+
+* Bank und Ablage passend eingestellt
+* Sicherheitsablagen vorhanden
+* Spotter vorhanden
+* Schulterblätter stabil positioniert
+* Füße stabil aufgestellt
+* gleichmäßiger Griff
+* Griffbreite dokumentiert
+
+### Ausführung
+
+* kontrolliertes Ablassen
+* definierte untere Position erreicht
+* gleichmäßiges Hochdrücken
+* vollständige Wiederholung
+* Hantelweg kontrolliert
+* rechte und linke Seite arbeiten gleichmäßig
+* Gesäß bleibt auf der Bank
+* Kopf bleibt kontrolliert
+* keine Hilfe durch Spotter
+
+### Auffälligkeiten
+
+* instabile Schulterposition
+* ungleichmäßiger Hantelweg
+* rechte Seite arbeitet stärker
+* linke Seite arbeitet stärker
+* fehlende Kontrolle beim Ablassen
+* Bewegung nicht vollständig
+* Gesäß hebt von der Bank ab
+* Füße verlieren Stabilität
+* Versuch nur mit Hilfe beendet
+* Test wegen Technik abgebrochen
+* Beschwerden angegeben
+
+Ein technisch ungültiger Versuch darf nicht als 1RM gewertet werden.
+
+## 9.5 Ventrale Rumpfkraftausdauer
+
+Erstelle den Test:
+
+### Ventrale Rumpfkraftausdauer
+
+Einheit:
+
+```text
+Sekunden
+```
+
+Verwende eine standardisierte, im Testprotokoll beschriebene Position.
+
+Falls die App den McGill-Flexor-Endurance-Test verwendet:
+
+* Oberkörper in definierter zurückgelehnter Position
+* Hüfte und Knie standardisiert angewinkelt
+* Position wird isometrisch gehalten
+* Zeitmessung endet beim Verlust der festgelegten Position
+
+Alternativ darf eine Unterarmstütz-Variante verwendet werden, aber beide Varianten dürfen nicht vermischt werden.
+
+Deshalb muss die Testvariante gespeichert werden:
+
+* McGill Flexor Endurance
+* Unterarmstütz
+* benutzerdefinierte vorhandene Variante
+
+Vergleiche im Verlauf nur identische Varianten miteinander.
+
+Erfassbare Daten:
+
+* Versuch 1 in Sekunden
+* Versuch 2 optional
+* gültig oder ungültig
+* Abbruchgrund
+* Trainerbeobachtungen
+* Bemerkungen
+* Bestzeit
+
+Standardmäßig reicht ein standardisierter Hauptversuch. Ein zweiter Versuch darf nur als optionaler Wiederholungsversuch nach ausreichender Erholung angeboten werden.
+
+## 9.6 Laterale Rumpfkraftausdauer rechts
+
+Erstelle:
+
+### Laterale Rumpfkraftausdauer rechts
+
+Einheit:
+
+```text
+Sekunden
+```
+
+Standardisierte Position:
+
+* Seitstütz
+* unterer Ellenbogen unter der Schulter
+* Beine entsprechend der ausgewählten Variante positioniert
+* Becken angehoben
+* Kopf, Rumpf und Beine möglichst in einer Linie
+* Zeit endet bei deutlichem Positionsverlust
+
+Testvariante speichern:
+
+* Seitstütz mit gestreckten Beinen
+* Seitstütz auf den Knien
+* andere klar benannte Variante
+
+Nur identische Varianten im Verlauf vergleichen.
+
+Erfassbare Angaben:
+
+* Haltezeit in Sekunden
+* gültig oder ungültig
+* Abbruchgrund
+* Trainerbeobachtungen
+* Beschwerden
+* Bemerkung
+
+## 9.7 Laterale Rumpfkraftausdauer links
+
+Gleicher Aufbau wie rechts:
+
+* Haltezeit links
+* gleiche Testvariante
+* gleiche Abbruchkriterien
+* gleiche Einheit
+* separate Speicherung
+
+## 9.8 Dorsale Rumpfkraftausdauer
+
+Erstelle:
+
+### Dorsale Rumpfkraftausdauer
+
+Orientierung am Biering-Sørensen-Test.
+
+Einheit:
+
+```text
+Sekunden
+```
+
+Standardisierte Beschreibung:
+
+* Unterkörper sicher auf einer geeigneten Testbank fixiert
+* Oberkörper wird horizontal gehalten
+* Arme in der festgelegten Position
+* Zeitmessung endet bei deutlichem Verlust der horizontalen Position oder bei Testabbruch
+
+Testvariante speichern:
+
+* Biering-Sørensen
+* modifizierter Sørensen-Test
+* andere vorhandene Variante
+
+Nur identische Varianten im Verlauf vergleichen.
+
+Erfassbare Angaben:
+
+* Haltezeit in Sekunden
+* gültig oder ungültig
+* Abbruchgrund
+* Trainerbeobachtungen
+* Beschwerden
+* Bemerkungen
+
+## 9.9 Rumpfausdauer-Gesamtwert
+
+Berechne einen internen Gesamtwert nur dann, wenn alle vier gültigen Einzelwerte vorhanden sind:
+
+```text
+Rumpfausdauer-Gesamtwert =
+ventrale Zeit
++ laterale Zeit rechts
++ laterale Zeit links
++ dorsale Zeit
+```
+
+Beispiel:
+
+```text
+Ventral: 80 s
+Lateral rechts: 60 s
+Lateral links: 55 s
+Dorsal: 100 s
+
+Gesamtwert:
+80 + 60 + 55 + 100 = 295 s
+```
+
+Wichtige Bezeichnung:
+
+```text
+Interner Rumpfausdauer-Gesamtwert: 295 Sekunden
+```
+
+Zeige unmittelbar den Hinweis:
+
+„Der Gesamtwert ist eine interne Summenkennzahl zur individuellen Verlaufskontrolle. Er ist kein allgemein validierter Norm- oder Risikoscore.“
+
+Regeln:
+
+* Nur berechnen, wenn alle vier Einzeltests gültig sind.
+* Fehlende Werte nicht als 0 einsetzen.
+* Keine Ampelbewertung nur anhand der Summe.
+* Keine medizinische Interpretation.
+* In Verlaufsgrafiken nur Ergebnisse gleicher Testvarianten vergleichen.
+* Einzelwerte immer zusätzlich anzeigen.
+* Die Summe darf Unterschiede zwischen den Richtungen nicht verdecken.
+
+## 9.10 Laterale Seitendifferenz
+
+Berechne:
+
+```text
+Absolute Seitendifferenz =
+|rechts − links|
+```
+
+und:
+
+```text
+Laterale Asymmetrie in Prozent =
+|rechts − links|
+÷ max(rechts, links)
+× 100
+```
+
+Zeige:
+
+* rechts in Sekunden
+* links in Sekunden
+* Differenz in Sekunden
+* Differenz in Prozent
+* stärkere beziehungsweise länger gehaltene Seite
+
+Verwende neutrale Sprache:
+
+* „Seitendifferenz“
+* „rechts längere Haltezeit“
+* „links längere Haltezeit“
+* „erneute standardisierte Überprüfung empfohlen“
+
+Nicht verwenden:
+
+* hohes Verletzungsrisiko
+* muskuläre Schädigung
+* behandlungsbedürftig
+* Diagnose
+
+## 9.11 Rumpfverhältnisse
+
+Berechne zusätzliche Verhältnisse, sofern alle benötigten Werte vorhanden sind:
+
+```text
+Ventral zu dorsal =
+ventrale Zeit ÷ dorsale Zeit
+```
+
+```text
+Lateral rechts zu dorsal =
+laterale Zeit rechts ÷ dorsale Zeit
+```
+
+```text
+Lateral links zu dorsal =
+laterale Zeit links ÷ dorsale Zeit
+```
+
+```text
+Lateral rechts zu links =
+laterale Zeit rechts ÷ laterale Zeit links
+```
+
+Zeige diese Werte zunächst ausschließlich beschreibend.
+
+Keine Ampel und keine harte Risikobewertung einbauen, solange keine klar dokumentierten, für die Zielgruppe geeigneten Referenzwerte hinterlegt sind.
+
+## 9.12 Trainerbeobachtungen Rumpfausdauer
+
+Erstelle zentrale Beobachtungen für jeden Rumpftest.
+
+### Positive Beobachtungen
+
+* stabile Ausgangsposition
+* kontrollierte Atmung
+* Becken bleibt stabil
+* Wirbelsäulenposition bleibt kontrolliert
+* gleichmäßige Körperspannung
+* Testposition bis zum Abbruch sauber gehalten
+* selbstständiger kontrollierter Testabbruch
+
+### Ventrale Auffälligkeiten
+
+* Becken sinkt ab
+* Becken wird deutlich angehoben
+* verstärkte Hohlkreuzposition
+* Oberkörperposition nicht gehalten
+* Schulterposition instabil
+* deutliche Ausweichbewegungen
+* Atem wird stark angehalten
+* Test wegen Technik beendet
+
+### Laterale Auffälligkeiten
+
+* Becken sinkt ab
+* Oberkörper rotiert
+* Schulter verliert Stabilität
+* Kopfposition verändert sich deutlich
+* untere Extremität verliert Position
+* deutliche seitliche Ausweichbewegung
+* rechts technisch unsicherer
+* links technisch unsicherer
+* Test wegen Technik beendet
+
+### Dorsale Auffälligkeiten
+
+* horizontale Position nicht gehalten
+* Oberkörper sinkt ab
+* Oberkörper wird überstreckt
+* Beckenposition verändert sich
+* Beinfixierung unzureichend
+* verstärkte Aktivität beziehungsweise Ermüdung der hinteren Oberschenkel beobachtet
+* Test wegen Technik beendet
+
+### Neutrale Abbruchgründe
+
+* muskuläre Ermüdung
+* Position nicht mehr gehalten
+* technische Kriterien nicht mehr erfüllt
+* Spieler beendet den Test
+* Trainer beendet den Test
+* Beschwerden angegeben
+* organisatorischer Abbruch
+
+## 9.13 Datenbank für Kraftdiagnostik
+
+Erstelle eine saubere, migrationsfähige Datenstruktur.
+
+Bevorzuge getrennte Tabellen oder eine klar strukturierte gemeinsame Tabelle.
+
+Mögliche Struktur:
+
+```text
+kraft_test
+- id
+- session_id
+- spieler_id
+- datum
+- testart
+- testvariante
+- koerpergewicht
+- direktes_1rm
+- geschaetztes_1rm
+- relative_kraft
+- verwendete_formel
+- ventral_sekunden
+- lateral_rechts_sekunden
+- lateral_links_sekunden
+- dorsal_sekunden
+- rumpf_gesamt_sekunden
+- lateral_differenz_sekunden
+- lateral_asymmetrie_prozent
+- ratio_ventral_dorsal
+- ratio_lateral_rechts_dorsal
+- ratio_lateral_links_dorsal
+- status
+- abbruchgrund
+- bemerkung
+- created_at
+- updated_at
+```
+
+Versuche und Beobachtungen können in eigenen Tabellen gespeichert werden:
+
+```text
+kraft_test_versuch
+- id
+- kraft_test_id
+- uebung
+- versuchsnummer
+- gewicht
+- wiederholungen
+- zeit_sekunden
+- gueltig
+- ungueltigkeitsgrund
+```
+
+Verwende Fremdschlüssel und sichere Löschregeln.
+
+Keine Listen als unstrukturierte Python-Strings speichern, wenn eine relationale Struktur sinnvoller ist.
+
+## 9.14 Kraftdiagnostik-Bewertung
+
+Zunächst keine erfundenen Normwerte verwenden.
+
+Zeige:
+
+* absolute Leistung
+* relative Leistung
+* Einzelzeiten
+* Seitendifferenz
+* interne Summe
+* Veränderung gegenüber dem letzten identischen Test
+* persönliche Bestleistung
+* Verlauf
+
+Bewertungsstatus:
+
+* „Rohwert“
+* „individuelle Entwicklung“
+* „interne Orientierung“
+
+Der neue Kraftbereich darf erst in den Athletik-Gesamtscore einfließen, wenn eine transparente und fachlich begründete Gewichtung definiert wurde.
+
+Deshalb zunächst:
+
+* Kraftmodul nicht automatisch in den bestehenden Athletik-Gesamtscore aufnehmen.
+* Keine fehlende Kraftdiagnostik als schlechte Leistung werten.
+* Im Dashboard separat als Kraftdiagnostik anzeigen.
+
+# PHASE 10 – Fußballbezug der Kraftdiagnostik
+
+Erkläre im Modul knapp und neutral den sportlichen Bezug:
+
+## Bankdrücken
+
+Darstellung als allgemeiner Oberkörper-Maximalkrafttest.
+
+Kein Text, der Bankdrücken als wichtigsten Fußballtest bezeichnet.
+
+Mögliche Formulierung:
+
+„Der Test erfasst die maximale beziehungsweise geschätzte horizontale Druckkraft des Oberkörpers. Im Fußball kann dieser Wert ergänzende Informationen zur allgemeinen Kraftentwicklung liefern, ersetzt jedoch keine sportartspezifische Leistungsdiagnostik.“
+
+## Rumpfkraftausdauer
+
+Mögliche Formulierung:
+
+„Die Rumpfausdauer-Testbatterie beschreibt, wie lange standardisierte Positionen in ventraler, lateraler und dorsaler Richtung kontrolliert gehalten werden können. Die Ergebnisse dienen der individuellen Verlaufskontrolle und Trainingsplanung.“
+
+Vermeide Aussagen wie:
+
+* verhindert Verletzungen
+* beweist Stabilität im Zweikampf
+* garantiert bessere Sprintleistung
+* zeigt sichere Rückenprobleme
+* gibt Sportfreigabe
+
+# PHASE 11 – Kraftdiagnostik in alle App-Bereiche integrieren
+
+Integriere das Kraftmodul in:
+
+* Diagnostikübersicht
+* Spielerprofil
+* Testauswahl
+* Testsession
+* Entwicklungsverlauf
+* Spielervergleich
+* Mannschaftsübersicht
+* Trainerbeobachtungen
+* Ergebnis-PDF
+* Testprotokoll-PDF
+* Datenexport
+* Datenbank-Reset
+* Spieler löschen
+
+## Spielerprofil
+
+Zeige:
+
+* letztes direktes oder geschätztes Bankdrück-1RM
+* relative Bankdrückkraft
+* ventrale Zeit
+* lateral rechts
+* lateral links
+* dorsale Zeit
+* interner Rumpfausdauer-Gesamtwert
+* Datum
+* Veränderung zum vorherigen identischen Test
+
+## Verlauf
+
+Erstelle getrennte Diagramme:
+
+* Bankdrücken 1RM absolut
+* Bankdrücken relativ
+* ventrale Rumpfausdauer
+* laterale Rumpfausdauer rechts
+* laterale Rumpfausdauer links
+* dorsale Rumpfausdauer
+* interner Rumpfausdauer-Gesamtwert
+
+Direkt gemessene und geschätzte 1RM-Werte müssen optisch und textlich unterscheidbar sein.
+
+Keine Linie zwischen unterschiedlichen Rumpftestvarianten erzeugen.
+
+# PHASE 12 – PDF-Testprotokoll erweitern
+
+Ergänze im Bereich „Testprotokoll drucken“ die Kraftdiagnostik.
+
+Der Trainer muss einzeln auswählen können:
+
+* Bankdrücken 1RM
+* Bankdrücken geschätztes 1RM
+* ventrale Rumpfkraftausdauer
+* laterale Rumpfkraftausdauer rechts
+* laterale Rumpfkraftausdauer links
+* dorsale Rumpfkraftausdauer
+* komplette Rumpfausdauer-Testbatterie
+
+## Papierbogen Bankdrücken
+
+Felder:
+
+* Spieler
+* Geburtsdatum
+* Mannschaft
+* Testdatum
+* Körpergewicht
+* Testart direkt oder geschätzt
+* Aufwärmsätze
+* Versuch 1: Gewicht und Wiederholungen
+* Versuch 2: Gewicht und Wiederholungen
+* Versuch 3: Gewicht und Wiederholungen
+* gültig oder ungültig
+* direktes 1RM
+* geschätztes 1RM
+* relative Kraft
+* Technikbeobachtungen
+* Sicherheitsbestätigung
+* Abbruchgrund
+* Bemerkungen
+
+## Papierbogen Rumpfausdauer
+
+Felder:
+
+| Test           | Variante | Zeit | gültig | Abbruchgrund |
+| -------------- | -------- | ---: | -----: | ------------ |
+| Ventral        |          |    s |        |              |
+| Lateral rechts |          |    s |        |              |
+| Lateral links  |          |    s |        |              |
+| Dorsal         |          |    s |        |              |
+
+Zusätzliche Felder:
+
+* Gesamtzeit
+* Seitendifferenz
+* Trainerbeobachtungen
+* Beschwerden
+* Test nicht durchgeführt
+
+Die Papierfelder müssen exakt zu den späteren Eingabefeldern in der App passen.
+
+# PHASE 13 – Athletik-Gesamtscore fachlich absichern
+
+Prüfe den bestehenden Athletik-Gesamtscore.
+
+Behalte die positive bestehende Funktion bei:
+
+* Fehlende Testmodule werden nicht als schlechte Leistung gewertet.
+* Gewichte werden auf vorhandene Module neu verteilt.
+
+Verbessere:
+
+* Zeige transparent, welche Module eingeflossen sind.
+* Zeige das Gewicht jedes Moduls.
+* Zeige, welche Module fehlen.
+* Kennzeichne den Gesamtscore als:
+  „Interner Athletik-Orientierungswert“
+* Verwende keine wissenschaftliche Validierungsaussage.
+* Keine medizinische Risikoaussage.
+* FMS ist eine ordinale Skala und darf nicht unkommentiert wie ein linearer Leistungstest behandelt werden.
+* Ändere bestehende Gewichtungen nicht blind.
+* Kraftdiagnostik zunächst nicht automatisch hinzufügen.
+* Prüfe textbasierte Subscore-Zuordnungen und ersetze fragile Textvergleiche möglichst durch feste strukturierte Status-IDs.
+
+Beispiel:
+
+```text
+sehr_gut
+gut
+mittel
+entwicklungsbedarf
+```
+
+Die Berechnung darf nicht von der exakten Schreibweise eines sichtbaren deutschen Bewertungstextes abhängen.
+
+# PHASE 14 – Risikoformulierungen prüfen
+
+Suche im gesamten Projekt nach:
+
+* Risiko
+* hohes Risiko
+* Verletzungsrisiko
+* kritisch
+* Diagnose
+* Therapie
+* Sportfreigabe
+* gefährlich
+* behandlungsbedürftig
+* Athletikdefizit
+* Rückenschwäche
+
+Ersetze missverständliche trainerfremde Aussagen durch neutrale sportpraktische Formulierungen, ohne sinnvolle Hinweise zu entfernen.
+
+Bevorzugte Begriffe:
+
+* sportliche Auffälligkeit
+* beobachteter Trainingsschwerpunkt
+* Seitenunterschied
+* eingeschränkte Bewegungsqualität
+* unter den gewählten Testbedingungen
+* individuelle Verlaufskontrolle
+* erneute standardisierte Überprüfung
+* bei Beschwerden fachliche Abklärung empfohlen
+
+Der Begriff „Risikoscore“ darf nicht verwendet werden, wenn keine medizinisch validierte Risikoberechnung vorliegt.
+
+# PHASE 15 – Ausdauerformel absichern
+
+Prüfe die verwendete VO₂max-Schätzung.
+
+Die Formel:
+
+```text
+Distanz × 0,0084 + 36,4
+```
+
+darf nur für den passenden Yo-Yo-IR1-Test verwendet werden.
+
+Regeln:
+
+* Testtyp eindeutig speichern.
+* Bei anderen Ausdauertests keine automatische Verwendung dieser Formel.
+* Ergebnis als Schätzung kennzeichnen.
+* Verwendete Formel im Detailbereich anzeigen.
+* Rohleistung, Level, Shuttle und Gesamtstrecke weiterhin anzeigen.
+
+# PHASE 16 – Codequalität verbessern
+
+Führe nur risikoarme direkte Bereinigungen durch:
+
+* totes zweites Navigationsmenü entfernen, wenn eindeutig unbenutzt
+* doppelten `os`-Import entfernen
+* eindeutig ungenutzte Imports entfernen
+* keine funktionierenden Imports versehentlich löschen
+* große Refactorings nicht gleichzeitig mit Datenbankmigrationen durchführen
+
+Die Aufteilung der über 4.000 Zeilen großen `app.py` soll vorbereitet, aber nicht blind in einem Schritt durchgeführt werden.
+
+Erstelle zunächst einen Refactoring-Vorschlag:
+
+* `pages/page_spieler.py`
+* `pages/page_fms.py`
+* `pages/page_y_balance.py`
+* `pages/page_sprint.py`
+* `pages/page_sprung.py`
+* `pages/page_agilitaet.py`
+* `pages/page_ausdauer.py`
+* `pages/page_kraft.py`
+* `pages/page_protokoll.py`
+
+Führe diese große Aufteilung nur durch, wenn automatische Tests vorhanden sind und alle bestehenden Funktionen sicher erhalten bleiben. Ansonsten zunächst nicht umsetzen.
+
+# PHASE 17 – Bedienbarkeit verbessern
+
+Ergänze sinnvolle Direktsprünge:
+
+* Spielerprofil → neuen Test starten
+* Spielerprofil → letztes Ergebnis öffnen
+* Spielerprofil → Testprotokoll drucken
+* Ergebnis → Spielerprofil
+* Ergebnis → Entwicklung
+* Ergebnis → PDF
+* Testsession → noch offene Tests
+
+Zeige nach erfolgreichem Speichern eindeutig:
+
+* welcher Spieler
+* welcher Test
+* welches Datum
+* welcher Datensatz gespeichert wurde
+
+Verhindere doppelte Klicks.
+
+Bei Löschungen immer Rückfrage.
+
+Trainingspläne dürfen nicht ohne Sicherheitsabfrage gelöscht werden.
+
+# PHASE 18 – Automatisierte und manuelle Tests
+
+Führe nach der Umsetzung Tests mit einer separaten Testdatenbank durch.
+
+## Datenbanktests
+
+1. Bestehende Datenbank öffnen.
+2. Backup erstellen.
+3. Migration ausführen.
+4. Duplikate erkennen.
+5. Duplikate bereinigen.
+6. Trainerbeobachtung zweimal speichern.
+7. Beobachtung bearbeiten.
+8. Beobachtung laden.
+9. Spieler mit Beobachtungen löschen.
+10. vollständigen Reset in einer Testkopie durchführen.
+11. Fremdschlüsselverletzung testen.
+12. App neu starten.
+
+## Bestehende Diagnostik
+
+13. Anthropometrie unter 30 kg speichern.
+14. unrealistische Anthropometrie eingeben.
+15. FMS vollständig speichern.
+16. Y-Balance mit echten Beinlängen speichern.
+17. Y-Balance erneut öffnen.
+18. Sprint mit 0 Sekunden ablehnen.
+19. gültigen Sprint mit drei Versuchen speichern.
+20. Sprint mehrfach anklicken.
+21. Sprung mit drei Versuchen speichern.
+22. ungültigen Sprung markieren.
+23. Agilität mit drei Versuchen speichern.
+24. rechte und linke Wendeseite testen.
+25. Yo-Yo IR1 speichern.
+26. anderen Ausdauertest ohne falsche VO₂max-Formel prüfen.
+27. Entwicklung öffnen.
+28. Spielervergleich öffnen.
+29. Ergebnis-PDF erstellen.
+30. Testprotokoll-PDF erstellen.
+
+## Kraftdiagnostik
+
+31. Direktes Bankdrück-1RM speichern.
+32. Geschätztes 1RM mit Epley-Formel berechnen.
+33. Relative Kraft berechnen.
+34. Eingabe mit 0 kg ablehnen.
+35. Eingabe mit 0 Wiederholungen ablehnen.
+36. Mehr als 10 Wiederholungen mit Warnung behandeln.
+37. Ungültigen Bankdrückversuch nicht werten.
+38. Sicherheitsbestätigung beim direkten 1RM prüfen.
+39. Ventrale Zeit speichern.
+40. Laterale Zeit rechts speichern.
+41. Laterale Zeit links speichern.
+42. Dorsale Zeit speichern.
+43. Gesamtwert aus vier gültigen Zeiten berechnen.
+44. Gesamtwert bei einem fehlenden Test nicht berechnen.
+45. Seitendifferenz berechnen.
+46. Prozentuale Seitendifferenz berechnen.
+47. Rumpfverhältnisse berechnen.
+48. Beobachtungen speichern und laden.
+49. Kraftverlauf anzeigen.
+50. Kraft-Ergebnis-PDF erstellen.
+51. Kraft-Testprotokoll leer erstellen.
+52. Kraft-Testprotokoll mit einem Spieler erstellen.
+53. Kraft-Testprotokoll mit mehreren Spielern erstellen.
+54. Spieler mit Kraftdaten löschen.
+55. App neu starten und Kraftdaten erneut laden.
+
+## Regressionstests
+
+Prüfe, dass weiterhin funktionieren:
+
+* Startseite
+* Spieler anlegen
+* Spieler bearbeiten
+* Spieler löschen
+* FMS
+* Y-Balance
+* Sprint
+* Sprung
+* Agilität
+* Ausdauer
+* Anthropometrie
+* Trainerbeobachtungen
+* Trainingsplanung
+* Periodisierung
+* Entwicklung
+* Vergleich
+* Mannschaft
+* Ergebnis-PDF
+* Testprotokoll
+* Einstellungen
+* Einwilligung
+
+# PHASE 19 – Abschlussbericht
+
+Erstelle nach Abschluss einen ausführlichen Bericht.
+
+## A. Sicherungen
+
+* Datenbank-Backup
+* Dateibackups
+* Speicherorte
+
+## B. Geänderte Dateien
+
+Für jede Datei:
+
+* Änderung
+* Grund
+* Risiko
+* Testergebnis
+
+## C. Datenbankmigrationen
+
+* neue Tabellen
+* neue Spalten
+* neue Indizes
+* Fremdschlüssel
+* bereinigte Duplikate
+* bereinigte verwaiste Datensätze
+
+## D. Behobene Punkte aus dem Prüfbericht
+
+Kennzeichne jeden Punkt:
+
+* vollständig behoben
+* teilweise behoben
+* nicht behoben
+* bewusst nicht verändert
+
+## E. Neues Kraftmodul
+
+Zeige:
+
+* vorhandene Tests
+* Formeln
+* Datenbankstruktur
+* UI-Einbindung
+* Verlauf
+* PDF
+* Testprotokoll
+* Sicherheitsregeln
+
+## F. Durchgeführte Tests
+
+Für jeden Test:
+
+* erfolgreich
+* fehlgeschlagen
+* nicht ausführbar
+* Grund
+
+## G. Offene Punkte
+
+Nenne nur tatsächlich offene Punkte.
+
+## H. Geschützte Funktionen
+
+Bestätige konkret, welche bereits funktionierenden Bereiche unverändert erhalten geblieben sind.
+
+## I. Praxiseinschätzung
+
+Bewerte anschließend erneut:
+
+* fachlicher Sinn
+* Bedienbarkeit
+* technische Stabilität
+* Datenqualität
+* Testsystem
+* Auswertung
+* Berichte
+* Trainerbeobachtungen
+* Kraftdiagnostik
+* Praxistauglichkeit
+
+# Abschließende Einschränkungen
+
+* Erfinde keine wissenschaftlichen Normwerte.
+* Stelle interne Scores nicht als validierte Diagnostik dar.
+* Die Summe der vier Rumpfzeiten ist ausschließlich ein interner Verlaufswert.
+* Rumpfhaltezeiten messen Kraftausdauer, nicht direkte Maximalkraft.
+* Bankdrücken ist ein ergänzender allgemeiner Krafttest und kein alleiniger fußballspezifischer Leistungsnachweis.
+* Direktes 1RM bei Kindern und Jugendlichen nur mit Sicherheitsprüfung und qualifizierter Aufsicht.
+* Bestehende korrekte FMS-, Y-Balance-, Sprint-, Sprung- und Asymmetrieformeln nicht ohne nachgewiesenen Fehler verändern.
+* Keine produktiven Daten löschen.
+* Keine Änderungen als erfolgreich bezeichnen, wenn sie nicht tatsächlich getestet wurden.
+
+Beginne jetzt mit Sicherung, Bestandsaufnahme und schrittweiser Umsetzung des vollständigen Auftrags.

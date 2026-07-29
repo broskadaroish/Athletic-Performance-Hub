@@ -35,7 +35,6 @@ from database import (
     sprung_speichern, sprung_letzter, sprung_history,
     agilitaet_speichern, agilitaet_letzter, agilitaet_history,
     ausdauer_speichern, ausdauer_letzter, ausdauer_history,
-    kraft_speichern, kraft_letzter, kraft_history,
     einwilligung_speichern, einwilligung_letzter, einwilligung_alle,
     db_komplett_zuruecksetzen,
     checkliste_custom_laden, checkliste_custom_speichern,
@@ -95,7 +94,6 @@ SCHWEREGRADE      = ["Leicht (1–7 Tage)", "Mittel (8–28 Tage)", "Schwer (> 2
 from training import init_training_bibliothek, empfehlung_bereiche, uebungen_fuer_bereiche
 from fms import FMSResult
 from y_balance import YBalanceResult
-from kraft import KraftErgebnis as _KraftErgebnis, epley_1rm as _epley_1rm
 from analytics import (
     risiko_score, risiko_label, athletik_score, athletik_sub_scores,
     defizite_ermitteln, schwerpunkt_sammeln,
@@ -1856,7 +1854,7 @@ def page_anthropometrie():
                                         float(letzter["groesse"]) if letzter else 175.0,
                                         step=0.5, key="anthro_groesse", label_visibility="collapsed", help=_fh("groesse"))
         gw_h, gw_i = c1.columns([5, 1]); gw_h.markdown("**Körpergewicht (kg)**"); field_info_col(gw_i, "anthropometrie", "gewicht")
-        gewicht      = c1.number_input("Körpergewicht (kg)", 15.0, 150.0,
+        gewicht      = c1.number_input("Körpergewicht (kg)", 30.0, 150.0,
                                         float(letzter["gewicht"]) if letzter else 70.0,
                                         step=0.5, key="anthro_gewicht", label_visibility="collapsed", help=_fh("gewicht"))
         kf_h, kf_i = c1.columns([5, 1]); kf_h.markdown("**Körperfett (%)**"); field_info_col(kf_i, "anthropometrie", "koerperfett")
@@ -2167,89 +2165,90 @@ def page_sprung():
 
     tab_neu, tab_verlauf = st.tabs(["📋 Neuer Test", "📈 Verlauf"])
 
-    def _v3_sprung(label, key_pfx, max_val, step=0.5, col=None, field_id=""):
-        """3-Versuch-Eingabe (Höhe cm oder Zeit s) — Bestwert = max()."""
-        ct = col if col else st
-        lbl_c, info_c = ct.columns([5, 1])
-        lbl_c.markdown(f"**{label}**")
-        if field_id:
-            field_info_col(info_c, "jump", field_id)
-        vc1, vc2, vc3, vbest = ct.columns(4)
-        vc1.caption("V1"); vc2.caption("V2"); vc3.caption("V3"); vbest.caption("Bestwert")
-        v1 = vc1.number_input(key_pfx+"v1", 0.0, max_val, 0.0, step=step,
-                               key=f"{key_pfx}_v1", label_visibility="collapsed")
-        v2 = vc2.number_input(key_pfx+"v2", 0.0, max_val, 0.0, step=step,
-                               key=f"{key_pfx}_v2", label_visibility="collapsed")
-        v3 = vc3.number_input(key_pfx+"v3", 0.0, max_val, 0.0, step=step,
-                               key=f"{key_pfx}_v3", label_visibility="collapsed")
-        vals = [v for v in [v1, v2, v3] if v > 0]
-        best = max(vals) if vals else None
-        if best:
-            vbest.metric("✓", f"{best:.1f}")
-            if field_id:
-                norm_badge(best, "jump", field_id, ct, altersgruppe=altersgruppe)
-        return (v1 or None), (v2 or None), (v3 or None), best
-
     with tab_neu:
         datum = st.date_input("Testdatum", value=date.today(), key="sprung_datum")
-        if datum > date.today():
-            st.warning("⚠️ Testdatum liegt in der Zukunft — bitte prüfen.")
-        st.markdown("#### Sprünge — je 3 Versuche | Bestwert = max(V1, V2, V3)")
-        st.caption("0.00 = Versuch nicht durchgeführt")
+        st.markdown("#### Messwerte (cm / s) — nicht gemessene Tests auf 0 lassen")
 
+        _fh = lambda fid: show_field_help("jump", fid)
         c1, c2 = st.columns(2)
 
-        v1_cb, v2_cb, v3_cb, b_cmj_beid = _v3_sprung("CMJ beidbeinig (cm)", "cmj_beid_", 100.0, col=c1, field_id="cmj_beid")
-        v1_cr, v2_cr, v3_cr, b_cmj_r    = _v3_sprung("CMJ einbeinig rechts (cm)", "cmj_r_",  80.0,  col=c1, field_id="cmj_r")
-        v1_cl, v2_cl, v3_cl, b_cmj_l    = _v3_sprung("CMJ einbeinig links (cm)",  "cmj_l_",  80.0,  col=c1, field_id="cmj_l")
-        if b_cmj_r and b_cmj_l:
-            c1.markdown(asymmetrie_badge_html(b_cmj_r, b_cmj_l, niedriger_besser=False), unsafe_allow_html=True)
-        v1_sq, v2_sq, v3_sq, b_squat    = _v3_sprung("Squat Jump (cm)", "squat_", 100.0, col=c1, field_id="squat_jump")
-        v1_dh, v2_dh, v3_dh, b_dj_h     = _v3_sprung("Drop Jump — Höhe (cm)", "dj_h_", 80.0, col=c2, field_id="dj_hoehe")
-        v1_dk, v2_dk, v3_dk, b_dj_kz    = _v3_sprung("Drop Jump — KZ (s)", "dj_kz_", 2.0, step=0.01, col=c2, field_id="dj_kontakt")
-        v1_sw, v2_sw, v3_sw, b_swj       = _v3_sprung("Standweitsprung (cm)", "swj_", 400.0, step=1.0, col=c2, field_id="standweit")
+        lc1, li1 = c1.columns([5,1])
+        lc1.markdown("**CMJ beidbeinig (cm)**"); field_info_col(li1, "jump", "cmj_beid")
+        cmj_beid = c1.number_input("CMJ beidbeinig", 0.0, 100.0, 0.0, step=0.5, key="cmj_beid", label_visibility="collapsed", help=_fh("cmj_beid"))
+        if cmj_beid > 0: norm_badge(cmj_beid, "jump", "cmj_beid", c1, altersgruppe=altersgruppe)
 
-        from sprung import SprungErgebnis as _SpE
-        res = _SpE(cmj_beid=b_cmj_beid, cmj_rechts=b_cmj_r, cmj_links=b_cmj_l,
-                   squat_jump=b_squat, drop_jump_hoehe=b_dj_h, drop_jump_kz=b_dj_kz,
-                   standweit=b_swj, geschlecht=geschl, niveau=niveau)
+        lc2, li2 = c1.columns([5,1])
+        lc2.markdown("**CMJ einbeinig rechts (cm)**"); field_info_col(li2, "jump", "cmj_r")
+        cmj_r    = c1.number_input("CMJ rechts", 0.0, 80.0, 0.0, step=0.5, key="cmj_r", label_visibility="collapsed", help=_fh("cmj_r"))
+        if cmj_r > 0: norm_badge(cmj_r, "jump", "cmj_r", c1, altersgruppe=altersgruppe)
 
-        if any([b_cmj_beid, b_cmj_r, b_cmj_l, b_squat, b_dj_h, b_swj]):
+        lc3, li3 = c1.columns([5,1])
+        lc3.markdown("**CMJ einbeinig links (cm)**"); field_info_col(li3, "jump", "cmj_l")
+        cmj_l    = c1.number_input("CMJ links", 0.0, 80.0, 0.0, step=0.5, key="cmj_l", label_visibility="collapsed", help=_fh("cmj_l"))
+        if cmj_l > 0: norm_badge(cmj_l, "jump", "cmj_l", c1, altersgruppe=altersgruppe)
+        # CMJ Seitenasymmetrie — direkt nach L-Eingabe sichtbar
+        if cmj_r > 0 and cmj_l > 0:
+            c1.markdown(asymmetrie_badge_html(cmj_r, cmj_l, niedriger_besser=False),
+                        unsafe_allow_html=True)
+
+        lc4, li4 = c1.columns([5,1])
+        lc4.markdown("**Squat Jump (cm)**"); field_info_col(li4, "jump", "squat_jump")
+        squat    = c1.number_input("Squat Jump", 0.0, 100.0, 0.0, step=0.5, key="squat", label_visibility="collapsed", help=_fh("squat_jump"))
+        if squat > 0: norm_badge(squat, "jump", "squat_jump", c1, altersgruppe=altersgruppe)
+
+        rc1, ri1 = c2.columns([5,1])
+        rc1.markdown("**Drop Jump — Höhe (cm)**"); field_info_col(ri1, "jump", "dj_hoehe")
+        dj_h  = c2.number_input("Drop Jump Höhe", 0.0, 80.0, 0.0, step=0.5, key="dj_h", label_visibility="collapsed", help=_fh("dj_hoehe"))
+        if dj_h > 0: norm_badge(dj_h, "jump", "dj_hoehe", c2, altersgruppe=altersgruppe)
+
+        rc2, ri2 = c2.columns([5,1])
+        rc2.markdown("**Drop Jump — Kontaktzeit (s)**"); field_info_col(ri2, "jump", "dj_kontakt")
+        dj_kz = c2.number_input("Drop Jump Kontaktzeit", 0.0, 2.0, 0.0, step=0.01, format="%.2f", key="dj_kz", label_visibility="collapsed", help=_fh("dj_kontakt"))
+        if dj_kz > 0: norm_badge(dj_kz, "jump", "dj_kontakt", c2, altersgruppe=altersgruppe)
+
+        rc3, ri3 = c2.columns([5,1])
+        rc3.markdown("**Standweitsprung (cm)**"); field_info_col(ri3, "jump", "standweit")
+        swj   = c2.number_input("Standweitsprung", 0.0, 400.0, 0.0, step=1.0, key="swj", label_visibility="collapsed", help=_fh("standweit"))
+        if swj > 0: norm_badge(swj, "jump", "standweit", c2, altersgruppe=altersgruppe)
+
+        from sprung import SprungErgebnis as _SpE, asymmetrie_prozent, rsi_berechnen
+        res = _SpE(cmj_beid=cmj_beid or None, cmj_rechts=cmj_r or None,
+                   cmj_links=cmj_l or None, squat_jump=squat or None,
+                   drop_jump_hoehe=dj_h or None, drop_jump_kz=dj_kz or None,
+                   standweit=swj or None, geschlecht=geschl, niveau=niveau)
+
+        if any([cmj_beid, cmj_r, cmj_l, squat, dj_h, swj]):
             st.markdown("---")
             m1, m2, m3, m4 = st.columns(4)
-            if b_cmj_beid: m1.metric("CMJ", f"{b_cmj_beid:.1f} cm", res.bewertung_cmj)
-            if b_squat:    m2.metric("Squat Jump", f"{b_squat:.1f} cm")
-            if res.rsi:    m3.metric("RSI", f"{res.rsi:.2f}", "gut" if res.rsi >= 1.5 else "niedrig")
+            if cmj_beid: m1.metric("CMJ", f"{cmj_beid:.1f} cm", res.bewertung_cmj)
+            if squat:    m2.metric("Squat Jump", f"{squat:.1f} cm")
+            if res.rsi:  m3.metric("RSI", f"{res.rsi:.2f}", "gut" if res.rsi >= 1.5 else "niedrig")
             if res.cmj_asymmetrie:
                 color_txt = "⚠️ auffällig" if res.cmj_asymmetrie > 10 else "✅ ok"
                 m4.metric("Asymmetrie", f"{res.cmj_asymmetrie:.1f} %", color_txt)
+
             if res.defizite:
                 st.markdown("**🔴 Identifizierte Defizite:**")
-                for d in res.defizite: st.markdown(f"- {d}")
+                for d in res.defizite:
+                    st.markdown(f"- {d}")
 
+        # ── Trainerbeobachtungen ────────────────────────────────────────────
         st.markdown("---")
         obs_sprung = render_observation_selector("sprung", sid, datum.strftime("%d.%m.%Y"), "sprung", standalone=False)
 
         if st.button("💾 Test speichern", use_container_width=True, key="sprung_save"):
-            if not any([b_cmj_beid, b_cmj_r, b_cmj_l, b_squat, b_dj_h, b_swj]):
+            if not any([cmj_beid, cmj_r, cmj_l, squat, dj_h, swj]):
                 st.error("Bitte mindestens einen Testwert eingeben.")
             else:
                 import json
                 sprung_speichern(
                     sid, datum.strftime("%d.%m.%Y"),
-                    b_cmj_beid or 0, b_cmj_r or 0, b_cmj_l or 0,
+                    cmj_beid or 0, cmj_r or 0, cmj_l or 0,
                     res.cmj_asymmetrie or 0,
-                    b_squat or 0, b_dj_h or 0, b_dj_kz or 0,
-                    res.rsi or 0, b_swj or 0,
+                    squat or 0, dj_h or 0, dj_kz or 0,
+                    res.rsi or 0, swj or 0,
                     res.bewertung_cmj,
                     json.dumps(res.defizite, ensure_ascii=False),
-                    v1_cmj_beid=v1_cb, v2_cmj_beid=v2_cb, v3_cmj_beid=v3_cb,
-                    v1_cmj_r=v1_cr,    v2_cmj_r=v2_cr,    v3_cmj_r=v3_cr,
-                    v1_cmj_l=v1_cl,    v2_cmj_l=v2_cl,    v3_cmj_l=v3_cl,
-                    v1_squat=v1_sq,    v2_squat=v2_sq,    v3_squat=v3_sq,
-                    v1_dj_h=v1_dh,     v2_dj_h=v2_dh,     v3_dj_h=v3_dh,
-                    v1_dj_kz=v1_dk,    v2_dj_kz=v2_dk,    v3_dj_kz=v3_dk,
-                    v1_swj=v1_sw,      v2_swj=v2_sw,       v3_swj=v3_sw,
                 )
                 if obs_sprung["beob_ids"] or obs_sprung.get("freitext"):
                     beobachtung_speichern(
@@ -2279,16 +2278,21 @@ def page_sprung():
                 fig.add_trace(go.Scatter(x=sub["Datum"], y=sub[col_name],
                                          mode="lines+markers", name=col_name,
                                          line=dict(color=color, width=2), marker=dict(size=7)))
-            fig.update_layout(**_pl(height=280, title="CMJ & Squat Jump (cm)", yaxis=dict(title="cm")))
+            fig.update_layout(**_pl(height=280, title="CMJ & Squat Jump (cm)",
+                                    yaxis=dict(title="cm")))
             st.plotly_chart(fig, use_container_width=True)
+
         with c_asym:
             sub_a = df[df["Asymmetrie %"] > 0]
             if not sub_a.empty:
                 fig2 = go.Figure()
                 fig2.add_trace(go.Bar(x=sub_a["Datum"], y=sub_a["Asymmetrie %"],
-                                      marker_color=["#f85149" if v > 10 else "#3fb950" for v in sub_a["Asymmetrie %"]],
-                                      text=sub_a["Asymmetrie %"].round(1), textposition="outside"))
-                fig2.add_hline(y=10, line_dash="dash", line_color="#d29922", annotation_text="Grenzwert 10 %")
+                                      marker_color=["#f85149" if v > 10 else "#3fb950"
+                                                    for v in sub_a["Asymmetrie %"]],
+                                      text=sub_a["Asymmetrie %"].round(1),
+                                      textposition="outside"))
+                fig2.add_hline(y=10, line_dash="dash", line_color="#d29922",
+                               annotation_text="Grenzwert 10 %")
                 fig2.update_layout(**_pl(height=280, title="CMJ-Asymmetrie links/rechts"))
                 st.plotly_chart(fig2, use_container_width=True)
             else:
@@ -2341,46 +2345,20 @@ def page_agilitaet():
 
     tab_neu, tab_verlauf, tab_info = st.tabs(["📋 Neuer Test", "📈 Verlauf", "ℹ️ Testbeschreibung"])
 
-    def _v3_agil(label, key_pfx, col, field_id="", max_val=30.0):
-        """3-Versuch-Eingabe (Zeiten s) — Bestzeit = min()."""
-        if field_id:
-            hdr, info = col.columns([5, 1])
-            hdr.markdown(f"**{label}**")
-            field_info_col(info, "agility", field_id)
-        else:
-            col.markdown(f"**{label}**")
-        vc1, vc2, vc3, vbest = col.columns(4)
-        vc1.caption("V1"); vc2.caption("V2"); vc3.caption("V3"); vbest.caption("Bestzeit")
-        v1 = vc1.number_input(key_pfx+"v1", 0.0, max_val, 0.0, step=0.01, format="%.2f",
-                               key=f"{key_pfx}_v1", label_visibility="collapsed")
-        v2 = vc2.number_input(key_pfx+"v2", 0.0, max_val, 0.0, step=0.01, format="%.2f",
-                               key=f"{key_pfx}_v2", label_visibility="collapsed")
-        v3 = vc3.number_input(key_pfx+"v3", 0.0, max_val, 0.0, step=0.01, format="%.2f",
-                               key=f"{key_pfx}_v3", label_visibility="collapsed")
-        vals = [v for v in [v1, v2, v3] if v > 0]
-        best = min(vals) if vals else None
-        if best:
-            vbest.metric("s", f"{best:.2f}")
-            if field_id:
-                norm_badge(best, "agility", field_id, col, altersgruppe=altersgruppe)
-        return (v1 or None), (v2 or None), (v3 or None), best
-
     with tab_neu:
         datum = st.date_input("Testdatum", value=date.today(), key="agil_datum")
-        if datum > date.today():
-            st.warning("⚠️ Testdatum liegt in der Zukunft — bitte prüfen.")
-        st.markdown("#### Zeiten — je 3 Versuche | Bestzeit = min(V1, V2, V3)")
-        st.caption("0.00 = Versuch nicht durchgeführt")
+        st.markdown("#### Zeiten (s) — nicht gemessene Tests auf 0.00 lassen")
 
         c1, c2 = st.columns(2)
-
-        v1_505r, v2_505r, v3_505r, t505_r   = _v3_agil("505-Test rechts (s)", "a505r_", c1, field_id="t505_r")
-        v1_505l, v2_505l, v3_505l, t505_l   = _v3_agil("505-Test links (s)",  "a505l_", c1, field_id="t505_l")
+        t505_r  = _zeit_eingabe("505-Test rechts (s)", "a505r", c1, letzter, "t505_r",  "agility", "t505_r",  altersgruppe)
+        t505_l  = _zeit_eingabe("505-Test links (s)",  "a505l", c1, letzter, "t505_l",  "agility", "t505_l",  altersgruppe)
+        # 505 Seitenasymmetrie — direkt nach L-Eingabe sichtbar
         if t505_r and t505_l:
-            c1.markdown(asymmetrie_badge_html(t505_r, t505_l, niedriger_besser=True), unsafe_allow_html=True)
-        v1_510, v2_510, v3_510, t5_10_5     = _v3_agil("5-10-5 Shuttle (s)", "a5105_", c2, field_id="t5_10_5")
-        v1_tt,  v2_tt,  v3_tt,  t_test      = _v3_agil("T-Test (s)", "att_", c2, field_id="t_test")
-        v1_ill, v2_ill, v3_ill, illinois     = _v3_agil("Illinois Agility (s)", "aill_", c1, field_id="illinois")
+            c1.markdown(asymmetrie_badge_html(t505_r, t505_l, niedriger_besser=True),
+                        unsafe_allow_html=True)
+        t5_10_5 = _zeit_eingabe("5-10-5 Shuttle (s)",  "a5105", c2, letzter, "t5_10_5", "agility", "t5_10_5", altersgruppe)
+        t_test  = _zeit_eingabe("T-Test (s)",           "att",   c2, letzter, "t_test",  "agility", "t_test",  altersgruppe)
+        illinois = _zeit_eingabe("Illinois Agility (s)","aill",  c1, letzter, "illinois","agility", "illinois",altersgruppe)
 
         from agilitaet import AgilitaetErgebnis as _AE
         res = _AE(t505_r=t505_r, t505_l=t505_l, t5_10_5=t5_10_5,
@@ -2394,6 +2372,7 @@ def page_agilitaet():
             if t505_l:   m2.metric("505 links",  f"{t505_l:.2f} s")
             if t_test:   m3.metric("T-Test",     f"{t_test:.2f} s",   res.bew_t_test)
             if illinois: m4.metric("Illinois",   f"{illinois:.2f} s", res.bew_illinois)
+
             if res.asym_505:
                 color = "#f85149" if res.asym_505 > 10 else "#3fb950"
                 sign  = "⚠️ auffällig" if res.asym_505 > 10 else "✅ symmetrisch"
@@ -2404,10 +2383,13 @@ def page_agilitaet():
                     f'<br><small style="color:#8b949e">Grenzwert: 10 % (klinisch relevant)</small></div>',
                     unsafe_allow_html=True,
                 )
+
             if res.defizite:
                 st.markdown("**🔴 Identifizierte Defizite:**")
-                for d in res.defizite: st.markdown(f"- {d}")
+                for d in res.defizite:
+                    st.markdown(f"- {d}")
 
+        # ── Trainerbeobachtungen ────────────────────────────────────────────
         st.markdown("---")
         obs_agil = render_observation_selector("agilitaet", sid, datum.strftime("%d.%m.%Y"), "agil", standalone=False)
 
@@ -2422,11 +2404,6 @@ def page_agilitaet():
                     t5_10_5 or 0, t_test or 0, illinois or 0,
                     res.bew_505, res.bew_t_test, res.bew_illinois,
                     json.dumps(res.defizite, ensure_ascii=False),
-                    v1_t505_r=v1_505r, v2_t505_r=v2_505r, v3_t505_r=v3_505r,
-                    v1_t505_l=v1_505l, v2_t505_l=v2_505l, v3_t505_l=v3_505l,
-                    v1_t5_10_5=v1_510, v2_t5_10_5=v2_510, v3_t5_10_5=v3_510,
-                    v1_t_test=v1_tt,   v2_t_test=v2_tt,   v3_t_test=v3_tt,
-                    v1_illinois=v1_ill, v2_illinois=v2_ill, v3_illinois=v3_ill,
                 )
                 if obs_agil["beob_ids"] or obs_agil.get("freitext"):
                     beobachtung_speichern(
@@ -2445,9 +2422,10 @@ def page_agilitaet():
             df = pd.DataFrame(hist)
             df.columns = ["Datum", "505 R", "505 L", "Asymmetrie %",
                           "5-10-5", "T-Test", "Illinois", "Bewertung T-Test"]
+
             fig = go.Figure()
-            for col_name, color in [("T-Test","#3b82f6"),("Illinois","#3fb950"),
-                                     ("5-10-5","#d29922"),("505 R","#f85149"),("505 L","#a371f7")]:
+            for col_name, color in [("T-Test","#3b82f6"), ("Illinois","#3fb950"),
+                                     ("5-10-5","#d29922"), ("505 R","#f85149"), ("505 L","#a371f7")]:
                 sub = df[df[col_name] > 0]
                 if sub.empty: continue
                 fig.add_trace(go.Scatter(x=sub["Datum"], y=sub[col_name],
@@ -2456,6 +2434,7 @@ def page_agilitaet():
             fig.update_layout(**_pl(height=320, title="Agilitätszeiten-Verlauf (s)",
                                     yaxis=dict(autorange="reversed", title="Zeit (s)")))
             st.plotly_chart(fig, use_container_width=True)
+
             sub_a = df[df["Asymmetrie %"] > 0]
             if not sub_a.empty:
                 fig2 = go.Figure()
@@ -2464,9 +2443,11 @@ def page_agilitaet():
                     marker_color=["#f85149" if v > 10 else "#3fb950" for v in sub_a["Asymmetrie %"]],
                     text=sub_a["Asymmetrie %"].round(1), textposition="outside",
                 ))
-                fig2.add_hline(y=10, line_dash="dash", line_color="#d29922", annotation_text="Grenzwert 10 %")
+                fig2.add_hline(y=10, line_dash="dash", line_color="#d29922",
+                               annotation_text="Grenzwert 10 %")
                 fig2.update_layout(**_pl(height=240, title="505-Asymmetrie R vs. L (%)"))
                 st.plotly_chart(fig2, use_container_width=True)
+
             st.dataframe(df, use_container_width=True, hide_index=True)
 
     with tab_info:
@@ -2648,231 +2629,6 @@ def page_ausdauer():
                 fig2.update_layout(**_pl(height=300, title="VO₂max-Schätzung ⚠️"))
                 st.plotly_chart(fig2, use_container_width=True)
 
-        st.dataframe(df, use_container_width=True, hide_index=True)
-
-
-# ──────────────────────────────────────────────────────────────────────────────
-
-def page_kraft():
-    st.markdown("# 💪 Kraftdiagnostik")
-    st.markdown(
-        "Bankdrücken 1RM (direkt oder Epley-Schätzung) und Rumpfkraftausdauer — "
-        "interne Orientierungswerte für die Trainingssteuerung. "
-        "Kein Test ersetzt eine ärztliche Einschätzung oder Sportfreigabe."
-    )
-
-    sicherheitshinweis_box()
-    show_trainer_checkliste("kraft")
-    show_test_info("kraft")
-
-    auswahl = _player_selector("kraft")
-    if not auswahl:
-        return
-
-    sid    = auswahl["id"]
-    sp     = spieler_by_id(sid)
-    kgew   = anthropometrie_letzter(sid)
-    hist   = kraft_history(sid)
-
-    tab_neu, tab_verlauf = st.tabs(["📋 Neuer Test", "📈 Verlauf"])
-
-    with tab_neu:
-        datum = st.date_input("Testdatum", value=date.today(), key="kraft_datum")
-        if datum > date.today():
-            st.warning("⚠️ Testdatum liegt in der Zukunft — bitte prüfen.")
-
-        koerpergewicht_default = float(kgew["gewicht"]) if kgew and kgew.get("gewicht") else 75.0
-        koerpergewicht = st.number_input(
-            "Körpergewicht (kg) — für Berechnung der relativen Kraft",
-            15.0, 150.0, koerpergewicht_default, step=0.5, key="kraft_kgew"
-        )
-
-        st.markdown("---")
-        # ── Bankdrücken ────────────────────────────────────────────────────
-        st.markdown("### 🏋️ Bankdrücken — 1-Wiederholungsmaximum (1RM)")
-        st.caption(
-            "Interner Orientierungswert für die Trainingssteuerung. "
-            "Direkte 1RM-Tests nur mit Sicherung und ausreichendem Aufwärmen."
-        )
-        bd_methode = st.radio(
-            "Testmethode",
-            ["Submaximaltest (Epley-Schätzung) — empfohlen", "Direkter 1RM-Test"],
-            key="kraft_bd_methode",
-        )
-
-        direktes_1rm  = None
-        epley_gewicht = None
-        epley_wdh     = None
-        sicherheit_ok = False
-
-        if "Direkt" in bd_methode:
-            st.warning(
-                "⚠️ **Sicherheitshinweis — Direkter 1RM-Test**\n\n"
-                "• Mindestens 2 Trainer/Spotters als Sicherung\n"
-                "• Ausreichendes Aufwärmen abgeschlossen (progressive Laststeigerung)\n"
-                "• Technikbeherrschung und Testprotokoll erklärt\n"
-                "• Sofortabbruch bei technischen Mängeln oder Schmerzen"
-            )
-            c1, c2, c3 = st.columns(3)
-            ok1 = c1.checkbox("✅ Sicherung durch mind. 2 Trainer", key="kraft_sek1")
-            ok2 = c2.checkbox("✅ Aufwärmphase abgeschlossen", key="kraft_sek2")
-            ok3 = c3.checkbox("✅ Technik & Protokoll besprochen", key="kraft_sek3")
-            sicherheit_ok = ok1 and ok2 and ok3
-            if not sicherheit_ok:
-                st.info("Alle drei Sicherheitspunkte müssen bestätigt sein.")
-            else:
-                st.success("✅ Sicherheitsprotokoll vollständig — Test kann durchgeführt werden.")
-            direktes_1rm = st.number_input(
-                "Direktes 1RM (kg)", 0.0, 300.0, 0.0, step=2.5, key="kraft_d1rm",
-                disabled=(not sicherheit_ok)
-            ) or None
-        else:
-            st.caption("Eingabe: Gewicht und Wiederholungsanzahl aus dem Submaximaltest (empfohlen 2–10 WH).")
-            c1, c2 = st.columns(2)
-            epley_gewicht = c1.number_input("Testgewicht (kg)", 0.0, 300.0, 0.0, step=2.5, key="kraft_e_gew") or None
-            epley_wdh_raw = c2.number_input("Wiederholungen", 1, 15, 5, key="kraft_e_wdh")
-            epley_wdh = int(epley_wdh_raw)
-            if epley_wdh > 10:
-                st.warning("⚠️ Die Epley-Formel ist für > 10 Wiederholungen weniger genau.")
-            if epley_gewicht:
-                est = _epley_1rm(epley_gewicht, epley_wdh)
-                if est:
-                    rel = round(est / koerpergewicht, 2) if koerpergewicht > 0 else None
-                    c1, c2 = st.columns(2)
-                    c1.metric("Geschätztes 1RM (Epley)", f"{est:.1f} kg")
-                    if rel: c2.metric("Relative Kraft", f"{rel:.2f} ×KGW")
-            sicherheit_ok = True
-
-        from kraft import KraftErgebnis as _KE
-        kraft_res = _KE(
-            koerpergewicht=koerpergewicht,
-            direktes_1rm=direktes_1rm,
-            epley_gewicht=epley_gewicht,
-            epley_wiederholungen=epley_wdh,
-            sicherheit_bestaetigt=sicherheit_ok,
-        )
-        if kraft_res.hat_bankdruecken_daten:
-            m1, m2, m3 = st.columns(3)
-            if direktes_1rm:                     m1.metric("Direkt 1RM", f"{direktes_1rm:.1f} kg")
-            if kraft_res.geschaetztes_1rm:        m2.metric("Epley-Schätzung", f"{kraft_res.geschaetztes_1rm:.1f} kg")
-            rel = kraft_res.relative_kraft_direkt or kraft_res.relative_kraft_geschaetzt
-            if rel:                               m3.metric("Relative Kraft", f"{rel:.2f} ×KGW")
-
-        # ── Rumpfkraftausdauer ─────────────────────────────────────────────
-        st.markdown("---")
-        st.markdown("### 🧱 Rumpfkraftausdauer — Haltedauer (Sekunden)")
-        st.caption("Ventral: 2 Versuche (Bestwert = länger). Lateral R/L und Dorsal: je 1 Versuch.")
-
-        rc1, rc2 = st.columns(2)
-        rc1.markdown("**Ventral (Plank) — 2 Versuche**")
-        rv1_c, rv2_c = rc1.columns(2)
-        ventral_v1 = rv1_c.number_input("V1 (s)", 0.0, 600.0, 0.0, step=1.0, key="kraft_vent_v1") or None
-        ventral_v2 = rv2_c.number_input("V2 (s)", 0.0, 600.0, 0.0, step=1.0, key="kraft_vent_v2") or None
-        ventr_best = max([v for v in [ventral_v1, ventral_v2] if v], default=None)
-        if ventr_best: rc1.success(f"Bestwert ventral: **{ventr_best:.0f} s**")
-
-        lateral_r = rc2.number_input("Lateral rechts (s)", 0.0, 600.0, 0.0, step=1.0, key="kraft_lat_r") or None
-        lateral_l = rc2.number_input("Lateral links (s)",  0.0, 600.0, 0.0, step=1.0, key="kraft_lat_l") or None
-        dorsal    = rc1.number_input("Dorsal (s)",         0.0, 600.0, 0.0, step=1.0, key="kraft_dors") or None
-
-        rumpf_res = _KE(
-            koerpergewicht=koerpergewicht,
-            direktes_1rm=direktes_1rm, epley_gewicht=epley_gewicht,
-            epley_wiederholungen=epley_wdh, sicherheit_bestaetigt=sicherheit_ok,
-            ventral_sekunden=ventral_v1, ventral_versuch2=ventral_v2,
-            lateral_rechts_sekunden=lateral_r, lateral_links_sekunden=lateral_l,
-            dorsal_sekunden=dorsal,
-        )
-
-        if rumpf_res.hat_rumpfkraft_daten:
-            st.markdown("---")
-            m1, m2, m3, m4 = st.columns(4)
-            if rumpf_res.ventral_bestwert: m1.metric("Ventral", f"{rumpf_res.ventral_bestwert:.0f} s")
-            if lateral_r:                  m2.metric("Lateral R", f"{lateral_r:.0f} s")
-            if lateral_l:                  m3.metric("Lateral L", f"{lateral_l:.0f} s")
-            if dorsal:                     m4.metric("Dorsal", f"{dorsal:.0f} s")
-            if rumpf_res.lateral_asymmetrie_pct is not None:
-                color = "#f85149" if rumpf_res.lateral_asymmetrie_pct > 10 else "#3fb950"
-                hint  = "⚠️ auffällig" if rumpf_res.lateral_asymmetrie_pct > 10 else "✅ symmetrisch"
-                st.markdown(
-                    f'<div style="background:#161b22;border:1px solid {color};border-radius:8px;'
-                    f'padding:10px 14px;margin:8px 0">'
-                    f'<span style="color:{color};font-weight:600">Lateral-Asymmetrie: '
-                    f'{rumpf_res.lateral_asymmetrie_pct:.1f} % — {hint}</span>'
-                    f'<br><small style="color:#8b949e">Grenzwert: 10 % Seitendifferenz</small></div>',
-                    unsafe_allow_html=True,
-                )
-            if rumpf_res.hinweise:
-                st.markdown("**🔵 Trainingshinweise:**")
-                for h in rumpf_res.hinweise:
-                    st.markdown(f"- {h}")
-
-        st.markdown("---")
-        bemerkung = st.text_area("Trainernotiz (optional)", height=70, key="kraft_bemerkung") or None
-        obs_kraft = render_observation_selector("kraft", sid, datum.strftime("%d.%m.%Y"), "kraft", standalone=False)
-
-        save_disabled = ("Direkt" in bd_methode) and (not sicherheit_ok)
-        if st.button("💾 Test speichern", use_container_width=True, key="kraft_save",
-                     disabled=save_disabled):
-            if not rumpf_res.hat_daten:
-                st.error("Bitte mindestens einen Messwert eingeben.")
-            else:
-                import json
-                lat_diff  = round(abs(lateral_r - lateral_l), 1) if lateral_r and lateral_l else None
-                rumpf_ges = None
-                vals_r = [v for v in [rumpf_res.ventral_bestwert, lateral_r, lateral_l, dorsal] if v]
-                if vals_r: rumpf_ges = round(sum(vals_r), 1)
-                kraft_speichern(
-                    sid, datum.strftime("%d.%m.%Y"),
-                    koerpergewicht, rumpf_res.direktes_1rm, rumpf_res.geschaetztes_1rm,
-                    rumpf_res.relative_kraft_direkt, rumpf_res.relative_kraft_geschaetzt,
-                    1 if sicherheit_ok else 0,
-                    ventral_v1, ventral_v2, lateral_r, lateral_l, dorsal,
-                    rumpf_ges, lat_diff, rumpf_res.lateral_asymmetrie_pct,
-                    rumpf_res.ratio_ventral_dorsal, rumpf_res.ratio_lateral_r_dorsal,
-                    rumpf_res.ratio_lateral_l_dorsal, bemerkung=bemerkung,
-                )
-                if obs_kraft["beob_ids"] or obs_kraft.get("freitext"):
-                    beobachtung_speichern(
-                        sid, "kraft", datum.strftime("%d.%m.%Y"),
-                        json.dumps(obs_kraft["beob_ids"], ensure_ascii=False),
-                        obs_kraft["seite"], obs_kraft["auspraegung"],
-                        obs_kraft["freitext"], obs_kraft["text_generiert"],
-                    )
-                st.success("✅ Kraft-Test gespeichert!")
-                st.rerun()
-
-    with tab_verlauf:
-        if not hist:
-            st.info("Noch keine Kraft-Tests vorhanden.")
-            return
-        df = pd.DataFrame(hist)
-        df.columns = [
-            "Datum", "Direkt 1RM", "Epley 1RM",
-            "Rel. Kraft D", "Rel. Kraft E",
-            "Ventral (s)", "Lateral R (s)", "Lateral L (s)",
-            "Dorsal (s)", "Lat.-Asym. %", "V/D-Ratio",
-        ]
-        c1, c2 = st.columns(2)
-        with c1:
-            fig = go.Figure()
-            for col_n, clr in [("Direkt 1RM", "#3b82f6"), ("Epley 1RM", "#3fb950")]:
-                sub = df[df[col_n] > 0] if col_n in df.columns else pd.DataFrame()
-                if sub.empty: continue
-                fig.add_trace(go.Scatter(x=sub["Datum"], y=sub[col_n], mode="lines+markers",
-                                         name=col_n, line=dict(color=clr, width=2), marker=dict(size=7)))
-            fig.update_layout(**_pl(height=280, title="Bankdrücken 1RM-Verlauf (kg)", yaxis=dict(title="kg")))
-            st.plotly_chart(fig, use_container_width=True)
-        with c2:
-            fig2 = go.Figure()
-            for col_n, clr in [("Ventral (s)", "#3b82f6"), ("Lateral R (s)", "#3fb950"),
-                                ("Lateral L (s)", "#d29922"), ("Dorsal (s)", "#a371f7")]:
-                sub = df[df[col_n] > 0] if col_n in df.columns else pd.DataFrame()
-                if sub.empty: continue
-                fig2.add_trace(go.Scatter(x=sub["Datum"], y=sub[col_n], mode="lines+markers",
-                                          name=col_n, line=dict(color=clr, width=2), marker=dict(size=7)))
-            fig2.update_layout(**_pl(height=280, title="Rumpfkraftausdauer-Verlauf (s)", yaxis=dict(title="s")))
-            st.plotly_chart(fig2, use_container_width=True)
         st.dataframe(df, use_container_width=True, hide_index=True)
 
 
@@ -4415,7 +4171,6 @@ _SUB_DIAGNOSTIK = {
     "🦘 Sprung":             page_sprung,
     "🔀 Agilität":          page_agilitaet,
     "🫁 Ausdauer (Yo-Yo)":  page_ausdauer,
-    "💪 Kraft":              page_kraft,
 }
 _SUB_TRAINING = {
     "📅 Trainingsplan":     page_trainingsplan,
@@ -4561,3 +4316,49 @@ elif section == "⚙️  Einstellungen":
     )
     st.markdown('<hr style="border-color:#30363d;margin:12px 0">', unsafe_allow_html=True)
 
+    page = st.radio(
+        "Navigation",
+        [
+            "🏠 Coach Dashboard",
+            "👤 Spielerverwaltung",
+            "🏃 Spielerprofil",
+            "📐 Anthropometrie",
+            "📝 FMS Test",
+            "📏 Y-Balance Test",
+            "⚡ Sprint-Diagnostik",
+            "🦘 Sprung-Diagnostik",
+            "🔀 Agilität",
+            "🫁 Ausdauer (Yo-Yo)",
+            "📅 Trainingsplan",
+            "🔄 Periodisierung",
+            "📈 Fortschritt",
+        ],
+        label_visibility="collapsed",
+    )
+
+    st.markdown('<hr style="border-color:#30363d;margin:12px 0">', unsafe_allow_html=True)
+    spieler_count = len(spieler_laden())
+    st.markdown(
+        f'<div style="padding:10px 8px;background:#161b22;border-radius:8px;border:1px solid #30363d">'
+        f'<div style="font-size:11px;color:#8b949e">KADER</div>'
+        f'<div style="font-size:22px;font-weight:700;color:#e6edf3">{spieler_count} Spieler</div>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
+
+# ── Route ─────────────────────────────────────────────────────────────────────
+pages = {
+    "🏠 Coach Dashboard":   page_dashboard,
+    "👤 Spielerverwaltung": page_spieler,
+    "🏃 Spielerprofil":     page_spieler_profil,
+    "📐 Anthropometrie":    page_anthropometrie,
+    "📝 FMS Test":          page_fms,
+    "📏 Y-Balance Test":    page_ybalance,
+    "⚡ Sprint-Diagnostik": page_sprint,
+    "🦘 Sprung-Diagnostik": page_sprung,
+    "🔀 Agilität":          page_agilitaet,
+    "🫁 Ausdauer (Yo-Yo)":  page_ausdauer,
+    "📅 Trainingsplan":     page_trainingsplan,
+    "🔄 Periodisierung":    page_periodisierung,
+    "📈 Fortschritt":       page_fortschritt,
+}

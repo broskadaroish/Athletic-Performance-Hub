@@ -92,27 +92,13 @@ class YBalanceResult:
 
 
 def y_balance_aus_row(row) -> YBalanceResult:
-    """Erstellt YBalanceResult aus einer DB-Zeile.
-
-    Verwendet die gespeicherten Composite-Werte direkt statt sie mit
-    beinlaenge=1 falsch neu zu berechnen (Bug-Fix: beinlaenge=1 ergäbe
-    composite = Summe/3 × 100, nicht den echten %-Wert der Beinlänge).
-    """
-    obj = YBalanceResult(
-        anterior_r=row["anterior_rechts"] or 0.0,
-        anterior_l=row["anterior_links"] or 0.0,
-        posteromedial_r=row["posteromedial_rechts"] or 0.0,
-        posteromedial_l=row["posteromedial_links"] or 0.0,
-        posterolateral_r=row["posterolateral_rechts"] or 0.0,
-        posterolateral_l=row["posterolateral_links"] or 0.0,
-        beinlaenge_r=1,   # Dummy für __post_init__; wird unten überschrieben
+    return YBalanceResult(
+        anterior_r=row["anterior_rechts"],
+        anterior_l=row["anterior_links"],
+        posteromedial_r=row["posteromedial_rechts"],
+        posteromedial_l=row["posteromedial_links"],
+        posterolateral_r=row["posterolateral_rechts"],
+        posterolateral_l=row["posterolateral_links"],
+        beinlaenge_r=1,  # already normalised in DB
         beinlaenge_l=1,
     )
-    # Überschreibe mit den in der DB gespeicherten, korrekt berechneten Werten
-    obj.composite_r = float(row["composite_rechts"] or 0.0)
-    obj.composite_l = float(row["composite_links"] or 0.0)
-    if row.get("diff_anterior") is not None:
-        obj.diff_anterior       = float(row["diff_anterior"]       or 0.0)
-        obj.diff_posteromedial  = float(row["diff_posteromedial"]  or 0.0)
-        obj.diff_posterolateral = float(row["diff_posterolateral"] or 0.0)
-    return obj

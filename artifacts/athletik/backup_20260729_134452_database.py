@@ -24,7 +24,6 @@ def _rows(rs):
 def get_conn():
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row  # rows behave like dicts
-    conn.execute("PRAGMA foreign_keys = ON")
     try:
         yield conn
         conn.commit()
@@ -233,50 +232,6 @@ def init_db():
             punkte  TEXT NOT NULL DEFAULT ''
         );
 
-        CREATE TABLE IF NOT EXISTS kraft_test (
-            id                         INTEGER PRIMARY KEY AUTOINCREMENT,
-            spieler_id                 INTEGER NOT NULL REFERENCES spieler(id) ON DELETE CASCADE,
-            datum                      TEXT NOT NULL,
-            koerpergewicht             REAL,
-            direktes_1rm               REAL,
-            geschaetztes_1rm           REAL,
-            verwendete_formel          TEXT DEFAULT 'Epley',
-            relative_kraft_direkt      REAL,
-            relative_kraft_geschaetzt  REAL,
-            sicherheit_bestaetigt      INTEGER DEFAULT 0,
-            ventral_variante           TEXT,
-            ventral_sekunden           REAL,
-            ventral_versuch2           REAL,
-            lateral_rechts_variante    TEXT,
-            lateral_rechts_sekunden    REAL,
-            lateral_links_variante     TEXT,
-            lateral_links_sekunden     REAL,
-            dorsal_variante            TEXT,
-            dorsal_sekunden            REAL,
-            rumpf_gesamt_sekunden      REAL,
-            lateral_differenz_sekunden REAL,
-            lateral_asymmetrie_prozent REAL,
-            ratio_ventral_dorsal       REAL,
-            ratio_lateral_r_dorsal     REAL,
-            ratio_lateral_l_dorsal     REAL,
-            abbruchgrund               TEXT,
-            bemerkung                  TEXT,
-            created_at                 TEXT DEFAULT (datetime('now')),
-            updated_at                 TEXT DEFAULT (datetime('now'))
-        );
-
-        CREATE TABLE IF NOT EXISTS kraft_test_versuch (
-            id                  INTEGER PRIMARY KEY AUTOINCREMENT,
-            kraft_test_id       INTEGER NOT NULL REFERENCES kraft_test(id) ON DELETE CASCADE,
-            uebung              TEXT NOT NULL,
-            versuchsnummer      INTEGER NOT NULL,
-            gewicht             REAL,
-            wiederholungen      INTEGER,
-            zeit_sekunden       REAL,
-            gueltig             INTEGER DEFAULT 1,
-            ungueltigkeitsgrund TEXT
-        );
-
         CREATE TABLE IF NOT EXISTS trainerbeobachtung (
             id             INTEGER PRIMARY KEY AUTOINCREMENT,
             spieler_id     INTEGER NOT NULL REFERENCES spieler(id),
@@ -291,9 +246,8 @@ def init_db():
             updated_at     TEXT    DEFAULT (datetime('now'))
         );
         """)
-    # Migrationen: neue Spalten und Indizes für bestehende Datenbanken nachträglich anlegen
+    # Migration: neue Spalten für bestehende Datenbanken nachträglich anlegen
     _migrate_spieler_columns()
-    _migrate_db()
 
 
 # ─── Trainerbeobachtungen ─────────────────────────────────────────────────────
@@ -308,20 +262,23 @@ def beobachtung_speichern(
     freitext: str | None,
     text_generiert: str | None,
 ) -> None:
-    """Legt eine Beobachtung an oder überschreibt die für diesen Tag (UPSERT)."""
+    """Legt eine Beobachtung an oder überschreibt die für diesen Tag."""
     with get_conn() as conn:
-        # Erst vorhandene Einträge für diesen Tag löschen (inkl. ggf. Duplikate),
-        # dann sauber neu einfügen — idempotent und ohne Duplikat-Risiko
-        conn.execute(
-            "DELETE FROM trainerbeobachtung WHERE spieler_id=? AND test_id=? AND datum=?",
-            (spieler_id, test_id, datum),
-        )
         conn.execute(
             """INSERT INTO trainerbeobachtung
                (spieler_id, test_id, datum, beob_ids, seite, auspraegung, freitext, text_generiert, updated_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))""",
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+               ON CONFLICT DO NOTHING""",
             (spieler_id, test_id, datum, beob_ids_json,
              seite, auspraegung, freitext, text_generiert),
+        )
+        # Wenn bereits ein Datensatz für diesen Tag existiert, aktualisieren
+        conn.execute(
+            """UPDATE trainerbeobachtung
+               SET beob_ids=?, seite=?, auspraegung=?, freitext=?, text_generiert=?, updated_at=datetime('now')
+               WHERE spieler_id=? AND test_id=? AND datum=?""",
+            (beob_ids_json, seite, auspraegung, freitext, text_generiert,
+             spieler_id, test_id, datum),
         )
 
 
@@ -393,77 +350,6 @@ def _migrate_spieler_columns():
                 conn.execute(f"ALTER TABLE spieler ADD COLUMN {spalte} {typ}")
             except Exception:
                 pass  # Spalte existiert bereits
-
-
-def _migrate_db():
-    """Alle datenbankweiten Schema-Migrationen — idempotent, sicher bei wiederholtem Aufruf."""
-    with get_conn() as conn:
-        # ── Sprung: v1/v2/v3-Versuchsspalten hinzufügen ─────────────────────
-        sprung_cols = [
-            ("v1_cmj_beid","REAL"),("v2_cmj_beid","REAL"),("v3_cmj_beid","REAL"),
-            ("v1_cmj_r","REAL"),   ("v2_cmj_r","REAL"),   ("v3_cmj_r","REAL"),
-            ("v1_cmj_l","REAL"),   ("v2_cmj_l","REAL"),   ("v3_cmj_l","REAL"),
-            ("v1_squat","REAL"),   ("v2_squat","REAL"),   ("v3_squat","REAL"),
-            ("v1_dj_h","REAL"),    ("v2_dj_h","REAL"),    ("v3_dj_h","REAL"),
-            ("v1_dj_kz","REAL"),   ("v2_dj_kz","REAL"),  ("v3_dj_kz","REAL"),
-            ("v1_swj","REAL"),     ("v2_swj","REAL"),     ("v3_swj","REAL"),
-        ]
-        for col, typ in sprung_cols:
-            try:
-                conn.execute(f"ALTER TABLE sprung_test ADD COLUMN {col} {typ}")
-            except Exception:
-                pass
-
-        # ── Agilität: v1/v2/v3-Versuchsspalten hinzufügen ───────────────────
-        agil_cols = [
-            ("v1_t505_r","REAL"),  ("v2_t505_r","REAL"),  ("v3_t505_r","REAL"),
-            ("v1_t505_l","REAL"),  ("v2_t505_l","REAL"),  ("v3_t505_l","REAL"),
-            ("v1_t5_10_5","REAL"), ("v2_t5_10_5","REAL"), ("v3_t5_10_5","REAL"),
-            ("v1_t_test","REAL"),  ("v2_t_test","REAL"),  ("v3_t_test","REAL"),
-            ("v1_illinois","REAL"),("v2_illinois","REAL"),("v3_illinois","REAL"),
-        ]
-        for col, typ in agil_cols:
-            try:
-                conn.execute(f"ALTER TABLE agilitaet_test ADD COLUMN {col} {typ}")
-            except Exception:
-                pass
-
-        # ── Duplikate in trainerbeobachtung bereinigen ───────────────────────
-        conn.execute("""
-            DELETE FROM trainerbeobachtung WHERE id NOT IN (
-                SELECT MAX(id) FROM trainerbeobachtung
-                GROUP BY spieler_id, test_id, datum
-            )
-        """)
-        try:
-            conn.execute("""CREATE UNIQUE INDEX IF NOT EXISTS
-                idx_trainerbeob_unique ON trainerbeobachtung(spieler_id, test_id, datum)""")
-        except Exception:
-            pass
-
-        # ── Duplikate in sprung_test bereinigen + UNIQUE INDEX ───────────────
-        conn.execute("""
-            DELETE FROM sprung_test WHERE id NOT IN (
-                SELECT MAX(id) FROM sprung_test GROUP BY spieler_id, datum
-            )
-        """)
-        try:
-            conn.execute("""CREATE UNIQUE INDEX IF NOT EXISTS
-                idx_sprung_unique ON sprung_test(spieler_id, datum)""")
-        except Exception:
-            pass
-
-        # ── Duplikate in agilitaet_test bereinigen + UNIQUE INDEX ────────────
-        conn.execute("""
-            DELETE FROM agilitaet_test WHERE id NOT IN (
-                SELECT MAX(id) FROM agilitaet_test GROUP BY spieler_id, datum
-            )
-        """)
-        try:
-            conn.execute("""CREATE UNIQUE INDEX IF NOT EXISTS
-                idx_agil_unique ON agilitaet_test(spieler_id, datum)""")
-        except Exception:
-            pass
 
 
 # ─── Hilfsfunktionen ───────────────────────────────────────────────────────
@@ -569,15 +455,16 @@ def spieler_by_id(spieler_id):
 
 def spieler_loeschen(spieler_id):
     with get_conn() as conn:
-        for tabelle in [
-            "verletzung", "anthropometrie", "agilitaet_test", "ausdauer_test",
-            "sprint_test", "sprung_test", "fms_test", "y_balance_test",
-            "trainingsplan", "periodisierung", "trainerbeobachtung", "kraft_test",
-        ]:
-            try:
-                conn.execute(f"DELETE FROM {tabelle} WHERE spieler_id=?", (spieler_id,))
-            except Exception:
-                pass  # Tabelle evtl. noch nicht vorhanden
+        conn.execute("DELETE FROM verletzung WHERE spieler_id=?", (spieler_id,))
+        conn.execute("DELETE FROM anthropometrie WHERE spieler_id=?", (spieler_id,))
+        conn.execute("DELETE FROM agilitaet_test WHERE spieler_id=?", (spieler_id,))
+        conn.execute("DELETE FROM ausdauer_test WHERE spieler_id=?", (spieler_id,))
+        conn.execute("DELETE FROM sprint_test WHERE spieler_id=?", (spieler_id,))
+        conn.execute("DELETE FROM sprung_test WHERE spieler_id=?", (spieler_id,))
+        conn.execute("DELETE FROM fms_test WHERE spieler_id=?", (spieler_id,))
+        conn.execute("DELETE FROM y_balance_test WHERE spieler_id=?", (spieler_id,))
+        conn.execute("DELETE FROM trainingsplan WHERE spieler_id=?", (spieler_id,))
+        conn.execute("DELETE FROM periodisierung WHERE spieler_id=?", (spieler_id,))
         conn.execute("DELETE FROM spieler WHERE id=?", (spieler_id,))
 
 
@@ -585,19 +472,13 @@ def db_komplett_zuruecksetzen():
     """Löscht alle Bewegungsdaten — Spieler, Tests, Verletzungen, Einwilligungen.
     Die Datenbankstruktur bleibt erhalten; nur Datensätze werden entfernt."""
     _TABELLEN = [
-        # Kind-Tabellen zuerst (Fremdschlüssel-Reihenfolge)
-        "trainerbeobachtung", "checkliste_custom",
-        "kraft_test_versuch", "kraft_test",
         "verletzung", "anthropometrie", "agilitaet_test", "ausdauer_test",
         "sprint_test", "sprung_test", "fms_test", "y_balance_test",
         "trainingsplan", "periodisierung", "einwilligung", "spieler",
     ]
     with get_conn() as conn:
         for tabelle in _TABELLEN:
-            try:
-                conn.execute(f"DELETE FROM {tabelle}")
-            except Exception:
-                pass  # Tabelle noch nicht vorhanden
+            conn.execute(f"DELETE FROM {tabelle}")
 
 
 # ─── Verletzungshistorie ────────────────────────────────────────────────────
@@ -809,52 +690,17 @@ def sprint_history(spieler_id):
 def sprung_speichern(spieler_id, datum,
                      cmj_beid, cmj_rechts, cmj_links, cmj_asym,
                      squat_jump, dj_hoehe, dj_kz, rsi,
-                     standweit, bew_cmj, defizite,
-                     v1_cmj_beid=None, v2_cmj_beid=None, v3_cmj_beid=None,
-                     v1_cmj_r=None, v2_cmj_r=None, v3_cmj_r=None,
-                     v1_cmj_l=None, v2_cmj_l=None, v3_cmj_l=None,
-                     v1_squat=None, v2_squat=None, v3_squat=None,
-                     v1_dj_h=None, v2_dj_h=None, v3_dj_h=None,
-                     v1_dj_kz=None, v2_dj_kz=None, v3_dj_kz=None,
-                     v1_swj=None, v2_swj=None, v3_swj=None):
+                     standweit, bew_cmj, defizite):
     with get_conn() as conn:
         conn.execute("""
         INSERT INTO sprung_test
         (spieler_id,datum,cmj_beid,cmj_rechts,cmj_links,cmj_asymmetrie,
-         squat_jump,drop_jump_hoehe,drop_jump_kz,rsi,standweit,bewertung_cmj,defizite,
-         v1_cmj_beid,v2_cmj_beid,v3_cmj_beid,
-         v1_cmj_r,v2_cmj_r,v3_cmj_r,
-         v1_cmj_l,v2_cmj_l,v3_cmj_l,
-         v1_squat,v2_squat,v3_squat,
-         v1_dj_h,v2_dj_h,v3_dj_h,
-         v1_dj_kz,v2_dj_kz,v3_dj_kz,
-         v1_swj,v2_swj,v3_swj)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-        ON CONFLICT(spieler_id,datum) DO UPDATE SET
-            cmj_beid=excluded.cmj_beid,cmj_rechts=excluded.cmj_rechts,
-            cmj_links=excluded.cmj_links,cmj_asymmetrie=excluded.cmj_asymmetrie,
-            squat_jump=excluded.squat_jump,drop_jump_hoehe=excluded.drop_jump_hoehe,
-            drop_jump_kz=excluded.drop_jump_kz,rsi=excluded.rsi,
-            standweit=excluded.standweit,bewertung_cmj=excluded.bewertung_cmj,
-            defizite=excluded.defizite,
-            v1_cmj_beid=excluded.v1_cmj_beid,v2_cmj_beid=excluded.v2_cmj_beid,v3_cmj_beid=excluded.v3_cmj_beid,
-            v1_cmj_r=excluded.v1_cmj_r,v2_cmj_r=excluded.v2_cmj_r,v3_cmj_r=excluded.v3_cmj_r,
-            v1_cmj_l=excluded.v1_cmj_l,v2_cmj_l=excluded.v2_cmj_l,v3_cmj_l=excluded.v3_cmj_l,
-            v1_squat=excluded.v1_squat,v2_squat=excluded.v2_squat,v3_squat=excluded.v3_squat,
-            v1_dj_h=excluded.v1_dj_h,v2_dj_h=excluded.v2_dj_h,v3_dj_h=excluded.v3_dj_h,
-            v1_dj_kz=excluded.v1_dj_kz,v2_dj_kz=excluded.v2_dj_kz,v3_dj_kz=excluded.v3_dj_kz,
-            v1_swj=excluded.v1_swj,v2_swj=excluded.v2_swj,v3_swj=excluded.v3_swj
+         squat_jump,drop_jump_hoehe,drop_jump_kz,rsi,standweit,bewertung_cmj,defizite)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
         """, (spieler_id, datum,
               cmj_beid, cmj_rechts, cmj_links, cmj_asym,
               squat_jump, dj_hoehe, dj_kz, rsi,
-              standweit, bew_cmj, defizite,
-              v1_cmj_beid, v2_cmj_beid, v3_cmj_beid,
-              v1_cmj_r, v2_cmj_r, v3_cmj_r,
-              v1_cmj_l, v2_cmj_l, v3_cmj_l,
-              v1_squat, v2_squat, v3_squat,
-              v1_dj_h, v2_dj_h, v3_dj_h,
-              v1_dj_kz, v2_dj_kz, v3_dj_kz,
-              v1_swj, v2_swj, v3_swj))
+              standweit, bew_cmj, defizite))
 
 
 def sprung_letzter(spieler_id):
@@ -877,42 +723,16 @@ def sprung_history(spieler_id):
 
 def agilitaet_speichern(spieler_id, datum, t505_r, t505_l, asym_505,
                          t5_10_5, t_test, illinois,
-                         bew_505, bew_t_test, bew_illinois, defizite,
-                         v1_t505_r=None, v2_t505_r=None, v3_t505_r=None,
-                         v1_t505_l=None, v2_t505_l=None, v3_t505_l=None,
-                         v1_t5_10_5=None, v2_t5_10_5=None, v3_t5_10_5=None,
-                         v1_t_test=None, v2_t_test=None, v3_t_test=None,
-                         v1_illinois=None, v2_illinois=None, v3_illinois=None):
+                         bew_505, bew_t_test, bew_illinois, defizite):
     with get_conn() as conn:
         conn.execute("""
         INSERT INTO agilitaet_test
         (spieler_id,datum,t505_r,t505_l,asym_505,t5_10_5,t_test,illinois,
-         bew_505,bew_t_test,bew_illinois,defizite,
-         v1_t505_r,v2_t505_r,v3_t505_r,
-         v1_t505_l,v2_t505_l,v3_t505_l,
-         v1_t5_10_5,v2_t5_10_5,v3_t5_10_5,
-         v1_t_test,v2_t_test,v3_t_test,
-         v1_illinois,v2_illinois,v3_illinois)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-        ON CONFLICT(spieler_id,datum) DO UPDATE SET
-            t505_r=excluded.t505_r,t505_l=excluded.t505_l,
-            asym_505=excluded.asym_505,t5_10_5=excluded.t5_10_5,
-            t_test=excluded.t_test,illinois=excluded.illinois,
-            bew_505=excluded.bew_505,bew_t_test=excluded.bew_t_test,
-            bew_illinois=excluded.bew_illinois,defizite=excluded.defizite,
-            v1_t505_r=excluded.v1_t505_r,v2_t505_r=excluded.v2_t505_r,v3_t505_r=excluded.v3_t505_r,
-            v1_t505_l=excluded.v1_t505_l,v2_t505_l=excluded.v2_t505_l,v3_t505_l=excluded.v3_t505_l,
-            v1_t5_10_5=excluded.v1_t5_10_5,v2_t5_10_5=excluded.v2_t5_10_5,v3_t5_10_5=excluded.v3_t5_10_5,
-            v1_t_test=excluded.v1_t_test,v2_t_test=excluded.v2_t_test,v3_t_test=excluded.v3_t_test,
-            v1_illinois=excluded.v1_illinois,v2_illinois=excluded.v2_illinois,v3_illinois=excluded.v3_illinois
+         bew_505,bew_t_test,bew_illinois,defizite)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
         """, (spieler_id, datum, t505_r, t505_l, asym_505,
               t5_10_5, t_test, illinois,
-              bew_505, bew_t_test, bew_illinois, defizite,
-              v1_t505_r, v2_t505_r, v3_t505_r,
-              v1_t505_l, v2_t505_l, v3_t505_l,
-              v1_t5_10_5, v2_t5_10_5, v3_t5_10_5,
-              v1_t_test, v2_t_test, v3_t_test,
-              v1_illinois, v2_illinois, v3_illinois))
+              bew_505, bew_t_test, bew_illinois, defizite))
 
 
 def agilitaet_letzter(spieler_id):
@@ -1009,112 +829,4 @@ def periodisierung_laden(spieler_id):
         return _rows(conn.execute(
             "SELECT woche,phase,ziel,bereich,uebung,intensitaet,volumen,haeufigkeit FROM periodisierung WHERE spieler_id=? ORDER BY woche",
             (spieler_id,),
-        ).fetchall())
-
-
-# ─── Kraftdiagnostik ───────────────────────────────────────────────────────────
-
-def kraft_speichern(
-    spieler_id: int, datum: str,
-    koerpergewicht: float | None, direktes_1rm: float | None,
-    geschaetztes_1rm: float | None, relative_kraft_direkt: float | None,
-    relative_kraft_geschaetzt: float | None, sicherheit_bestaetigt: int,
-    ventral_sekunden: float | None, ventral_versuch2: float | None,
-    lateral_rechts_sekunden: float | None, lateral_links_sekunden: float | None,
-    dorsal_sekunden: float | None, rumpf_gesamt_sekunden: float | None,
-    lateral_differenz_sekunden: float | None, lateral_asymmetrie_prozent: float | None,
-    ratio_ventral_dorsal: float | None, ratio_lateral_r_dorsal: float | None,
-    ratio_lateral_l_dorsal: float | None,
-    abbruchgrund: str | None = None, bemerkung: str | None = None,
-) -> int:
-    """Speichert oder überschreibt einen Kraft-Test (gleicher Spieler+Tag)."""
-    with get_conn() as conn:
-        existing = conn.execute(
-            "SELECT id FROM kraft_test WHERE spieler_id=? AND datum=?",
-            (spieler_id, datum),
-        ).fetchone()
-        params = (
-            koerpergewicht, direktes_1rm, geschaetztes_1rm,
-            relative_kraft_direkt, relative_kraft_geschaetzt, sicherheit_bestaetigt,
-            ventral_sekunden, ventral_versuch2,
-            lateral_rechts_sekunden, lateral_links_sekunden,
-            dorsal_sekunden, rumpf_gesamt_sekunden,
-            lateral_differenz_sekunden, lateral_asymmetrie_prozent,
-            ratio_ventral_dorsal, ratio_lateral_r_dorsal, ratio_lateral_l_dorsal,
-            abbruchgrund, bemerkung,
-        )
-        if existing:
-            kraft_id = existing[0]
-            conn.execute("""
-                UPDATE kraft_test SET
-                    koerpergewicht=?,direktes_1rm=?,geschaetztes_1rm=?,
-                    relative_kraft_direkt=?,relative_kraft_geschaetzt=?,
-                    sicherheit_bestaetigt=?,ventral_sekunden=?,ventral_versuch2=?,
-                    lateral_rechts_sekunden=?,lateral_links_sekunden=?,
-                    dorsal_sekunden=?,rumpf_gesamt_sekunden=?,
-                    lateral_differenz_sekunden=?,lateral_asymmetrie_prozent=?,
-                    ratio_ventral_dorsal=?,ratio_lateral_r_dorsal=?,ratio_lateral_l_dorsal=?,
-                    abbruchgrund=?,bemerkung=?,updated_at=datetime('now')
-                WHERE id=?
-            """, params + (kraft_id,))
-            return kraft_id
-        cursor = conn.execute("""
-            INSERT INTO kraft_test (
-                spieler_id,datum,
-                koerpergewicht,direktes_1rm,geschaetztes_1rm,
-                relative_kraft_direkt,relative_kraft_geschaetzt,sicherheit_bestaetigt,
-                ventral_sekunden,ventral_versuch2,
-                lateral_rechts_sekunden,lateral_links_sekunden,
-                dorsal_sekunden,rumpf_gesamt_sekunden,
-                lateral_differenz_sekunden,lateral_asymmetrie_prozent,
-                ratio_ventral_dorsal,ratio_lateral_r_dorsal,ratio_lateral_l_dorsal,
-                abbruchgrund,bemerkung
-            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-        """, (spieler_id, datum) + params)
-        return cursor.lastrowid
-
-
-def kraft_letzter(spieler_id: int) -> dict | None:
-    """Letzter Kraft-Test des Spielers."""
-    with get_conn() as conn:
-        return _row(conn.execute(
-            "SELECT * FROM kraft_test WHERE spieler_id=? ORDER BY id DESC LIMIT 1",
-            (spieler_id,),
-        ).fetchone())
-
-
-def kraft_history(spieler_id: int) -> list[dict]:
-    """Alle Kraft-Tests des Spielers, aufsteigend nach Datum."""
-    with get_conn() as conn:
-        return _rows(conn.execute("""
-            SELECT datum,direktes_1rm,geschaetztes_1rm,
-                   relative_kraft_direkt,relative_kraft_geschaetzt,
-                   ventral_sekunden,lateral_rechts_sekunden,
-                   lateral_links_sekunden,dorsal_sekunden,
-                   lateral_asymmetrie_prozent,ratio_ventral_dorsal
-            FROM kraft_test WHERE spieler_id=? ORDER BY datum
-        """, (spieler_id,)).fetchall())
-
-
-def kraft_versuch_speichern(
-    kraft_test_id: int, uebung: str, versuchsnummer: int,
-    gewicht: float | None = None, wiederholungen: int | None = None,
-    zeit_sekunden: float | None = None, gueltig: bool = True,
-    ungueltigkeitsgrund: str | None = None,
-) -> None:
-    with get_conn() as conn:
-        conn.execute("""
-            INSERT INTO kraft_test_versuch
-            (kraft_test_id,uebung,versuchsnummer,gewicht,wiederholungen,
-             zeit_sekunden,gueltig,ungueltigkeitsgrund)
-            VALUES (?,?,?,?,?,?,?,?)
-        """, (kraft_test_id, uebung, versuchsnummer, gewicht, wiederholungen,
-              zeit_sekunden, 1 if gueltig else 0, ungueltigkeitsgrund))
-
-
-def kraft_versuche_laden(kraft_test_id: int) -> list[dict]:
-    with get_conn() as conn:
-        return _rows(conn.execute(
-            "SELECT * FROM kraft_test_versuch WHERE kraft_test_id=? ORDER BY uebung,versuchsnummer",
-            (kraft_test_id,),
         ).fetchall())

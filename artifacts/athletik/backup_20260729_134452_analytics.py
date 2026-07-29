@@ -8,17 +8,11 @@ All functions operate on sqlite3.Row objects from the database layer.
 # ─── Internal helpers ─────────────────────────────────────────────────────────
 
 _BEWERTUNG_SCORE = {
-    # Strukturierte Status-IDs (neu, stabil)
-    "sehr_gut":           95,
-    "gut":                78,
-    "mittel":             58,
-    "entwicklungsbedarf": 30,
-    # Lesbare Bezeichnungen (Altbestand, bleiben für Rückwärtskompatibilität)
     "Sehr gut (Profi-Niveau)":    95,
     "Gut (Leistungssport)":       78,
     "Mittel (Breitensport)":      58,
     "Verbesserungsbedarf":        30,
-    # Ausdauer verwendet eine vereinfachte Skala
+    # Ausdauer uses a simpler scale
     "Gut":                        85,
     "Mittel":                     60,
 }
@@ -78,10 +72,10 @@ def risiko_score(fms_row, y_row, verletzungen=None) -> int:
 def risiko_label(score: int) -> tuple[str, str]:
     """Returns (label, level) where level is 'hoch'/'mittel'/'gering'."""
     if score >= 4:
-        return "Erhöhte Hinweise — Trainer prüft", "hoch"
+        return "HANDLUNGSBEDARF HOCH", "hoch"
     if score >= 2:
-        return "Einzelne Hinweise vorhanden", "mittel"
-    return "Keine auffälligen Hinweise", "gering"
+        return "HANDLUNGSBEDARF", "mittel"
+    return "UNAUFFÄLLIG", "gering"
 
 
 # ─── Athletik Score ───────────────────────────────────────────────────────────

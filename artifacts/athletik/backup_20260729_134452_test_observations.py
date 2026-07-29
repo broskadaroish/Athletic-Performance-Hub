@@ -179,32 +179,6 @@ BEOBACHTUNGEN: dict[str, dict] = {
         ],
         "konflikte": [],
     },
-
-    "kraft": {
-        "test_name":       "Kraftdiagnostik (Bankdrücken / Rumpf)",
-        "hat_seite":       False,
-        "hat_auspraegung": True,
-        "beobachtungen": [
-            # ── Bankdrücken ───────────────────────────────────────────────
-            {"id": "kr_std_bd_technik",    "kat": "Bankdrücken",  "text": "Saubere Drücktechnik — kontrollierte Bewegung",         "bericht": "führte die Bankdrückbewegung technisch sauber und kontrolliert aus",                      "typ": "positiv",    "modus": "standard"},
-            {"id": "kr_std_bd_strecken",   "kat": "Bankdrücken",  "text": "Unvollständige Streckung am Umkehrpunkt",               "bericht": "zeigte beim Bankdrücken eine unvollständige Streckung im oberen Umkehrpunkt",             "typ": "auffaellig", "modus": "standard"},
-            {"id": "kr_std_bd_abbruch",    "kat": "Bankdrücken",  "text": "Test abgebrochen — Technikverlust / Ermüdung",          "bericht": "brach den Bankdrücktest aufgrund von Technikverlust oder starker Ermüdung ab",           "typ": "auffaellig", "modus": "standard"},
-            {"id": "kr_std_bd_sicherung",  "kat": "Bankdrücken",  "text": "Sicherungsprotokoll vollständig eingehalten",           "bericht": "hielt das Sicherungsprotokoll beim direkten 1RM-Test vollständig ein",                  "typ": "positiv",    "modus": "standard"},
-            # ── Rumpfkraft ────────────────────────────────────────────────
-            {"id": "kr_std_rumpf_stabil",  "kat": "Rumpfkraft",   "text": "Stabile Halteposition über die gesamte Testdauer",      "bericht": "hielt die Rumpfposition während des gesamten Haltetests stabil",                       "typ": "positiv",    "modus": "standard"},
-            {"id": "kr_std_rumpf_asym",    "kat": "Rumpfkraft",   "text": "Auffällige Seitendifferenz im Seitstütz erkennbar",     "bericht": "zeigte im Seitstütz-Haltetest eine auffällige Seitendifferenz",                       "typ": "auffaellig", "modus": "standard"},
-            {"id": "kr_std_rumpf_abbruch", "kat": "Rumpfkraft",   "text": "Haltezeitabbruch durch Formverlust",                   "bericht": "brach den Haltetest durch deutlichen Formverlust der Stützposition ab",                "typ": "auffaellig", "modus": "standard"},
-            {"id": "kr_std_beschw",        "kat": "Beschwerden",  "text": "Spieler gab Beschwerden an — Test angepasst / abgebrochen","bericht": "gab während des Krafttests Beschwerden an. Der Test wurde angepasst bzw. abgebrochen. Bei anhaltenden Beschwerden sollte eine medizinische oder therapeutische Fachperson hinzugezogen werden.", "typ": "auffaellig", "modus": "standard"},
-            # ── Experte ───────────────────────────────────────────────────
-            {"id": "kr_exp_beckenstab",    "kat": "Technik",      "text": "Gute Beckenstabilisierung beim Bankdrücken",            "bericht": "zeigte beim Bankdrücken eine gute Beckenstabilisierung ohne Ausweichbewegungen",       "typ": "positiv",    "modus": "experte"},
-            {"id": "kr_exp_fussdruck",     "kat": "Technik",      "text": "Aktiver Bodenkontakt (Fußdruck) beim Bankdrücken",      "bericht": "nutzte beim Bankdrücken einen aktiven Fußdruck zur Kraftübertragung",                 "typ": "positiv",    "modus": "experte"},
-            {"id": "kr_exp_plank_atem",    "kat": "Rumpfkraft",   "text": "Gleichmäßige Atemkontrolle bei Plank-Test",             "bericht": "zeigte beim Plank-Test eine gleichmäßige Atemkontrolle über die gesamte Haltedauer",  "typ": "positiv",    "modus": "experte"},
-        ],
-        "konflikte": [
-            ("kr_std_bd_technik",   "kr_std_bd_strecken"),
-            ("kr_std_rumpf_stabil", "kr_std_rumpf_abbruch"),
-        ],
-    },
 }
 
 
