@@ -477,7 +477,7 @@ def page_dashboard():
             "⚡ Gruppe Schnelligkeit":              "Sprint, Beschleunigung, Richtungswechsel",
             "🦘 Gruppe Sprungkraft":                "Explosivkraft, Reaktivkraft, Beinachsenstabilität",
             "🔒 Gruppe Stabilität & Bewegungskontrolle": "FMS-Defizite, Y-Balance-Asymmetrien, Core-Stabilität",
-            "🫁 Gruppe Ausdauerkapazität":          "Aerobe Basis, intermittierende Ausdauer (Yo-Yo)",
+            "🫁 Gruppe Ausdauerkapazität":          "Aerobe Basis, intermittierende Ausdauer",
             "✅ Kein spezifischer Förderbedarf":    "Keine kritischen Defizite — allgemeines Athletiktraining",
         }
         _GRUPPE_ORDER = [
@@ -4652,7 +4652,7 @@ def page_spieler_vergleich():
         )
 
     # ── Ausdauer ──────────────────────────────────────────────────────────────
-    _section_header("🫁", "Ausdauer (Yo-Yo)")
+    _section_header("🫁", "Ausdauer")
     if aus1 or aus2:
         def _aus_html(row, name):
             if not row:
@@ -5059,7 +5059,7 @@ def page_diagnostik_overview() -> None:
         {
             "icon": "🫁", "name": "Ausdauer",
             "desc": "Aerobe Kapazität (Yo-Yo)",
-            "sub":  "🫁 Ausdauer (Yo-Yo)",
+            "sub":  "🫁 Ausdauer",
             "metric": (f"VO₂max: {aus_d['vo2max']:.1f} ml·kg⁻¹·min⁻¹"
                        if aus_d and aus_d.get("vo2max") else None),
             "rating": aus_d.get("bewertung") if aus_d else None,
@@ -5085,7 +5085,7 @@ def page_diagnostik_overview() -> None:
         {
             "icon": "🔬", "name": "Stufentest",
             "desc": "Spiroergometrie / Laktatstufen",
-            "sub":  "🫁 Ausdauer (Yo-Yo)",  # öffnet Ausdauer-Seite (Selector wählt Spiro)
+            "sub":  "🫁 Ausdauer",  # öffnet Ausdauer-Seite (Selector wählt Spiro)
             "metric": (
                 f"V max: {spiro_d['maximale_geschwindigkeit']:.1f} km/h"
                 if spiro_d and spiro_d.get("maximale_geschwindigkeit") else
@@ -5286,7 +5286,7 @@ _SUB_DIAGNOSTIK = {
     "⚡ Sprint":             page_sprint,
     "🦘 Sprung":             page_sprung,
     "🔀 Agilität":          page_agilitaet,
-    "🫁 Ausdauer (Yo-Yo)":  page_ausdauer,
+    "🫁 Ausdauer":  page_ausdauer,
     "💪 Kraft":              page_kraft,
 }
 _SUB_TRAINING = {
