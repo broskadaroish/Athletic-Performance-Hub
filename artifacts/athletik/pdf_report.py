@@ -591,3 +591,311 @@ def generate_report(
             fill = not fill
 
     return bytes(pdf.output())
+
+
+# ─── Vergleichs-Report ────────────────────────────────────────────────────────
+
+class _VergleichReport(AthletikReport):
+    """PDF-Report für zwei Spieler im direkten Vergleich."""
+
+    BLUE_A  = (31, 111, 235)   # Spieler A accent (matches UI #1f6feb)
+    GREEN_B = (63, 185, 80)    # Spieler B accent (matches UI #3fb950)
+
+    def __init__(self, name1: str, name2: str):
+        super().__init__()
+        self._n1 = _safe(name1)[:32]
+        self._n2 = _safe(name2)[:32]
+
+    def header(self):
+        self.set_fill_color(*self.BRAND)
+        self.rect(0, 0, 210, 18, "F")
+        self.set_y(4)
+        self.set_font("Helvetica", "B", 12)
+        self.set_text_color(*self.WHITE)
+        self.cell(0, 10, "  ATHLETIK-VERGLEICH", align="L")
+        self.set_font("Helvetica", "", 8)
+        self.set_xy(0, 6)
+        self.cell(0, 8, "Erstellt am %s  " % date.today().strftime("%d.%m.%Y"), align="R")
+        self.set_text_color(*self.DARK)
+        self.ln(14)
+
+    def player_banner(self, sp1: dict, sp2: dict, sc1: int, sc2: int):
+        """Zwei Spieler-Info-Karten nebeneinander."""
+        def _info(sp, sc, accent):
+            name   = _safe(sp.get("name") or sp.get("nachname") or "-")
+            pos    = _safe(sp.get("hauptposition") or sp.get("position") or "-")
+            team   = _safe(sp.get("mannschaft") or "-")
+            status = _safe(sp.get("trainingsstatus") or "Volltraining")
+            geb    = _safe(sp.get("geburtsdatum") or "-")
+            col    = GREEN if sc >= 75 else YELLOW if sc >= 50 else RED
+            return name, pos, team, status, geb, sc, col, accent
+
+        x_start = self.get_x()
+        y_start = self.get_y()
+        W = 93   # card width
+
+        for i, (sp, sc) in enumerate([(sp1, sc1), (sp2, sc2)]):
+            name, pos, team, status, geb, score, sc_col, accent = _info(
+                sp, sc,
+                self.BLUE_A if i == 0 else self.GREEN_B,
+            )
+            x = x_start + i * (W + 4)
+            # Card background
+            self.set_fill_color(245, 247, 250)
+            self.rect(x, y_start, W, 38, "F")
+            # Accent bar at top
+            self.set_fill_color(*accent)
+            self.rect(x, y_start, W, 3, "F")
+            # Player label
+            self.set_xy(x + 3, y_start + 4)
+            self.set_font("Helvetica", "B", 7)
+            self.set_text_color(*accent)
+            self.cell(W - 6, 4, "SPIELER %s" % ("A" if i == 0 else "B"),
+                      new_x="LMARGIN", new_y="NEXT")
+            # Name
+            self.set_x(x + 3)
+            self.set_font("Helvetica", "B", 11)
+            self.set_text_color(*self.DARK)
+            self.cell(W - 6, 6, name[:26], new_x="LMARGIN", new_y="NEXT")
+            # Info rows
+            for label, val in [("Position", pos), ("Mannschaft", team), ("Status", status)]:
+                self.set_x(x + 3)
+                self.set_font("Helvetica", "B", 7)
+                self.set_text_color(*self.MID)
+                self.cell(28, 4, label + ":", new_x="RIGHT", new_y="TOP")
+                self.set_font("Helvetica", "", 7)
+                self.set_text_color(*self.DARK)
+                self.cell(60, 4, val[:24], new_x="LMARGIN", new_y="NEXT")
+            # Score
+            self.set_x(x + 3)
+            self.set_font("Helvetica", "B", 9)
+            self.set_text_color(*sc_col)
+            self.cell(W - 6, 5, "Athletik-Score: %d/100" % score,
+                      new_x="LMARGIN", new_y="NEXT")
+
+        self.set_xy(x_start, y_start + 42)
+
+    def compare_section(self, title: str):
+        self.check_page_break(40)
+        self.ln(3)
+        self.set_fill_color(*self.BRAND)
+        self.set_text_color(*self.WHITE)
+        self.set_font("Helvetica", "B", 9)
+        self.cell(0, 6, "  " + _safe(title), fill=True, new_x="LMARGIN", new_y="NEXT")
+        self.set_text_color(*self.DARK)
+        # Sub-header with player names
+        self.set_fill_color(220, 228, 245)
+        self.set_font("Helvetica", "B", 7)
+        self.set_text_color(*self.MID)
+        self.cell(65, 5, "  KENNZAHL", fill=True)
+        self.set_fill_color(220, 235, 255)
+        self.set_text_color(*self.BLUE_A)
+        self.cell(62, 5, "  A: " + self._n1[:24], fill=True)
+        self.set_fill_color(220, 245, 225)
+        self.set_text_color(*self.GREEN_B)
+        self.cell(62, 5, "  B: " + self._n2[:24], fill=True, new_x="LMARGIN", new_y="NEXT")
+        self.set_text_color(*self.DARK)
+        self._fill_toggle = False
+
+    def compare_row(self, label: str, val1, val2="—", col1=None, col2=None):
+        fill = getattr(self, "_fill_toggle", False)
+        self._fill_toggle = not fill
+        self.set_fill_color(*self.LIGHT) if fill else self.set_fill_color(*self.WHITE)
+        self.set_font("Helvetica", "B", 8)
+        self.set_text_color(*self.MID)
+        self.cell(65, 5, "  " + _safe(label)[:30], fill=True)
+        self.set_font("Helvetica", "B", 8)
+        self.set_text_color(*(col1 or self.DARK))
+        self.cell(62, 5, "  " + _safe(val1)[:28], fill=True)
+        self.set_font("Helvetica", "B", 8)
+        self.set_text_color(*(col2 or self.DARK))
+        self.cell(62, 5, "  " + _safe(val2)[:28], fill=True,
+                  new_x="LMARGIN", new_y="NEXT")
+        self.set_text_color(*self.DARK)
+
+
+def generate_vergleich_pdf(
+    sp1: dict, sp2: dict,
+    sc1: int = 0, sc2: int = 0,
+    fms1=None,  fms2=None,
+    y1=None,    y2=None,
+    spr1=None,  spr2=None,
+    spg1=None,  spg2=None,
+    agil1=None, agil2=None,
+    aus1=None,  aus2=None,
+) -> bytes:
+    """Vergleichs-PDF für zwei Spieler — Score-Banner + Testwerte-Tabelle."""
+
+    pdf = _VergleichReport(
+        name1=sp1.get("name") or sp1.get("nachname") or "Spieler A",
+        name2=sp2.get("name") or sp2.get("nachname") or "Spieler B",
+    )
+    pdf.set_auto_page_break(auto=True, margin=18)
+    pdf.add_page()
+
+    # ── Player banners + scores ───────────────────────────────────────────────
+    pdf.section_title("SPIELER-VERGLEICH")
+    pdf.ln(2)
+    pdf.player_banner(sp1, sp2, sc1, sc2)
+    pdf.ln(2)
+    pdf.disclaimer_box(_safe(KURZ_HINWEIS))
+
+    # ── FMS ───────────────────────────────────────────────────────────────────
+    if fms1 or fms2:
+        pdf.compare_section("FMS - FUNCTIONAL MOVEMENT SCREEN")
+        def _fms_score_str(r):
+            if not r: return "—"
+            return "%d/21 (%s)" % (r["score"], r.get("bewertung", "-"))
+        def _fms_col(r):
+            if not r: return GREY
+            return GREEN if r["score"] >= 15 else YELLOW if r["score"] >= 13 else RED
+        pdf.compare_row("Gesamtscore", _fms_score_str(fms1), _fms_score_str(fms2),
+                        _fms_col(fms1), _fms_col(fms2))
+        for attr, label in [
+            ("asymmetrie", "Asymmetrie"),
+            ("schwerpunkt", "Schwerpunkt"),
+            ("datum",       "Testdatum"),
+        ]:
+            pdf.compare_row(label,
+                            (fms1 or {}).get(attr, "—"),
+                            (fms2 or {}).get(attr, "—"))
+
+    # ── Y-Balance ─────────────────────────────────────────────────────────────
+    if y1 or y2:
+        pdf.compare_section("Y-BALANCE TEST")
+        def _yavg(r):
+            if not r: return None
+            return (r["composite_rechts"] + r["composite_links"]) / 2
+        def _ycol(r):
+            a = _yavg(r)
+            if a is None: return GREY
+            return GREEN if a >= 89 else YELLOW if a >= 85 else RED
+        a1, a2 = _yavg(y1), _yavg(y2)
+        pdf.compare_row("Ø Composite",
+                        "%.1f %%" % a1 if a1 else "—",
+                        "%.1f %%" % a2 if a2 else "—",
+                        _ycol(y1), _ycol(y2))
+        pdf.compare_row("Composite Rechts",
+                        "%.1f %%" % (y1 or {}).get("composite_rechts", 0) if y1 else "—",
+                        "%.1f %%" % (y2 or {}).get("composite_rechts", 0) if y2 else "—")
+        pdf.compare_row("Composite Links",
+                        "%.1f %%" % (y1 or {}).get("composite_links", 0) if y1 else "—",
+                        "%.1f %%" % (y2 or {}).get("composite_links", 0) if y2 else "—")
+        pdf.compare_row("Asymmetrie",
+                        (y1 or {}).get("asymmetrie", "—"),
+                        (y2 or {}).get("asymmetrie", "—"))
+        pdf.compare_row("Testdatum",
+                        (y1 or {}).get("datum", "—"),
+                        (y2 or {}).get("datum", "—"))
+
+    # ── Sprint ────────────────────────────────────────────────────────────────
+    if spr1 or spr2:
+        pdf.compare_section("SPRINT-DIAGNOSTIK")
+        def _t(r, field):
+            v = (r or {}).get(field)
+            return "%.2f s" % v if v else "—"
+        def _scol(r, bew_field):
+            return ampel((r or {}).get(bew_field, ""))
+        pdf.compare_row("10 m (bester)",
+                        _t(spr1, "beste_10m"), _t(spr2, "beste_10m"),
+                        _scol(spr1, "bewertung_10m"), _scol(spr2, "bewertung_10m"))
+        pdf.compare_row("30 m (bester)",
+                        _t(spr1, "beste_30m"), _t(spr2, "beste_30m"),
+                        _scol(spr1, "bewertung_30m"), _scol(spr2, "bewertung_30m"))
+        pdf.compare_row("5 m (bester)",  _t(spr1, "beste_5m"),  _t(spr2, "beste_5m"))
+        pdf.compare_row("20 m (bester)", _t(spr1, "beste_20m"), _t(spr2, "beste_20m"))
+        pdf.compare_row("Testdatum",
+                        (spr1 or {}).get("datum", "—"),
+                        (spr2 or {}).get("datum", "—"))
+
+    # ── Sprung ────────────────────────────────────────────────────────────────
+    if spg1 or spg2:
+        pdf.compare_section("SPRUNG-DIAGNOSTIK")
+        def _cm(r, f):
+            v = (r or {}).get(f)
+            return "%.1f cm" % v if v else "—"
+        def _cmj_col(r):
+            return ampel((r or {}).get("bewertung_cmj", ""))
+        pdf.compare_row("CMJ beidbeinig",
+                        _cm(spg1, "cmj_beid"), _cm(spg2, "cmj_beid"),
+                        _cmj_col(spg1), _cmj_col(spg2))
+        pdf.compare_row("CMJ rechts",  _cm(spg1, "cmj_rechts"),  _cm(spg2, "cmj_rechts"))
+        pdf.compare_row("CMJ links",   _cm(spg1, "cmj_links"),   _cm(spg2, "cmj_links"))
+        def _asym_col(r):
+            a = (r or {}).get("cmj_asymmetrie")
+            return RED if (a and float(a) > 10) else GREEN if a else GREY
+        def _asym_str(r):
+            a = (r or {}).get("cmj_asymmetrie")
+            return "%.1f %%" % a if a else "—"
+        pdf.compare_row("Asymmetrie L/R",
+                        _asym_str(spg1), _asym_str(spg2),
+                        _asym_col(spg1), _asym_col(spg2))
+        pdf.compare_row("Squat Jump",       _cm(spg1, "squat_jump"), _cm(spg2, "squat_jump"))
+        pdf.compare_row("Standweitsprung",  _cm(spg1, "standweit"),  _cm(spg2, "standweit"))
+        def _rsi(r):
+            v = (r or {}).get("rsi")
+            return "%.2f" % v if v else "—"
+        def _rsi_col(r):
+            v = (r or {}).get("rsi")
+            return (GREEN if v >= 1.5 else YELLOW if v >= 1.0 else RED) if v else GREY
+        pdf.compare_row("RSI", _rsi(spg1), _rsi(spg2), _rsi_col(spg1), _rsi_col(spg2))
+        pdf.compare_row("Testdatum",
+                        (spg1 or {}).get("datum", "—"),
+                        (spg2 or {}).get("datum", "—"))
+
+    # ── Agilität ──────────────────────────────────────────────────────────────
+    if agil1 or agil2:
+        pdf.compare_section("AGILITAET & RICHTUNGSWECHSEL")
+        def _s(r, f):
+            v = (r or {}).get(f)
+            return "%.2f s" % v if v else "—"
+        def _505col(r):
+            return ampel((r or {}).get("bew_505", ""))
+        def _ttest_col(r):
+            return ampel((r or {}).get("bew_t_test", ""))
+        pdf.compare_row("505-Test rechts",  _s(agil1, "t505_r"),   _s(agil2, "t505_r"))
+        pdf.compare_row("505-Test links",   _s(agil1, "t505_l"),   _s(agil2, "t505_l"))
+        def _asym505(r):
+            a = (r or {}).get("asym_505")
+            return "%.1f %%" % a if a else "—"
+        def _asym505col(r):
+            a = (r or {}).get("asym_505")
+            return (RED if float(a) > 10 else GREEN) if a else GREY
+        pdf.compare_row("Asymmetrie 505",
+                        _asym505(agil1), _asym505(agil2),
+                        _asym505col(agil1), _asym505col(agil2))
+        pdf.compare_row("T-Test",
+                        _s(agil1, "t_test"), _s(agil2, "t_test"),
+                        _ttest_col(agil1), _ttest_col(agil2))
+        pdf.compare_row("5-10-5 Shuttle",  _s(agil1, "t5_10_5"),  _s(agil2, "t5_10_5"))
+        pdf.compare_row("Illinois Agility",_s(agil1, "illinois"),  _s(agil2, "illinois"))
+        pdf.compare_row("Testdatum",
+                        (agil1 or {}).get("datum", "—"),
+                        (agil2 or {}).get("datum", "—"))
+
+    # ── Ausdauer ──────────────────────────────────────────────────────────────
+    if aus1 or aus2:
+        pdf.compare_section("AUSDAUER - YO-YO TEST")
+        def _dist(r):
+            v = (r or {}).get("distanz_m")
+            return "%d m" % int(v) if v else "—"
+        def _dist_col(r):
+            return ampel((r or {}).get("bewertung", ""))
+        def _vo2(r):
+            v = (r or {}).get("vo2max")
+            return "%.1f ml/kg/min" % v if v else "—"
+        pdf.compare_row("Erzielte Distanz",
+                        _dist(aus1), _dist(aus2),
+                        _dist_col(aus1), _dist_col(aus2))
+        pdf.compare_row("VO2max (Schaetzung)", _vo2(aus1), _vo2(aus2))
+        pdf.compare_row("Bewertung",
+                        (aus1 or {}).get("bewertung", "—"),
+                        (aus2 or {}).get("bewertung", "—"))
+        pdf.compare_row("Testdatum",
+                        (aus1 or {}).get("datum", "—"),
+                        (aus2 or {}).get("datum", "—"))
+
+    pdf.ln(4)
+    pdf.ampel_legend()
+
+    return bytes(pdf.output())

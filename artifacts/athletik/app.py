@@ -93,7 +93,7 @@ from analytics import (
     defizite_ermitteln, schwerpunkt_sammeln,
 )
 from periodisierung import zyklus_erstellen, zyklus_laden
-from pdf_report import generate_report
+from pdf_report import generate_report, generate_vergleich_pdf
 from pdf_anleitung import generate_anleitung_pdf, ALL_TEST_IDS, TEST_LABELS
 from export import kader_excel_bytes
 from field_eval import alter_zu_altersgruppe, asymmetrie_badge_html, fms_asymmetrie_badge_html
@@ -3477,6 +3477,32 @@ def page_spieler_vergleich():
                     f"**{sp2['name']}** hat folgende Tests noch nicht absolviert: "
                     + ", ".join(f2)
                 )
+
+    # ── PDF-Export ────────────────────────────────────────────────────────────
+    st.markdown("---")
+    _ex_col, _ = st.columns([3, 7])
+    with _ex_col:
+        @st.cache_data(show_spinner=False)
+        def _vergleich_pdf_cached(pid1, pid2, sc1, sc2):
+            return generate_vergleich_pdf(
+                sp1=sp1, sp2=sp2, sc1=sc1, sc2=sc2,
+                fms1=fms1, fms2=fms2,
+                y1=y1, y2=y2,
+                spr1=spr1, spr2=spr2,
+                spg1=spg1, spg2=spg2,
+                agil1=agil1, agil2=agil2,
+                aus1=aus1, aus2=aus2,
+            )
+        pdf_bytes = _vergleich_pdf_cached(pid1, pid2, sc1, sc2)
+        filename = f"vergleich_{sp1['name'].replace(' ', '_')}_{sp2['name'].replace(' ', '_')}.pdf"
+        st.download_button(
+            label="📄 Vergleich als PDF exportieren",
+            data=pdf_bytes,
+            file_name=filename,
+            mime="application/pdf",
+            use_container_width=True,
+            key="vergl_pdf_dl",
+        )
 
     # ── Entwicklungsverlauf ────────────────────────────────────────────────────
     st.markdown("---")
