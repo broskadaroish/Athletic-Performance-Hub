@@ -1,0 +1,897 @@
+Erweitere den bestehenden Bereich „Ausdauer“ der Fußball-Athletik-Diagnostik-App.
+
+Der Menüpunkt soll weiterhin „Ausdauer“ heißen. Erstelle keinen unnötigen zusätzlichen Hauptmenüpunkt.
+
+Innerhalb des Ausdauerbereichs soll der Trainer zwischen zwei grundsätzlich unterschiedlichen Testverfahren wählen können:
+
+1. Yo-Yo Intermittent Recovery Test
+2. Spiroergometrie-Stufentest
+
+Optional soll beim Spiroergometrie-Stufentest eine kapillare Laktatmessung dokumentiert werden können.
+
+Wichtig:
+
+* Bestehende Yo-Yo-Daten und Funktionen müssen vollständig erhalten bleiben.
+* Keine vorhandenen Datensätze überschreiben oder löschen.
+* Vor Änderungen Datenbank und betroffene Dateien sichern.
+* Kein Git-Reset, Checkout, Revert oder Rollback.
+* Keine erfundenen Normwerte ergänzen.
+* Keine medizinische Diagnose oder Sportfreigabe erzeugen.
+* Die beiden Testarten dürfen nicht in einer gemeinsamen Berechnungsformel vermischt werden.
+* Ergebnisse verschiedener Protokolle dürfen nur dann direkt verglichen werden, wenn Testart, Geräteart und Stufenprotokoll identisch sind.
+
+# 1. Auswahl im Ausdauerbereich
+
+Erstelle am Anfang der Ausdauerseite eine Auswahl:
+
+## Ausdauertest auswählen
+
+* Yo-Yo Intermittent Recovery Test
+* Spiroergometrie-Stufentest
+
+Nach der Auswahl werden nur die Eingabefelder, Berechnungen und Auswertungen des gewählten Tests angezeigt.
+
+Die Auswahl muss mit dem Datensatz gespeichert werden:
+
+```text
+testtyp:
+- yoyo_ir1
+- yoyo_ir2
+- yoyo_ir1_kinder
+- spiro_laufband
+- spiro_feld
+- spiro_fahrrad_optional
+```
+
+Für die Fußball-App sollen Laufband- oder laufbasierte Feldprotokolle im Vordergrund stehen.
+
+Ein Fahrradergometer-Test kann technisch vorbereitet werden, darf aber nicht als gleichwertig fußballspezifisch bezeichnet werden.
+
+# 2. Yo-Yo-Test erhalten und verbessern
+
+Behalte den bisherigen Yo-Yo-Bereich bei.
+
+Unterscheide eindeutig:
+
+* Yo-Yo IR1
+* Yo-Yo IR2
+* altersangepasste Kindervariante, sofern bereits vorhanden
+
+Yo-Yo IR1 und Yo-Yo IR2 dürfen nicht im gleichen Verlauf direkt miteinander verbunden werden.
+
+## Eingaben Yo-Yo
+
+Speichere:
+
+* Spieler
+* Testdatum
+* Testsession
+* genaue Yo-Yo-Variante
+* Testort
+* Untergrund
+* Hallen- oder Feldtest
+* Temperatur optional
+* Tester beziehungsweise Trainer
+* erreichte Stufe
+* erreichte Shuttle-Nummer
+* Gesamtstrecke in Metern
+* Testdauer
+* maximale Herzfrequenz
+* durchschnittliche Herzfrequenz optional
+* Herzfrequenz unmittelbar nach Testende
+* Herzfrequenz nach 1 Minute
+* Herzfrequenz nach 2 Minuten optional
+* subjektives Belastungsempfinden RPE 0–10
+* Abbruchgrund
+* Trainerbeobachtungen
+* Beschwerden
+* Bemerkungen
+
+## Yo-Yo-Auswertung
+
+Zeige:
+
+* erreichte Gesamtstrecke
+* Stufe und Shuttle
+* maximale Herzfrequenz
+* prozentualer Anteil einer vorhandenen individuellen HFmax
+* Herzfrequenzerholung nach 1 Minute
+* Veränderung gegenüber dem letzten identischen Yo-Yo-Test
+* persönliche Bestleistung
+* Verlauf
+
+Berechne eine VO₂max-Schätzung nur, wenn für die gewählte Yo-Yo-Variante tatsächlich eine passende und im Code dokumentierte Formel vorhanden ist.
+
+Die bisherige Formel:
+
+```text
+VO₂max = Distanz × 0,0084 + 36,4
+```
+
+darf ausschließlich für die Testvariante eingesetzt werden, für die sie vorgesehen ist.
+
+Jedes geschätzte Ergebnis muss heißen:
+
+```text
+Geschätzte VO₂max
+```
+
+Zusätzlich anzeigen:
+
+„Die Schätzung ersetzt keine direkte Atemgasanalyse.“
+
+Keine VO₂max-Berechnung mit einer Formel durchführen, die nicht zur gewählten Yo-Yo-Variante passt.
+
+# 3. Spiroergometrie-Stufentest
+
+Erstelle innerhalb von „Ausdauer“ den zweiten Bereich:
+
+## Spiroergometrie-Stufentest
+
+Der Test soll als laufbasierter, für Fußballspieler geeigneter Stufentest dokumentiert werden können.
+
+Die App soll keine medizinische Spiroergometrie selbst durchführen. Sie dient zur strukturierten Eingabe, Auswertung und Verlaufskontrolle von Ergebnissen eines fachgerecht durchgeführten Tests.
+
+## 3.1 Testmodus
+
+Auswahl:
+
+* Laufband
+* laufbasierter Feld-Stufentest
+* Fahrradergometer optional
+
+Zusätzliche Auswahl:
+
+* mit Atemgasanalyse
+* ohne Atemgasanalyse
+* mit Laktatmessung
+* ohne Laktatmessung
+
+Mehrfachauswahl muss möglich sein, beispielsweise:
+
+* Atemgasanalyse und Laktat
+* nur Atemgasanalyse
+* nur Laktat
+* nur Herzfrequenz und Geschwindigkeit
+
+## 3.2 Protokolldaten
+
+Speichere das genaue Testprotokoll:
+
+* Protokollname
+* Geräteart
+* Hersteller beziehungsweise Gerät optional
+* Laufbandsteigung in Prozent
+* Startgeschwindigkeit in km/h
+* Geschwindigkeitssteigerung pro Stufe
+* Stufendauer in Minuten
+* Pausendauer für Blutabnahme
+* maximale Anzahl Stufen
+* individuelles oder festes Protokoll
+* Testdatum
+* Testort
+* Tester
+* Raumtemperatur optional
+* letzte größere Mahlzeit optional
+* letzte intensive Trainingseinheit optional
+* akute Beschwerden
+* Bemerkungen
+
+Beispiel eines Protokolls, aber nicht als zwingenden Standard fest programmieren:
+
+```text
+Startgeschwindigkeit: 6 oder 8 km/h
+Steigerung: 1 oder 2 km/h je Stufe
+Stufendauer: 3 Minuten
+Laufbandsteigung: 1 %
+```
+
+Der Trainer beziehungsweise Diagnostiker muss das tatsächlich verwendete Protokoll eingeben oder aus gespeicherten Protokollvorlagen auswählen.
+
+Nur Tests mit identischem Protokoll dürfen automatisch als direkt vergleichbar markiert werden.
+
+# 4. Belastungsstufen erfassen
+
+Erstelle eine dynamische Stufentabelle.
+
+Der Nutzer muss beliebig viele Belastungsstufen hinzufügen können.
+
+## Pro Stufe erfassen
+
+* Stufennummer
+* Geschwindigkeit in km/h
+* Laufbandsteigung in Prozent
+* Dauer der Stufe
+* zurückgelegte Strecke
+* Herzfrequenz am Ende der Stufe
+* durchschnittliche Herzfrequenz optional
+* Sauerstoffaufnahme VO₂ absolut optional
+* Sauerstoffaufnahme VO₂ relativ in ml/kg/min optional
+* Kohlendioxidabgabe VCO₂ optional
+* Atemminutenvolumen VE optional
+* respiratorischer Quotient beziehungsweise RER optional
+* Atemfrequenz optional
+* Sauerstoffpuls optional
+* Laktat in mmol/l optional
+* RPE 0–10
+* Stufe vollständig absolviert
+* Blutprobe gültig
+* Bemerkung
+
+Darstellung als Tabelle:
+
+| Stufe | Geschwindigkeit | Steigung | Herzfrequenz | VO₂ | Laktat | RPE | gültig |
+| ----: | --------------: | -------: | -----------: | --: | -----: | --: | -----: |
+
+Leere optionale Messfelder dürfen gespeichert werden.
+
+Eine fehlende Laktatmessung darf nicht als 0 mmol/l gespeichert werden.
+
+# 5. Laktatmessung
+
+Die Laktateingabe ist optional.
+
+Einheit:
+
+```text
+mmol/l
+```
+
+Erfasse optional:
+
+* Ruhelaktat
+* Laktat nach jeder Belastungsstufe
+* Laktat unmittelbar nach Belastungsende
+* Laktat nach 1 Minute
+* Laktat nach 3 Minuten
+* Laktat nach 5 Minuten
+* maximal gemessener Laktatwert
+* Ort der Blutentnahme:
+
+  * Ohrläppchen
+  * Fingerbeere
+* Messgerät
+* Chargennummer optional
+* Probe gültig oder ungültig
+* Bemerkung zur Probenqualität
+
+## Sicherheitshinweis
+
+Zeige vor Aktivierung der Laktateingabe:
+
+„Kapillare Blutentnahmen dürfen nur von entsprechend eingewiesenen Personen unter Einhaltung der geltenden Hygiene-, Arbeitsschutz- und Entsorgungsvorgaben durchgeführt werden.“
+
+Die App darf keine Anleitung zur invasiven Blutentnahme als Ersatz für eine fachliche Einweisung darstellen.
+
+# 6. Laktatleistungskurve
+
+Erstelle für Stufentests mit gültigen Laktatwerten eine Laktatleistungskurve.
+
+## Diagramm
+
+X-Achse wahlweise:
+
+* Geschwindigkeit in km/h
+* Belastungsstufe
+* Leistung in Watt bei Fahrradergometer
+
+Y-Achse:
+
+* Laktat in mmol/l
+
+Zusätzlich soll die Herzfrequenz darstellbar sein.
+
+Da Laktat und Herzfrequenz unterschiedliche Einheiten besitzen, verwende:
+
+* entweder ein separates Herzfrequenzdiagramm
+* oder eine klar beschriftete zweite Y-Achse
+
+Bevorzugt werden zwei getrennte Diagramme:
+
+1. Geschwindigkeit – Laktat
+2. Geschwindigkeit – Herzfrequenz
+
+Keine unübersichtliche Darstellung mit zu vielen Messgrößen in einem Diagramm.
+
+## Darstellung einzelner Tests
+
+Zeige:
+
+* Messpunkte
+* verbundene Kurve
+* genaue Werte beim Überfahren beziehungsweise in einer Tabelle
+* verwendetes Protokoll
+* Testdatum
+* Testart
+
+Erfinde keine Messpunkte zwischen den tatsächlich erfassten Werten.
+
+Eine geglättete Kurve darf nur zusätzlich angezeigt und muss als mathematische Glättung gekennzeichnet werden.
+
+# 7. Zwei Stufentests vergleichen
+
+Erstelle eine Funktion:
+
+## Laktatkurven vergleichen
+
+Der Trainer wählt:
+
+* Spieler
+* Test 1
+* Test 2
+
+Es dürfen nur Tests angeboten werden, die ausreichend vergleichbar sind.
+
+Prüfe:
+
+* gleiche Testart
+* gleiche Geräteart
+* gleiches Stufenprotokoll
+* gleiche Stufendauer
+* gleiche Steigung
+* vergleichbare Geschwindigkeitsschritte
+* gleiche Laktat-Einheit
+
+Bei Abweichungen zeige:
+
+„Die Testprotokolle unterscheiden sich. Eine direkte Interpretation der Kurvenverschiebung ist nur eingeschränkt möglich.“
+
+## Überlagerungsdiagramm
+
+Zeige beide Tests gemeinsam:
+
+* Test 1 mit Datum
+* Test 2 mit Datum
+* identische Achsenskalierung
+* Geschwindigkeit gegen Laktat
+* Geschwindigkeit gegen Herzfrequenz
+
+Die Kurven müssen eindeutig über Datum und Legende unterscheidbar sein.
+
+# 8. Rechts- und Linksverschiebung bewerten
+
+Mit „Rechtsverschiebung“ und „Linksverschiebung“ ist die Verschiebung der Leistungskurve gemeint, nicht die rechte und linke Körperseite.
+
+## Rechtsverschiebung
+
+Eine mögliche Verbesserung liegt vor, wenn der Spieler bei vergleichbarer Laktatkonzentration:
+
+* eine höhere Geschwindigkeit erreicht
+* oder bei gleicher Geschwindigkeit eine niedrigere Laktatkonzentration besitzt
+
+Beispiel:
+
+```text
+Test 1:
+4 mmol/l bei 12,0 km/h
+
+Test 2:
+4 mmol/l bei 13,0 km/h
+
+Veränderung:
++1,0 km/h bei 4 mmol/l
+```
+
+Mögliche neutrale Formulierung:
+
+„Die Laktatleistungskurve ist unter vergleichbaren Testbedingungen nach rechts verschoben. Bei gleicher Laktatkonzentration wurde eine höhere Laufgeschwindigkeit erreicht. Dies spricht für eine verbesserte submaximale Ausdauerleistungsfähigkeit.“
+
+## Linksverschiebung
+
+Eine mögliche Verschlechterung beziehungsweise ungünstigere Reaktion liegt vor, wenn bei vergleichbarer Laktatkonzentration:
+
+* eine niedrigere Geschwindigkeit erreicht wird
+* oder bei gleicher Geschwindigkeit ein höherer Laktatwert besteht
+
+Mögliche neutrale Formulierung:
+
+„Im Vergleichstest wurde die festgelegte Laktatkonzentration bei einer niedrigeren Geschwindigkeit erreicht. Das Ergebnis kann auf eine geringere aktuelle Ausdauerleistungsfähigkeit hinweisen. Trainingsbelastung, Regeneration, Ernährung, Tagesform und Testbedingungen sollten bei der Interpretation berücksichtigt werden.“
+
+## Keine automatische Überinterpretation
+
+Eine Rechtsverschiebung darf nicht automatisch immer als Verbesserung gelten.
+
+Eine Linksverschiebung darf nicht automatisch als Leistungsabfall oder Übertraining diagnostiziert werden.
+
+Berücksichtige:
+
+* identisches Testprotokoll
+* Tagesform
+* Vorbelastung
+* Regeneration
+* Ernährung
+* Umgebungstemperatur
+* Testgerät
+* Blutentnahmequalität
+* Motivation
+* akute Beschwerden
+* Herzfrequenzreaktion
+* maximale erreichte Geschwindigkeit
+* RPE
+* Atemgaswerte, falls vorhanden
+
+Verwende Ergebnisstufen:
+
+* wahrscheinlich verbessert
+* weitgehend unverändert
+* möglicherweise vermindert
+* nicht sicher vergleichbar
+
+Nicht verwenden:
+
+* eindeutig übertrainiert
+* krank
+* verletzt
+* behandlungsbedürftig
+* Sportfreigabe
+
+# 9. Vergleich an festen Laktatwerten
+
+Ermögliche den Vergleich der Geschwindigkeit und Herzfrequenz bei:
+
+* 2 mmol/l
+* 3 mmol/l optional
+* 4 mmol/l
+* individuell ermittelter Schwelle
+* Dmax-Schwelle optional
+* modifizierter Dmax-Schwelle optional
+
+Wichtig:
+
+Die verschiedenen Schwellenmethoden dürfen nicht als identisch behandelt werden.
+
+Speichere immer:
+
+```text
+schwellenmethode
+```
+
+Mögliche Werte:
+
+* fixer Wert 2 mmol/l
+* fixer Wert 4 mmol/l
+* visuelle Schwelle
+* Dmax
+* modifizierter Dmax
+* individuelle anaerobe Schwelle
+* ventilatorische Schwelle 1
+* ventilatorische Schwelle 2
+
+Die App darf nicht automatisch verschiedene Schwellenmethoden miteinander vergleichen.
+
+## Ergebnisdarstellung
+
+Beispiel:
+
+| Kennwert                     |    Test 1 |    Test 2 | Veränderung |
+| ---------------------------- | --------: | --------: | ----------: |
+| Geschwindigkeit bei 2 mmol/l | 10,5 km/h | 11,2 km/h |   +0,7 km/h |
+| HF bei 2 mmol/l              |   158 bpm |   154 bpm |      −4 bpm |
+| Geschwindigkeit bei 4 mmol/l | 12,6 km/h | 13,4 km/h |   +0,8 km/h |
+| HF bei 4 mmol/l              |   177 bpm |   174 bpm |      −3 bpm |
+| maximale Geschwindigkeit     | 15,0 km/h | 16,0 km/h |   +1,0 km/h |
+
+Falls ein Schwellenwert nur durch Interpolation geschätzt wurde, kennzeichne ihn als:
+
+```text
+interpolierter Wert
+```
+
+Keine Extrapolation außerhalb der tatsächlich gemessenen Stufen durchführen.
+
+# 10. Herzfrequenz-Leistungskurve
+
+Erstelle zusätzlich eine Herzfrequenz-Leistungskurve.
+
+X-Achse:
+
+* Geschwindigkeit in km/h
+
+Y-Achse:
+
+* Herzfrequenz in bpm
+
+Vergleiche zwei Tests bei identischem Protokoll.
+
+Eine mögliche positive Entwicklung kann vorliegen, wenn:
+
+* bei gleicher Geschwindigkeit eine niedrigere Herzfrequenz gemessen wird
+* bei gleicher Herzfrequenz eine höhere Geschwindigkeit erreicht wird
+* gleichzeitig maximale oder Schwellenleistung erhalten beziehungsweise verbessert wurde
+
+Aber:
+
+Eine niedrigere Herzfrequenz allein darf nicht automatisch als Verbesserung bewertet werden.
+
+Berücksichtige:
+
+* Betablocker beziehungsweise relevante Medikamente, falls dokumentiert
+* Messfehler
+* Müdigkeit
+* Hitze
+* Flüssigkeitsstatus
+* maximale Ausbelastung
+* RPE
+* Laktat
+* Sauerstoffaufnahme
+
+Nutze neutrale Formulierungen.
+
+# 11. Spiroergometrische Kennwerte
+
+Falls Atemgasdaten vorhanden sind, speichere und zeige:
+
+* VO₂peak beziehungsweise VO₂max
+* VO₂ absolut in l/min
+* VO₂ relativ in ml/kg/min
+* maximale Herzfrequenz
+* maximale Laufgeschwindigkeit
+* VE
+* VCO₂
+* RER
+* ventilatorische Schwelle 1
+* ventilatorische Schwelle 2
+* Geschwindigkeit bei VT1
+* Geschwindigkeit bei VT2
+* Herzfrequenz bei VT1
+* Herzfrequenz bei VT2
+* Sauerstoffaufnahme bei VT1
+* Sauerstoffaufnahme bei VT2
+* Testausbelastungskriterien als dokumentierte Angaben
+
+Unterscheide:
+
+* gemessene VO₂max
+* gemessene VO₂peak
+* geschätzte VO₂max
+
+Diese Begriffe dürfen nicht vermischt werden.
+
+Falls die Kriterien für eine echte VO₂max nicht dokumentiert sind, verwende „VO₂peak“.
+
+Die App darf Atemgasdaten nur darstellen und auswerten, nicht medizinisch befunden.
+
+# 12. Fußballbezogene Auswertung
+
+Zeige eine neutrale fußballbezogene Zusammenfassung.
+
+## Yo-Yo
+
+„Der Yo-Yo-Test bildet die Fähigkeit ab, wiederholt intensive Laufbelastungen mit kurzen Erholungsphasen durchzuführen.“
+
+## Spiroergometrie-Stufentest
+
+„Der laufbasierte Stufentest beschreibt die aerobe und submaximale Ausdauerleistungsfähigkeit unter standardisierten Bedingungen. Geschwindigkeit, Herzfrequenz, Atemgaswerte und optional Laktat können für die individuelle Trainingssteuerung verwendet werden.“
+
+## Laktat
+
+„Die Laktatleistungskurve zeigt den Zusammenhang zwischen äußerer Laufleistung und gemessener Laktatkonzentration. Für Verlaufsvergleiche sind identische Testbedingungen notwendig.“
+
+Keine Aussage erzeugen, dass ein Labortest sämtliche Anforderungen eines Fußballspiels abbildet.
+
+# 13. Individuelle Trainingsbereiche
+
+Erstelle Trainingsbereiche nur, wenn geeignete Schwellenwerte vorhanden sind.
+
+Mögliche Grundlage:
+
+* Herzfrequenz an VT1
+* Herzfrequenz an VT2
+* Herzfrequenz an individueller Laktatschwelle
+* Geschwindigkeit an VT1
+* Geschwindigkeit an VT2
+* Geschwindigkeit an individueller Laktatschwelle
+
+Zeige immer, auf welcher Methode der Bereich basiert.
+
+Beispiel:
+
+```text
+Grundlage:
+individuelle Laktatschwelle aus Stufentest vom 29.07.2026
+```
+
+Keine pauschale 220-minus-Alter-Formel verwenden, wenn eine gemessene individuelle Herzfrequenz vorhanden ist.
+
+Trainingsbereiche nicht automatisch aus unterschiedlichen Testarten vermischen.
+
+# 14. Datenbank
+
+Erweitere die bestehende Datenbank migrationssicher.
+
+Mögliche Tabellen:
+
+```text
+ausdauer_test
+- id
+- session_id
+- spieler_id
+- datum
+- testtyp
+- protokoll_id
+- geraeteart
+- mit_spiro
+- mit_laktat
+- maximale_geschwindigkeit
+- maximale_herzfrequenz
+- vo2_peak
+- vo2_max
+- geschaetzte_vo2max
+- vt1_geschwindigkeit
+- vt1_herzfrequenz
+- vt2_geschwindigkeit
+- vt2_herzfrequenz
+- laktatschwelle_methode
+- schwelle_geschwindigkeit
+- schwelle_herzfrequenz
+- rpe_max
+- abbruchgrund
+- bemerkung
+- created_at
+- updated_at
+```
+
+```text
+ausdauer_stufe
+- id
+- ausdauer_test_id
+- stufennummer
+- geschwindigkeit_kmh
+- steigung_prozent
+- dauer_sekunden
+- strecke_meter
+- herzfrequenz_bpm
+- vo2_absolut
+- vo2_relativ
+- vco2
+- ve
+- rer
+- atemfrequenz
+- sauerstoffpuls
+- laktat_mmol_l
+- rpe
+- stufe_vollstaendig
+- blutprobe_gueltig
+- bemerkung
+```
+
+```text
+ausdauer_nachbelastung
+- id
+- ausdauer_test_id
+- zeitpunkt_minuten
+- herzfrequenz_bpm
+- laktat_mmol_l
+- bemerkung
+```
+
+```text
+ausdauer_protokoll
+- id
+- name
+- testtyp
+- geraeteart
+- startgeschwindigkeit
+- steigerung
+- stufendauer
+- steigung
+- pausenzeit
+- aktiv
+```
+
+Verwende:
+
+* Fremdschlüssel
+* `ON DELETE CASCADE`
+* Transaktionen
+* eindeutige Session-Zuordnung
+* sichere Migration
+* Zeitstempel
+
+Alte Yo-Yo-Daten müssen weiter lesbar sein.
+
+# 15. Spielerprofil und Verlauf
+
+Integriere beide Ausdauertestarten in das Spielerprofil.
+
+Zeige getrennte Kacheln:
+
+## Letzter Yo-Yo-Test
+
+* Variante
+* Strecke
+* Stufe
+* maximale Herzfrequenz
+* Veränderung
+* Datum
+
+## Letzter Stufentest
+
+* Protokoll
+* maximale Geschwindigkeit
+* VO₂peak oder VO₂max
+* Geschwindigkeit an ausgewählter Schwelle
+* Herzfrequenz an Schwelle
+* Laktatwert an Schwelle
+* Datum
+
+## Verlaufsauswahl
+
+* Yo-Yo-Strecke
+* maximale Geschwindigkeit
+* VO₂peak
+* Geschwindigkeit bei 2 mmol/l
+* Geschwindigkeit bei 4 mmol/l
+* Geschwindigkeit an individueller Schwelle
+* Herzfrequenz an Schwelle
+* Laktatkurvenvergleich
+* Herzfrequenzkurvenvergleich
+
+Tests verschiedener Typen und Protokolle nicht in einer gemeinsamen Verlaufslinie verbinden.
+
+# 16. Mannschaftsansicht
+
+Zeige in der Mannschaftsansicht getrennt:
+
+* letzter Yo-Yo-Test
+* letzter Spiroergometrie-Stufentest
+* Testdatum
+* Testvariante
+* wichtigste Rohwerte
+* Veränderung zum vorherigen identischen Test
+
+Keine direkte Rangliste zwischen Yo-Yo-Strecke und VO₂max bilden.
+
+Eine Sortierung innerhalb derselben Testart darf möglich sein.
+
+# 17. PDF-Ergebnisbericht
+
+Erweitere das Ergebnis-PDF.
+
+## Yo-Yo-Abschnitt
+
+* Variante
+* Strecke
+* Stufe
+* Herzfrequenz
+* Erholung
+* RPE
+* Verlauf
+* Beobachtungen
+
+## Spiroergometrie-Abschnitt
+
+* Protokoll
+* Stufentabelle
+* maximale Geschwindigkeit
+* Herzfrequenz
+* Atemgaswerte
+* Laktatwerte
+* Schwellenmethode
+* Schwellenkennwerte
+* Laktatleistungskurve
+* Herzfrequenz-Leistungskurve
+* Vergleich zum vorherigen identischen Test
+* sachliche Zusammenfassung
+
+Kennzeichne:
+
+* gemessen
+* geschätzt
+* interpoliert
+
+# 18. Testprotokoll zum Ausdrucken
+
+Ergänze im Bereich „Testprotokoll drucken“:
+
+* Yo-Yo IR1
+* Yo-Yo IR2
+* Spiroergometrie-Stufentest
+* Stufentest mit Laktat
+* Stufentest ohne Laktat
+* Atemgasanalyse
+* kombinierter Spiro-Laktat-Stufentest
+
+Der Papierbogen für den Stufentest benötigt:
+
+| Stufe | Geschwindigkeit | Steigung | Dauer | HF | VO₂ | Laktat | RPE |
+| ----: | --------------: | -------: | ----: | -: | --: | -----: | --: |
+
+Zusätzlich:
+
+* Spieler
+* Datum
+* Körpergewicht
+* Protokoll
+* Gerät
+* Tester
+* Ruhewerte
+* maximale Werte
+* Schwellenwerte
+* Nachbelastungswerte
+* Abbruchgrund
+* Trainerbeobachtungen
+* Bemerkungen
+
+# 19. Plausibilitätsprüfungen
+
+Verhindere beziehungsweise kennzeichne:
+
+* Herzfrequenz 0 bpm
+* negative Herzfrequenz
+* Herzfrequenz über technisch sinnvoller Eingabegrenze
+* negatives Laktat
+* Laktat 0 als Ersatz für fehlende Messung
+* Geschwindigkeit 0 bei absolvierter Belastungsstufe
+* negative VO₂
+* Stufennummer doppelt
+* sinkende Geschwindigkeit in einem steigenden Stufentest ohne Bestätigung
+* fehlendes Protokoll
+* Schwellenwert außerhalb des gemessenen Bereichs
+* Vergleich verschiedener Geräte ohne Warnung
+* Vergleich verschiedener Protokolle ohne Warnung
+
+Fehlende Werte als `NULL` beziehungsweise leer speichern, nicht als 0.
+
+# 20. Tests
+
+Führe mit einer separaten Testdatenbank mindestens folgende Tests durch:
+
+1. Bestehenden Yo-Yo-Datensatz öffnen.
+2. Neuen Yo-Yo IR1 speichern.
+3. Yo-Yo IR2 speichern.
+4. Prüfen, dass IR1 und IR2 nicht als identischer Verlauf verbunden werden.
+5. Stufentest ohne Laktat speichern.
+6. Stufentest mit Laktat speichern.
+7. Stufentest mit Atemgaswerten speichern.
+8. Dynamische Belastungsstufen hinzufügen.
+9. Belastungsstufe bearbeiten.
+10. Belastungsstufe löschen.
+11. Laktatkurve erstellen.
+12. Herzfrequenzkurve erstellen.
+13. Zwei identische Protokolle vergleichen.
+14. Rechtsverschiebung darstellen.
+15. Linksverschiebung darstellen.
+16. Vergleich unterschiedlicher Protokolle mit Warnung.
+17. Geschwindigkeit bei 2 mmol/l interpolieren.
+18. Geschwindigkeit bei 4 mmol/l interpolieren.
+19. Keine Extrapolation außerhalb der Messwerte durchführen.
+20. VT1 und VT2 speichern.
+21. VO₂peak und VO₂max getrennt speichern.
+22. Spielerprofil öffnen.
+23. Verlauf öffnen.
+24. Mannschaftsansicht öffnen.
+25. Ergebnis-PDF erstellen.
+26. Testprotokoll-PDF erstellen.
+27. App neu starten.
+28. Datensatz erneut öffnen.
+29. Datensatz bearbeiten.
+30. Mehrfachspeicherung verhindern.
+
+# 21. Abschlussbericht
+
+Ergänze den bereits geplanten Abschlussbericht um:
+
+* geänderte Ausdauerdateien
+* Datenbankmigration
+* erhaltene Yo-Yo-Daten
+* neue Spiroergometrie-Funktionen
+* neue Laktatfunktionen
+* Kurvenvergleich
+* verwendete Schwellenmethoden
+* erfolgreich getestete Funktionen
+* nicht getestete Funktionen
+* verbleibende Einschränkungen
+
+Wichtig:
+
+* Behaupte nicht, dass eine Kurvenverschiebung eindeutig eine Verbesserung oder Verschlechterung beweist.
+* Bewerte nur Tests mit ausreichend vergleichbaren Bedingungen.
+* Keine automatische Diagnose von Übertraining.
+* Keine automatische Sportfreigabe.
+* Keine erfundenen Laktat- oder Herzfrequenznormen.
+* Schwellenmethoden immer sichtbar benennen.
+* Yo-Yo, Spiroergometrie und Laktatdiagnostik bleiben getrennte Messverfahren innerhalb des gemeinsamen Bereichs „Ausdauer“.
+* Bestehende Funktionen und Daten müssen vollständig erhalten bleiben.
+
+Setze diese Erweiterung nach den bereits begonnenen offenen Phasen um und dokumentiere sie im abschließenden Gesamtbericht.

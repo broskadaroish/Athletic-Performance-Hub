@@ -190,6 +190,93 @@ def init_db():
             defizite     TEXT
         );
 
+        -- ── Spiroergometrie-Erweiterung ──────────────────────────────────────────
+        CREATE TABLE IF NOT EXISTS spiro_protokoll (
+            id                   INTEGER PRIMARY KEY AUTOINCREMENT,
+            name                 TEXT NOT NULL,
+            geraeteart           TEXT,
+            hersteller           TEXT,
+            startgeschwindigkeit REAL,
+            steigerung           REAL,
+            stufendauer          REAL,
+            steigung             REAL DEFAULT 0,
+            pausenzeit           REAL DEFAULT 0,
+            max_stufen           INTEGER,
+            aktiv                INTEGER DEFAULT 1,
+            erstellt_am          TEXT DEFAULT (date('now'))
+        );
+
+        CREATE TABLE IF NOT EXISTS spiro_test (
+            id                       INTEGER PRIMARY KEY AUTOINCREMENT,
+            spieler_id               INTEGER NOT NULL REFERENCES spieler(id) ON DELETE CASCADE,
+            protokoll_id             INTEGER REFERENCES spiro_protokoll(id),
+            datum                    TEXT NOT NULL,
+            testtyp                  TEXT NOT NULL DEFAULT 'spiro_laufband',
+            geraeteart               TEXT,
+            testort                  TEXT,
+            tester                   TEXT,
+            mit_spiro                INTEGER DEFAULT 0,
+            mit_laktat               INTEGER DEFAULT 0,
+            raumtemperatur           REAL,
+            letzte_mahlzeit          TEXT,
+            letzte_intensive_einheit TEXT,
+            akute_beschwerden        TEXT,
+            koerpergewicht           REAL,
+            maximale_geschwindigkeit REAL,
+            maximale_herzfrequenz    REAL,
+            vo2_peak                 REAL,
+            vo2_max                  REAL,
+            geschaetzte_vo2max       REAL,
+            vt1_geschwindigkeit      REAL,
+            vt1_herzfrequenz         REAL,
+            vt2_geschwindigkeit      REAL,
+            vt2_herzfrequenz         REAL,
+            laktatschwelle_methode   TEXT,
+            schwelle_geschwindigkeit REAL,
+            schwelle_herzfrequenz    REAL,
+            schwelle_laktat          REAL,
+            ruhelaktat               REAL,
+            laktat_blutentnahmeort   TEXT,
+            laktat_messgeraet        TEXT,
+            rpe_max                  INTEGER,
+            abbruchgrund             TEXT,
+            bemerkung                TEXT,
+            created_at               TEXT DEFAULT (datetime('now'))
+        );
+
+        CREATE TABLE IF NOT EXISTS spiro_stufe (
+            id                   INTEGER PRIMARY KEY AUTOINCREMENT,
+            spiro_test_id        INTEGER NOT NULL REFERENCES spiro_test(id) ON DELETE CASCADE,
+            stufennummer         INTEGER NOT NULL,
+            geschwindigkeit_kmh  REAL,
+            steigung_prozent     REAL,
+            dauer_sekunden       REAL,
+            strecke_meter        REAL,
+            herzfrequenz_bpm     REAL,
+            hf_durchschnitt      REAL,
+            vo2_absolut          REAL,
+            vo2_relativ          REAL,
+            vco2                 REAL,
+            ve                   REAL,
+            rer                  REAL,
+            atemfrequenz         REAL,
+            sauerstoffpuls       REAL,
+            laktat_mmol_l        REAL,
+            rpe                  INTEGER,
+            stufe_vollstaendig   INTEGER DEFAULT 1,
+            blutprobe_gueltig    INTEGER DEFAULT 1,
+            bemerkung            TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS spiro_nachbelastung (
+            id               INTEGER PRIMARY KEY AUTOINCREMENT,
+            spiro_test_id    INTEGER NOT NULL REFERENCES spiro_test(id) ON DELETE CASCADE,
+            zeitpunkt_minuten REAL NOT NULL,
+            herzfrequenz_bpm REAL,
+            laktat_mmol_l    REAL,
+            bemerkung        TEXT
+        );
+
         CREATE TABLE IF NOT EXISTS training (
             id             INTEGER PRIMARY KEY AUTOINCREMENT,
             bereich        TEXT,
@@ -975,6 +1062,159 @@ def ausdauer_history(spieler_id):
             "SELECT datum,test_typ,distanz_m,vo2max,bewertung,hf_max,rpe FROM ausdauer_test WHERE spieler_id=? ORDER BY datum",
             (spieler_id,),
         ).fetchall())
+
+
+# ─── Spiroergometrie ───────────────────────────────────────────────────────
+
+def spiro_protokoll_alle() -> list[dict]:
+    with get_conn() as conn:
+        return _rows(conn.execute(
+            "SELECT * FROM spiro_protokoll WHERE aktiv=1 ORDER BY name"
+        ).fetchall())
+
+
+def spiro_protokoll_speichern(name, geraeteart, startgeschwindigkeit, steigerung,
+                               stufendauer, steigung=0, pausenzeit=0, max_stufen=None,
+                               hersteller=None) -> int:
+    with get_conn() as conn:
+        cur = conn.execute(
+            """INSERT INTO spiro_protokoll
+               (name,geraeteart,hersteller,startgeschwindigkeit,steigerung,
+                stufendauer,steigung,pausenzeit,max_stufen)
+               VALUES (?,?,?,?,?,?,?,?,?)""",
+            (name, geraeteart, hersteller, startgeschwindigkeit, steigerung,
+             stufendauer, steigung, pausenzeit, max_stufen),
+        )
+        return cur.lastrowid
+
+
+def spiro_test_speichern(spieler_id, datum, testtyp, geraeteart=None,
+                          protokoll_id=None, testort=None, tester=None,
+                          mit_spiro=0, mit_laktat=0, raumtemperatur=None,
+                          letzte_mahlzeit=None, letzte_intensive_einheit=None,
+                          akute_beschwerden=None, koerpergewicht=None,
+                          maximale_geschwindigkeit=None, maximale_herzfrequenz=None,
+                          vo2_peak=None, vo2_max=None, geschaetzte_vo2max=None,
+                          vt1_geschwindigkeit=None, vt1_herzfrequenz=None,
+                          vt2_geschwindigkeit=None, vt2_herzfrequenz=None,
+                          laktatschwelle_methode=None, schwelle_geschwindigkeit=None,
+                          schwelle_herzfrequenz=None, schwelle_laktat=None,
+                          ruhelaktat=None, laktat_blutentnahmeort=None,
+                          laktat_messgeraet=None, rpe_max=None,
+                          abbruchgrund=None, bemerkung=None) -> int:
+    with get_conn() as conn:
+        cur = conn.execute(
+            """INSERT INTO spiro_test
+               (spieler_id,datum,testtyp,geraeteart,protokoll_id,testort,tester,
+                mit_spiro,mit_laktat,raumtemperatur,letzte_mahlzeit,
+                letzte_intensive_einheit,akute_beschwerden,koerpergewicht,
+                maximale_geschwindigkeit,maximale_herzfrequenz,
+                vo2_peak,vo2_max,geschaetzte_vo2max,
+                vt1_geschwindigkeit,vt1_herzfrequenz,
+                vt2_geschwindigkeit,vt2_herzfrequenz,
+                laktatschwelle_methode,schwelle_geschwindigkeit,
+                schwelle_herzfrequenz,schwelle_laktat,
+                ruhelaktat,laktat_blutentnahmeort,laktat_messgeraet,
+                rpe_max,abbruchgrund,bemerkung)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+            (spieler_id, datum, testtyp, geraeteart, protokoll_id, testort, tester,
+             mit_spiro, mit_laktat, raumtemperatur, letzte_mahlzeit,
+             letzte_intensive_einheit, akute_beschwerden, koerpergewicht,
+             maximale_geschwindigkeit, maximale_herzfrequenz,
+             vo2_peak, vo2_max, geschaetzte_vo2max,
+             vt1_geschwindigkeit, vt1_herzfrequenz,
+             vt2_geschwindigkeit, vt2_herzfrequenz,
+             laktatschwelle_methode, schwelle_geschwindigkeit,
+             schwelle_herzfrequenz, schwelle_laktat,
+             ruhelaktat, laktat_blutentnahmeort, laktat_messgeraet,
+             rpe_max, abbruchgrund, bemerkung),
+        )
+        return cur.lastrowid
+
+
+def spiro_stufen_speichern(spiro_test_id: int, stufen: list[dict]) -> None:
+    """Speichert alle Stufen eines Tests. Bestehende werden zuerst gelöscht."""
+    with get_conn() as conn:
+        conn.execute("DELETE FROM spiro_stufe WHERE spiro_test_id=?", (spiro_test_id,))
+        for s in stufen:
+            conn.execute(
+                """INSERT INTO spiro_stufe
+                   (spiro_test_id,stufennummer,geschwindigkeit_kmh,steigung_prozent,
+                    dauer_sekunden,strecke_meter,herzfrequenz_bpm,hf_durchschnitt,
+                    vo2_absolut,vo2_relativ,vco2,ve,rer,atemfrequenz,sauerstoffpuls,
+                    laktat_mmol_l,rpe,stufe_vollstaendig,blutprobe_gueltig,bemerkung)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                (spiro_test_id,
+                 s.get("stufennummer"), s.get("geschwindigkeit_kmh"),
+                 s.get("steigung_prozent"), s.get("dauer_sekunden"),
+                 s.get("strecke_meter"), s.get("herzfrequenz_bpm"),
+                 s.get("hf_durchschnitt"),
+                 s.get("vo2_absolut") or None, s.get("vo2_relativ") or None,
+                 s.get("vco2") or None, s.get("ve") or None,
+                 s.get("rer") or None, s.get("atemfrequenz") or None,
+                 s.get("sauerstoffpuls") or None,
+                 s.get("laktat_mmol_l") or None,   # None statt 0 für fehlende Messung
+                 s.get("rpe") or None,
+                 1 if s.get("stufe_vollstaendig", True) else 0,
+                 1 if s.get("blutprobe_gueltig", True) else 0,
+                 s.get("bemerkung") or None),
+            )
+
+
+def spiro_nachbelastung_speichern(spiro_test_id: int, eintraege: list[dict]) -> None:
+    with get_conn() as conn:
+        conn.execute("DELETE FROM spiro_nachbelastung WHERE spiro_test_id=?", (spiro_test_id,))
+        for e in eintraege:
+            conn.execute(
+                """INSERT INTO spiro_nachbelastung
+                   (spiro_test_id,zeitpunkt_minuten,herzfrequenz_bpm,laktat_mmol_l,bemerkung)
+                   VALUES (?,?,?,?,?)""",
+                (spiro_test_id, e.get("zeitpunkt_minuten"),
+                 e.get("herzfrequenz_bpm") or None,
+                 e.get("laktat_mmol_l") or None,
+                 e.get("bemerkung") or None),
+            )
+
+
+def spiro_stufen_laden(spiro_test_id: int) -> list[dict]:
+    with get_conn() as conn:
+        return _rows(conn.execute(
+            "SELECT * FROM spiro_stufe WHERE spiro_test_id=? ORDER BY stufennummer",
+            (spiro_test_id,),
+        ).fetchall())
+
+
+def spiro_nachbelastung_laden(spiro_test_id: int) -> list[dict]:
+    with get_conn() as conn:
+        return _rows(conn.execute(
+            "SELECT * FROM spiro_nachbelastung WHERE spiro_test_id=? ORDER BY zeitpunkt_minuten",
+            (spiro_test_id,),
+        ).fetchall())
+
+
+def spiro_test_letzter(spieler_id: int) -> dict | None:
+    with get_conn() as conn:
+        return _row(conn.execute(
+            "SELECT * FROM spiro_test WHERE spieler_id=? ORDER BY id DESC LIMIT 1",
+            (spieler_id,),
+        ).fetchone())
+
+
+def spiro_test_alle(spieler_id: int) -> list[dict]:
+    with get_conn() as conn:
+        return _rows(conn.execute(
+            """SELECT t.*, p.name as protokoll_name
+               FROM spiro_test t
+               LEFT JOIN spiro_protokoll p ON t.protokoll_id = p.id
+               WHERE t.spieler_id=?
+               ORDER BY t.datum DESC, t.id DESC""",
+            (spieler_id,),
+        ).fetchall())
+
+
+def spiro_test_loeschen(test_id: int) -> None:
+    with get_conn() as conn:
+        conn.execute("DELETE FROM spiro_test WHERE id=?", (test_id,))
 
 
 # ─── Trainingsplan ─────────────────────────────────────────────────────────

@@ -41,6 +41,11 @@ from database import (
     checkliste_custom_laden, checkliste_custom_speichern,
     beobachtung_speichern,
     beobachtungen_alle_fuer_spieler,
+    spiro_protokoll_alle, spiro_protokoll_speichern,
+    spiro_test_speichern, spiro_test_letzter, spiro_test_alle,
+    spiro_stufen_speichern, spiro_stufen_laden,
+    spiro_nachbelastung_speichern, spiro_nachbelastung_laden,
+    spiro_test_loeschen,
 )
 from testprotokoll_pdf import (
     generate_testprotokoll, TEST_NAMEN, TEST_REIHENFOLGE,
@@ -2629,6 +2634,662 @@ def page_agilitaet():
 # ──────────────────────────────────────────────────────────────────────────────
 
 ALTERSGRUPPEN_YO = ["U8/U9", "U10/U11", "U12/U13", "U13/U14", "U15/U16", "U17/U18", "Senioren"]
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# SPIROERGOMETRIE-STUFENTEST (innerhalb Ausdauerbereich)
+# ──────────────────────────────────────────────────────────────────────────────
+
+def _page_spiro():
+    """Spiroergometrie-Stufentest — Eingabe, Auswertung, Verlauf & Vergleich."""
+    from spiro import (
+        interpoliere_bei_laktat as _ibl,
+        kurvenverschiebung_bewerten as _kvb,
+        protokolle_vergleichbar as _pv,
+        schwellenvergleich_tabelle as _svt,
+        trainingsbereiche_aus_schwellen as _tbs,
+        GERAETEARTEN, SCHWELLENMETHODEN,
+    )
+
+    st.markdown(
+        '<div style="background:#1a2233;border:1px solid #3b82f6;border-radius:8px;'
+        'padding:12px 16px;margin-bottom:14px;font-size:13px;color:#cdd9e5">'
+        'ℹ️ <b>Hinweis:</b> Diese App führt keine Spiroergometrie durch. Sie dient zur '
+        'strukturierten Erfassung, Auswertung und Verlaufskontrolle von Ergebnissen '
+        'fachgerecht durchgeführter Tests. Keine medizinische Diagnose, keine Sportfreigabe.'
+        '</div>',
+        unsafe_allow_html=True,
+    )
+
+    auswahl = _player_selector("spiro")
+    if not auswahl:
+        return
+    sid = auswahl["id"]
+
+    alle_tests      = spiro_test_alle(sid)
+    alle_protokolle = spiro_protokoll_alle()
+
+    tab_neu, tab_ausw, tab_vgl = st.tabs([
+        "📋 Neuer Test", "📊 Auswertung", "📈 Verlauf & Vergleich"
+    ])
+
+    # ═══════════════════════════════════════════════════════════════════════════
+    # TAB 1 — NEUER TEST
+    # ═══════════════════════════════════════════════════════════════════════════
+    with tab_neu:
+        # ── Protokoll ─────────────────────────────────────────────────────────
+        st.markdown("### Testprotokoll")
+        prot_optionen = ["— Kein Protokoll —"] + [
+            f"{p['name']} ({p.get('geraeteart','?')}, "
+            f"Start {p.get('startgeschwindigkeit','?')} km/h, "
+            f"+{p.get('steigerung','?')} km/h, "
+            f"{p.get('stufendauer','?')} min)"
+            for p in alle_protokolle
+        ]
+        prot_wahl = st.selectbox("Protokoll auswählen", prot_optionen, key="spiro_prot_wahl")
+        prot_id   = None
+        if prot_wahl != "— Kein Protokoll —" and alle_protokolle:
+            prot_idx = prot_optionen.index(prot_wahl) - 1
+            prot_id  = alle_protokolle[prot_idx]["id"] if 0 <= prot_idx < len(alle_protokolle) else None
+
+        with st.expander("➕ Neues Protokoll erstellen / speichern"):
+            pn_name = st.text_input("Protokollname *", key="prot_name",
+                                    placeholder="z.B. IAT-Laufband-Standard 3 min")
+            pc1, pc2 = st.columns(2)
+            pn_geraet    = pc1.selectbox("Geräteart", GERAETEARTEN, key="prot_geraet")
+            pn_start     = pc1.number_input("Startgeschwindigkeit (km/h)", 2.0, 20.0, 8.0, 0.5, key="prot_start")
+            pn_steigerung= pc2.number_input("Steigerung pro Stufe (km/h)",  0.5,  4.0, 2.0, 0.5, key="prot_steig")
+            pn_dauer     = pc2.number_input("Stufendauer (min)",             1.0, 10.0, 3.0, 0.5, key="prot_dauer")
+            pn_steigung  = pc1.number_input("Laufbandsteigung (%)",          0.0, 15.0, 1.0, 0.5, key="prot_steigung")
+            pn_pause     = pc2.number_input("Pausendauer Blutabnahme (s)",     0,  120,  30,   5, key="prot_pause")
+            if st.button("Protokoll speichern", key="prot_save"):
+                if not pn_name.strip():
+                    st.error("Protokollname ist erforderlich.")
+                else:
+                    spiro_protokoll_speichern(
+                        pn_name.strip(), pn_geraet, pn_start, pn_steigerung,
+                        pn_dauer, pn_steigung, pn_pause / 60,
+                    )
+                    st.success("✅ Protokoll gespeichert.")
+                    st.rerun()
+
+        st.markdown("---")
+
+        # ── Testmetadaten ─────────────────────────────────────────────────────
+        st.markdown("### Testdaten")
+        d1, d2 = st.columns(2)
+        datum_spiro = d1.date_input("Testdatum *", value=date.today(), key="spiro_datum")
+        if datum_spiro > date.today():
+            d1.warning("⚠️ Datum in der Zukunft.")
+        geraeteart_spiro = d2.selectbox("Geräteart *", GERAETEARTEN, key="spiro_geraet")
+        d3, d4 = st.columns(2)
+        testort_spiro = d3.text_input("Testort", key="spiro_testort")
+        tester_spiro  = d4.text_input("Tester / Trainer", key="spiro_tester")
+
+        st.markdown("**Testumfang (Mehrfachauswahl möglich)**")
+        tm1, tm2 = st.columns(2)
+        mit_spiro_cb  = tm1.checkbox("Mit Atemgasanalyse (Spirometrie)", key="spiro_mit_spiro")
+        mit_laktat_cb = tm2.checkbox("Mit kapillarer Laktatmessung",     key="spiro_mit_laktat")
+
+        with st.expander("Optionale Testbedingungen"):
+            oc1, oc2 = st.columns(2)
+            raumtemp_spiro = oc1.number_input("Raumtemperatur (°C)", -10.0, 45.0, 20.0, 0.5, key="spiro_temp")
+            kgew_default   = float((anthropometrie_letzter(sid) or {}).get("gewicht") or 75.0)
+            kgew_spiro     = oc2.number_input("Körpergewicht (kg)", 20.0, 200.0, kgew_default, 0.5, key="spiro_kgew")
+            mahlzeit_spiro = oc1.text_input("Letzte Mahlzeit (wann, was)", key="spiro_mahlzeit")
+            einheit_spiro  = oc2.text_input("Letzte intensive Einheit (wann)", key="spiro_letzte_einheit")
+            beschw_spiro   = st.text_area("Akute Beschwerden", key="spiro_beschw", height=55)
+
+        # Laktat-Sicherheitshinweis
+        ruhelaktat_spiro = None
+        blut_ort_spiro   = None
+        geraet_spiro     = None
+        if mit_laktat_cb:
+            st.warning(
+                "⚠️ **Sicherheitshinweis Laktatmessung:** Kapillare Blutentnahmen dürfen nur von "
+                "entsprechend eingewiesenen Personen unter Einhaltung der geltenden Hygiene-, "
+                "Arbeitsschutz- und Entsorgungsvorgaben durchgeführt werden. "
+                "Diese App ist kein Ersatz für eine fachliche Einweisung."
+            )
+            ll1, ll2 = st.columns(2)
+            ruhelaktat_spiro = ll1.number_input(
+                "Ruhe-Laktat (mmol/l) — leer lassen wenn nicht gemessen",
+                0.0, 20.0, 0.0, 0.1, key="spiro_ruhelaktat",
+            )
+            blut_ort_spiro = ll2.selectbox(
+                "Blutentnahmeort", ["Ohrläppchen", "Fingerbeere", "Anderes"], key="spiro_blut_ort"
+            )
+            geraet_spiro = ll1.text_input("Messgerät / Chargennummer", key="spiro_laktat_geraet")
+
+        st.markdown("---")
+
+        # ── Stufentabelle (dynamisch via st.data_editor) ──────────────────────
+        st.markdown("### Belastungsstufen")
+        st.caption(
+            "Stufen manuell eintragen oder bei ausgewähltem Protokoll automatisch befüllen. "
+            "Fehlende Messwerte **leer lassen** — nicht 0 eintragen."
+        )
+
+        # Spalten je nach Testumfang
+        base_stufen_cols = [
+            "Stufe", "Geschw. (km/h)", "Steigung (%)", "HF Ende (bpm)", "RPE (0–10)",
+            "✓ vollst.", "Bemerkung",
+        ]
+        base_stufen_keys = [
+            "stufennummer", "geschwindigkeit_kmh", "steigung_prozent",
+            "herzfrequenz_bpm", "rpe", "stufe_vollstaendig", "bemerkung",
+        ]
+        if mit_laktat_cb:
+            base_stufen_cols += ["Laktat (mmol/l)", "Probe ✓"]
+            base_stufen_keys += ["laktat_mmol_l", "blutprobe_gueltig"]
+        if mit_spiro_cb:
+            base_stufen_cols += ["VO₂ rel. (ml/kg/min)", "VO₂ abs. (l/min)", "RER"]
+            base_stufen_keys += ["vo2_relativ", "vo2_absolut", "rer"]
+
+        # Auto-Befüllung aus Protokoll
+        if st.button("🔄 Stufen aus Protokoll befüllen", key="spiro_fill_prot",
+                     disabled=(prot_id is None)):
+            p_data = next((p for p in alle_protokolle if p["id"] == prot_id), None)
+            if p_data and p_data.get("startgeschwindigkeit") and p_data.get("steigerung"):
+                n_max = int(p_data.get("max_stufen") or 10)
+                rows = []
+                for i in range(n_max):
+                    v_kmh = round(p_data["startgeschwindigkeit"] + i * p_data["steigerung"], 1)
+                    row   = dict(zip(base_stufen_cols,
+                                    [i+1, v_kmh, p_data.get("steigung", 0),
+                                     None, None, True, ""] +
+                                    ([None, True] if mit_laktat_cb else []) +
+                                    ([None, None, None] if mit_spiro_cb else [])))
+                    rows.append(row)
+                st.session_state[f"spiro_editor_{sid}_data"] = rows
+
+        # data_editor
+        existing_rows = st.session_state.get(f"spiro_editor_{sid}_data", [])
+        df_init = (pd.DataFrame(existing_rows, columns=base_stufen_cols)
+                   if existing_rows else pd.DataFrame(columns=base_stufen_cols))
+
+        col_cfg = {
+            "Stufe":            st.column_config.NumberColumn(min_value=1, step=1, format="%d"),
+            "Geschw. (km/h)":   st.column_config.NumberColumn(min_value=0, step=0.5, format="%.1f"),
+            "Steigung (%)":     st.column_config.NumberColumn(min_value=0, step=0.5, format="%.1f"),
+            "HF Ende (bpm)":    st.column_config.NumberColumn(min_value=0, max_value=250, step=1),
+            "RPE (0–10)":       st.column_config.NumberColumn(min_value=0, max_value=10,  step=1),
+            "✓ vollst.":        st.column_config.CheckboxColumn(default=True),
+            "Laktat (mmol/l)":  st.column_config.NumberColumn(min_value=0, step=0.1, format="%.1f",
+                                    help="Leer lassen wenn nicht gemessen — nicht 0 eintragen"),
+            "Probe ✓":          st.column_config.CheckboxColumn(default=True),
+            "VO₂ rel. (ml/kg/min)": st.column_config.NumberColumn(min_value=0, step=0.1, format="%.1f"),
+            "VO₂ abs. (l/min)": st.column_config.NumberColumn(min_value=0, step=0.01, format="%.2f"),
+            "RER":              st.column_config.NumberColumn(min_value=0, step=0.01, format="%.2f"),
+        }
+        edited_stufen = st.data_editor(
+            df_init,
+            num_rows="dynamic",
+            use_container_width=True,
+            key=f"spiro_stufen_editor_{sid}",
+            column_config={k: v for k, v in col_cfg.items() if k in base_stufen_cols},
+        )
+
+        # Plausibilitätsprüfung
+        if not edited_stufen.empty:
+            df_check = edited_stufen.dropna(subset=["Stufe"])
+            if df_check["Stufe"].duplicated().any():
+                st.warning("⚠️ Doppelte Stufennummern erkannt.")
+            hf_vals = df_check.get("HF Ende (bpm)", pd.Series()).dropna()
+            if len(hf_vals) and ((hf_vals <= 0).any() or (hf_vals > 250).any()):
+                st.warning("⚠️ Herzfrequenz außerhalb des Bereichs 1–250 bpm.")
+            if mit_laktat_cb and "Laktat (mmol/l)" in df_check.columns:
+                lak = df_check["Laktat (mmol/l)"].dropna()
+                if (lak < 0).any():
+                    st.warning("⚠️ Negativer Laktatwert erkannt.")
+                if (lak == 0).any():
+                    st.warning("⚠️ Laktat = 0 mmol/l: Bitte leer lassen wenn nicht gemessen.")
+
+        # Nachbelastung
+        edited_nb = None
+        if mit_laktat_cb or mit_spiro_cb:
+            st.markdown("---")
+            st.markdown("### Nachbelastungswerte (optional)")
+            nb_df = pd.DataFrame(
+                [{"Zeit (min)": t, "HF (bpm)": None, "Laktat (mmol/l)": None, "Bemerkung": ""}
+                 for t in [1, 3, 5]],
+            )
+            edited_nb = st.data_editor(
+                nb_df, num_rows="dynamic", use_container_width=True, key=f"spiro_nb_{sid}",
+                column_config={
+                    "Zeit (min)":       st.column_config.NumberColumn(min_value=0, step=1),
+                    "HF (bpm)":         st.column_config.NumberColumn(min_value=0, max_value=250, step=1),
+                    "Laktat (mmol/l)":  st.column_config.NumberColumn(min_value=0, step=0.1, format="%.1f"),
+                },
+            )
+
+        # Atemgas-Kennwerte
+        vo2_peak_v = vo2_max_v = hf_max_spiro = None
+        vt1_v_s = vt1_h_s = vt2_v_s = vt2_h_s = None
+        if mit_spiro_cb:
+            st.markdown("---")
+            st.markdown("### Atemgas-Kennwerte (Spiro-Zusammenfassung)")
+            st.caption("Direkt gemessene Werte aus dem Spiroergometrie-Gerät — kein VO₂max ohne Ausbelastungsnachweis.")
+            sg1, sg2, sg3 = st.columns(3)
+            vo2_peak_v   = sg1.number_input("VO₂peak (ml/kg/min)", 0.0, 100.0, 0.0, 0.1, key="spiro_vo2peak")
+            vo2_max_v    = sg2.number_input("VO₂max — nur wenn Kriterien erfüllt", 0.0, 100.0, 0.0, 0.1, key="spiro_vo2max")
+            hf_max_spiro = sg3.number_input("HF max (bpm)", 0, 250, 0, 1, key="spiro_hf_max")
+            sg4, sg5 = st.columns(2)
+            vt1_v_s = sg4.number_input("VT1 Geschwindigkeit (km/h)", 0.0, 30.0, 0.0, 0.1, key="spiro_vt1_v")
+            vt1_h_s = sg5.number_input("VT1 Herzfrequenz (bpm)",     0, 250, 0, 1, key="spiro_vt1_hf")
+            vt2_v_s = sg4.number_input("VT2 Geschwindigkeit (km/h)", 0.0, 30.0, 0.0, 0.1, key="spiro_vt2_v")
+            vt2_h_s = sg5.number_input("VT2 Herzfrequenz (bpm)",     0, 250, 0, 1, key="spiro_vt2_hf")
+            st.info("ℹ️ VO₂max gilt nur bei dokumentierten Ausbelastungskriterien (RER ≥ 1,10, plateau, HF max). Ohne Nachweis: VO₂peak verwenden.")
+
+        # Maximale Werte & Schwelle
+        st.markdown("---")
+        st.markdown("### Maximale Testwerte")
+        mv1, mv2 = st.columns(2)
+        v_max_spiro = mv1.number_input("Maximale Geschwindigkeit (km/h)", 0.0, 40.0, 0.0, 0.1, key="spiro_v_max")
+        rpe_max_s   = mv2.number_input("RPE max (0–10)", 0, 10, 10, 1, key="spiro_rpe_max")
+        abbruch_s   = st.text_input("Abbruchgrund (falls nicht vollständig absolviert)", key="spiro_abbruch")
+
+        with st.expander("Schwellenwert eintragen (optional)"):
+            schw_meth = st.selectbox("Schwellenmethode", ["—"] + SCHWELLENMETHODEN, key="spiro_schwmeth")
+            sw1, sw2, sw3 = st.columns(3)
+            schw_v   = sw1.number_input("Schwelle Geschwindigkeit (km/h)", 0.0, 30.0, 0.0, 0.1, key="spiro_schw_v")
+            schw_hf  = sw2.number_input("Schwelle Herzfrequenz (bpm)",     0, 250, 0, 1, key="spiro_schw_hf")
+            schw_lak = sw3.number_input("Schwelle Laktat (mmol/l)",        0.0, 20.0, 0.0, 0.1, key="spiro_schw_lak")
+
+        bemerkung_s = st.text_area("Bemerkungen", key="spiro_bemerkung", height=65)
+
+        # ── Speichern ─────────────────────────────────────────────────────────
+        st.markdown("---")
+        if st.button("💾 Stufentest speichern", use_container_width=True, key="spiro_save"):
+            df_valid = edited_stufen.dropna(subset=["Stufe"]) if not edited_stufen.empty else pd.DataFrame()
+            if df_valid.empty:
+                st.error("Bitte mindestens eine Belastungsstufe eintragen.")
+            else:
+                # HF max automatisch aus Stufen wenn nicht manuell
+                hf_max_eff = hf_max_spiro or None
+                if not hf_max_eff and "HF Ende (bpm)" in df_valid.columns:
+                    hf_series = df_valid["HF Ende (bpm)"].dropna()
+                    if not hf_series.empty:
+                        hf_max_eff = float(hf_series.max())
+                v_max_eff = v_max_spiro or None
+                if not v_max_eff and "Geschw. (km/h)" in df_valid.columns:
+                    v_series = df_valid["Geschw. (km/h)"].dropna()
+                    if not v_series.empty:
+                        v_max_eff = float(v_series.max())
+
+                testtyp_s = (
+                    "spiro_laufband" if "Laufband" in geraeteart_spiro
+                    else "spiro_feld" if "Feld" in geraeteart_spiro
+                    else "spiro_fahrrad_optional"
+                )
+                test_id = spiro_test_speichern(
+                    spieler_id=sid,
+                    datum=datum_spiro.strftime("%Y-%m-%d"),
+                    testtyp=testtyp_s,
+                    geraeteart=geraeteart_spiro,
+                    protokoll_id=prot_id,
+                    testort=testort_spiro or None,
+                    tester=tester_spiro or None,
+                    mit_spiro=1 if mit_spiro_cb else 0,
+                    mit_laktat=1 if mit_laktat_cb else 0,
+                    raumtemperatur=raumtemp_spiro if raumtemp_spiro != 20.0 else None,
+                    letzte_mahlzeit=mahlzeit_spiro or None,
+                    letzte_intensive_einheit=einheit_spiro or None,
+                    akute_beschwerden=beschw_spiro or None,
+                    koerpergewicht=kgew_spiro if kgew_spiro != 75.0 else None,
+                    maximale_geschwindigkeit=v_max_eff,
+                    maximale_herzfrequenz=hf_max_eff,
+                    vo2_peak=vo2_peak_v or None,
+                    vo2_max=vo2_max_v or None,
+                    vt1_geschwindigkeit=vt1_v_s or None,
+                    vt1_herzfrequenz=vt1_h_s or None,
+                    vt2_geschwindigkeit=vt2_v_s or None,
+                    vt2_herzfrequenz=vt2_h_s or None,
+                    laktatschwelle_methode=schw_meth if schw_meth != "—" else None,
+                    schwelle_geschwindigkeit=schw_v or None,
+                    schwelle_herzfrequenz=schw_hf or None,
+                    schwelle_laktat=schw_lak or None,
+                    ruhelaktat=ruhelaktat_spiro if (ruhelaktat_spiro and ruhelaktat_spiro > 0) else None,
+                    laktat_blutentnahmeort=blut_ort_spiro,
+                    laktat_messgeraet=geraet_spiro or None,
+                    rpe_max=rpe_max_s or None,
+                    abbruchgrund=abbruch_s or None,
+                    bemerkung=bemerkung_s or None,
+                )
+                # Stufen speichern
+                stufen_liste = []
+                for _, row in df_valid.iterrows():
+                    stufe_dict = {}
+                    for col_name, key_name in zip(base_stufen_cols, base_stufen_keys):
+                        val = row.get(col_name)
+                        if val is None or (isinstance(val, float) and pd.isna(val)):
+                            stufe_dict[key_name] = None
+                        else:
+                            stufe_dict[key_name] = val
+                    # Laktat 0 → None (keine Messung)
+                    if stufe_dict.get("laktat_mmol_l") == 0:
+                        stufe_dict["laktat_mmol_l"] = None
+                    stufen_liste.append(stufe_dict)
+                spiro_stufen_speichern(test_id, stufen_liste)
+                # Nachbelastung speichern
+                if edited_nb is not None and not edited_nb.empty:
+                    nb_liste = []
+                    for _, nb_row in edited_nb.iterrows():
+                        t_min = nb_row.get("Zeit (min)")
+                        if t_min is None or (isinstance(t_min, float) and pd.isna(t_min)):
+                            continue
+                        nb_liste.append({
+                            "zeitpunkt_minuten": t_min,
+                            "herzfrequenz_bpm": None if (nb_row.get("HF (bpm)") is None or pd.isna(nb_row.get("HF (bpm)", float("nan")))) else nb_row["HF (bpm)"],
+                            "laktat_mmol_l":    None if (nb_row.get("Laktat (mmol/l)") is None or pd.isna(nb_row.get("Laktat (mmol/l)", float("nan")))) else nb_row["Laktat (mmol/l)"],
+                            "bemerkung":        nb_row.get("Bemerkung") or None,
+                        })
+                    spiro_nachbelastung_speichern(test_id, nb_liste)
+                st.session_state.pop(f"spiro_editor_{sid}_data", None)
+                st.success(f"✅ Stufentest vom {datum_spiro.strftime('%d.%m.%Y')} gespeichert!")
+                st.rerun()
+
+    # ═══════════════════════════════════════════════════════════════════════════
+    # TAB 2 — AUSWERTUNG
+    # ═══════════════════════════════════════════════════════════════════════════
+    with tab_ausw:
+        if not alle_tests:
+            st.info("Noch keine Stufentests für diesen Spieler vorhanden.")
+        else:
+            test_labels_a = [
+                f"{t['datum']} | {t.get('geraeteart','?')}"
+                f"{' | Laktat' if t.get('mit_laktat') else ''}"
+                f"{' | Spiro' if t.get('mit_spiro') else ''}"
+                f"{(' | ' + t['protokoll_name']) if t.get('protokoll_name') else ''}"
+                for t in alle_tests
+            ]
+            ausw_idx = st.selectbox("Test auswählen", range(len(test_labels_a)),
+                                     format_func=lambda i: test_labels_a[i], key="spiro_ausw_idx")
+            test_a  = alle_tests[ausw_idx]
+            stufen_a = spiro_stufen_laden(test_a["id"])
+            nb_a     = spiro_nachbelastung_laden(test_a["id"])
+
+            # Kennzahlen-Header
+            aw1, aw2, aw3, aw4 = st.columns(4)
+            if test_a.get("maximale_geschwindigkeit"):
+                aw1.metric("V max", f"{test_a['maximale_geschwindigkeit']:.1f} km/h")
+            if test_a.get("maximale_herzfrequenz"):
+                aw2.metric("HF max", f"{test_a['maximale_herzfrequenz']:.0f} bpm")
+            vo2_lbl = "VO₂peak" if test_a.get("vo2_peak") else ("VO₂max" if test_a.get("vo2_max") else None)
+            vo2_val = test_a.get("vo2_peak") or test_a.get("vo2_max")
+            if vo2_lbl and vo2_val:
+                aw3.metric(f"{vo2_lbl} (gemessen)", f"{vo2_val:.1f} ml/kg/min")
+            if test_a.get("schwelle_geschwindigkeit"):
+                meth_s = (test_a.get("laktatschwelle_methode") or "Schwelle")[:14]
+                aw4.metric(f"V bei {meth_s}", f"{test_a['schwelle_geschwindigkeit']:.1f} km/h")
+
+            if stufen_a:
+                df_st_a = pd.DataFrame(stufen_a)
+                lak_rows = df_st_a[df_st_a["laktat_mmol_l"].notna()].copy() if "laktat_mmol_l" in df_st_a.columns else pd.DataFrame()
+
+                # Laktat-Leistungskurve
+                if not lak_rows.empty and "geschwindigkeit_kmh" in lak_rows.columns:
+                    fig_lak = go.Figure()
+                    fig_lak.add_trace(go.Scatter(
+                        x=lak_rows["geschwindigkeit_kmh"], y=lak_rows["laktat_mmol_l"],
+                        mode="lines+markers+text", name="Laktat (mmol/l)",
+                        text=lak_rows["laktat_mmol_l"].round(1), textposition="top center",
+                        line=dict(color="#f85149", width=3), marker=dict(size=10),
+                    ))
+                    for zl_c, clr_c in [(2.0, "#d29922"), (4.0, "#f85149")]:
+                        r_z = _ibl(stufen_a, zl_c)
+                        if r_z:
+                            fig_lak.add_vline(
+                                x=r_z["x_wert"], line_dash="dash", line_color=clr_c,
+                                annotation_text=f"{zl_c:.0f} mmol/l → {r_z['x_wert']:.1f} km/h (interp.)",
+                                annotation_position="top right",
+                            )
+                    if test_a.get("schwelle_geschwindigkeit"):
+                        fig_lak.add_vline(
+                            x=test_a["schwelle_geschwindigkeit"], line_dash="dot",
+                            line_color="#3fb950",
+                            annotation_text=f"Schwelle: {(test_a.get('laktatschwelle_methode') or '')[:18]}",
+                        )
+                    fig_lak.update_layout(**_pl(
+                        height=320,
+                        title="Laktat-Leistungskurve (tatsächliche Messpunkte)",
+                        xaxis=dict(title="Geschwindigkeit (km/h)"),
+                        yaxis=dict(title="Laktat (mmol/l)"),
+                    ))
+                    st.plotly_chart(fig_lak, use_container_width=True)
+                    st.caption(
+                        "📌 Verbunden sind nur tatsächlich gemessene Werte. "
+                        "Interpolierte Schwellenwerte (gestrichelt) werden nicht extrapoliert."
+                    )
+
+                # HF-Leistungskurve
+                hf_rows = df_st_a[df_st_a["herzfrequenz_bpm"].notna()].copy() if "herzfrequenz_bpm" in df_st_a.columns else pd.DataFrame()
+                if not hf_rows.empty and "geschwindigkeit_kmh" in hf_rows.columns:
+                    fig_hf = go.Figure()
+                    fig_hf.add_trace(go.Scatter(
+                        x=hf_rows["geschwindigkeit_kmh"], y=hf_rows["herzfrequenz_bpm"],
+                        mode="lines+markers", name="Herzfrequenz (bpm)",
+                        line=dict(color="#3b82f6", width=3), marker=dict(size=9),
+                    ))
+                    for vt_key, vt_col, vt_lbl in [("vt1_geschwindigkeit","#d29922","VT1"),("vt2_geschwindigkeit","#f85149","VT2")]:
+                        if test_a.get(vt_key):
+                            fig_hf.add_vline(x=test_a[vt_key], line_dash="dash",
+                                             line_color=vt_col, annotation_text=vt_lbl)
+                    fig_hf.update_layout(**_pl(
+                        height=260,
+                        title="Herzfrequenz-Leistungskurve",
+                        xaxis=dict(title="Geschwindigkeit (km/h)"),
+                        yaxis=dict(title="HF (bpm)"),
+                    ))
+                    st.plotly_chart(fig_hf, use_container_width=True)
+
+                # Stufentabelle
+                st.markdown("#### Stufentabelle")
+                show_st_cols = [c for c in [
+                    "stufennummer", "geschwindigkeit_kmh", "herzfrequenz_bpm",
+                    "laktat_mmol_l", "rpe", "stufe_vollstaendig",
+                    "vo2_relativ", "rer",
+                ] if c in df_st_a.columns]
+                st.dataframe(
+                    df_st_a[show_st_cols].rename(columns={
+                        "stufennummer": "Stufe", "geschwindigkeit_kmh": "km/h",
+                        "herzfrequenz_bpm": "HF (bpm)", "laktat_mmol_l": "Laktat (mmol/l)",
+                        "rpe": "RPE", "stufe_vollstaendig": "vollst.",
+                        "vo2_relativ": "VO₂ rel.", "rer": "RER",
+                    }),
+                    use_container_width=True, hide_index=True,
+                )
+
+            if nb_a:
+                st.markdown("#### Nachbelastungswerte")
+                df_nb_a = pd.DataFrame(nb_a)[["zeitpunkt_minuten","herzfrequenz_bpm","laktat_mmol_l","bemerkung"]]
+                df_nb_a.columns = ["Zeit (min)", "HF (bpm)", "Laktat (mmol/l)", "Bemerkung"]
+                st.dataframe(df_nb_a, use_container_width=True, hide_index=True)
+
+            # Trainingsbereiche aus Schwellen
+            if (test_a.get("vt1_herzfrequenz") and test_a.get("vt2_herzfrequenz")) \
+               or test_a.get("schwelle_herzfrequenz"):
+                grundlage_tb = (
+                    f"{test_a.get('laktatschwelle_methode') or 'VT-Schwellen'} "
+                    f"aus Stufentest vom {test_a.get('datum','')}"
+                )
+                bereiche_tb = _tbs(
+                    vt1_hf=test_a.get("vt1_herzfrequenz"),
+                    vt2_hf=test_a.get("vt2_herzfrequenz"),
+                    schwelle_hf=test_a.get("schwelle_herzfrequenz"),
+                    hf_max=test_a.get("maximale_herzfrequenz"),
+                    grundlage_text=grundlage_tb,
+                )
+                if bereiche_tb:
+                    st.markdown("#### Individuelle Trainingsbereiche")
+                    st.caption(f"Grundlage: {grundlage_tb}")
+                    st.dataframe(
+                        pd.DataFrame(bereiche_tb)[["Bereich","HF-Bereich","Intensität"]],
+                        use_container_width=True, hide_index=True,
+                    )
+                    st.caption("Keine Verwendung der 220-minus-Alter-Formel — Basis sind gemessene Schwellenwerte.")
+
+            # Fußball-Einordnung
+            st.markdown("---")
+            st.info(
+                "🏟️ **Fußballbezogene Einordnung:** Der laufbasierte Stufentest beschreibt die "
+                "aerobe und submaximale Ausdauerleistungsfähigkeit unter standardisierten Bedingungen. "
+                "Geschwindigkeit, Herzfrequenz, Atemgaswerte und Laktat können für die individuelle "
+                "Trainingssteuerung verwendet werden. Ein Labortest bildet nicht alle Anforderungen "
+                "des Fußballspiels ab."
+            )
+
+            st.markdown("---")
+            if st.button("🗑️ Diesen Test löschen", key="spiro_del", type="secondary"):
+                spiro_test_loeschen(test_a["id"])
+                st.success("Test gelöscht.")
+                st.rerun()
+
+    # ═══════════════════════════════════════════════════════════════════════════
+    # TAB 3 — VERLAUF & VERGLEICH
+    # ═══════════════════════════════════════════════════════════════════════════
+    with tab_vgl:
+        if not alle_tests:
+            st.info("Noch keine Stufentests vorhanden.")
+        else:
+            # Übersichtstabelle
+            st.markdown("### Alle Stufentests")
+            ov_cols = ["datum","geraeteart","maximale_geschwindigkeit","maximale_herzfrequenz",
+                        "vo2_peak","vo2_max","schwelle_geschwindigkeit","laktatschwelle_methode","protokoll_name"]
+            df_ov = pd.DataFrame(alle_tests)[[c for c in ov_cols if c in pd.DataFrame(alle_tests).columns]]
+            df_ov = df_ov.rename(columns={
+                "datum":"Datum","geraeteart":"Gerät","maximale_geschwindigkeit":"V max (km/h)",
+                "maximale_herzfrequenz":"HF max","vo2_peak":"VO₂peak","vo2_max":"VO₂max",
+                "schwelle_geschwindigkeit":"V Schwelle","laktatschwelle_methode":"Methode",
+                "protokoll_name":"Protokoll",
+            })
+            st.dataframe(df_ov, use_container_width=True, hide_index=True)
+
+            if len(alle_tests) < 2:
+                st.info("Mindestens 2 Tests für den Vergleich erforderlich.")
+                return
+
+            st.markdown("---")
+            st.markdown("### Laktatkurven vergleichen")
+            vl1, vl2 = st.columns(2)
+            vgl_labels = [
+                f"{t['datum']} — {t.get('geraeteart','?')}"
+                f"{(' | ' + t['protokoll_name']) if t.get('protokoll_name') else ''}"
+                for t in alle_tests
+            ]
+            idx_t1 = vl1.selectbox("Test 1 (Referenz)", range(len(vgl_labels)),
+                                    format_func=lambda i: vgl_labels[i], key="vgl_t1")
+            idx_t2 = vl2.selectbox("Test 2 (Vergleich)", range(len(vgl_labels)),
+                                    format_func=lambda i: vgl_labels[i],
+                                    index=min(1, len(alle_tests) - 1), key="vgl_t2")
+
+            if idx_t1 == idx_t2:
+                st.warning("Bitte zwei verschiedene Tests auswählen.")
+            else:
+                t_ref  = alle_tests[idx_t1]
+                t_new  = alle_tests[idx_t2]
+                st_ref = spiro_stufen_laden(t_ref["id"])
+                st_new = spiro_stufen_laden(t_new["id"])
+
+                # Protokollkompatibilität prüfen
+                p_ref = next((p for p in alle_protokolle if p["id"] == t_ref.get("protokoll_id")), {})
+                p_new = next((p for p in alle_protokolle if p["id"] == t_new.get("protokoll_id")), {})
+                if t_ref.get("protokoll_id") and t_new.get("protokoll_id"):
+                    vgl_ok, vgl_abw = _pv(p_ref, p_new)
+                    if not vgl_ok:
+                        st.warning(
+                            "⚠️ **Protokolle unterscheiden sich — direkter Vergleich eingeschränkt:**\n\n"
+                            + "  \n".join(f"• {a}" for a in vgl_abw)
+                        )
+                    else:
+                        st.success("✅ Gleiche Protokollparameter — direkter Vergleich möglich.")
+                elif t_ref.get("geraeteart") != t_new.get("geraeteart"):
+                    st.warning(
+                        "⚠️ Verschiedene Gerätearten — direkter Vergleich eingeschränkt. "
+                        f"({t_ref.get('geraeteart','?')} vs. {t_new.get('geraeteart','?')})"
+                    )
+                else:
+                    st.info("ℹ️ Kein vollständiges Protokoll hinterlegt — Vergleichbarkeit nicht automatisch prüfbar.")
+
+                # Overlay Laktatkurven
+                lak_ref = [r for r in st_ref if r.get("laktat_mmol_l") and r.get("geschwindigkeit_kmh")]
+                lak_new = [r for r in st_new if r.get("laktat_mmol_l") and r.get("geschwindigkeit_kmh")]
+
+                if lak_ref and lak_new:
+                    fig_ov_lak = go.Figure()
+                    for rows_v, lbl_v, clr_v in [(lak_ref, t_ref["datum"], "#3b82f6"), (lak_new, t_new["datum"], "#f85149")]:
+                        fig_ov_lak.add_trace(go.Scatter(
+                            x=[r["geschwindigkeit_kmh"] for r in rows_v],
+                            y=[r["laktat_mmol_l"]       for r in rows_v],
+                            mode="lines+markers", name=lbl_v,
+                            line=dict(color=clr_v, width=3), marker=dict(size=9),
+                        ))
+                    fig_ov_lak.update_layout(**_pl(
+                        height=340,
+                        title="Laktatkurven-Overlay — gleiche Achsenskalierung",
+                        xaxis=dict(title="Geschwindigkeit (km/h)"),
+                        yaxis=dict(title="Laktat (mmol/l)"),
+                    ))
+                    st.plotly_chart(fig_ov_lak, use_container_width=True)
+
+                    # Schwellenvergleich
+                    zeilen_sv = _svt(st_ref, st_new, t_ref["datum"], t_new["datum"])
+                    if zeilen_sv:
+                        st.markdown("#### Vergleich bei festen Laktatwerten")
+                        st.caption("Interpolierte Werte: als '(interp.)' markiert. Keine Extrapolation außerhalb der Messung.")
+                        st.dataframe(pd.DataFrame(zeilen_sv), use_container_width=True, hide_index=True)
+
+                    # Kurvenverschiebung
+                    st.markdown("#### Kurvenverschiebung — neutrale Bewertung")
+                    for zl_v in [2.0, 4.0]:
+                        r_ref_z = _ibl(st_ref, zl_v)
+                        r_new_z = _ibl(st_new, zl_v)
+                        stufe_v, text_v = _kvb(
+                            r_ref_z["x_wert"] if r_ref_z else None,
+                            r_new_z["x_wert"] if r_new_z else None,
+                            zl_v,
+                        )
+                        clr_v = {
+                            "wahrscheinlich verbessert": "#3fb950",
+                            "weitgehend unverändert":    "#d29922",
+                            "möglicherweise vermindert": "#f85149",
+                            "nicht sicher vergleichbar": "#8b949e",
+                        }.get(stufe_v, "#8b949e")
+                        st.markdown(
+                            f'<div style="background:#161b22;border-left:3px solid {clr_v};'
+                            f'padding:10px 14px;margin:6px 0;border-radius:4px">'
+                            f'<b style="color:{clr_v}">{stufe_v}</b><br>'
+                            f'<span style="font-size:13px;color:#cdd9e5">{text_v}</span>'
+                            f'</div>',
+                            unsafe_allow_html=True,
+                        )
+                    st.caption(
+                        "⚠️ Eine Kurvenverschiebung beweist keine eindeutige Verbesserung oder Verschlechterung. "
+                        "Tagesform, Vorbelastung, Regeneration, Ernährung, Temperatur, Testbedingungen, "
+                        "Ausbelastungsgrad, RPE und Herzfrequenz müssen bei der Interpretation berücksichtigt werden."
+                    )
+                else:
+                    st.info("Für mindestens einen der gewählten Tests sind keine Laktatwerte verfügbar.")
+
+                # HF-Overlay
+                hf_ref = [r for r in st_ref if r.get("herzfrequenz_bpm") and r.get("geschwindigkeit_kmh")]
+                hf_new = [r for r in st_new if r.get("herzfrequenz_bpm") and r.get("geschwindigkeit_kmh")]
+                if hf_ref and hf_new:
+                    fig_ov_hf = go.Figure()
+                    for rows_h, lbl_h, clr_h in [(hf_ref, t_ref["datum"], "#3b82f6"), (hf_new, t_new["datum"], "#f85149")]:
+                        fig_ov_hf.add_trace(go.Scatter(
+                            x=[r["geschwindigkeit_kmh"] for r in rows_h],
+                            y=[r["herzfrequenz_bpm"]    for r in rows_h],
+                            mode="lines+markers", name=lbl_h,
+                            line=dict(color=clr_h, width=3), marker=dict(size=9),
+                        ))
+                    fig_ov_hf.update_layout(**_pl(
+                        height=260,
+                        title="Herzfrequenz-Leistungskurven — Vergleich",
+                        xaxis=dict(title="Geschwindigkeit (km/h)"),
+                        yaxis=dict(title="HF (bpm)"),
+                    ))
+                    st.plotly_chart(fig_ov_hf, use_container_width=True)
 RPE_LABELS = {
     6: "6 — Gar keine Anstrengung", 7: "7", 8: "8", 9: "9",
     10: "10 — Sehr leicht", 11: "11 — Leicht", 12: "12",
@@ -2639,7 +3300,24 @@ RPE_LABELS = {
 
 
 def page_ausdauer():
-    st.markdown("# 🫁 Yo-Yo Ausdauer-Diagnostik")
+    st.markdown("# 🫁 Ausdauer-Diagnostik")
+
+    # ── Bereichsselektor ──────────────────────────────────────────────────────
+    bereich = st.radio(
+        "Ausdauertest",
+        ["🏃 Yo-Yo Intermittent Recovery Test", "🔬 Spiroergometrie-Stufentest"],
+        horizontal=True,
+        key="aus_bereich_wahl",
+        label_visibility="collapsed",
+    )
+    st.markdown("---")
+
+    if bereich == "🔬 Spiroergometrie-Stufentest":
+        _page_spiro()
+        return
+
+    # ── Yo-Yo (unveränderter Code) ────────────────────────────────────────────
+    st.markdown("## 🏃 Yo-Yo Intermittent Recovery Test")
     st.markdown("Yo-Yo Intermittent Recovery Test Level 1 (IR1) und Level 2 (IR2) — Standardtest im Fußball.")
 
     sicherheitshinweis_box()
@@ -4287,6 +4965,7 @@ def page_diagnostik_overview() -> None:
     agil_d  = agilitaet_letzter(sid)
     aus_d   = ausdauer_letzter(sid)
     kraft_d = kraft_letzter(sid)
+    spiro_d = spiro_test_letzter(sid)
 
     def _rating_color(rating: str | None) -> str:
         if not rating:
@@ -4403,11 +5082,29 @@ def page_diagnostik_overview() -> None:
             ),
             "date": kraft_d.get("datum") if kraft_d else None,
         },
+        {
+            "icon": "🔬", "name": "Stufentest",
+            "desc": "Spiroergometrie / Laktatstufen",
+            "sub":  "🫁 Ausdauer (Yo-Yo)",  # öffnet Ausdauer-Seite (Selector wählt Spiro)
+            "metric": (
+                f"V max: {spiro_d['maximale_geschwindigkeit']:.1f} km/h"
+                if spiro_d and spiro_d.get("maximale_geschwindigkeit") else
+                (f"Schwelle: {spiro_d['schwelle_geschwindigkeit']:.1f} km/h"
+                 if spiro_d and spiro_d.get("schwelle_geschwindigkeit") else None)
+            ),
+            "rating": (
+                f"VO₂peak: {spiro_d['vo2_peak']:.1f}"
+                if spiro_d and spiro_d.get("vo2_peak") else
+                (f"VO₂max: {spiro_d['vo2_max']:.1f}"
+                 if spiro_d and spiro_d.get("vo2_max") else None)
+            ),
+            "date": spiro_d.get("datum") if spiro_d else None,
+        },
     ]
 
-    # ── Render grid: Zeile 1 = 4 Kacheln, Zeile 2 = 3 Kacheln ───────────────
+    # ── Render grid: Zeile 1 = 4 Kacheln, Zeile 2 = 4 Kacheln ───────────────
     cols_top = st.columns(4, gap="medium")
-    cols_bot = st.columns(3, gap="medium")
+    cols_bot = st.columns(4, gap="medium")
     all_cols = cols_top + cols_bot
 
     for i, tile in enumerate(tiles):
