@@ -229,20 +229,24 @@ def _pl(**overrides) -> dict:
 # ══════════════════════════════════════════════════════════════════════════════
 
 def page_dashboard():
-    st.markdown("# ⚽ Coach Dashboard")
-    st.markdown("---")
+    """Mannschaft-Seite: Kachelansicht, Filter, Trainingsgruppen, Warnmeldungen."""
+    from datetime import timedelta as _td, datetime as _dt
+
+    st.markdown(
+        section_header("👥 Mannschaft", "Kaderübersicht, Trainingsgruppen und Warnmeldungen"),
+        unsafe_allow_html=True,
+    )
 
     all_players = spieler_laden()
     if not all_players:
-        st.info("Noch keine Spieler angelegt. Gehe zur **Spielerverwaltung**, um Spieler hinzuzufügen.")
+        st.markdown(
+            empty_state("👥", "Noch keine Spieler angelegt",
+                        "Gehe zur Spielerverwaltung, um Spieler hinzuzufügen."),
+            unsafe_allow_html=True,
+        )
         return
 
-    # ── Team overview metrics ──────────────────────────────────────────────
-    total = len(all_players)
-    high_risk, med_risk, low_risk = 0, 0, 0
-    scores = []
-
-    # Load all module data per player in one pass (also used for the table below)
+    # ── Enrich all player data (one pass) ─────────────────────────────────────
     player_data = []
     for p in all_players:
         pid    = p["id"]
@@ -252,127 +256,394 @@ def page_dashboard():
         sprung = sprung_letzter(pid)
         agil   = agilitaet_letzter(pid)
         aus    = ausdauer_letzter(pid)
+        anthro = anthropometrie_letzter(pid)
         verlet = verletzungen_laden(pid)
         rs     = risiko_score(fms, y, verlet)
         _, level = risiko_label(rs)
         sc     = athletik_score(fms, y, sprint, sprung, agil, aus)
-        if level == "hoch":    high_risk += 1
-        elif level == "mittel": med_risk += 1
-        else:                   low_risk += 1
-        scores.append(sc)
+        defizite = defizite_ermitteln(fms, y, sprint, sprung, agil, aus, anthro)
+        # last test date across all modules
+        dates = [d["datum"] for d in [fms, y, sprint, sprung, agil, aus]
+                 if d and d.get("datum")]
+        last_test_date = max(dates) if dates else None
         player_data.append({
             "p": p, "fms": fms, "y": y, "sprint": sprint, "sprung": sprung,
-            "agil": agil, "aus": aus, "verlet": verlet, "rs": rs, "level": level, "sc": sc,
+            "agil": agil, "aus": aus, "anthro": anthro, "verlet": verlet,
+            "rs": rs, "level": level, "sc": sc, "defizite": defizite,
+            "last_test_date": last_test_date,
         })
 
+    total     = len(player_data)
+    scores    = [d["sc"] for d in player_data]
+    high_risk = sum(1 for d in player_data if d["level"] == "hoch")
+    med_risk  = sum(1 for d in player_data if d["level"] == "mittel")
     avg_score = round(sum(scores) / len(scores)) if scores else 0
 
+    # ── KPI strip ─────────────────────────────────────────────────────────────
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Spieler gesamt", total)
-    c2.metric("Handlungsbedarf Hoch 🔴", high_risk)
-    c3.metric("Handlungsbedarf 🟡", med_risk)
+    c2.metric("🔴 Handlungsbedarf Hoch", high_risk)
+    c3.metric("🟡 Handlungsbedarf", med_risk)
     c4.metric("Ø Athletik Score", f"{avg_score}/100")
 
-    # ── Teamschnitt-Widgets für Sprint, CMJ, Yo-Yo (nur wenn ≥1 Datenpunkt) ──
-    sprint_vals = [d["sprint"]["beste_10m"] for d in player_data
-                   if d["sprint"] and d["sprint"].get("beste_10m")]
-    cmj_vals    = [d["sprung"]["cmj_beid"] for d in player_data
-                   if d["sprung"] and d["sprung"].get("cmj_beid")]
-    yoyo_vals   = [d["aus"]["distanz_m"] for d in player_data
-                   if d["aus"] and d["aus"].get("distanz_m")]
-
-    if sprint_vals or cmj_vals or yoyo_vals:
-        cols_kpi = st.columns(3)
-        if sprint_vals:
-            avg_s = sum(sprint_vals) / len(sprint_vals)
-            cols_kpi[0].metric("Ø Sprint 10m", f"{avg_s:.2f} s",
-                               help=f"Datenbasis: {len(sprint_vals)} Spieler")
-        else:
-            cols_kpi[0].metric("Ø Sprint 10m", "—", help="Noch keine Sprintdaten")
-        if cmj_vals:
-            avg_c = sum(cmj_vals) / len(cmj_vals)
-            cols_kpi[1].metric("Ø CMJ", f"{avg_c:.1f} cm",
-                               help=f"Datenbasis: {len(cmj_vals)} Spieler")
-        else:
-            cols_kpi[1].metric("Ø CMJ", "—", help="Noch keine Sprungdaten")
-        if yoyo_vals:
-            avg_y = sum(yoyo_vals) / len(yoyo_vals)
-            cols_kpi[2].metric("Ø Yo-Yo Distanz", f"{avg_y:.0f} m",
-                               help=f"Datenbasis: {len(yoyo_vals)} Spieler")
-        else:
-            cols_kpi[2].metric("Ø Yo-Yo Distanz", "—", help="Noch keine Ausdauerdaten")
-
     st.markdown("---")
 
-    # ── Risk breakdown pie ─────────────────────────────────────────────────
-    col_left, col_right = st.columns([1, 2])
+    # ── Helper: render color ───────────────────────────────────────────────────
+    _RISK_COLOR  = {"hoch": C["red"], "mittel": C["yellow"], "gering": C["green"]}
+    _RISK_ICON   = {"hoch": "🔴", "mittel": "🟡", "gering": "🟢"}
+    _RISK_LABEL  = {"hoch": "Handlungsbedarf hoch", "mittel": "Handlungsbedarf", "gering": "Unauffällig"}
 
-    with col_left:
-        st.markdown("### Athletik-Status Verteilung")
-        fig_pie = go.Figure(go.Pie(
-            labels=["Handlungsbedarf Hoch", "Handlungsbedarf", "Unauffällig"],
-            values=[high_risk, med_risk, low_risk],
-            hole=0.55,
-            marker_colors=["#f85149", "#d29922", "#3fb950"],
-            textfont=dict(color="#e6edf3"),
-        ))
-        fig_pie.update_layout(**PLOTLY_LAYOUT, height=260, showlegend=True,
-                              legend=dict(orientation="h", y=-0.2))
-        st.plotly_chart(fig_pie, use_container_width=True)
+    def _score_color(s: int) -> str:
+        return C["green"] if s >= 75 else C["yellow"] if s >= 50 else C["red"]
 
-    with col_right:
-        st.markdown("### Athletik Scores — Kader")
-        names = [p["name"] for p in all_players]
-        colors = [_color_for_score(s) for s in scores]
-        fig_bar = go.Figure(go.Bar(
-            x=names, y=scores,
-            marker_color=colors,
-            text=scores, textposition="outside",
-            textfont=dict(color="#e6edf3"),
-        ))
-        fig_bar.update_layout(**_pl(height=260, yaxis=dict(range=[0, 105])))
-        st.plotly_chart(fig_bar, use_container_width=True)
+    def _fmt_date(d: str | None) -> str:
+        if not d:
+            return "Kein Test"
+        try:
+            return _dt.strptime(d, "%Y-%m-%d").strftime("%d.%m.%Y")
+        except Exception:
+            return d
 
-    st.markdown("---")
-    st.markdown("### Spieler Einzelübersicht")
+    def _days_since(d: str | None) -> int | None:
+        if not d:
+            return None
+        try:
+            delta = date.today() - _dt.strptime(d, "%Y-%m-%d").date()
+            return delta.days
+        except Exception:
+            return None
 
-    # ── Per-player table ───────────────────────────────────────────────────
-    rows = []
-    for d in player_data:
-        p, fms, y, sprint, sprung, agil, aus = (
-            d["p"], d["fms"], d["y"], d["sprint"], d["sprung"], d["agil"], d["aus"]
+    # ── Tabs ──────────────────────────────────────────────────────────────────
+    tab_kacheln, tab_gruppen, tab_warn, tab_tabelle = st.tabs([
+        "🃏 Spielerkacheln", "🏋️ Trainingsgruppen", "⚠️ Warnmeldungen", "📊 Kader-Tabelle"
+    ])
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # TAB 1 — SPIELERKACHELN
+    # ══════════════════════════════════════════════════════════════════════════
+    with tab_kacheln:
+        # Filter bar
+        f1, f2, f3, f4 = st.columns(4)
+        alle_pos  = sorted({d["p"].get("hauptposition") or d["p"].get("position") or ""
+                            for d in player_data
+                            if d["p"].get("hauptposition") or d["p"].get("position")})
+        alle_mann = sorted({d["p"].get("mannschaft") or "" for d in player_data
+                            if d["p"].get("mannschaft")})
+        alle_ak   = sorted({d["p"].get("altersklasse") or "" for d in player_data
+                            if d["p"].get("altersklasse")})
+        alle_stat = sorted({d["p"].get("trainingsstatus") or "" for d in player_data
+                            if d["p"].get("trainingsstatus")})
+
+        filt_pos  = f1.selectbox("Position",       ["Alle"] + alle_pos,  key="dash_pos",  label_visibility="visible")
+        filt_mann = f2.selectbox("Mannschaft",      ["Alle"] + alle_mann, key="dash_mann", label_visibility="visible")
+        filt_ak   = f3.selectbox("Altersklasse",    ["Alle"] + alle_ak,   key="dash_ak",   label_visibility="visible")
+        filt_stat = f4.selectbox("Trainingsstatus", ["Alle"] + alle_stat, key="dash_stat", label_visibility="visible")
+
+        filtered = player_data
+        if filt_pos  != "Alle":
+            filtered = [d for d in filtered
+                        if (d["p"].get("hauptposition") or d["p"].get("position")) == filt_pos]
+        if filt_mann != "Alle":
+            filtered = [d for d in filtered if d["p"].get("mannschaft") == filt_mann]
+        if filt_ak   != "Alle":
+            filtered = [d for d in filtered if d["p"].get("altersklasse") == filt_ak]
+        if filt_stat != "Alle":
+            filtered = [d for d in filtered if d["p"].get("trainingsstatus") == filt_stat]
+
+        st.caption(f"{len(filtered)} von {total} Spielern")
+
+        if not filtered:
+            st.info("Keine Spieler für die gewählten Filter.")
+        else:
+            cols = st.columns(3, gap="medium")
+            for i, d in enumerate(filtered):
+                p      = d["p"]
+                level  = d["level"]
+                rc     = _RISK_COLOR[level]
+                sc_col = _score_color(d["sc"])
+                pos    = p.get("hauptposition") or p.get("position") or "—"
+                team   = p.get("mannschaft") or "—"
+
+                # Key metrics (compact)
+                metrics = []
+                if d["fms"] and d["fms"].get("score"):
+                    metrics.append(f"FMS {d['fms']['score']}/21")
+                if d["sprint"] and d["sprint"].get("beste_10m"):
+                    metrics.append(f"10m {d['sprint']['beste_10m']:.2f}s")
+                if d["sprung"] and d["sprung"].get("cmj_beid"):
+                    metrics.append(f"CMJ {d['sprung']['cmj_beid']:.0f}cm")
+                metrics_str = " · ".join(metrics) if metrics else "Noch keine Testdaten"
+
+                with cols[i % 3]:
+                    st.markdown(
+                        f'<div style="background:{C["surface"]};border:1px solid {C["border"]};'
+                        f'border-top:3px solid {rc};border-radius:12px;'
+                        f'padding:14px 16px 10px;margin-bottom:4px">'
+                        f'<div style="font-size:16px;font-weight:700;color:{C["text"]}">{p["name"]}</div>'
+                        f'<div style="font-size:11px;color:{C["muted"]};margin-bottom:8px">'
+                        f'{pos} · {team}</div>'
+                        f'<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:6px">'
+                        f'<span style="font-size:28px;font-weight:800;color:{sc_col}">{d["sc"]}</span>'
+                        f'<span style="font-size:11px;color:{C["muted"]}">/ 100 Athletik-Score</span>'
+                        f'</div>'
+                        f'<div style="font-size:11px;color:{rc};font-weight:600;margin-bottom:6px">'
+                        f'{_RISK_ICON[level]} {_RISK_LABEL[level]}</div>'
+                        f'<div style="font-size:10px;color:{C["muted"]}">'
+                        f'{metrics_str}</div>'
+                        f'<div style="font-size:10px;color:{C["muted"]};margin-top:4px">'
+                        f'🗓 {_fmt_date(d["last_test_date"])}</div>'
+                        f'</div>',
+                        unsafe_allow_html=True,
+                    )
+                    if st.button("Zum Profil →", key=f"kachel_profil_{p['id']}",
+                                 use_container_width=True):
+                        st.session_state["global_player_id"] = p["id"]
+                        st.session_state["_nav_goto"]         = "👤  Spieler"
+                        st.session_state["nav_sub_spieler"]   = "🏃 Profil & Diagnostik"
+                        st.rerun()
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # TAB 2 — TRAININGSGRUPPEN
+    # ══════════════════════════════════════════════════════════════════════════
+    with tab_gruppen:
+        st.markdown(
+            f'<div style="font-size:13px;color:{C["muted"]};margin-bottom:16px">'
+            f'Automatischer Vorschlag basierend auf kritischen Defiziten aus der Testanalyse. '
+            f'Spieler werden dem Bereich mit dem dringlichsten Förderbedarf zugeordnet.</div>',
+            unsafe_allow_html=True,
         )
-        level = d["level"]
-        icon  = {"hoch": "🔴", "mittel": "🟡", "gering": "🟢"}[level]
-        rows.append({
-            "Name":           p["name"],
-            "Position":       p["position"] or "—",
-            "Mannschaft":     p["mannschaft"] or "—",
-            "Athletik Score": d["sc"],
-            "FMS Score":      fms["score"] if fms else "—",
-            "Y-Balance Ø":    f"{(y['composite_rechts']+y['composite_links'])/2:.1f}%" if y else "—",
-            "Sprint 10m":     f"{sprint['beste_10m']}s" if sprint and sprint.get("beste_10m") else "—",
-            "CMJ":            f"{sprung['cmj_beid']}cm" if sprung and sprung.get("cmj_beid") else "—",
-            "VO₂max":         f"{aus['vo2max']}" if aus and aus.get("vo2max") else "—",
-            "Risiko":         f"{icon} {level.capitalize()}",
-        })
-    st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
 
-    st.markdown("---")
-    st.markdown("### 📥 Kader-Export")
-    col_exp, _ = st.columns([1, 3])
-    with col_exp:
-        with st.spinner("Excel wird vorbereitet …"):
-            excel_data = kader_excel_bytes()
-        filename = f"Kader_Export_{date.today().strftime('%Y-%m-%d')}.xlsx"
-        st.download_button(
-            label="⬇️ Kader-Export (Excel)",
-            data=excel_data,
-            file_name=filename,
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            use_container_width=True,
-            help="Exportiert alle Spieler-Stammdaten, letzte Testwerte und die gesamte Verletzungshistorie als Excel-Datei (2 Tabellenblätter).",
+        # Map defizit modul → group
+        _MODUL_GRUPPE = {
+            "Sprint":         "⚡ Gruppe Schnelligkeit",
+            "Agilität":       "⚡ Gruppe Schnelligkeit",
+            "Sprung":         "🦘 Gruppe Sprungkraft",
+            "FMS":            "🔒 Gruppe Stabilität & Bewegungskontrolle",
+            "Y-Balance":      "🔒 Gruppe Stabilität & Bewegungskontrolle",
+            "Ausdauer":       "🫁 Gruppe Ausdauerkapazität",
+        }
+        _GRUPPE_INFO = {
+            "⚡ Gruppe Schnelligkeit":              "Sprint, Beschleunigung, Richtungswechsel",
+            "🦘 Gruppe Sprungkraft":                "Explosivkraft, Reaktivkraft, Beinachsenstabilität",
+            "🔒 Gruppe Stabilität & Bewegungskontrolle": "FMS-Defizite, Y-Balance-Asymmetrien, Core-Stabilität",
+            "🫁 Gruppe Ausdauerkapazität":          "Aerobe Basis, intermittierende Ausdauer (Yo-Yo)",
+            "✅ Kein spezifischer Förderbedarf":    "Keine kritischen Defizite — allgemeines Athletiktraining",
+        }
+        _GRUPPE_ORDER = [
+            "⚡ Gruppe Schnelligkeit",
+            "🦘 Gruppe Sprungkraft",
+            "🔒 Gruppe Stabilität & Bewegungskontrolle",
+            "🫁 Gruppe Ausdauerkapazität",
+            "✅ Kein spezifischer Förderbedarf",
+        ]
+
+        gruppen: dict[str, list] = {g: [] for g in _GRUPPE_ORDER}
+
+        for d in player_data:
+            # Find primary critical deficit, then warnung
+            primary_group = None
+            for level_filter in ("kritisch", "warnung"):
+                for defizit in d["defizite"]:
+                    if defizit["level"] == level_filter:
+                        modul = defizit.get("modul", "")
+                        if modul in _MODUL_GRUPPE:
+                            primary_group = _MODUL_GRUPPE[modul]
+                            break
+                if primary_group:
+                    break
+            if not primary_group:
+                primary_group = "✅ Kein spezifischer Förderbedarf"
+            gruppen[primary_group].append(d)
+
+        for gruppe_name in _GRUPPE_ORDER:
+            mitglieder = gruppen[gruppe_name]
+            if not mitglieder:
+                continue
+            info = _GRUPPE_INFO[gruppe_name]
+            with st.expander(
+                f"{gruppe_name} — {len(mitglieder)} Spieler",
+                expanded=gruppe_name != "✅ Kein spezifischer Förderbedarf",
+            ):
+                st.caption(f"Trainingsschwerpunkt: {info}")
+                cols = st.columns(min(len(mitglieder), 4))
+                for j, d in enumerate(mitglieder):
+                    p = d["p"]
+                    rc = _RISK_COLOR[d["level"]]
+                    # Show primary deficit text
+                    prim_def = next(
+                        (df["text"] for df in d["defizite"] if df.get("modul") in _MODUL_GRUPPE
+                         and _MODUL_GRUPPE[df["modul"]] == gruppe_name),
+                        None
+                    )
+                    with cols[j % 4]:
+                        st.markdown(
+                            f'<div style="background:{C["surface2"]};border:1px solid {C["border"]};'
+                            f'border-left:3px solid {rc};border-radius:8px;padding:10px 12px;'
+                            f'margin-bottom:6px">'
+                            f'<div style="font-size:13px;font-weight:600;color:{C["text"]}">'
+                            f'{p["name"]}</div>'
+                            f'<div style="font-size:10px;color:{C["muted"]}">'
+                            f'{p.get("hauptposition") or p.get("position") or "—"}</div>'
+                            f'<div style="font-size:10px;color:{rc};margin-top:4px">'
+                            f'{_RISK_ICON[d["level"]]} Score {d["sc"]}/100</div>'
+                            + (f'<div style="font-size:9px;color:{C["muted"]};margin-top:4px;'
+                               f'line-height:1.3">{prim_def}</div>' if prim_def else "")
+                            + f'</div>',
+                            unsafe_allow_html=True,
+                        )
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # TAB 3 — WARNMELDUNGEN
+    # ══════════════════════════════════════════════════════════════════════════
+    with tab_warn:
+        RETEST_TAGE = 56  # 8 Wochen
+
+        warns_risiko     = [d for d in player_data if d["level"] == "hoch"]
+        warns_retest     = [d for d in player_data
+                            if (_days_since(d["last_test_date"]) or 999) > RETEST_TAGE]
+        warns_wachstum   = []
+        warns_eingeschr  = []
+
+        for d in player_data:
+            # Growth spurt: PHV-related reifestatus
+            if d["anthro"]:
+                reife = str(d["anthro"].get("reifestatus") or "").lower()
+                phv   = d["anthro"].get("phv_offset")
+                if ("vor phv" in reife or "wachstum" in reife
+                        or (phv is not None and -1.5 <= float(phv) <= 1.0)):
+                    warns_wachstum.append(d)
+            # Restricted training status
+            ts = str(d["p"].get("trainingsstatus") or "")
+            if "Pause" in ts or "Abklärung" in ts or "Eingeschränkt" in ts or "Angepasst" in ts:
+                warns_eingeschr.append(d)
+
+        def _warn_block(title: str, icon: str, color: str, items: list,
+                        detail_fn) -> None:
+            if not items:
+                st.markdown(
+                    f'<div style="background:{C["surface"]};border:1px solid {C["border"]};'
+                    f'border-radius:8px;padding:10px 14px;margin-bottom:10px;'
+                    f'display:flex;gap:10px;align-items:center">'
+                    f'<span style="font-size:18px">{icon}</span>'
+                    f'<div><div style="font-size:13px;font-weight:600;color:{C["muted"]}">'
+                    f'{title}</div>'
+                    f'<div style="font-size:11px;color:{C["muted"]}">Keine Auffälligkeiten</div>'
+                    f'</div></div>',
+                    unsafe_allow_html=True,
+                )
+                return
+            with st.expander(f"{icon} {title} — {len(items)} Spieler", expanded=True):
+                for d in items:
+                    p   = d["p"]
+                    det = detail_fn(d)
+                    st.markdown(
+                        f'<div style="background:{C["surface2"]};border-left:3px solid {color};'
+                        f'border-radius:6px;padding:8px 12px;margin-bottom:6px">'
+                        f'<div style="font-size:13px;font-weight:600;color:{C["text"]}">'
+                        f'{p["name"]}</div>'
+                        f'<div style="font-size:11px;color:{C["muted"]}">'
+                        f'{p.get("hauptposition") or p.get("position") or "—"} · '
+                        f'{p.get("mannschaft") or "—"}</div>'
+                        f'<div style="font-size:11px;color:{color};margin-top:4px">{det}</div>'
+                        f'</div>',
+                        unsafe_allow_html=True,
+                    )
+
+        _warn_block(
+            "Hoher Risikoscore",
+            "🔴", C["red"], warns_risiko,
+            lambda d: f"Risikoscore {d['rs']} — FMS/Y-Balance oder Verletzungshistorie kritisch"
         )
+        _warn_block(
+            f"Fälliger Retest (>{RETEST_TAGE} Tage)",
+            "📅", C["yellow"], warns_retest,
+            lambda d: (f"Letzter Test: {_fmt_date(d['last_test_date'])} "
+                       f"({_days_since(d['last_test_date']) or '?'} Tage)")
+        )
+        _warn_block(
+            "Wachstumsschub-Fenster",
+            "🌱", C["blue"], warns_wachstum,
+            lambda d: (f"Reifestatus: {d['anthro'].get('reifestatus') or '—'} · "
+                       f"PHV-Offset: {d['anthro'].get('phv_offset') or '—'} Jahre"
+                       if d["anthro"] else "PHV-Daten vorhanden")
+        )
+        _warn_block(
+            "Eingeschränkter Trainingsstatus",
+            "🚫", C["muted"], warns_eingeschr,
+            lambda d: d["p"].get("trainingsstatus") or "—"
+        )
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # TAB 4 — KADER-TABELLE (bestehende Ansicht)
+    # ══════════════════════════════════════════════════════════════════════════
+    with tab_tabelle:
+        col_left, col_right = st.columns([1, 2])
+        with col_left:
+            st.markdown("##### Athletik-Status Verteilung")
+            low_risk = total - high_risk - med_risk
+            fig_pie = go.Figure(go.Pie(
+                labels=["Handlungsbedarf Hoch", "Handlungsbedarf", "Unauffällig"],
+                values=[high_risk, med_risk, low_risk],
+                hole=0.55,
+                marker_colors=["#f85149", "#d29922", "#3fb950"],
+                textfont=dict(color="#e6edf3"),
+            ))
+            fig_pie.update_layout(**PLOTLY_LAYOUT, height=240, showlegend=True,
+                                  legend=dict(orientation="h", y=-0.2))
+            st.plotly_chart(fig_pie, use_container_width=True)
+        with col_right:
+            st.markdown("##### Athletik Scores — Kader")
+            names  = [d["p"]["name"] for d in player_data]
+            cols_c = [_color_for_score(d["sc"]) for d in player_data]
+            fig_bar = go.Figure(go.Bar(
+                x=names, y=scores,
+                marker_color=cols_c,
+                text=scores, textposition="outside",
+                textfont=dict(color="#e6edf3"),
+            ))
+            fig_bar.update_layout(**_pl(height=240, yaxis=dict(range=[0, 105])))
+            st.plotly_chart(fig_bar, use_container_width=True)
+
+        st.markdown("---")
+        rows = []
+        for d in player_data:
+            p, fms, y, sprint, sprung, agil, aus = (
+                d["p"], d["fms"], d["y"], d["sprint"], d["sprung"], d["agil"], d["aus"]
+            )
+            icon = _RISK_ICON[d["level"]]
+            rows.append({
+                "Name":           p["name"],
+                "Position":       p.get("position") or "—",
+                "Mannschaft":     p.get("mannschaft") or "—",
+                "Altersklasse":   p.get("altersklasse") or "—",
+                "Athletik Score": d["sc"],
+                "FMS Score":      fms["score"] if fms else "—",
+                "Y-Balance Ø":    (f"{(y['composite_rechts']+y['composite_links'])/2:.1f}%"
+                                   if y else "—"),
+                "Sprint 10m":     (f"{sprint['beste_10m']:.2f}s"
+                                   if sprint and sprint.get("beste_10m") else "—"),
+                "CMJ":            (f"{sprung['cmj_beid']:.0f}cm"
+                                   if sprung and sprung.get("cmj_beid") else "—"),
+                "VO₂max":         (f"{aus['vo2max']:.1f}" if aus and aus.get("vo2max") else "—"),
+                "Risiko":         f"{icon} {d['level'].capitalize()}",
+            })
+        st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+
+        st.markdown("---")
+        st.markdown("### 📥 Kader-Export")
+        col_exp, _ = st.columns([1, 3])
+        with col_exp:
+            with st.spinner("Excel wird vorbereitet …"):
+                excel_data = kader_excel_bytes()
+            filename = f"Kader_Export_{date.today().strftime('%Y-%m-%d')}.xlsx"
+            st.download_button(
+                label="⬇️ Kader-Export (Excel)",
+                data=excel_data,
+                file_name=filename,
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True,
+                help="Exportiert alle Spieler-Stammdaten, letzte Testwerte und die gesamte Verletzungshistorie als Excel-Datei (2 Tabellenblätter).",
+            )
 
 
 # ──────────────────────────────────────────────────────────────────────────────
