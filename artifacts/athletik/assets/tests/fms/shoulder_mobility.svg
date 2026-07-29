@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 340 190"
+     style="width:100%;max-width:340px;border-radius:8px;display:block;margin:0 auto"
+     role="img" aria-label="Shoulder Mobility: Beide Hände hinter dem Rücken — Abstand zwischen den Fäusten messen">
+  <rect width="340" height="190" rx="8" fill="#161b22"/>
+  <text x="170" y="18" text-anchor="middle" fill="#c9d1d9" font-family="system-ui,sans-serif" font-size="12" font-weight="600">4 · Shoulder Mobility</text>
+
+  <!-- View from back -->
+  <text x="170" y="34" text-anchor="middle" fill="#8b949e" font-family="system-ui,sans-serif" font-size="10">Ansicht von hinten</text>
+
+  <!-- Figure (back view) -->
+  <!-- Head -->
+  <circle cx="170" cy="54" r="9" fill="none" stroke="#58a6ff" stroke-width="2"/>
+  <!-- Torso -->
+  <line x1="170" y1="63" x2="170" y2="115" stroke="#58a6ff" stroke-width="2.5"/>
+  <!-- Shoulders -->
+  <line x1="145" y1="75" x2="195" y2="75" stroke="#58a6ff" stroke-width="2"/>
+  <!-- Hips -->
+  <line x1="152" y1="115" x2="188" y2="115" stroke="#58a6ff" stroke-width="2"/>
+  <!-- Legs -->
+  <line x1="152" y1="115" x2="148" y2="148" stroke="#58a6ff" stroke-width="2"/>
+  <line x1="188" y1="115" x2="192" y2="148" stroke="#58a6ff" stroke-width="2"/>
+  <line x1="148" y1="148" x2="140" y2="151" stroke="#58a6ff" stroke-width="2"/>
+  <line x1="192" y1="148" x2="200" y2="151" stroke="#58a6ff" stroke-width="2"/>
+  <line x1="120" y1="153" x2="220" y2="153" stroke="#30363d" stroke-width="1.5"/>
+
+  <!-- Right arm: over shoulder, down back -->
+  <path d="M 193 75 Q 210 60 208 85 Q 206 100 188 105" fill="none" stroke="#3fb950" stroke-width="2.5"/>
+  <!-- Right fist -->
+  <circle cx="188" cy="105" r="5" fill="#3fb950" opacity="0.9"/>
+  <text x="215" y="90" fill="#3fb950" font-family="system-ui,sans-serif" font-size="9">Hand R</text>
+  <text x="215" y="101" fill="#3fb950" font-family="system-ui,sans-serif" font-size="9">(oben)</text>
+
+  <!-- Left arm: under shoulder, up back -->
+  <path d="M 147 75 Q 130 90 133 110 Q 135 125 152 118" fill="none" stroke="#f0883e" stroke-width="2.5"/>
+  <!-- Left fist -->
+  <circle cx="152" cy="118" r="5" fill="#f0883e" opacity="0.9"/>
+  <text x="90" y="112" fill="#f0883e" font-family="system-ui,sans-serif" font-size="9">Hand L</text>
+  <text x="90" y="123" fill="#f0883e" font-family="system-ui,sans-serif" font-size="9">(unten)</text>
+
+  <!-- Distance measurement arrow -->
+  <defs>
+    <marker id="sm-a1" markerWidth="6" markerHeight="5" refX="3" refY="2.5" orient="auto">
+      <polygon points="0 5,3 0,6 5" fill="#d29922"/>
+    </marker>
+    <marker id="sm-a2" markerWidth="6" markerHeight="5" refX="3" refY="2.5" orient="auto">
+      <polygon points="0 0,3 5,6 0" fill="#d29922"/>
+    </marker>
+  </defs>
+  <line x1="170" y1="107" x2="170" y2="116" stroke="#d29922" stroke-width="1.5" marker-start="url(#sm-a1)" marker-end="url(#sm-a2)"/>
+  <text x="248" y="113" text-anchor="middle" fill="#d29922" font-family="system-ui,sans-serif" font-size="10" font-weight="600">Abstand</text>
+  <text x="248" y="125" text-anchor="middle" fill="#d29922" font-family="system-ui,sans-serif" font-size="9">messen!</text>
+  <line x1="172" y1="112" x2="230" y2="112" stroke="#d29922" stroke-width="1" stroke-dasharray="3,2"/>
+
+  <rect x="10" y="162" width="320" height="24" rx="3" fill="#21262d" opacity="0.8"/>
+  <text x="170" y="172" text-anchor="middle" fill="#8b949e" font-family="system-ui,sans-serif" font-size="9">3 = ≤ Handlänge · 2 = ≤ 1,5 Handlängen · 1 = mehr</text>
+  <text x="170" y="182" text-anchor="middle" fill="#8b949e" font-family="system-ui,sans-serif" font-size="9">Extra: Schmerzprovokationstest — bei Schmerzen → 0 Punkte</text>
+</svg>

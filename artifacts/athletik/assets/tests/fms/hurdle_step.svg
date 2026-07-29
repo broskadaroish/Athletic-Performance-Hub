@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 340 190"
+     style="width:100%;max-width:340px;border-radius:8px;display:block;margin:0 auto"
+     role="img" aria-label="Hurdle Step: Spieler übersteigt Hürde auf Hüfthöhe auf einem Standbein">
+  <rect width="340" height="190" rx="8" fill="#161b22"/>
+  <text x="170" y="18" text-anchor="middle" fill="#c9d1d9" font-family="system-ui,sans-serif" font-size="12" font-weight="600">2 · Hurdle Step</text>
+
+  <!-- Hürde links -->
+  <line x1="90" y1="70" x2="200" y2="70" stroke="#f0883e" stroke-width="2.5"/>
+  <line x1="90" y1="70" x2="90" y2="150" stroke="#f0883e" stroke-width="2"/>
+  <line x1="200" y1="70" x2="200" y2="150" stroke="#f0883e" stroke-width="2"/>
+  <text x="145" y="64" text-anchor="middle" fill="#f0883e" font-family="system-ui,sans-serif" font-size="10">Hüfthöhe</text>
+
+  <!-- Boden -->
+  <line x1="30" y1="150" x2="310" y2="150" stroke="#30363d" stroke-width="1.5"/>
+
+  <!-- Spieler: Standbein links von Hürde, Spielbein übersteigt -->
+  <!-- Kopf -->
+  <circle cx="100" cy="46" r="9" fill="none" stroke="#58a6ff" stroke-width="2"/>
+  <!-- Rumpf aufrecht -->
+  <line x1="100" y1="55" x2="100" y2="90" stroke="#58a6ff" stroke-width="2.5"/>
+  <!-- Arme waagrecht -->
+  <line x1="100" y1="70" x2="78" y2="78" stroke="#58a6ff" stroke-width="2"/>
+  <line x1="100" y1="70" x2="118" y2="63" stroke="#58a6ff" stroke-width="2"/>
+  <!-- Standbein (links, senkrecht) -->
+  <line x1="100" y1="90" x2="94" y2="120" stroke="#58a6ff" stroke-width="2"/>
+  <line x1="94" y1="120" x2="90" y2="150" stroke="#58a6ff" stroke-width="2.5" stroke-linecap="round"/>
+  <!-- Spielbein über Hürde (rechtes Bein angehoben und nach rechts) -->
+  <line x1="100" y1="90" x2="140" y2="80" stroke="#3fb950" stroke-width="2.5"/>
+  <line x1="140" y1="80" x2="170" y2="95" stroke="#3fb950" stroke-width="2.5"/>
+
+  <!-- Stab über Kopf (horizontal) -->
+  <line x1="58" y1="37" x2="142" y2="37" stroke="#d29922" stroke-width="2" stroke-linecap="round"/>
+  <text x="100" y="33" text-anchor="middle" fill="#d29922" font-family="system-ui,sans-serif" font-size="9">Stab</text>
+
+  <!-- Labels -->
+  <text x="90" y="165" text-anchor="middle" fill="#8b949e" font-family="system-ui,sans-serif" font-size="9">Standbein</text>
+  <text x="165" y="90" text-anchor="start" fill="#3fb950" font-family="system-ui,sans-serif" font-size="9">Spielbein</text>
+
+  <!-- Symmetry arrow -->
+  <text x="240" y="100" text-anchor="middle" fill="#8b949e" font-family="system-ui,sans-serif" font-size="10">L + R</text>
+  <text x="240" y="114" text-anchor="middle" fill="#8b949e" font-family="system-ui,sans-serif" font-size="9">je Seite</text>
+  <text x="240" y="126" text-anchor="middle" fill="#8b949e" font-family="system-ui,sans-serif" font-size="9">bewertet</text>
+
+  <rect x="10" y="166" width="320" height="18" rx="3" fill="#21262d" opacity="0.8"/>
+  <text x="170" y="179" text-anchor="middle" fill="#8b949e" font-family="system-ui,sans-serif" font-size="9">3 = ohne Berühren · 2 = Kompensation · 1 = nicht möglich · 0 = Schmerzen</text>
+</svg>
