@@ -12,7 +12,7 @@ import plotly.express as px
 import pandas as pd
 
 from theme import APP_CSS, C, PLOTLY_LAYOUT as _PL_BASE
-from help_ui import sicherheitshinweis_box, show_test_info, show_field_help, field_info_col, norm_badge
+from help_ui import sicherheitshinweis_box, show_test_info, show_field_help, field_info_col, norm_badge, show_trainer_checkliste
 from ui_components import (
     kpi_card, score_kpi, risk_kpi,
     player_banner, section_header, deficit_row, strength_row,
@@ -448,6 +448,7 @@ def page_fms():
     st.markdown("Sieben Bewegungsmuster werden bilateral getestet. Maximalpunktzahl: **21 Punkte**.")
 
     sicherheitshinweis_box()
+    show_trainer_checkliste("fms")
     show_test_info("fms")
 
     auswahl = _player_selector("fms")
@@ -558,6 +559,7 @@ def page_ybalance():
     st.markdown("Composite Score = (A + PM + PL) / (3 × Beinlänge) × 100.  Schwellenwert: **≥ 89 %**.")
 
     sicherheitshinweis_box()
+    show_trainer_checkliste("y_balance")
     show_test_info("y_balance")
 
     auswahl = _player_selector("yb")
@@ -1386,6 +1388,7 @@ def page_anthropometrie():
     st.markdown("Körpermessungen, BMI und Wachstumsverlauf — Grundlage für belastungsgerechtes Training.")
 
     sicherheitshinweis_box()
+    show_trainer_checkliste("anthropometrie")
     show_test_info("anthropometrie")
 
     auswahl = _player_selector("anthro")
@@ -1575,6 +1578,7 @@ def page_sprint():
 
     # ── Sicherheitshinweis & Testanleitung ────────────────────────────────────
     sicherheitshinweis_box()
+    show_trainer_checkliste("sprint")
     show_test_info("sprint")
 
     auswahl = _player_selector("sprint")
@@ -1679,6 +1683,7 @@ def page_sprung():
     st.markdown("Explosivkraft, Reaktivkraft und Seitenasymmetrie — CMJ, Squat Jump, Drop Jump, Standweitsprung.")
 
     sicherheitshinweis_box()
+    show_trainer_checkliste("jump")
     show_test_info("jump")
 
     auswahl = _player_selector("sprung")
@@ -1841,6 +1846,7 @@ def page_agilitaet():
     st.markdown("505-Test, 5-10-5 Shuttle, T-Test, Illinois Agility Run — Richtungswechsel-Fähigkeit und Abbremsstärke.")
 
     sicherheitshinweis_box()
+    show_trainer_checkliste("agility")
     show_test_info("agility")
 
     auswahl = _player_selector("agil")
@@ -1975,6 +1981,7 @@ def page_ausdauer():
     st.markdown("Yo-Yo Intermittent Recovery Test Level 1 (IR1) und Level 2 (IR2) — Standardtest im Fußball.")
 
     sicherheitshinweis_box()
+    show_trainer_checkliste("yoyo")
     show_test_info("yoyo")
 
     auswahl = _player_selector("aus")
