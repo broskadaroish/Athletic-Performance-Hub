@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 200"
+     style="width:100%;max-width:360px;border-radius:8px;display:block;margin:0 auto"
+     role="img" aria-label="Biering-Sørensen: Oberkörper frei über der Kante horizontal halten, Beine fixiert auf der Liege">
+  <rect width="360" height="200" rx="8" fill="#161b22"/>
+  <text x="180" y="16" text-anchor="middle" fill="#c9d1d9" font-family="system-ui,sans-serif" font-size="12" font-weight="600">Rumpfkraft dorsal — Biering-Sørensen</text>
+
+  <!-- Ground -->
+  <line x1="30" y1="168" x2="330" y2="168" stroke="#30363d" stroke-width="2"/>
+
+  <!-- Bench / Liege (right side) -->
+  <rect x="178" y="106" width="140" height="12" rx="3" fill="#21262d" stroke="#30363d" stroke-width="1.5"/>
+  <line x1="196" y1="118" x2="196" y2="168" stroke="#30363d" stroke-width="3"/>
+  <line x1="300" y1="118" x2="300" y2="168" stroke="#30363d" stroke-width="3"/>
+  <text x="250" y="134" text-anchor="middle" fill="#8b949e" font-family="system-ui,sans-serif" font-size="9">Liege / Kasten</text>
+
+  <!-- Horizontal reference line -->
+  <line x1="60" y1="102" x2="180" y2="102" stroke="#3fb950" stroke-width="1.2" stroke-dasharray="5,4"/>
+  <text x="118" y="94" text-anchor="middle" fill="#3fb950" font-family="system-ui,sans-serif" font-size="9">Oberkörper horizontal halten</text>
+
+  <!-- Athlete: prone, upper body free over edge -->
+  <!-- Head (left, unsupported) -->
+  <circle cx="74" cy="104" r="8" fill="none" stroke="#58a6ff" stroke-width="2.5"/>
+  <!-- Arms crossed on chest -->
+  <line x1="94" y1="107" x2="104" y2="116" stroke="#58a6ff" stroke-width="2.5" stroke-linecap="round"/>
+  <line x1="104" y1="107" x2="94" y2="116" stroke="#58a6ff" stroke-width="2.5" stroke-linecap="round"/>
+  <!-- Torso horizontal, hip at bench edge -->
+  <line x1="82" y1="105" x2="182" y2="107" stroke="#58a6ff" stroke-width="3" stroke-linecap="round"/>
+  <!-- Hip at edge -->
+  <circle cx="182" cy="107" r="3" fill="#58a6ff"/>
+  <!-- Legs on bench -->
+  <line x1="182" y1="107" x2="248" y2="104" stroke="#58a6ff" stroke-width="3" stroke-linecap="round"/>
+  <line x1="248" y1="104" x2="304" y2="104" stroke="#58a6ff" stroke-width="3" stroke-linecap="round"/>
+
+  <!-- Fixation strap at ankles -->
+  <rect x="288" y="94" width="8" height="20" rx="2" fill="#d29922"/>
+  <text x="292" y="86" text-anchor="middle" fill="#d29922" font-family="system-ui,sans-serif" font-size="8">Fixierung</text>
+
+  <!-- Edge marker: ASIS at edge -->
+  <line x1="182" y1="90" x2="182" y2="122" stroke="#d29922" stroke-width="1.2" stroke-dasharray="3,2"/>
+  <text x="182" y="146" text-anchor="middle" fill="#d29922" font-family="system-ui,sans-serif" font-size="8">Beckenkante = Liegenkante</text>
+
+  <!-- Drop warning -->
+  <rect x="36" y="34" width="120" height="24" rx="4" fill="#3b0d0d" opacity="0.9"/>
+  <text x="96" y="45" text-anchor="middle" fill="#f85149" font-family="system-ui,sans-serif" font-size="9" font-weight="600">✕ Oberkörper sinkt ab</text>
+  <text x="96" y="54" text-anchor="middle" fill="#f85149" font-family="system-ui,sans-serif" font-size="8">= Testende</text>
+
+  <!-- Stopwatch -->
+  <circle cx="318" cy="48" r="13" fill="none" stroke="#8b949e" stroke-width="2"/>
+  <line x1="318" y1="48" x2="318" y2="40" stroke="#8b949e" stroke-width="2"/>
+  <line x1="318" y1="48" x2="324" y2="50" stroke="#8b949e" stroke-width="2"/>
+  <text x="318" y="72" text-anchor="middle" fill="#8b949e" font-family="system-ui,sans-serif" font-size="8">Zeit [s]</text>
+
+  <!-- Footer -->
+  <rect x="10" y="182" width="340" height="14" rx="3" fill="#21262d" opacity="0.8"/>
+  <text x="180" y="192" text-anchor="middle" fill="#8b949e" font-family="system-ui,sans-serif" font-size="8">Bauchlage · Becken an der Kante · Arme vor der Brust · Haltedauer in Sekunden</text>
+</svg>

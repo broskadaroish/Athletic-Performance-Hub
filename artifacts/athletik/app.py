@@ -3524,7 +3524,9 @@ def page_kraft():
 
         st.markdown("---")
         # ── Bankdrücken ────────────────────────────────────────────────────
-        st.markdown("### 🏋️ Bankdrücken — 1-Wiederholungsmaximum (1RM)")
+        bd_head, bd_info = st.columns([6, 1])
+        bd_head.markdown("### 🏋️ Bankdrücken — 1-Wiederholungsmaximum (1RM)")
+        field_info_col(bd_info, "kraft", "direktes_1rm")
         st.caption(
             "Interner Orientierungswert für die Trainingssteuerung. "
             "Direkte 1RM-Tests nur mit Sicherung und ausreichendem Aufwärmen."
@@ -3599,15 +3601,23 @@ def page_kraft():
         st.caption("Ventral: 2 Versuche (Bestwert = länger). Lateral R/L und Dorsal: je 1 Versuch.")
 
         rc1, rc2 = st.columns(2)
-        rc1.markdown("**Ventral (Plank) — 2 Versuche**")
+        vh_head, vh_info = rc1.columns([5, 1])
+        vh_head.markdown("**Ventral (Plank) — 2 Versuche**")
+        field_info_col(vh_info, "kraft", "ventral_sekunden")
         rv1_c, rv2_c = rc1.columns(2)
         ventral_v1 = rv1_c.number_input("V1 (s)", 0.0, 600.0, 0.0, step=1.0, key="kraft_vent_v1") or None
         ventral_v2 = rv2_c.number_input("V2 (s)", 0.0, 600.0, 0.0, step=1.0, key="kraft_vent_v2") or None
         ventr_best = max([v for v in [ventral_v1, ventral_v2] if v], default=None)
         if ventr_best: rc1.success(f"Bestwert ventral: **{ventr_best:.0f} s**")
 
+        lh_head, lh_info = rc2.columns([5, 1])
+        lh_head.markdown("**Lateral (Seitstütz) — R/L**")
+        field_info_col(lh_info, "kraft", "lateral_rechts")
         lateral_r = rc2.number_input("Lateral rechts (s)", 0.0, 600.0, 0.0, step=1.0, key="kraft_lat_r") or None
         lateral_l = rc2.number_input("Lateral links (s)",  0.0, 600.0, 0.0, step=1.0, key="kraft_lat_l") or None
+        dh_head, dh_info = rc1.columns([5, 1])
+        dh_head.markdown("**Dorsal (Biering-Sørensen)**")
+        field_info_col(dh_info, "kraft", "dorsal_sekunden")
         dorsal    = rc1.number_input("Dorsal (s)",         0.0, 600.0, 0.0, step=1.0, key="kraft_dors") or None
 
         rumpf_res = _KE(
@@ -3735,6 +3745,7 @@ def page_startseite():
     sprung = sprung_letzter(sid)
     agil   = agilitaet_letzter(sid)
     aus    = ausdauer_letzter(sid)
+    kraft  = kraft_letzter(sid)
     anthro = anthropometrie_letzter(sid)
     verlet = verletzungen_laden(sid)
 
@@ -3842,6 +3853,11 @@ def page_startseite():
         ("Sprung",    "🦘", sprung, sprung["bewertung_cmj"] if sprung else None, sprung["datum"] if sprung else None),
         ("Agilität",  "🔀", agil,   agil["bew_t_test"]      if agil   else None, agil["datum"]   if agil   else None),
         ("Ausdauer",  "🫁", aus,    aus["bewertung"]        if aus    else None, aus["datum"]    if aus    else None),
+        ("Kraft",     "💪", kraft,
+         ("1RM: %.1f kg" % (kraft.get("direktes_1rm") or kraft.get("geschaetztes_1rm"))
+          if kraft and (kraft.get("direktes_1rm") or kraft.get("geschaetztes_1rm")) else
+          ("Ventral: %.0f s" % kraft["ventral_sekunden"] if kraft and kraft.get("ventral_sekunden") else None)),
+         kraft["datum"] if kraft else None),
     ]
     for i, (name, icon, row, rating, dt) in enumerate(cards):
         col = [c1, c2, c3][i % 3]

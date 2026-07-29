@@ -261,9 +261,9 @@ TEST_HELP: dict[str, dict] = {
         "datum": "2026-07-29",
         "video_lokal": None, "video_link": None, "video_titel": None, "video_quelle": None, "video_lizenz": None,
         "felder": {
-            "cmj_beid":   {"label": "CMJ beidbeinig",        "ziel": "Beidbeinige Explosivkraft.", "kurzhilfe": "Sprunghöhe Countermovement Jump beidbeinig in cm. Besten Versuch eintragen.", "eingabehilfe": "Höhe in cm, z. B. 42.0", "einheit": "cm", "bereich": "Sinnvoll: 20 – 70 cm"},
-            "cmj_r":      {"label": "CMJ einbeinig rechts",  "ziel": "Einbeinige Explosivkraft rechts.", "kurzhilfe": "Sprunghöhe einbeiniger CMJ rechts in cm. Ermöglicht Seitenvergleich.", "eingabehilfe": "Höhe in cm, z. B. 32.0", "einheit": "cm", "bereich": "Sinnvoll: 15 – 55 cm"},
-            "cmj_l":      {"label": "CMJ einbeinig links",   "ziel": "Einbeinige Explosivkraft links.", "kurzhilfe": "Sprunghöhe einbeiniger CMJ links in cm. Seitenasymmetrie > 10 % = trainingsrelevant.", "eingabehilfe": "Höhe in cm, z. B. 31.0", "einheit": "cm", "bereich": "Sinnvoll: 15 – 55 cm"},
+            "cmj_beid":   {"label": "CMJ beidbeinig",        "ziel": "Beidbeinige Explosivkraft.", "kurzhilfe": "Sprunghöhe Countermovement Jump beidbeinig in cm. Besten Versuch eintragen.", "eingabehilfe": "Höhe in cm, z. B. 42.0", "einheit": "cm", "bereich": "Sinnvoll: 20 – 70 cm", "bild_pfad": "assets/tests/jump/cmj_setup.svg"},
+            "cmj_r":      {"label": "CMJ einbeinig rechts",  "ziel": "Einbeinige Explosivkraft rechts.", "kurzhilfe": "Sprunghöhe einbeiniger CMJ rechts in cm. Ermöglicht Seitenvergleich.", "eingabehilfe": "Höhe in cm, z. B. 32.0", "einheit": "cm", "bereich": "Sinnvoll: 15 – 55 cm", "bild_pfad": "assets/tests/jump/cmj_einbein.svg"},
+            "cmj_l":      {"label": "CMJ einbeinig links",   "ziel": "Einbeinige Explosivkraft links.", "kurzhilfe": "Sprunghöhe einbeiniger CMJ links in cm. Seitenasymmetrie > 10 % = trainingsrelevant.", "eingabehilfe": "Höhe in cm, z. B. 31.0", "einheit": "cm", "bereich": "Sinnvoll: 15 – 55 cm", "bild_pfad": "assets/tests/jump/cmj_einbein.svg"},
             "squat_jump": {"label": "Squat Jump",            "ziel": "Konzentrische Explosivkraft ohne Vorspannung.", "kurzhilfe": "Sprunghöhe aus 90°-Kniebeugeposition ohne Gegenbewegung. Hände an Hüfte.", "eingabehilfe": "Höhe in cm, z. B. 38.0", "einheit": "cm", "bereich": "Sinnvoll: 18 – 65 cm", "bild_pfad": "assets/tests/jump/squat_jump.svg"},
             "dj_hoehe":   {"label": "Drop Jump Höhe",        "ziel": "Reaktivkraft — Absprunghöhe nach Drop.", "kurzhilfe": "Sprunghöhe nach Drop Jump (von Box fallen, sofort abspringen) in cm.", "eingabehilfe": "Höhe in cm, z. B. 35.0", "einheit": "cm", "bereich": "Sinnvoll: 15 – 55 cm", "bild_pfad": "assets/tests/jump/drop_jump.svg"},
             "dj_kontakt": {"label": "Drop Jump Kontaktzeit", "ziel": "Reaktivkraft — Bodenkontaktzeit soll minimal sein.", "kurzhilfe": "Bodenkontaktzeit beim Drop Jump in Sekunden. Kürzer = reaktiver. RSI = Höhe / Kontaktzeit.", "eingabehilfe": "Zeit in Sekunden, z. B. 0.18", "einheit": "s", "bereich": "Sinnvoll: 0.08 – 0.40 s", "bild_pfad": "assets/tests/jump/drop_jump.svg"},
@@ -390,6 +390,76 @@ TEST_HELP: dict[str, dict] = {
             "distanz":  {"label": "Erzielte Distanz", "ziel": "Gesamtlaufdistanz bis zum Testabbruch.", "kurzhilfe": "Gesamtlaufdistanz in Metern. Jede absolvierte Hin-und-Rück-Strecke = 40 m. Z. B. bei Stufe 15 = 920 m.", "eingabehilfe": "Distanz in Metern, z. B. 1200", "einheit": "m", "bereich": "Sinnvoll: 80 – 4000 m"},
             "hf_max":   {"label": "HF max (bpm)",     "ziel": "Belastungsintensität — maximale Herzfrequenz direkt nach Testende.", "kurzhilfe": "Maximale Herzfrequenz direkt nach Testabbruch in Schlägen pro Minute. Sofort messen (innerhalb 10 Sekunden).", "eingabehilfe": "Herzfrequenz in bpm, z. B. 192", "einheit": "bpm", "bereich": "Sinnvoll: 120 – 220 bpm"},
             "rpe":      {"label": "RPE (Borg 6–20)",   "ziel": "Subjektives Belastungsempfinden als ergänzende Information.", "kurzhilfe": "Borg-Skala: 6 = gar keine Anstrengung, 20 = maximale Anstrengung. Typisch nach Yo-Yo: 17–20.", "eingabehilfe": "Wert zwischen 6 und 20", "einheit": "Borg", "bereich": "6 bis 20"},
+        },
+    },
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # KRAFT
+    # ══════════════════════════════════════════════════════════════════════════
+    "kraft": {
+        "name": "Kraft-Diagnostik",
+        "kurzbeschreibung": "Bankdrücken (1RM direkt oder Epley-Schätzung) und Rumpfkraftausdauer ventral, lateral und dorsal.",
+        "ziel": (
+            "Erfassung der Maximalkraft des Oberkörpers (Bankdrücken) und der "
+            "Rumpfkraftausdauer in drei Ebenen. "
+            "Relative Kraft (1RM / Körpergewicht) ermöglicht den Vergleich zwischen Spielern. "
+            "Seitendifferenz lateral > 10 % und auffällige Ventral/Dorsal-Ratios gelten als trainingsrelevant."
+        ),
+        "material": "Hantelbank mit Langhantel und Scheiben, 2 Spotter, Matte, Liege oder Kasten für Biering-Sørensen, Fixiergurt, Stoppuhr.",
+        "aufbau": (
+            "Bankdrücken: Bank stabil aufstellen, Hantelablage prüfen, Gewichte mit Verschlüssen sichern. "
+            "Rumpftests: Matte auslegen. "
+            "Dorsal (Biering-Sørensen): Liege oder Kasten so vorbereiten, dass der Oberkörper frei über die Kante ragt "
+            "und die Beine fixiert werden können."
+        ),
+        "aufwaermung": (
+            "10 Minuten allgemeines Aufwärmen. "
+            "Bankdrücken: progressive Laststeigerung (leichtes Gewicht 8–10 WH, mittleres 4–6 WH). "
+            "Rumpftests: kurze Aktivierung, je 1 Probeposition ohne Zeitmessung."
+        ),
+        "durchfuehrung": (
+            "Bankdrücken direkt: Last schrittweise steigern bis zur maximalen Einzelwiederholung — nur mit Sicherung. "
+            "Bankdrücken Epley: Submaximalgewicht wählen, maximale saubere Wiederholungszahl (2–10) ausführen. "
+            "Ventral: Unterarmstütz halten, 2 Versuche. "
+            "Lateral: Seitstütz rechts und links je 1 Versuch. "
+            "Dorsal: Oberkörper frei über der Kante horizontal halten, Beine fixiert."
+        ),
+        "trainerhinweis": (
+            "Direkter 1RM-Test nur mit mindestens 2 Spottern und vollständigem Sicherheitsprotokoll. "
+            "Rumpftests enden bei Formverlust (Hüfte sackt ab, Oberkörper sinkt unter die Horizontale) — "
+            "Zeit bis zum ersten Formverlust werten. Keine Motivation über den Formverlust hinaus."
+        ),
+        "versuche": "Bankdrücken: 1 gültiger Maximalversuch bzw. 1 Submaximalsatz. Ventral: 2 Versuche (Bestwert). Lateral R/L und Dorsal: je 1 Versuch.",
+        "pause": "Bankdrücken: 3–5 Minuten zwischen Maximalversuchen. Rumpftests: 2–3 Minuten zwischen den Positionen.",
+        "messwert": "1RM in kg (direkt oder Epley-geschätzt), Haltedauer in Sekunden je Rumpfposition",
+        "einheit": "kg / s",
+        "gueltiger_versuch": "Bankdrücken: Hantel berührt Brust, vollständige Streckung, Gesäß bleibt auf der Bank. Rumpftests: korrekte Position bis zum Formverlust gehalten.",
+        "ungueltiger_versuch": "Bankdrücken: Abfedern, Gesäß hebt ab, unvollständige Streckung. Rumpftests: Position von Beginn an nicht korrekt eingenommen.",
+        "fehler": [
+            "Bankdrücken ohne Spotter — Sicherheitsrisiko, Test nicht durchführen",
+            "Epley-Formel mit > 10 Wiederholungen — Schätzung wird ungenau",
+            "Plank mit abgesackter oder überhöhter Hüfte — Zeit wird zu lang gewertet",
+            "Biering-Sørensen ohne Beckenkante an der Liegenkante — verfälscht die Hebelverhältnisse",
+        ],
+        "sicherheit": (
+            "Direkter 1RM-Test erfordert Sicherung durch mindestens 2 Trainer, abgeschlossenes Aufwärmen "
+            "und Technikbeherrschung. Bei Rückenbeschwerden dorsalen Test aussetzen. "
+            "Sofortabbruch bei Schmerzen oder technischen Mängeln."
+        ),
+        "bild_pfad": "assets/tests/kraft/bankdruecken.svg",
+        "quelle": "Epley (1985); Biering-Sørensen (1984); McGill et al. (1999)",
+        "version": "1.0",
+        "datum": "2026-07-29",
+        "video_lokal": None, "video_link": None, "video_titel": None, "video_quelle": None, "video_lizenz": None,
+        "felder": {
+            "direktes_1rm":         {"label": "Direktes 1RM",            "ziel": "Maximalkraft Oberkörper — direkt gemessen.", "kurzhilfe": "Höchstes sauber gedrücktes Gewicht in kg. Nur mit vollständigem Sicherheitsprotokoll.", "eingabehilfe": "Gewicht in kg, z. B. 80.0", "einheit": "kg", "bereich": "Sinnvoll: 20 – 200 kg", "bild_pfad": "assets/tests/kraft/bankdruecken.svg"},
+            "epley_gewicht":        {"label": "Epley Testgewicht",       "ziel": "Submaximalgewicht für die 1RM-Schätzung.", "kurzhilfe": "Gewicht des Submaximalsatzes in kg. Empfohlen: Last für 2–10 saubere Wiederholungen.", "eingabehilfe": "Gewicht in kg, z. B. 60.0", "einheit": "kg", "bereich": "Sinnvoll: 20 – 180 kg", "bild_pfad": "assets/tests/kraft/bankdruecken.svg"},
+            "epley_wiederholungen": {"label": "Epley Wiederholungen",    "ziel": "Wiederholungszahl für die Epley-Formel.", "kurzhilfe": "Maximale saubere Wiederholungen mit dem Testgewicht. 1RM = Gewicht × (1 + WH/30).", "eingabehilfe": "Anzahl, z. B. 5", "einheit": "WH", "bereich": "Gültig: 1 – 10 WH", "bild_pfad": "assets/tests/kraft/bankdruecken.svg"},
+            "ventral_sekunden":     {"label": "Ventral (Plank) V1",      "ziel": "Rumpfkraftausdauer der vorderen Kette.", "kurzhilfe": "Haltedauer Unterarmstütz Versuch 1 in Sekunden. Abbruch bei Formverlust.", "eingabehilfe": "Zeit in Sekunden, z. B. 90", "einheit": "s", "bereich": "Sinnvoll: 20 – 300 s", "bild_pfad": "assets/tests/kraft/plank_ventral.svg"},
+            "ventral_versuch2":     {"label": "Ventral (Plank) V2",      "ziel": "Zweiter Versuch — Bestwert zählt.", "kurzhilfe": "Haltedauer Unterarmstütz Versuch 2 in Sekunden. Der längere Versuch wird gewertet.", "eingabehilfe": "Zeit in Sekunden, z. B. 95", "einheit": "s", "bereich": "Sinnvoll: 20 – 300 s", "bild_pfad": "assets/tests/kraft/plank_ventral.svg"},
+            "lateral_rechts":       {"label": "Lateral rechts",          "ziel": "Seitliche Rumpfkraftausdauer rechts.", "kurzhilfe": "Haltedauer Seitstütz rechts in Sekunden. Ellbogen unter der Schulter, Füße gestapelt.", "eingabehilfe": "Zeit in Sekunden, z. B. 60", "einheit": "s", "bereich": "Sinnvoll: 15 – 240 s", "bild_pfad": "assets/tests/kraft/plank_lateral.svg"},
+            "lateral_links":        {"label": "Lateral links",           "ziel": "Seitliche Rumpfkraftausdauer links — Seitenvergleich.", "kurzhilfe": "Haltedauer Seitstütz links in Sekunden. Seitendifferenz > 10 % = trainingsrelevant.", "eingabehilfe": "Zeit in Sekunden, z. B. 55", "einheit": "s", "bereich": "Sinnvoll: 15 – 240 s", "bild_pfad": "assets/tests/kraft/plank_lateral.svg"},
+            "dorsal_sekunden":      {"label": "Dorsal (Biering-Sørensen)","ziel": "Rumpfkraftausdauer der hinteren Kette.", "kurzhilfe": "Haltedauer Biering-Sørensen in Sekunden. Oberkörper horizontal, Beine fixiert.", "eingabehilfe": "Zeit in Sekunden, z. B. 120", "einheit": "s", "bereich": "Sinnvoll: 30 – 300 s", "bild_pfad": "assets/tests/kraft/plank_dorsal.svg"},
         },
     },
 

@@ -176,7 +176,8 @@ def field_info_col(col, test_id: str, field_id: str) -> None:
             st.markdown(f"*{feld['ziel']}*")
             st.markdown("")
         # ── Übungs-SVG (wenn vorhanden, z. B. je FMS-Muster) ─────────────
-        bild = feld.get("bild_pfad")
+        # Fallback: Feld-Bild → Test-Hauptbild
+        bild = feld.get("bild_pfad") or TEST_HELP.get(test_id, {}).get("bild_pfad")
         if bild:
             bild_abs = os.path.join(_BASE, bild)
             if os.path.exists(bild_abs):

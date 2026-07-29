@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 200"
+     style="width:100%;max-width:360px;border-radius:8px;display:block;margin:0 auto"
+     role="img" aria-label="Unterarmstütz ventral: Körper in gerader Linie, Ellbogen unter den Schultern, Haltedauer wird gemessen">
+  <rect width="360" height="200" rx="8" fill="#161b22"/>
+  <text x="180" y="16" text-anchor="middle" fill="#c9d1d9" font-family="system-ui,sans-serif" font-size="12" font-weight="600">Rumpfkraft ventral — Unterarmstütz (Plank)</text>
+
+  <!-- Ground -->
+  <line x1="30" y1="150" x2="330" y2="150" stroke="#30363d" stroke-width="2"/>
+
+  <!-- Straight-line reference (dashed, from shoulder to ankle) -->
+  <line x1="92" y1="102" x2="292" y2="132" stroke="#3fb950" stroke-width="1.2" stroke-dasharray="5,4"/>
+  <text x="196" y="98" text-anchor="middle" fill="#3fb950" font-family="system-ui,sans-serif" font-size="9">Kopf–Hüfte–Ferse in einer Linie</text>
+
+  <!-- Head (left) -->
+  <circle cx="82" cy="100" r="8" fill="none" stroke="#58a6ff" stroke-width="2.5"/>
+  <!-- Torso -->
+  <line x1="90" y1="105" x2="190" y2="118" stroke="#58a6ff" stroke-width="3" stroke-linecap="round"/>
+  <!-- Upper arm down to elbow, forearm flat on ground -->
+  <line x1="102" y1="107" x2="106" y2="148" stroke="#58a6ff" stroke-width="3" stroke-linecap="round"/>
+  <line x1="106" y1="148" x2="140" y2="150" stroke="#58a6ff" stroke-width="3.5" stroke-linecap="round"/>
+  <!-- Elbow-under-shoulder marker -->
+  <line x1="103" y1="112" x2="105" y2="142" stroke="#d29922" stroke-width="1" stroke-dasharray="3,2"/>
+  <text x="122" y="168" text-anchor="middle" fill="#d29922" font-family="system-ui,sans-serif" font-size="8">Ellbogen unter Schulter</text>
+  <!-- Hip -->
+  <circle cx="190" cy="118" r="3" fill="#58a6ff"/>
+  <!-- Legs straight down to toes -->
+  <line x1="190" y1="118" x2="250" y2="126" stroke="#58a6ff" stroke-width="3" stroke-linecap="round"/>
+  <line x1="250" y1="126" x2="292" y2="132" stroke="#58a6ff" stroke-width="3" stroke-linecap="round"/>
+  <!-- Toes on ground -->
+  <line x1="292" y1="132" x2="298" y2="150" stroke="#58a6ff" stroke-width="3" stroke-linecap="round"/>
+
+  <!-- No-sag warning -->
+  <rect x="232" y="60" width="98" height="24" rx="4" fill="#3b0d0d" opacity="0.9"/>
+  <text x="281" y="71" text-anchor="middle" fill="#f85149" font-family="system-ui,sans-serif" font-size="9" font-weight="600">✕ Hüfte absacken</text>
+  <text x="281" y="80" text-anchor="middle" fill="#f85149" font-family="system-ui,sans-serif" font-size="8">= Testende</text>
+
+  <!-- Stopwatch -->
+  <circle cx="52" cy="52" r="13" fill="none" stroke="#8b949e" stroke-width="2"/>
+  <line x1="52" y1="52" x2="52" y2="44" stroke="#8b949e" stroke-width="2"/>
+  <line x1="52" y1="52" x2="58" y2="54" stroke="#8b949e" stroke-width="2"/>
+  <text x="75" y="50" fill="#8b949e" font-family="system-ui,sans-serif" font-size="9">Haltedauer</text>
+  <text x="75" y="60" fill="#8b949e" font-family="system-ui,sans-serif" font-size="9">[s]</text>
+
+  <!-- Footer -->
+  <rect x="10" y="182" width="340" height="14" rx="3" fill="#21262d" opacity="0.8"/>
+  <text x="180" y="192" text-anchor="middle" fill="#8b949e" font-family="system-ui,sans-serif" font-size="8">2 Versuche · Bestwert zählt · Abbruch bei Formverlust (Hüfte sackt ab oder steigt)</text>
+</svg>
