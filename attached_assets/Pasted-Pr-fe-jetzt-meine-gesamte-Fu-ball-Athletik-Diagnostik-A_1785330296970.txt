@@ -1,0 +1,731 @@
+Prüfe jetzt meine gesamte Fußball-Athletik-Diagnostik-App vollständig.
+
+Wichtig: Analysiere zuerst nur den aktuellen Projektstand. Ändere noch keinen produktiven Code.
+
+Ich möchte wissen, ob die App insgesamt sinnvoll, logisch, übersichtlich und fachlich nachvollziehbar aufgebaut ist.
+
+## Schutz des aktuellen Projektstands
+
+* Keine Dateien zurücksetzen.
+* Kein Git-Reset, Checkout, Revert oder Rollback.
+* Keine bestehenden Funktionen löschen.
+* Keine Datenbankänderungen durchführen.
+* Keine Formeln verändern.
+* Keine Dateien vollständig ersetzen.
+* Meine bisherigen Zwischenänderungen müssen erhalten bleiben.
+* Prüfe ausschließlich den aktuellen Stand.
+
+## 1. Gesamtstruktur der App
+
+Prüfe:
+
+* Ist die Menüstruktur logisch?
+* Findet ein Trainer die wichtigsten Funktionen schnell?
+* Gibt es doppelte oder unnötige Seiten?
+* Sind Bezeichnungen einheitlich?
+* Sind Spieler, Tests, Auswertungen und Berichte sinnvoll getrennt?
+* Ist klar, wo neue Tests durchgeführt werden?
+* Ist klar, wo alte Ergebnisse geöffnet werden?
+* Ist klar, wo PDF-Berichte und Testprotokolle erstellt werden?
+* Gibt es Funktionen, die vorhanden, aber nicht erreichbar sind?
+* Gibt es Menüpunkte ohne sinnvolle Funktion?
+
+Bewerte die Navigation aus Sicht eines Trainers, der die App zum ersten Mal benutzt.
+
+## 2. Sinnvoller Arbeitsablauf
+
+Prüfe, ob folgender Ablauf vollständig und logisch möglich ist:
+
+1. Spieler anlegen.
+2. Spielerdaten und anthropometrische Daten erfassen.
+3. Testtermin oder Testsession anlegen.
+4. Einzelne Tests auswählen.
+5. Testprotokoll leer oder mit Spielern ausdrucken.
+6. Tests auf dem Platz oder in der Halle durchführen.
+7. Werte später in die App eintragen.
+8. Trainerbeobachtungen ergänzen.
+9. Ergebnisse automatisch berechnen.
+10. Ergebnisse speichern.
+11. Frühere Ergebnisse öffnen.
+12. Entwicklungen vergleichen.
+13. PDF-Bericht erstellen.
+14. Trainingsempfehlungen anzeigen.
+
+Zeige für jeden Schritt:
+
+* vollständig möglich
+* teilweise möglich
+* nicht möglich
+* unklar
+* doppelt vorhanden
+
+## 3. Spielerprofile
+
+Prüfe:
+
+* Welche Profildaten gespeichert werden.
+* Ob Pflichtfelder sinnvoll gewählt sind.
+* Ob Name, Geburtsdatum, Geschlecht, Mannschaft, Position, Spielbein und Spieler-ID korrekt verwendet werden.
+* Ob anthropometrische Daten im Profil sinnvoll gespeichert werden.
+* Ob historische Messungen erhalten bleiben oder alte Werte überschrieben werden.
+* Ob Spieler bearbeitet und gelöscht werden können.
+* Ob ein versehentliches Löschen abgesichert ist.
+* Ob doppelte Spieler erkannt werden.
+* Ob Spieler korrekt mit Tests und Berichten verknüpft sind.
+
+Anthropometrische Werte wie Körpergröße und Gewicht müssen möglichst als Messverlauf mit Datum gespeichert werden und dürfen nicht einfach ältere Messungen ersetzen.
+
+## 4. Testauswahl und Testsystem
+
+Prüfe alle tatsächlich vorhandenen Tests.
+
+Insbesondere:
+
+* Anthropometrie
+* FMS
+* Y-Balance
+* Sprint
+* Sprungtests
+* Agility und Richtungswechsel
+* Ausdauer
+* Krafttests
+* weitere vorhandene Tests
+
+Erstelle eine Übersicht:
+
+| Testbereich | Test | Test-ID | Eingabe möglich | Speicherung | Auswertung | Verlauf | PDF | Status |
+| ----------- | ---- | ------- | --------------: | ----------: | ---------: | ------: | --: | ------ |
+
+Prüfe:
+
+* Sind Testnamen einheitlich?
+* Sind Test-IDs eindeutig?
+* Werden Einheiten korrekt angezeigt?
+* Sind rechts und links korrekt getrennt?
+* Sind mehrere Versuche möglich?
+* Wird der beste Versuch korrekt bestimmt?
+* Sind ungültige Versuche dokumentierbar?
+* Können Tests als nicht durchgeführt markiert werden?
+* Können einzelne Tests unabhängig ausgewählt werden?
+* Sind Eingabefelder passend zum jeweiligen Test?
+* Gibt es unnötige Eingaben?
+* Fehlen wichtige Eingaben?
+
+Erfinde keine neuen Tests.
+
+## 5. Anthropometrie
+
+Prüfe besonders:
+
+* Körpergröße
+* Körpergewicht
+* Sitzhöhe
+* Beinlänge
+* Armspannweite
+* weitere vorhandene Messungen
+
+Kontrolliere:
+
+* Einheit korrekt
+* Datum vorhanden
+* Messhistorie vorhanden
+* rechte und linke Beinlänge getrennt
+* Plausibilitätsprüfung
+* Eingabefehler wie 1450 cm statt 145 cm
+* automatische Berechnungen
+* BMI nur, wenn fachlich und altersgerecht sinnvoll dargestellt
+* keine unnötige medizinische Bewertung
+
+Prüfe, ob Wachstumsverläufe sinnvoll dargestellt werden können.
+
+## 6. FMS
+
+Prüfe alle sieben FMS-Bewegungsmuster:
+
+* Deep Squat
+* Hurdle Step
+* Inline Lunge
+* Shoulder Mobility
+* Active Straight Leg Raise
+* Trunk Stability Push-Up
+* Rotary Stability
+
+Kontrolliere:
+
+* Bewertung 0 bis 3
+* rechte und linke Seite
+* korrekte Ermittlung des niedrigeren Seitenwertes für den Gesamtwert
+* korrekter maximaler Gesamtwert von 21
+* Schmerzregel bei Wert 0
+* Seitenunterschiede
+* gespeicherte Einzelwerte
+* Trainerbeobachtungen
+* PDF-Ausgabe
+* Verlaufsauswertung
+
+Prüfe besonders, ob die App aus einem niedrigen FMS-Wert keine medizinische Diagnose oder garantierte Verletzungsvorhersage erstellt.
+
+## 7. Y-Balance
+
+Prüfe:
+
+* Anterior
+* Posteromedial
+* Posterolateral
+* rechts und links
+* drei Versuche
+* Bestwert
+* Beinlänge
+* normalisierte Reichweite
+* Composite Score
+* Seitendifferenzen
+* ungültige Versuche
+* Einheiten
+
+Prüfe alle Formeln direkt im Code.
+
+Zeige:
+
+* verwendete Formel
+* Datei
+* Funktion
+* verwendete Eingabewerte
+* Rundung
+* mögliche Fehler
+
+Kontrolliere besonders, ob Beinlänge und Reichweite in derselben Einheit verarbeitet werden.
+
+## 8. Sprinttests
+
+Prüfe alle vorhandenen Sprintdistanzen.
+
+Kontrolliere:
+
+* Zeitformat
+* mehrere Versuche
+* Bestzeit
+* ungültige Versuche
+* Startmethode
+* Messmethode
+* Einheit Sekunden
+* Vergleichbarkeit früherer Tests
+* altersgerechte Darstellung
+* Trainerbeobachtungen
+
+Prüfe, ob niedrigere Zeiten korrekt als bessere Leistung behandelt werden.
+
+## 9. Sprungtests
+
+Prüfe alle vorhandenen Sprungtests.
+
+Kontrolliere:
+
+* Sprunghöhe oder Sprungweite
+* mehrere Versuche
+* Bestwert
+* rechts und links
+* Landungsbeobachtungen
+* Einheiten
+* Berechnungen
+* Drop-Jump-Kennwerte, falls vorhanden
+* Reactive Strength Index, falls vorhanden
+
+Prüfe, ob höhere Werte korrekt als bessere Leistung gelten und ob Sonderfälle fachlich richtig behandelt werden.
+
+## 10. Richtungswechsel und Agility
+
+Prüfe alle vorhandenen Tests wie:
+
+* 505
+* 5-10-5 Shuttle
+* T-Test
+* Illinois-Test
+* weitere vorhandene Tests
+
+Kontrolliere:
+
+* Laufweg
+* Zeitmessung
+* mehrere Versuche
+* rechte und linke Wendeseite
+* Bestzeit
+* Seitenunterschied
+* Trainerbeobachtungen
+* korrekte Interpretation niedrigerer Zeiten
+
+## 11. Ausdauertests
+
+Prüfe alle vorhandenen Ausdauertests.
+
+Kontrolliere:
+
+* Teststufe
+* Laufstrecke
+* Gesamtstrecke
+* Abbruchgrund
+* Fehlversuche
+* Ergebnisberechnung
+* Eingabe und Speicherung
+* Vergleich mit früheren Tests
+* sinnvolle Darstellung
+
+Falls der Yo-Yo-Test vorhanden ist, prüfe, ob Level, Shuttle und Strecke korrekt zusammenpassen.
+
+## 12. Krafttests
+
+Prüfe alle vorhandenen Krafttests.
+
+Kontrolliere:
+
+* Wiederholungen
+* Haltezeit
+* Zusatzgewicht
+* Körpergewicht
+* rechts und links
+* Bewegungsqualität
+* Abbruch
+* mehrere Versuche
+* Bestwert
+* Einheiten
+* sinnvolle Auswertung
+
+Prüfe, ob Kraftwerte nicht ohne sinnvollen Bezug miteinander verglichen werden.
+
+## 13. Trainerbeobachtungen
+
+Prüfe das vollständige Beobachtungssystem.
+
+Kontrolliere:
+
+* zentrale Beobachtungsdatei
+* eindeutige Beobachtungs-IDs
+* Standardmodus
+* Expertenmodus
+* positive Beobachtungen
+* auffällige Beobachtungen
+* Seitenangabe
+* Ausprägung
+* Freitext
+* Widerspruchserkennung
+* automatische Textgenerierung
+* Speicherung
+* erneutes Laden
+* Bearbeitung
+* PDF-Ausgabe
+
+Prüfe, ob jede einzelne vorhandene Testübung passende Beobachtungen besitzt.
+
+Zeige Tests ohne Beobachtungssystem gesondert an.
+
+## 14. Bewertungen und Scores
+
+Prüfe alle Scores, Ampeln und Gesamtbewertungen.
+
+Für jede Bewertung zeige:
+
+* Name der Bewertung
+* verwendete Formel
+* Grenzwerte
+* Datenquelle
+* fachliche Bedeutung
+* ob höhere oder niedrigere Werte besser sind
+* ob Altersgruppen berücksichtigt werden
+* ob Geschlecht berücksichtigt wird
+* ob Position berücksichtigt wird
+* ob die Bewertung transparent erklärt wird
+
+Prüfe besonders den Athletik-Gesamtscore.
+
+Kontrolliere:
+
+* Welche Tests einfließen.
+* Wie stark jeder Test gewichtet wird.
+* Was passiert, wenn Tests fehlen.
+* Ob fehlende Tests fälschlich als schlechte Leistung bewertet werden.
+* Ob unterschiedliche Testbereiche sinnvoll vergleichbar gemacht werden.
+* Ob ein Score von 55/100 nachvollziehbar berechnet wird.
+* Ob der Score wissenschaftlich begründet oder nur eine interne Orientierung ist.
+
+Kennzeichne klar:
+
+* fachlich nachvollziehbar
+* technisch korrekt, aber fachlich nicht ausreichend begründet
+* unklar
+* fehlerhaft
+
+## 15. Risikoformulierungen
+
+Suche im gesamten Projekt nach Formulierungen wie:
+
+* hohes Risiko
+* Verletzungsrisiko
+* Athletikdefizit
+* auffällig
+* gefährlich
+* Sportfreigabe
+* verletzt
+* Diagnose
+* Therapie
+* behandlungsbedürftig
+
+Prüfe, ob die Formulierungen für eine Trainer-App angemessen sind.
+
+Vermeide Aussagen, die medizinische Sicherheit vortäuschen.
+
+Empfohlene neutrale Begriffe:
+
+* sportliche Auffälligkeit
+* beobachteter Trainingsschwerpunkt
+* Seitenunterschied
+* eingeschränkte Bewegungsqualität
+* erneute Überprüfung empfohlen
+* bei Beschwerden fachliche Abklärung empfohlen
+
+Zeige alle problematischen Texte mit Datei und Fundstelle.
+
+## 16. Trainingsempfehlungen
+
+Prüfe:
+
+* Wie Trainingsempfehlungen erzeugt werden.
+* Ob sie zum festgestellten Problem passen.
+* Ob sie testübergreifend doppelt erscheinen.
+* Ob Prioritäten sinnvoll gesetzt werden.
+* Ob Übungen altersgerecht sind.
+* Ob Trainingsumfang, Wiederholungen und Häufigkeit sinnvoll angegeben werden.
+* Ob zwischen Mobilität, Stabilität, Kraft, Schnelligkeit und Technik unterschieden wird.
+* Ob Beschwerden berücksichtigt werden.
+* Ob Empfehlungen zu allgemein sind.
+* Ob medizinische Behandlungen empfohlen werden.
+
+Prüfe auch, ob ein Spieler mit mehreren Auffälligkeiten zu viele Übungen gleichzeitig erhält.
+
+## 17. Entwicklungsverläufe
+
+Prüfe:
+
+* FMS-Entwicklung
+* Y-Balance-Entwicklung
+* Sprintentwicklung
+* Sprungentwicklung
+* Anthropometrie
+* Gesamtentwicklung
+
+Kontrolliere:
+
+* Datum korrekt sortiert
+* gleiche Tests werden miteinander verglichen
+* Einheiten stimmen überein
+* Diagramme sind verständlich
+* Verbesserungen werden korrekt erkannt
+* bei Zeitwerten ist eine niedrigere Zeit eine Verbesserung
+* bei Reichweiten und Sprüngen ist ein höherer Wert meist eine Verbesserung
+* fehlende Daten führen nicht zu falschen Linien oder Bewertungen
+* einzelne Ausreißer werden nicht überinterpretiert
+
+## 18. PDF-Ergebnisbericht
+
+Prüfe den normalen Ergebnisbericht.
+
+Kontrolliere:
+
+* Spielerinformationen
+* Testdatum
+* Testergebnisse
+* Einheiten
+* Seitenwerte
+* Bestwerte
+* Auswertungen
+* Trainerbeobachtungen
+* Trainingsschwerpunkte
+* Haftungshinweis
+* Seitenumbruch
+* Tabellen
+* Sonderzeichen
+* Umlaute
+* lange Texte
+* leere Bereiche
+
+Prüfe, ob alle Werte im PDF mit den gespeicherten App-Werten übereinstimmen.
+
+## 19. PDF-Testprotokoll
+
+Prüfe den neuen Bereich „Testprotokoll drucken“.
+
+Kontrolliere:
+
+* einzelne Tests auswählbar
+* mehrere Tests auswählbar
+* alle Tests auswählbar
+* leeres Protokoll
+* Protokoll mit Spielerprofilen
+* mehrere Spieler
+* Anthropometrie
+* FMS
+* Y-Balance
+* Sprint
+* Sprung
+* Agility
+* Ausdauer
+* Kraft
+* passende Eingabefelder
+* Versuch 1 bis 3
+* rechts und links
+* Bestwert
+* Trainerbeobachtungen
+* Test nicht durchgeführt
+* DIN A4
+* schwarz-weiß druckbar
+* Seitenzahlen
+* kein automatischer Bewertungsinhalt
+
+Prüfe, ob die Papierfelder genau zu den späteren Eingabefeldern in der App passen.
+
+## 20. Datenbank und Datenqualität
+
+Prüfe alle Tabellen und Beziehungen.
+
+Erstelle eine Übersicht:
+
+| Tabelle | Zweck | Primärschlüssel | Verknüpfungen | mögliche Probleme |
+| ------- | ----- | --------------- | ------------- | ----------------- |
+
+Kontrolliere:
+
+* doppelte Datensätze
+* fehlende Fremdschlüssel
+* verwaiste Testergebnisse
+* falsche Spielerzuordnung
+* fehlende Test-IDs
+* unterschiedliche Datumsformate
+* Text statt Zahlen
+* NULL-Werte
+* alte Tabellen
+* doppelte Tabellen
+* nicht mehr verwendete Spalten
+* gefährliche Löschfunktionen
+* fehlende Transaktionen
+* fehlende Backups
+* problematische Migrationen
+
+Führe keine Änderungen durch.
+
+## 21. Plausibilitätsprüfungen
+
+Prüfe, ob unrealistische Werte verhindert oder gekennzeichnet werden.
+
+Beispiele:
+
+* Körpergröße 1 cm oder 1500 cm
+* Gewicht 0 kg
+* Sprintzeit 0 Sekunden
+* FMS-Wert größer als 3
+* FMS-Gesamtwert größer als 21
+* negative Sprungweite
+* Y-Balance-Reichweite mit falscher Einheit
+* Beinlänge 0 cm
+* drei identische Datensätze durch mehrfaches Speichern
+* Datum in der Zukunft
+* Spieler ohne Namen
+
+Zeige fehlende Plausibilitätsprüfungen.
+
+## 22. Bedienung und Darstellung
+
+Prüfe die App am Computer und möglichst auch in einer schmalen mobilen Darstellung.
+
+Kontrolliere:
+
+* Lesbarkeit
+* Schriftgrößen
+* Abstände
+* Farben
+* Ampeln
+* Buttons
+* Tabellen
+* Dropdowns
+* Checkboxen
+* lange Spielernamen
+* Fehlermeldungen
+* Ladezeiten
+* doppelte Klicks
+* versehentliches Speichern
+* Rückmeldungen nach dem Speichern
+
+Bewerte jede Hauptseite mit:
+
+* sehr gut
+* gut
+* verbesserungswürdig
+* unübersichtlich
+* nicht funktionsfähig
+
+## 23. Technische Qualität
+
+Prüfe:
+
+* Projektstruktur
+* doppelte Funktionen
+* sehr große Dateien
+* wiederverwendbare Komponenten
+* feste Pfade
+* globale Variablen
+* Session-State
+* Datenbankverbindungen
+* Fehlerbehandlung
+* Logging
+* Tests
+* Abhängigkeiten
+* ungenutzte Imports
+* veraltete Dateien
+* Sicherheitsprobleme
+* geheime Schlüssel
+* unnötige Internetabhängigkeiten
+
+Prüfe auch, ob die App nach einem Neustart zuverlässig funktioniert.
+
+## 24. Echte Funktionstests
+
+Führe soweit möglich echte Tests mit Testdaten durch.
+
+Mindestens:
+
+1. Neuen Spieler anlegen.
+2. Spieler bearbeiten.
+3. Anthropometrie speichern.
+4. FMS vollständig speichern.
+5. Y-Balance mit drei Versuchen speichern.
+6. Sprinttest speichern.
+7. Sprungtest speichern.
+8. Trainerbeobachtungen speichern.
+9. Datensatz erneut öffnen.
+10. Datensatz bearbeiten.
+11. Entwicklung anzeigen.
+12. Ergebnis-PDF erstellen.
+13. Leeres Testprotokoll erstellen.
+14. Testprotokoll mit einem Spieler erstellen.
+15. Testprotokoll mit mehreren Spielern erstellen.
+16. Einzelnen Test auswählen.
+17. Mehrere Tests auswählen.
+18. App neu starten.
+19. Gespeicherte Daten erneut öffnen.
+20. Doppelspeicherung prüfen.
+
+Verändere dabei keine echten Spielerdaten. Verwende klar gekennzeichnete Testdatensätze und lösche sie nach der Prüfung nur, wenn dies sicher möglich ist.
+
+## Ergebnisbericht
+
+Erstelle anschließend einen verständlichen Prüfbericht.
+
+### A. Gesamteindruck
+
+Bewerte die App insgesamt von 1 bis 10 in den Bereichen:
+
+* fachlicher Sinn
+* Bedienbarkeit
+* technische Stabilität
+* Datenqualität
+* Testsystem
+* Auswertung
+* Berichte
+* Trainerbeobachtungen
+* Datenschutz und Sicherheit
+* Praxistauglichkeit
+
+Begründe jede Bewertung.
+
+### B. Was bereits gut funktioniert
+
+Liste alle sinnvollen und stabilen Funktionen auf.
+
+### C. Kritische Fehler
+
+Fehler, die:
+
+* falsche Ergebnisse erzeugen
+* Daten verlieren können
+* falsche Spielerzuordnungen verursachen
+* die App abstürzen lassen
+* irreführende Bewertungen erzeugen
+
+### D. Fachlich unklare Punkte
+
+Liste Berechnungen, Grenzwerte und Aussagen auf, deren fachliche Grundlage nicht klar ist.
+
+### E. Unnötige oder doppelte Funktionen
+
+Zeige Funktionen, Seiten oder Dateien, die möglicherweise zusammengeführt werden sollten.
+
+### F. Fehlende sinnvolle Funktionen
+
+Nenne nur Funktionen, die für den vorhandenen Arbeitsablauf wirklich sinnvoll wären.
+
+Unterscheide:
+
+* dringend notwendig
+* sinnvoll
+* optional
+
+### G. Prüfung pro Seite
+
+Erstelle eine Tabelle:
+
+| Seite | Zweck | funktioniert | sinnvoll | Probleme | Priorität |
+| ----- | ----- | -----------: | -------: | -------- | --------- |
+
+### H. Prüfung pro Test
+
+Erstelle eine Tabelle:
+
+| Test | Eingabe | Berechnung | Speicherung | Verlauf | PDF | Beobachtungen | Gesamtstatus |
+| ---- | ------: | ---------: | ----------: | ------: | --: | ------------: | ------------ |
+
+### I. Formeln und Grenzwerte
+
+Liste alle verwendeten Formeln und Grenzwerte mit Datei und Funktion auf.
+
+### J. Reparaturplan
+
+Erstelle einen Reparaturplan in dieser Reihenfolge:
+
+1. Kritische Berechnungsfehler
+2. Datenverlust und Datenbankprobleme
+3. Speichern und Laden
+4. Unlogische Bewertungen
+5. Fehlende Testfunktionen
+6. PDF-Probleme
+7. Bedienbarkeit
+8. Codequalität
+9. Optionale Verbesserungen
+
+Gib für jeden Punkt an:
+
+* Problem
+* betroffene Datei
+* vorgeschlagene Lösung
+* Risiko der Änderung
+* geschätzter Umfang: klein, mittel oder groß
+
+## Wichtig
+
+Führe nach der Analyse noch keine Reparaturen durch.
+
+Behaupte nicht, dass etwas funktioniert, nur weil eine Datei oder Funktion vorhanden ist.
+
+Prüfe immer:
+
+* technisch vorhanden
+* tatsächlich eingebunden
+* speicherbar
+* erneut ladbar
+* fachlich sinnvoll
+* im PDF nutzbar
+
+Beende den Bericht mit einer eindeutigen Einschätzung:
+
+* Ist die App bereits für den praktischen Einsatz geeignet?
+* Welche Fehler müssen vorher unbedingt behoben werden?
+* Welche Funktionen sind nur Verbesserungen?
+* Welche Teile sollten nicht verändert werden, weil sie bereits sinnvoll funktionieren?
+
+Beginne jetzt mit der vollständigen Prüfung des aktuellen Projektstands und ändere noch keinen produktiven Code.
