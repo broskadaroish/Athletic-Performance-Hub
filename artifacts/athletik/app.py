@@ -6851,17 +6851,17 @@ with st.sidebar:
 
     # ── Main navigation (mit Übersetzung) ────────────────────────────────────
     _NAV_TRANS = {
-        "🏠  Startseite":    {"de": "🏠  Startseite",      "en": "🏠  Dashboard"},
-        "👤  Spieler":       {"de": "👤  Spieler",          "en": "👤  Players"},
-        "🔬  Diagnostik":    {"de": "🔬  Diagnostik",       "en": "🔬  Diagnostics"},
-        "📅  Training":      {"de": "📅  Training",          "en": "📅  Training"},
-        "📈  Entwicklung":   {"de": "📈  Entwicklung",       "en": "📈  Development"},
-        "⚖️  Vergleich":     {"de": "⚖️  Vergleich",        "en": "⚖️  Comparison"},
-        "👥  Mannschaft":    {"de": "👥  Mannschaft",        "en": "👥  Team"},
-        "🖨️  Protokoll":     {"de": "🖨️  Protokoll",        "en": "🖨️  Protocol"},
-        "📄  Anleitungen":   {"de": "📄  Anleitungen",       "en": "📄  Instructions"},
-        "⚙️  Einstellungen": {"de": "⚙️  Einstellungen",   "en": "⚙️  Settings"},
-        "ℹ️  Über":          {"de": "ℹ️  Über",              "en": "ℹ️  About"},
+        "🏠  Startseite":    {"de": "🏠  Startseite",    "en": "🏠  Dashboard",    "tr": "🏠  Ana Sayfa",    "es": "🏠  Inicio",        "fr": "🏠  Accueil",       "pt": "🏠  Início",        "ru": "🏠  Главная"},
+        "👤  Spieler":       {"de": "👤  Spieler",        "en": "👤  Players",      "tr": "👤  Oyuncular",    "es": "👤  Jugadores",     "fr": "👤  Joueurs",       "pt": "👤  Jogadores",     "ru": "👤  Игроки"},
+        "🔬  Diagnostik":    {"de": "🔬  Diagnostik",     "en": "🔬  Diagnostics",  "tr": "🔬  Tanı",         "es": "🔬  Diagnóstico",   "fr": "🔬  Diagnostic",    "pt": "🔬  Diagnóstico",   "ru": "🔬  Диагностика"},
+        "📅  Training":      {"de": "📅  Training",       "en": "📅  Training",     "tr": "📅  Antrenman",    "es": "📅  Entrenamiento", "fr": "📅  Entraînement",  "pt": "📅  Treino",        "ru": "📅  Тренировка"},
+        "📈  Entwicklung":   {"de": "📈  Entwicklung",    "en": "📈  Development",  "tr": "📈  Gelişim",      "es": "📈  Desarrollo",    "fr": "📈  Développement", "pt": "📈  Desenvolvimento","ru": "📈  Развитие"},
+        "⚖️  Vergleich":     {"de": "⚖️  Vergleich",     "en": "⚖️  Comparison",   "tr": "⚖️  Karşılaştır", "es": "⚖️  Comparación",  "fr": "⚖️  Comparaison",   "pt": "⚖️  Comparação",    "ru": "⚖️  Сравнение"},
+        "👥  Mannschaft":    {"de": "👥  Mannschaft",     "en": "👥  Team",         "tr": "👥  Takım",        "es": "👥  Equipo",        "fr": "👥  Équipe",        "pt": "👥  Equipa",        "ru": "👥  Команда"},
+        "🖨️  Protokoll":     {"de": "🖨️  Protokoll",     "en": "🖨️  Protocol",     "tr": "🖨️  Protokol",    "es": "🖨️  Protocolo",    "fr": "🖨️  Protocole",     "pt": "🖨️  Protocolo",     "ru": "🖨️  Протокол"},
+        "📄  Anleitungen":   {"de": "📄  Anleitungen",    "en": "📄  Instructions", "tr": "📄  Talimatlar",   "es": "📄  Instrucciones", "fr": "📄  Instructions",   "pt": "📄  Instruções",    "ru": "📄  Инструкции"},
+        "⚙️  Einstellungen": {"de": "⚙️  Einstellungen", "en": "⚙️  Settings",     "tr": "⚙️  Ayarlar",     "es": "⚙️  Ajustes",      "fr": "⚙️  Paramètres",    "pt": "⚙️  Definições",    "ru": "⚙️  Настройки"},
+        "ℹ️  Über":          {"de": "ℹ️  Über",           "en": "ℹ️  About",        "tr": "ℹ️  Hakkında",    "es": "ℹ️  Acerca de",    "fr": "ℹ️  À propos",      "pt": "ℹ️  Sobre",         "ru": "ℹ️  О программе"},
     }
     _cur_lang = get_lang()
     section = st.radio(
