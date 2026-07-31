@@ -1,0 +1,99 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 375"
+     style="width:100%;max-width:480px;border-radius:8px;display:block;margin:0 auto"
+     role="img" aria-label="Beinlänge messen: ASIS bis Innenknöchel">
+  <rect width="480" height="375" rx="8" fill="#161b22"/>
+  <text x="240" y="22" text-anchor="middle" fill="#c9d1d9" font-family="system-ui,sans-serif" font-size="13" font-weight="600">Beinlänge — ASIS bis Innenknöchel</text>
+
+  <!-- ── Body outline (frontal view, simplified) ── -->
+
+  <!-- Torso -->
+  <path d="M192 62 Q180 64 176 82 L170 152 Q168 164 180 167 L190 167 L192 182 L196 182 L196 167 L206 167 L218 167 L222 182 L226 182 L226 167 L236 167 Q248 164 246 152 L240 82 Q236 64 224 62 Z"
+        fill="#21262d" stroke="#444c56" stroke-width="1.5"/>
+
+  <!-- Neck -->
+  <rect x="202" y="40" width="24" height="24" rx="4" fill="#21262d" stroke="#444c56" stroke-width="1.5"/>
+
+  <!-- Head -->
+  <ellipse cx="214" cy="28" rx="20" ry="18" fill="#21262d" stroke="#444c56" stroke-width="1.5"/>
+
+  <!-- Left arm -->
+  <path d="M176 82 Q158 92 154 132 Q152 150 158 157 Q162 160 166 152 L170 117 L176 82Z"
+        fill="#21262d" stroke="#444c56" stroke-width="1.5"/>
+
+  <!-- Right arm -->
+  <path d="M240 82 Q258 92 262 132 Q264 150 258 157 Q254 160 250 152 L246 117 L240 82Z"
+        fill="#21262d" stroke="#444c56" stroke-width="1.5"/>
+
+  <!-- Left thigh -->
+  <path d="M190 167 L184 242 Q182 250 188 252 L198 252 L200 250 L200 167Z"
+        fill="#21262d" stroke="#444c56" stroke-width="1.5"/>
+
+  <!-- Right thigh -->
+  <path d="M226 167 L232 242 Q234 250 228 252 L218 252 L216 250 L216 167Z"
+        fill="#21262d" stroke="#444c56" stroke-width="1.5"/>
+
+  <!-- Left lower leg -->
+  <path d="M188 252 L186 308 Q186 314 190 316 L198 316 L200 312 L200 252Z"
+        fill="#21262d" stroke="#444c56" stroke-width="1.5"/>
+
+  <!-- Right lower leg -->
+  <path d="M228 252 L230 308 Q230 314 226 316 L218 316 L216 312 L216 252Z"
+        fill="#21262d" stroke="#444c56" stroke-width="1.5"/>
+
+  <!-- Left foot -->
+  <path d="M186 314 Q182 318 176 320 L190 322 L200 318 L200 314Z"
+        fill="#21262d" stroke="#444c56" stroke-width="1.5"/>
+
+  <!-- Right foot -->
+  <path d="M230 314 Q234 318 240 320 L226 322 L216 318 L216 314Z"
+        fill="#21262d" stroke="#444c56" stroke-width="1.5"/>
+
+  <!-- ── ASIS marker (left side, at pelvis rim ~y=154) ── -->
+  <!-- Pelvis hint line -->
+  <line x1="165" y1="154" x2="196" y2="154" stroke="#58a6ff" stroke-width="1.5" stroke-dasharray="4,2" opacity="0.5"/>
+
+  <!-- ASIS dot (drawn after body, always on top) -->
+  <circle cx="182" cy="154" r="6" fill="#f78166" stroke="#c9d1d9" stroke-width="1.5"/>
+  <!-- ASIS leader line -->
+  <line x1="176" y1="154" x2="104" y2="140" stroke="#f78166" stroke-width="1" stroke-dasharray="3,2"/>
+  <text x="100" y="135" text-anchor="end" fill="#f78166" font-family="system-ui,sans-serif" font-size="11" font-weight="600">ASIS</text>
+  <text x="100" y="147" text-anchor="end" fill="#8b949e" font-family="system-ui,sans-serif" font-size="9">(Becken-</text>
+  <text x="100" y="157" text-anchor="end" fill="#8b949e" font-family="system-ui,sans-serif" font-size="9">vorsprung)</text>
+
+  <!-- ── Innenknöchel marker (left side, ~y=312) ── -->
+  <!-- Ankle dot (drawn after body, always on top) -->
+  <circle cx="192" cy="312" r="6" fill="#3fb950" stroke="#c9d1d9" stroke-width="1.5"/>
+  <!-- Ankle leader line — goes to the right to avoid overlap with info box on left -->
+  <line x1="198" y1="312" x2="268" y2="296" stroke="#3fb950" stroke-width="1" stroke-dasharray="3,2"/>
+  <text x="272" y="291" text-anchor="start" fill="#3fb950" font-family="system-ui,sans-serif" font-size="11" font-weight="600">Innenknöchel</text>
+
+  <!-- ── Measurement arrow (right side) ── -->
+  <defs>
+    <marker id="arr-up" markerWidth="8" markerHeight="6" refX="4" refY="3" orient="auto">
+      <polygon points="4 0, 8 6, 0 6" fill="#ffa657"/>
+    </marker>
+    <marker id="arr-dn" markerWidth="8" markerHeight="6" refX="4" refY="3" orient="auto">
+      <polygon points="4 6, 8 0, 0 0" fill="#ffa657"/>
+    </marker>
+  </defs>
+
+  <!-- Horizontal guide ticks -->
+  <line x1="200" y1="154" x2="358" y2="154" stroke="#ffa657" stroke-width="1" stroke-dasharray="4,3" opacity="0.55"/>
+  <line x1="198" y1="312" x2="358" y2="312" stroke="#ffa657" stroke-width="1" stroke-dasharray="4,3" opacity="0.55"/>
+
+  <!-- Vertical double-headed measurement arrow -->
+  <line x1="358" y1="160" x2="358" y2="306" stroke="#ffa657" stroke-width="2.5"
+        marker-start="url(#arr-up)" marker-end="url(#arr-dn)"/>
+
+  <!-- Measurement label -->
+  <rect x="366" y="217" width="92" height="32" rx="4" fill="#21262d"/>
+  <text x="412" y="231" text-anchor="middle" fill="#ffa657" font-family="system-ui,sans-serif" font-size="11" font-weight="700">Beinlänge</text>
+  <text x="412" y="244" text-anchor="middle" fill="#8b949e" font-family="system-ui,sans-serif" font-size="10">in cm</text>
+
+  <!-- ── Info box — placed BELOW the feet, well clear of ankle marker ── -->
+  <rect x="30" y="334" width="420" height="32" rx="5" fill="#21262d" opacity="0.95"/>
+  <circle cx="48" cy="344" r="4" fill="#ffa657"/>
+  <text x="58" y="348" fill="#c9d1d9" font-family="system-ui,sans-serif" font-size="10.5">Knie gestreckt —</text>
+  <circle cx="48" cy="358" r="4" fill="#ffa657"/>
+  <text x="58" y="362" fill="#c9d1d9" font-family="system-ui,sans-serif" font-size="10.5">Maßband von ASIS (Beckenvorsprung) bis Innenknöchel</text>
+</svg>
