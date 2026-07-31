@@ -164,3 +164,63 @@ class AnthropometrieErgebnis:
     @property
     def reife_farbe(self) -> str:
         return reifestatus_farbe(self.phv_offset)
+
+
+# ─── Hautfalten-Körperfett (Jackson & Pollock) ───────────────────────────────
+
+def _siri_bf(body_density: float) -> float:
+    """Siri (1956): Körperfett-% aus Körperdichte."""
+    if body_density <= 0:
+        return 0.0
+    return round((495.0 / body_density) - 450.0, 1)
+
+
+def koerperfett_jp7(
+    brust_mm: float, mittelachse_mm: float, trizeps_mm: float,
+    subskapular_mm: float, abdomen_mm: float, suprailiakal_mm: float,
+    oberschenkel_mm: float,
+    alter: float, geschlecht: str = "Männlich",
+) -> float:
+    """
+    Körperfett-% nach Jackson & Pollock 7-Punkt-Methode (1978).
+    Punkte: Brust, Mittelachse, Trizeps, Subskapular, Abdomen, Suprailiakal, Oberschenkel.
+    Gleichung → Körperdichte → Siri (1956).
+
+    ⚠️ Nur ein Orientierungswert für die Trainingssteuerung.
+    """
+    s = brust_mm + mittelachse_mm + trizeps_mm + subskapular_mm + abdomen_mm + suprailiakal_mm + oberschenkel_mm
+    if geschlecht == "Männlich":
+        bd = 1.112 - 0.00043499 * s + 0.00000055 * s ** 2 - 0.00028826 * alter
+    else:
+        bd = 1.0970 - 0.00046971 * s + 0.00000056 * s ** 2 - 0.00012828 * alter
+    return _siri_bf(bd)
+
+
+def koerperfett_jp11(
+    brust_mm: float, mittelachse_mm: float, trizeps_mm: float,
+    subskapular_mm: float, abdomen_mm: float, suprailiakal_mm: float,
+    oberschenkel_mm: float, bizeps_mm: float, wade_mm: float,
+    unterer_ruecken_mm: float, pektoral_mm: float,
+    alter: float, geschlecht: str = "Männlich",
+) -> float:
+    """
+    Körperfett-% nach Pařízkova (1977) — 11 Messpunkte (Logarithmen-Methode).
+    Punkte: Brust, Mittelachse, Trizeps, Subskapular, Abdomen, Suprailiakal,
+            Oberschenkel, Bizeps, Wadeninnenseite, unterer Rücken, Pektoral.
+    Formel: Männer: %KF = 11,7 × log₁₀(Σ) − 11,6
+            Frauen: %KF = 15,0 × log₁₀(Σ) − 12,6
+    Quelle: Pařízkova, J. (1977). Body fat and physical fitness. Martinus Nijhoff.
+
+    ⚠️ Nur ein Orientierungswert für die Trainingssteuerung.
+    """
+    import math
+    s = (brust_mm + mittelachse_mm + trizeps_mm + subskapular_mm + abdomen_mm
+         + suprailiakal_mm + oberschenkel_mm + bizeps_mm + wade_mm
+         + unterer_ruecken_mm + pektoral_mm)
+    if s <= 0:
+        return 0.0
+    if geschlecht == "Männlich":
+        kf = 11.7 * math.log10(s) - 11.6
+    else:
+        kf = 15.0 * math.log10(s) - 12.6
+    return round(max(kf, 0.0), 1)

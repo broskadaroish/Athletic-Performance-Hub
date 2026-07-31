@@ -28,8 +28,8 @@ from database import (
     berechne_alter, altersklasse_vorschlag,
     verletzung_speichern, verletzungen_laden, verletzung_loeschen,
     anthropometrie_speichern, anthropometrie_letzter, anthropometrie_history, anthropometrie_loeschen_letzten,
-    fms_speichern, fms_letzter, fms_history,
-    y_balance_speichern, y_balance_letzter, y_balance_history,
+    fms_speichern, fms_letzter, fms_history, fms_history_full,
+    y_balance_speichern, y_balance_letzter, y_balance_history, y_balance_history_full,
     trainingsplan_loeschen, trainingsplan_eintrag_speichern, trainingsplan_laden,
     sprint_speichern, sprint_letzter, sprint_history,
     sprung_speichern, sprung_letzter, sprung_history,
@@ -67,6 +67,7 @@ from safety_texts import (
 from anthropometrie import (
     bmi_berechnen, bmi_kategorie, phv_offset_berechnen,
     reifestatus_text, reifestatus_farbe, wachstum_berechnen,
+    koerperfett_jp7, koerperfett_jp11,
 )
 from sprint import SprintErgebnis
 from sprung import SprungErgebnis
@@ -952,120 +953,220 @@ def page_fms():
 
     spieler_id = auswahl["id"]
 
-    st.markdown("---")
-    st.markdown("### Testergebnisse eingeben")
-    st.caption("Bewertung: 3 = korrekt | 2 = mit Kompensation | 1 = nicht möglich | 0 = Schmerzen. ℹ️ Tooltip an jedem Feld für Details.")
+    tab_neu, tab_letzter, tab_verlauf = st.tabs(["📋 Neuer Test", "📂 Letzter Test", "📈 Verlauf"])
 
-    _fh = lambda fid: show_field_help("fms", fid)
+    # ── Tab 1: Neuer Test ─────────────────────────────────────────────────────
+    with tab_neu:
+        st.markdown("---")
+        st.markdown("### Testergebnisse eingeben")
+        st.caption("Bewertung: 3 = korrekt | 2 = mit Kompensation | 1 = nicht möglich | 0 = Schmerzen. ℹ️ Tooltip an jedem Feld für Details.")
 
-    def _fms_row(nr, label, key_l, key_r, fid):
-        """Eine FMS-Zeile: Testname | Links | Rechts — mit ℹ️-Info-Button und Asymmetrie-Badge."""
-        lbl_col, info_col = st.columns([8, 1])
-        lbl_col.markdown(f"**{nr} · {label}**")
-        field_info_col(info_col, "fms", fid)
-        _cl, _cr = st.columns(2)
-        l_val = _cl.number_input("Links",  0, 3, key=key_l, help=_fh(fid))
-        r_val = _cr.number_input("Rechts", 0, 3, key=key_r, help=_fh(fid))
-        norm_badge(l_val, "fms", fid, _cl)
-        norm_badge(r_val, "fms", fid, _cr)
-        asym_html = fms_asymmetrie_badge_html(l_val, r_val)
-        if asym_html:
-            st.markdown(asym_html, unsafe_allow_html=True)
-        return l_val, r_val
+        _fh = lambda fid: show_field_help("fms", fid)
 
-    # ── Test 1: Deep Squat (ein Gesamtscore) ─────────────────────────────────
-    ds_lbl, ds_info = st.columns([8, 1])
-    ds_lbl.markdown("**1 · Deep Squat** — ein Score (kein L/R)")
-    field_info_col(ds_info, "fms", "deep_squat")
-    _c1, _gap = st.columns([2, 4])
-    deep = _c1.number_input("Punkte", 0, 3, key="ds", help=_fh("deep_squat"))
-    norm_badge(deep, "fms", "deep_squat", _c1)
+        def _fms_row(nr, label, key_l, key_r, fid):
+            lbl_col, info_col = st.columns([8, 1])
+            lbl_col.markdown(f"**{nr} · {label}**")
+            field_info_col(info_col, "fms", fid)
+            _cl, _cr = st.columns(2)
+            l_val = _cl.number_input("Links",  0, 3, key=key_l, help=_fh(fid))
+            r_val = _cr.number_input("Rechts", 0, 3, key=key_r, help=_fh(fid))
+            norm_badge(l_val, "fms", fid, _cl)
+            norm_badge(r_val, "fms", fid, _cr)
+            asym_html = fms_asymmetrie_badge_html(l_val, r_val)
+            if asym_html:
+                st.markdown(asym_html, unsafe_allow_html=True)
+            return l_val, r_val
 
-    st.markdown("---")
-    st.markdown("*Bilateral: niedrigerer Seitenwert zählt für den Gesamtscore*")
-    # ── Test 2: Hurdle Step ───────────────────────────────────────────────────
-    hurdle_l, hurdle_r     = _fms_row(2, "Hurdle Step",       "hl",  "hr",  "hurdle_step")
-    # ── Test 3: Inline Lunge ─────────────────────────────────────────────────
-    inline_l, inline_r     = _fms_row(3, "Inline Lunge",      "il",  "ir",  "inline_lunge")
-    # ── Test 4: Shoulder Mobility ────────────────────────────────────────────
-    shoulder_l, shoulder_r = _fms_row(4, "Shoulder Mobility", "shl", "shr", "shoulder")
-    # ── Test 5: ASLR ─────────────────────────────────────────────────────────
-    aslr_l, aslr_r         = _fms_row(5, "ASLR",              "al",  "ar",  "aslr")
-
-    st.markdown("---")
-    # ── Test 6: Trunk Stability Push-up (ein Gesamtscore) ────────────────────
-    ts_lbl, ts_info = st.columns([8, 1])
-    ts_lbl.markdown("**6 · Trunk Stability Push-up** — ein Score (kein L/R)")
-    field_info_col(ts_info, "fms", "trunk_stability")
-    _c6, _gap6 = st.columns([2, 4])
-    trunk = _c6.number_input("Punkte", 0, 3, key="ts", help=_fh("trunk_stability"))
-    norm_badge(trunk, "fms", "trunk_stability", _c6)
-
-    st.markdown("---")
-    st.markdown("*Bilateral: niedrigerer Seitenwert zählt für den Gesamtscore*")
-    # ── Test 7: Rotary Stability ──────────────────────────────────────────────
-    rotary_l, rotary_r     = _fms_row(7, "Rotary Stability",  "rl",  "rr",  "rotary_stability")
-
-    # ── Trainerbeobachtungen ──────────────────────────────────────────────────
-    st.markdown("---")
-    obs_fms = render_observation_selector("fms", spieler_id, date.today().strftime("%d.%m.%Y"), "fms", standalone=False)
-    _dup_fms = _duplikat_check("fms", str(date.today()), fms_history(spieler_id))
-
-    if st.button("✅ FMS speichern & auswerten", use_container_width=False):
-        if _dup_fms == "abbrechen":
-            st.info("Kein Test gespeichert."); st.stop()
-        import json as _j, datetime as _dtm
-        _datum_fms = str(date.today())
-        if _dup_fms == "zweiter":
-            _datum_fms += " (" + _dtm.datetime.now().strftime("%H:%M") + ")"
-        result = FMSResult(
-            deep_squat=deep, hurdle_l=hurdle_l, hurdle_r=hurdle_r,
-            inline_l=inline_l, inline_r=inline_r,
-            shoulder_l=shoulder_l, shoulder_r=shoulder_r,
-            aslr_l=aslr_l, aslr_r=aslr_r, trunk=trunk,
-            rotary_l=rotary_l, rotary_r=rotary_r,
-        )
-        fms_speichern(
-            spieler_id, _datum_fms,
-            deep, hurdle_l, hurdle_r, inline_l, inline_r,
-            shoulder_l, shoulder_r, aslr_l, aslr_r, trunk, rotary_l, rotary_r,
-            result.score, result.bewertung, result.asymmetrie, result.schwerpunkt,
-        )
-        if obs_fms["beob_ids"] or obs_fms.get("freitext"):
-            beobachtung_speichern(
-                spieler_id, "fms", _datum_fms,
-                _j.dumps(obs_fms["beob_ids"], ensure_ascii=False),
-                obs_fms["seite"], obs_fms["auspraegung"],
-                obs_fms["freitext"], obs_fms["text_generiert"],
-            )
-        st.success("✅ FMS Test gespeichert!")
+        ds_lbl, ds_info = st.columns([8, 1])
+        ds_lbl.markdown("**1 · Deep Squat** — ein Score (kein L/R)")
+        field_info_col(ds_info, "fms", "deep_squat")
+        _c1, _gap = st.columns([2, 4])
+        deep = _c1.number_input("Punkte", 0, 3, key="ds", help=_fh("deep_squat"))
+        norm_badge(deep, "fms", "deep_squat", _c1)
 
         st.markdown("---")
-        st.markdown("### Ergebnis")
-        m1, m2, m3 = st.columns(3)
-        m1.metric("Gesamtscore", f"{result.score} / 21")
-        m2.metric("Bewertung", result.bewertung)
-        m3.metric("Risikostufe", result.risiko_level.capitalize())
+        st.markdown("*Bilateral: niedrigerer Seitenwert zählt für den Gesamtscore*")
+        hurdle_l, hurdle_r     = _fms_row(2, "Hurdle Step",       "hl",  "hr",  "hurdle_step")
+        inline_l, inline_r     = _fms_row(3, "Inline Lunge",      "il",  "ir",  "inline_lunge")
+        shoulder_l, shoulder_r = _fms_row(4, "Shoulder Mobility", "shl", "shr", "shoulder")
+        aslr_l, aslr_r         = _fms_row(5, "ASLR",              "al",  "ar",  "aslr")
 
-        st.markdown("#### Pattern-Scores")
-        for name, val in result.pattern_scores.items():
-            col = _color_for_score(val, 3)
-            st.markdown(f"**{name}** — {val}/3 {_progress_html(val, 3, col)}", unsafe_allow_html=True)
+        st.markdown("---")
+        ts_lbl, ts_info = st.columns([8, 1])
+        ts_lbl.markdown("**6 · Trunk Stability Push-up** — ein Score (kein L/R)")
+        field_info_col(ts_info, "fms", "trunk_stability")
+        _c6, _gap6 = st.columns([2, 4])
+        trunk = _c6.number_input("Punkte", 0, 3, key="ts", help=_fh("trunk_stability"))
+        norm_badge(trunk, "fms", "trunk_stability", _c6)
 
-        st.info(f"**Trainingsschwerpunkt:** {result.schwerpunkt}")
-        if result.asymmetrie != "Keine Asymmetrie":
-            st.warning(f"⚠️ {result.asymmetrie}")
+        st.markdown("---")
+        st.markdown("*Bilateral: niedrigerer Seitenwert zählt für den Gesamtscore*")
+        rotary_l, rotary_r     = _fms_row(7, "Rotary Stability",  "rl",  "rr",  "rotary_stability")
 
-    # ── Previous test
-    last = fms_letzter(spieler_id)
-    if last:
-        with st.expander("📂 Letzter gespeicherter Test anzeigen"):
-            l1, l2, l3 = st.columns(3)
-            l1.metric("Score", f"{last['score']} / 21")
-            l2.metric("Bewertung", last["bewertung"])
-            l3.metric("Datum", last["datum"])
-            st.write("**Asymmetrie:**", last["asymmetrie"])
-            st.write("**Schwerpunkt:**", last["schwerpunkt"])
+        st.markdown("---")
+        obs_fms = render_observation_selector("fms", spieler_id, date.today().strftime("%d.%m.%Y"), "fms", standalone=False)
+        _dup_fms = _duplikat_check("fms", str(date.today()), fms_history(spieler_id))
+
+        if st.button("✅ FMS speichern & auswerten", use_container_width=False):
+            if _dup_fms == "abbrechen":
+                st.info("Kein Test gespeichert."); st.stop()
+            import json as _j, datetime as _dtm
+            _datum_fms = str(date.today())
+            if _dup_fms == "zweiter":
+                _datum_fms += " (" + _dtm.datetime.now().strftime("%H:%M") + ")"
+            result = FMSResult(
+                deep_squat=deep, hurdle_l=hurdle_l, hurdle_r=hurdle_r,
+                inline_l=inline_l, inline_r=inline_r,
+                shoulder_l=shoulder_l, shoulder_r=shoulder_r,
+                aslr_l=aslr_l, aslr_r=aslr_r, trunk=trunk,
+                rotary_l=rotary_l, rotary_r=rotary_r,
+            )
+            fms_speichern(
+                spieler_id, _datum_fms,
+                deep, hurdle_l, hurdle_r, inline_l, inline_r,
+                shoulder_l, shoulder_r, aslr_l, aslr_r, trunk, rotary_l, rotary_r,
+                result.score, result.bewertung, result.asymmetrie, result.schwerpunkt,
+            )
+            if obs_fms["beob_ids"] or obs_fms.get("freitext"):
+                beobachtung_speichern(
+                    spieler_id, "fms", _datum_fms,
+                    _j.dumps(obs_fms["beob_ids"], ensure_ascii=False),
+                    obs_fms["seite"], obs_fms["auspraegung"],
+                    obs_fms["freitext"], obs_fms["text_generiert"],
+                )
+            st.success("✅ FMS Test gespeichert!")
+            st.markdown("---")
+            st.markdown("### Ergebnis")
+            m1, m2, m3 = st.columns(3)
+            m1.metric("Gesamtscore", f"{result.score} / 21")
+            m2.metric("Bewertung", result.bewertung)
+            m3.metric("Risikostufe", result.risiko_level.capitalize())
+            st.markdown("#### Pattern-Scores")
+            for name, val in result.pattern_scores.items():
+                col = _color_for_score(val, 3)
+                st.markdown(f"**{name}** — {val}/3 {_progress_html(val, 3, col)}", unsafe_allow_html=True)
+            st.info(f"**Trainingsschwerpunkt:** {result.schwerpunkt}")
+            if result.asymmetrie != "Keine Asymmetrie":
+                st.warning(f"⚠️ {result.asymmetrie}")
+
+    # ── Tab 2: Letzter Test — alle 13 Einzelbewertungen ──────────────────────
+    with tab_letzter:
+        last = fms_letzter(spieler_id)
+        if not last:
+            st.info("Noch kein FMS-Test gespeichert.")
+        else:
+            lm1, lm2, lm3 = st.columns(3)
+            lm1.metric("Gesamtscore", f"{last.get('score', 0)} / 21")
+            lm2.metric("Bewertung",   last.get("bewertung", "—"))
+            lm3.metric("Datum",       last.get("datum", "—"))
+            st.markdown("---")
+            st.markdown("#### Einzelbewertungen")
+            _SC = {3: "#3fb950", 2: "#d29922", 1: "#f0883e", 0: "#f85149"}
+            _FMS_EINZEL = [
+                ("1 · Deep Squat",          last.get("deep_squat"),    None),
+                ("2 · Hurdle Step",          last.get("hurdle_links"),  last.get("hurdle_rechts")),
+                ("3 · Inline Lunge",         last.get("inline_links"),  last.get("inline_rechts")),
+                ("4 · Shoulder Mobility",    last.get("shoulder_links"),last.get("shoulder_rechts")),
+                ("5 · ASLR",                 last.get("aslr_links"),    last.get("aslr_rechts")),
+                ("6 · Trunk Stability",      last.get("trunk"),         None),
+                ("7 · Rotary Stability",     last.get("rotary_links"),  last.get("rotary_rechts")),
+            ]
+            for tname, lv, rv in _FMS_EINZEL:
+                ca, cb, cc, cd = st.columns([3, 1, 1, 1])
+                ca.markdown(f"**{tname}**")
+                if rv is None:
+                    v = int(lv or 0)
+                    cb.markdown(f'<span style="color:{_SC.get(v,"#8b949e")};font-weight:700;font-size:1.15em">{v}</span> / 3', unsafe_allow_html=True)
+                else:
+                    lval = int(lv or 0); rval = int(rv or 0)
+                    cb.markdown(f'L: <span style="color:{_SC.get(lval,"#8b949e")};font-weight:700">{lval}</span>/3', unsafe_allow_html=True)
+                    cc.markdown(f'R: <span style="color:{_SC.get(rval,"#8b949e")};font-weight:700">{rval}</span>/3', unsafe_allow_html=True)
+                    if lval != rval:
+                        cd.markdown("⚠️ Asymm.")
+            st.markdown("---")
+            st.write("**Asymmetrie:**", last.get("asymmetrie") or "—")
+            st.write("**Trainingsschwerpunkt:**", last.get("schwerpunkt") or "—")
+
+    # ── Tab 3: Verlauf ────────────────────────────────────────────────────────
+    with tab_verlauf:
+        hist_full = fms_history_full(spieler_id)
+        if not hist_full:
+            st.info("Noch keine FMS-Tests vorhanden.")
+        else:
+            df_fms = pd.DataFrame([{
+                "Datum":       r["datum"],
+                "Deep Squat":  int(r.get("deep_squat") or 0),
+                "Hurdle L":    int(r.get("hurdle_links") or 0),
+                "Hurdle R":    int(r.get("hurdle_rechts") or 0),
+                "Inline L":    int(r.get("inline_links") or 0),
+                "Inline R":    int(r.get("inline_rechts") or 0),
+                "Shoulder L":  int(r.get("shoulder_links") or 0),
+                "Shoulder R":  int(r.get("shoulder_rechts") or 0),
+                "ASLR L":      int(r.get("aslr_links") or 0),
+                "ASLR R":      int(r.get("aslr_rechts") or 0),
+                "Trunk":       int(r.get("trunk") or 0),
+                "Rotary L":    int(r.get("rotary_links") or 0),
+                "Rotary R":    int(r.get("rotary_rechts") or 0),
+                "Gesamtscore": int(r.get("score") or 0),
+                "Bewertung":   r.get("bewertung") or "—",
+            } for r in hist_full])
+
+            # Gesamtscore-Kurve
+            fig_score = go.Figure()
+            fig_score.add_trace(go.Scatter(
+                x=df_fms["Datum"], y=df_fms["Gesamtscore"],
+                mode="lines+markers+text", text=df_fms["Gesamtscore"],
+                textposition="top center",
+                line=dict(color="#3b82f6", width=3), marker=dict(size=9),
+            ))
+            fig_score.add_hline(y=14, line_dash="dash", line_color="#d29922",
+                                annotation_text="Schwellenwert 14")
+            fig_score.update_layout(**_pl(height=280, title="FMS Gesamtscore"))
+            st.plotly_chart(fig_score, use_container_width=True)
+
+            # Einzelwerte-Verlauf
+            with st.expander("📊 Einzelwerte-Verlauf anzeigen"):
+                _ecolors = ["#3b82f6","#3fb950","#56d364","#d29922","#e3b341",
+                            "#f85149","#ff7b72","#58a6ff","#79c0ff","#a371f7","#f0883e","#ffa657"]
+                _ecols   = ["Deep Squat","Hurdle L","Hurdle R","Inline L","Inline R",
+                            "Shoulder L","Shoulder R","ASLR L","ASLR R","Trunk","Rotary L","Rotary R"]
+                fig_e = go.Figure()
+                for col_n, clr in zip(_ecols, _ecolors):
+                    fig_e.add_trace(go.Scatter(
+                        x=df_fms["Datum"], y=df_fms[col_n],
+                        mode="lines+markers", name=col_n,
+                        line=dict(color=clr, width=2),
+                    ))
+                fig_e.update_layout(**_pl(height=350, title="FMS Einzelbewertungen"))
+                st.plotly_chart(fig_e, use_container_width=True)
+
+            # Zwei Testtermine vergleichen
+            daten = df_fms["Datum"].tolist()
+            if len(daten) >= 2:
+                with st.expander("⚖️ Zwei Testtermine vergleichen"):
+                    vc1, vc2 = st.columns(2)
+                    d_alt = vc1.selectbox("Älterer Termin", daten, index=0, key="fms_vgl_alt")
+                    d_neu = vc2.selectbox("Neuerer Termin", daten, index=len(daten)-1, key="fms_vgl_neu")
+                    if d_alt != d_neu:
+                        r_alt = df_fms[df_fms["Datum"] == d_alt].iloc[0]
+                        r_neu = df_fms[df_fms["Datum"] == d_neu].iloc[0]
+                        _vcols = ["Deep Squat","Hurdle L","Hurdle R","Inline L","Inline R",
+                                  "Shoulder L","Shoulder R","ASLR L","ASLR R","Trunk","Rotary L","Rotary R","Gesamtscore"]
+                        vgl_rows = []
+                        for c in _vcols:
+                            v1 = int(r_alt[c]); v2 = int(r_neu[c]); delta = v2 - v1
+                            vgl_rows.append({"Merkmal": c, d_alt: v1, d_neu: v2,
+                                             "Δ": f"+{delta}" if delta > 0 else str(delta)})
+                        st.dataframe(pd.DataFrame(vgl_rows), use_container_width=True, hide_index=True)
+                    else:
+                        st.info("Bitte zwei verschiedene Testtermine auswählen.")
+
+            # Volltabelle
+            st.markdown("---")
+            st.markdown("##### Alle Tests")
+            show_cols = ["Datum","Deep Squat","Hurdle L","Hurdle R","Inline L","Inline R",
+                         "Shoulder L","Shoulder R","ASLR L","ASLR R","Trunk","Rotary L","Rotary R","Gesamtscore","Bewertung"]
+            st.dataframe(df_fms[show_cols], use_container_width=True, hide_index=True)
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -1084,129 +1185,216 @@ def page_ybalance():
         return
 
     spieler_id = auswahl["id"]
-    st.markdown("---")
 
-    _fh = lambda fid: show_field_help("y_balance", fid)
-    col1, col2 = st.columns(2)
-    br_h, br_i = col1.columns([5, 1]); br_h.markdown("**Beinlänge Rechts (cm) \\***"); field_info_col(br_i, "y_balance", "beinlaenge")
-    bein_r = col1.number_input("Beinlänge Rechts (cm) *", min_value=1.0, value=90.0, step=0.5,
-                                label_visibility="collapsed", help=_fh("beinlaenge"))
-    bl_h, bl_i = col2.columns([5, 1]); bl_h.markdown("**Beinlänge Links (cm) \\***"); field_info_col(bl_i, "y_balance", "beinlaenge")
-    bein_l = col2.number_input("Beinlänge Links (cm) *",  min_value=1.0, value=90.0, step=0.5,
-                                label_visibility="collapsed", help=_fh("beinlaenge"))
+    tab_neu, tab_letzter, tab_verlauf = st.tabs(["📋 Neuer Test", "📂 Letzter Test", "📈 Verlauf"])
 
-    st.markdown("#### Reichweiten (cm)")
-    ch1, ch2 = st.columns(2)
-    ch1.markdown("**Rechte Seite**")
-    ch2.markdown("**Linke Seite**")
-    ar_h, ar_i = ch1.columns([5, 1]); ar_h.markdown("**Anterior R (cm)**"); field_info_col(ar_i, "y_balance", "anterior")
-    ant_r  = ch1.number_input("Anterior R",       0.0, 200.0, 0.0, step=0.5, key="antr", label_visibility="collapsed", help=_fh("anterior"))
-    al_h, al_i = ch2.columns([5, 1]); al_h.markdown("**Anterior L (cm)**"); field_info_col(al_i, "y_balance", "anterior")
-    ant_l  = ch2.number_input("Anterior L",       0.0, 200.0, 0.0, step=0.5, key="antl", label_visibility="collapsed", help=_fh("anterior"))
-    pmr_h, pmr_i = ch1.columns([5, 1]); pmr_h.markdown("**Posteromedial R (cm)**"); field_info_col(pmr_i, "y_balance", "posteromedial")
-    pm_r   = ch1.number_input("Posteromedial R",  0.0, 200.0, 0.0, step=0.5, key="pmr",  label_visibility="collapsed", help=_fh("posteromedial"))
-    pml_h, pml_i = ch2.columns([5, 1]); pml_h.markdown("**Posteromedial L (cm)**"); field_info_col(pml_i, "y_balance", "posteromedial")
-    pm_l   = ch2.number_input("Posteromedial L",  0.0, 200.0, 0.0, step=0.5, key="pml",  label_visibility="collapsed", help=_fh("posteromedial"))
-    plr_h, plr_i = ch1.columns([5, 1]); plr_h.markdown("**Posterolateral R (cm)**"); field_info_col(plr_i, "y_balance", "posterolateral")
-    pl_r   = ch1.number_input("Posterolateral R", 0.0, 200.0, 0.0, step=0.5, key="plr",  label_visibility="collapsed", help=_fh("posterolateral"))
-    pll_h, pll_i = ch2.columns([5, 1]); pll_h.markdown("**Posterolateral L (cm)**"); field_info_col(pll_i, "y_balance", "posterolateral")
-    pl_l   = ch2.number_input("Posterolateral L", 0.0, 200.0, 0.0, step=0.5, key="pll",  label_visibility="collapsed", help=_fh("posterolateral"))
+    # ── Tab 1: Neuer Test ─────────────────────────────────────────────────────
+    with tab_neu:
+        st.markdown("---")
+        _fh = lambda fid: show_field_help("y_balance", fid)
+        col1, col2 = st.columns(2)
+        br_h, br_i = col1.columns([5, 1]); br_h.markdown("**Beinlänge Rechts (cm) \\***"); field_info_col(br_i, "y_balance", "beinlaenge")
+        bein_r = col1.number_input("Beinlänge Rechts (cm) *", min_value=1.0, value=90.0, step=0.5,
+                                    label_visibility="collapsed", help=_fh("beinlaenge"))
+        bl_h, bl_i = col2.columns([5, 1]); bl_h.markdown("**Beinlänge Links (cm) \\***"); field_info_col(bl_i, "y_balance", "beinlaenge")
+        bein_l = col2.number_input("Beinlänge Links (cm) *",  min_value=1.0, value=90.0, step=0.5,
+                                    label_visibility="collapsed", help=_fh("beinlaenge"))
 
-    # ── Trainerbeobachtungen ──────────────────────────────────────────────────
-    st.markdown("---")
-    obs_yb = render_observation_selector("y_balance", spieler_id, date.today().strftime("%d.%m.%Y"), "yb", standalone=False)
-    _dup_yb = _duplikat_check("yb", str(date.today()), y_balance_history(spieler_id))
-
-    # ── Plausibilitätsprüfung ──────────────────────────────────────────────
-    _yb_warns = []
-    if bein_r > 0:
-        for _val, _lbl in [(ant_r, "Anterior R"), (pm_r, "Posteromedial R"), (pl_r, "Posterolateral R")]:
-            if _val > bein_r * 1.3:
-                _yb_warns.append(f"{_lbl} ({_val:.1f} cm > 130 % Beinlänge R)")
-    if bein_l > 0:
-        for _val, _lbl in [(ant_l, "Anterior L"), (pm_l, "Posteromedial L"), (pl_l, "Posterolateral L")]:
-            if _val > bein_l * 1.3:
-                _yb_warns.append(f"{_lbl} ({_val:.1f} cm > 130 % Beinlänge L)")
-    if bein_r > 0 and bein_l > 0 and abs(bein_r - bein_l) > 5:
-        _yb_warns.append(f"Beinlängendifferenz R/L: {abs(bein_r - bein_l):.1f} cm — bitte prüfen")
-    if _yb_warns:
-        st.warning(
-            "⚠️ Ungewöhnliche Werte — bitte Eingaben prüfen (Speichern trotzdem möglich):\n"
-            + "\n".join(f"• {w}" for w in _yb_warns)
-        )
-
-    if st.button("💾 Y-Balance berechnen & speichern"):
-        if _dup_yb == "abbrechen":
-            st.info("Kein Test gespeichert."); st.stop()
-        import json as _j, datetime as _dtm
-        _datum_yb = str(date.today())
-        if _dup_yb == "zweiter":
-            _datum_yb += " (" + _dtm.datetime.now().strftime("%H:%M") + ")"
-        res = YBalanceResult(
-            anterior_r=ant_r, anterior_l=ant_l,
-            posteromedial_r=pm_r, posteromedial_l=pm_l,
-            posterolateral_r=pl_r, posterolateral_l=pl_l,
-            beinlaenge_r=bein_r, beinlaenge_l=bein_l,
-        )
-        y_balance_speichern(
-            spieler_id, _datum_yb,
-            ant_r, ant_l, pm_r, pm_l, pl_r, pl_l,
-            res.diff_anterior, res.diff_posteromedial, res.diff_posterolateral,
-            res.composite_r, res.composite_l,
-            res.asymmetrie_text, res.schwerpunkt,
-        )
-        if obs_yb["beob_ids"] or obs_yb.get("freitext"):
-            beobachtung_speichern(
-                spieler_id, "y_balance", _datum_yb,
-                _j.dumps(obs_yb["beob_ids"], ensure_ascii=False),
-                obs_yb["seite"], obs_yb["auspraegung"],
-                obs_yb["freitext"], obs_yb["text_generiert"],
-            )
-        st.success("✅ Y-Balance Test gespeichert!")
+        st.markdown("#### Reichweiten (cm)")
+        ch1, ch2 = st.columns(2)
+        ch1.markdown("**Rechte Seite**")
+        ch2.markdown("**Linke Seite**")
+        ar_h, ar_i = ch1.columns([5, 1]); ar_h.markdown("**Anterior R (cm)**"); field_info_col(ar_i, "y_balance", "anterior")
+        ant_r  = ch1.number_input("Anterior R",       0.0, 200.0, 0.0, step=0.5, key="antr", label_visibility="collapsed", help=_fh("anterior"))
+        al_h, al_i = ch2.columns([5, 1]); al_h.markdown("**Anterior L (cm)**"); field_info_col(al_i, "y_balance", "anterior")
+        ant_l  = ch2.number_input("Anterior L",       0.0, 200.0, 0.0, step=0.5, key="antl", label_visibility="collapsed", help=_fh("anterior"))
+        pmr_h, pmr_i = ch1.columns([5, 1]); pmr_h.markdown("**Posteromedial R (cm)**"); field_info_col(pmr_i, "y_balance", "posteromedial")
+        pm_r   = ch1.number_input("Posteromedial R",  0.0, 200.0, 0.0, step=0.5, key="pmr",  label_visibility="collapsed", help=_fh("posteromedial"))
+        pml_h, pml_i = ch2.columns([5, 1]); pml_h.markdown("**Posteromedial L (cm)**"); field_info_col(pml_i, "y_balance", "posteromedial")
+        pm_l   = ch2.number_input("Posteromedial L",  0.0, 200.0, 0.0, step=0.5, key="pml",  label_visibility="collapsed", help=_fh("posteromedial"))
+        plr_h, plr_i = ch1.columns([5, 1]); plr_h.markdown("**Posterolateral R (cm)**"); field_info_col(plr_i, "y_balance", "posterolateral")
+        pl_r   = ch1.number_input("Posterolateral R", 0.0, 200.0, 0.0, step=0.5, key="plr",  label_visibility="collapsed", help=_fh("posterolateral"))
+        pll_h, pll_i = ch2.columns([5, 1]); pll_h.markdown("**Posterolateral L (cm)**"); field_info_col(pll_i, "y_balance", "posterolateral")
+        pl_l   = ch2.number_input("Posterolateral L", 0.0, 200.0, 0.0, step=0.5, key="pll",  label_visibility="collapsed", help=_fh("posterolateral"))
 
         st.markdown("---")
-        st.markdown("### Ergebnis")
-        m1, m2, m3 = st.columns(3)
-        m1.metric("Composite Rechts", f"{res.composite_r} %")
-        m2.metric("Composite Links",  f"{res.composite_l} %")
-        m3.metric("Risikostufe", res.risiko_level.capitalize())
+        obs_yb = render_observation_selector("y_balance", spieler_id, date.today().strftime("%d.%m.%Y"), "yb", standalone=False)
+        _dup_yb = _duplikat_check("yb", str(date.today()), y_balance_history(spieler_id))
 
-        # Radar chart
-        fig = go.Figure()
-        categories = ["Anterior", "Posteromedial", "Posterolateral"]
-        fig.add_trace(go.Scatterpolar(
-            r=[ant_r / bein_r * 100, pm_r / bein_r * 100, pl_r / bein_r * 100],
-            theta=categories, fill="toself", name="Rechts",
-            line_color="#3b82f6",
-        ))
-        fig.add_trace(go.Scatterpolar(
-            r=[ant_l / bein_l * 100, pm_l / bein_l * 100, pl_l / bein_l * 100],
-            theta=categories, fill="toself", name="Links",
-            line_color="#f85149",
-        ))
-        fig.update_layout(
-            polar=dict(
-                bgcolor="#161b22",
-                radialaxis=dict(visible=True, range=[0, 120], color="#8b949e", gridcolor="#30363d"),
-                angularaxis=dict(color="#8b949e", gridcolor="#30363d"),
-            ),
-            **{k: v for k, v in PLOTLY_LAYOUT.items() if k not in ("xaxis", "yaxis")},
-            height=340, showlegend=True,
-        )
-        st.plotly_chart(fig, use_container_width=True)
+        _yb_warns = []
+        if bein_r > 0:
+            for _val, _lbl in [(ant_r, "Anterior R"), (pm_r, "Posteromedial R"), (pl_r, "Posterolateral R")]:
+                if _val > bein_r * 1.3:
+                    _yb_warns.append(f"{_lbl} ({_val:.1f} cm > 130 % Beinlänge R)")
+        if bein_l > 0:
+            for _val, _lbl in [(ant_l, "Anterior L"), (pm_l, "Posteromedial L"), (pl_l, "Posterolateral L")]:
+                if _val > bein_l * 1.3:
+                    _yb_warns.append(f"{_lbl} ({_val:.1f} cm > 130 % Beinlänge L)")
+        if bein_r > 0 and bein_l > 0 and abs(bein_r - bein_l) > 5:
+            _yb_warns.append(f"Beinlängendifferenz R/L: {abs(bein_r - bein_l):.1f} cm — bitte prüfen")
+        if _yb_warns:
+            st.warning("⚠️ Ungewöhnliche Werte — bitte Eingaben prüfen (Speichern trotzdem möglich):\n"
+                       + "\n".join(f"• {w}" for w in _yb_warns))
 
-        st.info(f"**Trainingsschwerpunkt:** {res.schwerpunkt}")
-        if res.asymmetrien:
-            st.warning(f"⚠️ Asymmetrien erkannt: {', '.join(res.asymmetrien)}")
+        if st.button("💾 Y-Balance berechnen & speichern"):
+            if _dup_yb == "abbrechen":
+                st.info("Kein Test gespeichert."); st.stop()
+            import json as _j, datetime as _dtm
+            _datum_yb = str(date.today())
+            if _dup_yb == "zweiter":
+                _datum_yb += " (" + _dtm.datetime.now().strftime("%H:%M") + ")"
+            res = YBalanceResult(
+                anterior_r=ant_r, anterior_l=ant_l,
+                posteromedial_r=pm_r, posteromedial_l=pm_l,
+                posterolateral_r=pl_r, posterolateral_l=pl_l,
+                beinlaenge_r=bein_r, beinlaenge_l=bein_l,
+            )
+            y_balance_speichern(
+                spieler_id, _datum_yb,
+                ant_r, ant_l, pm_r, pm_l, pl_r, pl_l,
+                res.diff_anterior, res.diff_posteromedial, res.diff_posterolateral,
+                res.composite_r, res.composite_l,
+                res.asymmetrie_text, res.schwerpunkt,
+            )
+            if obs_yb["beob_ids"] or obs_yb.get("freitext"):
+                beobachtung_speichern(
+                    spieler_id, "y_balance", _datum_yb,
+                    _j.dumps(obs_yb["beob_ids"], ensure_ascii=False),
+                    obs_yb["seite"], obs_yb["auspraegung"],
+                    obs_yb["freitext"], obs_yb["text_generiert"],
+                )
+            st.success("✅ Y-Balance Test gespeichert!")
+            st.markdown("---")
+            st.markdown("### Ergebnis")
+            m1, m2, m3 = st.columns(3)
+            m1.metric("Composite Rechts", f"{res.composite_r} %")
+            m2.metric("Composite Links",  f"{res.composite_l} %")
+            m3.metric("Risikostufe", res.risiko_level.capitalize())
+            fig = go.Figure()
+            categories = ["Anterior", "Posteromedial", "Posterolateral"]
+            fig.add_trace(go.Scatterpolar(
+                r=[ant_r / bein_r * 100, pm_r / bein_r * 100, pl_r / bein_r * 100],
+                theta=categories, fill="toself", name="Rechts", line_color="#3b82f6",
+            ))
+            fig.add_trace(go.Scatterpolar(
+                r=[ant_l / bein_l * 100, pm_l / bein_l * 100, pl_l / bein_l * 100],
+                theta=categories, fill="toself", name="Links", line_color="#f85149",
+            ))
+            fig.update_layout(
+                polar=dict(
+                    bgcolor="#161b22",
+                    radialaxis=dict(visible=True, range=[0, 120], color="#8b949e", gridcolor="#30363d"),
+                    angularaxis=dict(color="#8b949e", gridcolor="#30363d"),
+                ),
+                **{k: v for k, v in PLOTLY_LAYOUT.items() if k not in ("xaxis", "yaxis")},
+                height=340, showlegend=True,
+            )
+            st.plotly_chart(fig, use_container_width=True)
+            st.info(f"**Trainingsschwerpunkt:** {res.schwerpunkt}")
+            if res.asymmetrien:
+                st.warning(f"⚠️ Asymmetrien erkannt: {', '.join(res.asymmetrien)}")
 
-    last = y_balance_letzter(spieler_id)
-    if last:
-        with st.expander("📂 Letzter gespeicherter Test"):
-            c1, c2 = st.columns(2)
-            c1.metric("Composite Rechts", f"{last['composite_rechts']} %")
-            c2.metric("Composite Links",  f"{last['composite_links']} %")
-            st.write("**Asymmetrie:**", last["asymmetrie"])
-            st.write("**Schwerpunkt:**", last["schwerpunkt"])
+    # ── Tab 2: Letzter Test — alle Einzelwerte ───────────────────────────────
+    with tab_letzter:
+        last = y_balance_letzter(spieler_id)
+        if not last:
+            st.info("Noch kein Y-Balance-Test gespeichert.")
+        else:
+            lm1, lm2, lm3 = st.columns(3)
+            lm1.metric("Composite Rechts", f"{last.get('composite_rechts','—')} %")
+            lm2.metric("Composite Links",  f"{last.get('composite_links','—')} %")
+            lm3.metric("Datum", last.get("datum","—"))
+            st.markdown("---")
+            st.markdown("#### Reichweiten")
+            rc1, rc2 = st.columns(2)
+            rc1.markdown("**Rechts**")
+            rc2.markdown("**Links**")
+            for _lbl, _rk, _lk in [
+                ("Anterior",      "anterior_rechts",      "anterior_links"),
+                ("Posteromedial", "posteromedial_rechts", "posteromedial_links"),
+                ("Posterolateral","posterolateral_rechts","posterolateral_links"),
+            ]:
+                rc1.markdown(f"**{_lbl}:** {last.get(_rk,'—')} cm")
+                rc2.markdown(f"**{_lbl}:** {last.get(_lk,'—')} cm")
+            st.markdown("---")
+            st.markdown("#### Seitendifferenzen")
+            dc1, dc2, dc3 = st.columns(3)
+            dc1.metric("Δ Anterior",      f"{last.get('diff_anterior','—')} cm")
+            dc2.metric("Δ Posteromedial", f"{last.get('diff_posteromedial','—')} cm")
+            dc3.metric("Δ Posterolateral",f"{last.get('diff_posterolateral','—')} cm")
+            st.markdown("---")
+            st.write("**Asymmetrie:**",          last.get("asymmetrie") or "—")
+            st.write("**Trainingsschwerpunkt:**", last.get("schwerpunkt") or "—")
+
+    # ── Tab 3: Verlauf ────────────────────────────────────────────────────────
+    with tab_verlauf:
+        hist_yb = y_balance_history_full(spieler_id)
+        if not hist_yb:
+            st.info("Noch keine Y-Balance-Tests vorhanden.")
+        else:
+            df_yb = pd.DataFrame([{
+                "Datum":           r["datum"],
+                "Composite R (%)": round(float(r.get("composite_rechts") or 0), 1),
+                "Composite L (%)": round(float(r.get("composite_links")  or 0), 1),
+                "Ant R":           float(r.get("anterior_rechts")       or 0),
+                "Ant L":           float(r.get("anterior_links")        or 0),
+                "PM R":            float(r.get("posteromedial_rechts")  or 0),
+                "PM L":            float(r.get("posteromedial_links")   or 0),
+                "PL R":            float(r.get("posterolateral_rechts") or 0),
+                "PL L":            float(r.get("posterolateral_links")  or 0),
+                "Asymmetrie":      r.get("asymmetrie") or "—",
+                "Schwerpunkt":     r.get("schwerpunkt") or "—",
+            } for r in hist_yb])
+
+            # Composite-Score-Kurve
+            fig_comp = go.Figure()
+            fig_comp.add_trace(go.Scatter(x=df_yb["Datum"], y=df_yb["Composite R (%)"],
+                mode="lines+markers", name="Composite Rechts", line=dict(color="#3b82f6", width=3)))
+            fig_comp.add_trace(go.Scatter(x=df_yb["Datum"], y=df_yb["Composite L (%)"],
+                mode="lines+markers", name="Composite Links",  line=dict(color="#f85149", width=3)))
+            fig_comp.add_hline(y=89, line_dash="dash", line_color="#d29922",
+                               annotation_text="Schwellenwert 89 %")
+            fig_comp.update_layout(**_pl(height=280, title="Y-Balance Composite Scores"))
+            st.plotly_chart(fig_comp, use_container_width=True)
+
+            # Einzelrichtungen
+            with st.expander("📊 Einzelrichtungen-Verlauf anzeigen"):
+                fig_dir = go.Figure()
+                for col_n, clr in [
+                    ("Ant R","#3b82f6"),("Ant L","#79c0ff"),
+                    ("PM R","#3fb950"),("PM L","#56d364"),
+                    ("PL R","#f85149"),("PL L","#ffa657"),
+                ]:
+                    fig_dir.add_trace(go.Scatter(x=df_yb["Datum"], y=df_yb[col_n],
+                        mode="lines+markers", name=col_n, line=dict(color=clr, width=2)))
+                fig_dir.update_layout(**_pl(height=320, title="Reichweiten pro Richtung (cm)"))
+                st.plotly_chart(fig_dir, use_container_width=True)
+
+            # Zwei Testtermine vergleichen
+            daten_yb = df_yb["Datum"].tolist()
+            if len(daten_yb) >= 2:
+                with st.expander("⚖️ Zwei Testtermine vergleichen"):
+                    yvc1, yvc2 = st.columns(2)
+                    yd_alt = yvc1.selectbox("Älterer Termin", daten_yb, index=0, key="yb_vgl_alt")
+                    yd_neu = yvc2.selectbox("Neuerer Termin", daten_yb, index=len(daten_yb)-1, key="yb_vgl_neu")
+                    if yd_alt != yd_neu:
+                        yr_alt = df_yb[df_yb["Datum"] == yd_alt].iloc[0]
+                        yr_neu = df_yb[df_yb["Datum"] == yd_neu].iloc[0]
+                        _yvcols = ["Composite R (%)","Composite L (%)","Ant R","Ant L","PM R","PM L","PL R","PL L"]
+                        yvgl = []
+                        for c in _yvcols:
+                            v1 = yr_alt[c]; v2 = yr_neu[c]; d = round(v2-v1, 1)
+                            yvgl.append({"Merkmal":c, yd_alt: v1, yd_neu: v2, "Δ": f"+{d}" if d > 0 else str(d)})
+                        st.dataframe(pd.DataFrame(yvgl), use_container_width=True, hide_index=True)
+                    else:
+                        st.info("Bitte zwei verschiedene Testtermine auswählen.")
+
+            # Volltabelle
+            st.markdown("---")
+            st.markdown("##### Alle Tests")
+            st.dataframe(df_yb[["Datum","Composite R (%)","Composite L (%)","Ant R","Ant L",
+                                  "PM R","PM L","PL R","PL L","Asymmetrie","Schwerpunkt"]],
+                         use_container_width=True, hide_index=True)
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -2115,11 +2303,20 @@ def page_anthropometrie():
         gewicht      = c1.number_input("Körpergewicht (kg)", 15.0, 150.0,
                                         float(letzter["gewicht"]) if letzter else 70.0,
                                         step=0.5, key="anthro_gewicht", label_visibility="collapsed", help=_fh("gewicht"))
-        kf_h, kf_i = c1.columns([5, 1]); kf_h.markdown("**Körperfett (%)**"); field_info_col(kf_i, "anthropometrie", "koerperfett")
-        koerperfett  = c1.number_input("Körperfett (%)", 0.0, 50.0,
-                                        float(letzter["koerperfett"]) if letzter else 12.0,
-                                        step=0.1, key="anthro_kf", label_visibility="collapsed", help=_fh("koerperfett"))
-        if koerperfett > 0: norm_badge(koerperfett, "anthropometrie", "koerperfett", c1, altersgruppe=altersgruppe_norm)
+        # ── Körperfett-Methode ───────────────────────────────────────────────
+        kf_methode = c1.radio(
+            "Körperfett-Methode",
+            ["Manuell", "7-Hautfalten (JP)", "11-Hautfalten (JP)", "Körperanalysewaage"],
+            key="anthro_kf_methode",
+        )
+        _kf_default = float(letzter["koerperfett"]) if letzter and letzter.get("koerperfett") else 0.0
+        koerperfett = 0.0
+        if kf_methode in ("Manuell", "Körperanalysewaage"):
+            kf_lbl = "Körperfett (%)" if kf_methode == "Manuell" else "KF % (Waage)"
+            koerperfett = c1.number_input(kf_lbl, 0.0, 50.0, _kf_default,
+                                           step=0.1, key="anthro_kf_man")
+            if koerperfett > 0:
+                norm_badge(koerperfett, "anthropometrie", "koerperfett", c1, altersgruppe=altersgruppe_norm)
         mm_h, mm_i = c1.columns([5, 1]); mm_h.markdown("**Muskelmasse (kg)**"); field_info_col(mm_i, "anthropometrie", "muskelmasse")
         muskelmasse  = c1.number_input("Muskelmasse (kg)", 0.0, 100.0,
                                         float(letzter["muskelmasse"]) if letzter else 0.0,
@@ -2128,14 +2325,68 @@ def page_anthropometrie():
         sitzhoehe    = c2.number_input("Sitzhöhe (cm) — optional für PHV", 0.0, 120.0,
                                         float(letzter["sitzhoehe"]) if letzter else 0.0,
                                         step=0.5, key="anthro_sh", label_visibility="collapsed", help=_fh("sitzhoehe"))
-        bl_h, bl_i = c2.columns([5, 1]); bl_h.markdown("**Beinlänge (cm) — optional für PHV**"); field_info_col(bl_i, "anthropometrie", "beinlaenge")
-        beinlaenge   = c2.number_input("Beinlänge (cm) — optional für PHV", 0.0, 120.0,
-                                        float(letzter["beinlaenge"]) if letzter else 0.0,
-                                        step=0.5, key="anthro_bl", label_visibility="collapsed", help=_fh("beinlaenge"))
+        _def_bl_r = float(letzter.get("beinlaenge_r") or letzter.get("beinlaenge") or 0) if letzter else 0.0
+        _def_bl_l = float(letzter.get("beinlaenge_l") or letzter.get("beinlaenge") or 0) if letzter else 0.0
+        blr_h, blr_i = c2.columns([5, 1]); blr_h.markdown("**Beinlänge rechts (cm)**"); field_info_col(blr_i, "anthropometrie", "beinlaenge")
+        beinlaenge_r = c2.number_input("Beinlänge rechts (cm)", 0.0, 120.0, _def_bl_r,
+                                        step=0.5, key="anthro_bl_r", label_visibility="collapsed", help=_fh("beinlaenge"))
+        bll_h, bll_i = c2.columns([5, 1]); bll_h.markdown("**Beinlänge links (cm)**"); field_info_col(bll_i, "anthropometrie", "beinlaenge")
+        beinlaenge_l = c2.number_input("Beinlänge links (cm)", 0.0, 120.0, _def_bl_l,
+                                        step=0.5, key="anthro_bl_l", label_visibility="collapsed", help=_fh("beinlaenge"))
+        beinlaenge = (beinlaenge_r + beinlaenge_l) / 2.0 if beinlaenge_r > 0 and beinlaenge_l > 0 else max(beinlaenge_r, beinlaenge_l)
+        if beinlaenge_r > 0 and beinlaenge_l > 0:
+            _diff_bl = abs(beinlaenge_r - beinlaenge_l)
+            if _diff_bl >= 0.5:
+                c2.warning(f"⚠️ Beinlängendifferenz {_diff_bl:.1f} cm — Ärztliche Untersuchung empfohlen.")
         as_h, as_i = c2.columns([5, 1]); as_h.markdown("**Armspannweite (cm)**"); field_info_col(as_i, "anthropometrie", "armspann")
         armspann     = c2.number_input("Armspannweite (cm)", 0.0, 250.0,
                                         float(letzter["armspannweite"]) if letzter else 0.0,
                                         step=0.5, key="anthro_arm", label_visibility="collapsed", help=_fh("armspann"))
+
+        # ── Hautfalten-Berechnung (volle Breite, nur wenn Methode gewählt) ───
+        if kf_methode == "7-Hautfalten (JP)":
+            st.markdown("##### 7-Hautfalten-Messung (mm) — Jackson & Pollock 1978")
+            st.caption("Brust · Mittelachse · Trizeps · Subskapular · Abdomen · Suprailiakal · Oberschenkel")
+            hfc1, hfc2, hfc3, hfc4 = st.columns(4)
+            hfc5, hfc6, hfc7, hfc_res = st.columns(4)
+            s_brust  = hfc1.number_input("Brust (mm)",        0.0, 80.0, 0.0, step=0.5, key="hf7_br")
+            s_mittel = hfc2.number_input("Mittelachse (mm)",  0.0, 60.0, 0.0, step=0.5, key="hf7_mi")
+            s_tri    = hfc3.number_input("Trizeps (mm)",      0.0, 60.0, 0.0, step=0.5, key="hf7_tr")
+            s_sub    = hfc4.number_input("Subskapular (mm)",  0.0, 60.0, 0.0, step=0.5, key="hf7_su")
+            s_abd    = hfc5.number_input("Abdomen (mm)",      0.0, 80.0, 0.0, step=0.5, key="hf7_ab")
+            s_sup    = hfc6.number_input("Suprailiakal (mm)", 0.0, 60.0, 0.0, step=0.5, key="hf7_sp")
+            s_ober   = hfc7.number_input("Oberschenkel (mm)", 0.0, 60.0, 0.0, step=0.5, key="hf7_ob")
+            _all7 = [s_brust, s_mittel, s_tri, s_sub, s_abd, s_sup, s_ober]
+            if all(v > 0 for v in _all7) and alter and alter > 0:
+                koerperfett = koerperfett_jp7(*_all7, float(alter), geschl)
+                hfc_res.metric("Körperfett (JP7)", f"{koerperfett} %")
+                norm_badge(koerperfett, "anthropometrie", "koerperfett", hfc_res, altersgruppe=altersgruppe_norm)
+            else:
+                st.info("ℹ️ Alle 7 Werte > 0 eingeben — Körperfett wird automatisch berechnet.")
+        elif kf_methode == "11-Hautfalten (JP)":
+            st.markdown("##### 11-Hautfalten-Messung (mm) — Jackson & Pollock (erweitert)")
+            st.caption("7 Punkte + Bizeps · Wadeninnenseite · unterer Rücken · Pektoral")
+            hf11a, hf11b, hf11c, hf11d = st.columns(4)
+            hf11e, hf11f, hf11g, hf11h = st.columns(4)
+            hf11i, hf11j, hf11k, hf11res = st.columns(4)
+            s11_br  = hf11a.number_input("Brust",          0.0, 80.0, 0.0, step=0.5, key="hf11_br")
+            s11_mi  = hf11b.number_input("Mittelachse",    0.0, 60.0, 0.0, step=0.5, key="hf11_mi")
+            s11_tr  = hf11c.number_input("Trizeps",        0.0, 60.0, 0.0, step=0.5, key="hf11_tr")
+            s11_su  = hf11d.number_input("Subskapular",    0.0, 60.0, 0.0, step=0.5, key="hf11_su")
+            s11_ab  = hf11e.number_input("Abdomen",        0.0, 80.0, 0.0, step=0.5, key="hf11_ab")
+            s11_sp  = hf11f.number_input("Suprailiakal",   0.0, 60.0, 0.0, step=0.5, key="hf11_sp")
+            s11_ob  = hf11g.number_input("Oberschenkel",   0.0, 60.0, 0.0, step=0.5, key="hf11_ob")
+            s11_biz = hf11h.number_input("Bizeps",         0.0, 60.0, 0.0, step=0.5, key="hf11_bz")
+            s11_wa  = hf11i.number_input("Wade innen",     0.0, 40.0, 0.0, step=0.5, key="hf11_wa")
+            s11_rk  = hf11j.number_input("Unt. Rücken",    0.0, 60.0, 0.0, step=0.5, key="hf11_rk")
+            s11_pk  = hf11k.number_input("Pektoral",       0.0, 60.0, 0.0, step=0.5, key="hf11_pk")
+            _all11  = [s11_br, s11_mi, s11_tr, s11_su, s11_ab, s11_sp, s11_ob, s11_biz, s11_wa, s11_rk, s11_pk]
+            if all(v > 0 for v in _all11) and alter and alter > 0:
+                koerperfett = koerperfett_jp11(*_all11, float(alter), geschl)
+                hf11res.metric("Körperfett (JP11)", f"{koerperfett} %")
+                norm_badge(koerperfett, "anthropometrie", "koerperfett", hf11res, altersgruppe=altersgruppe_norm)
+            else:
+                st.info("ℹ️ Alle 11 Werte > 0 eingeben — Körperfett wird automatisch berechnet.")
 
         bmi     = bmi_berechnen(gewicht, groesse)
         bmi_kat = bmi_kategorie(bmi)
@@ -2190,6 +2441,7 @@ def page_anthropometrie():
                     groesse, gewicht, sitzhoehe, beinlaenge, armspann,
                     koerperfett, muskelmasse,
                     bmi, bmi_kat, phv, reife,
+                    beinlaenge_r=beinlaenge_r, beinlaenge_l=beinlaenge_l,
                 )
                 if obs_anthro["beob_ids"] or obs_anthro.get("freitext"):
                     beobachtung_speichern(

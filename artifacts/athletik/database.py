@@ -556,6 +556,13 @@ def _migrate_db():
             except Exception:
                 pass
 
+        # ── Anthropometrie: bilaterale Beinlänge ────────────────────────────
+        for col in [("beinlaenge_r","REAL"), ("beinlaenge_l","REAL")]:
+            try:
+                conn.execute(f"ALTER TABLE anthropometrie ADD COLUMN {col[0]} {col[1]}")
+            except Exception:
+                pass
+
         # ── Duplikate in trainerbeobachtung bereinigen ───────────────────────
         conn.execute("""
             DELETE FROM trainerbeobachtung WHERE id NOT IN (
@@ -805,19 +812,35 @@ def fms_history(spieler_id):
         ).fetchall())
 
 
+def fms_history_full(spieler_id):
+    """Vollständiger FMS-Verlauf — alle Einzelbewertungen und Gesamtscore."""
+    with get_conn() as conn:
+        return _rows(conn.execute(
+            """SELECT datum,deep_squat,hurdle_links,hurdle_rechts,
+                      inline_links,inline_rechts,shoulder_links,shoulder_rechts,
+                      aslr_links,aslr_rechts,trunk,rotary_links,rotary_rechts,
+                      score,bewertung,asymmetrie,schwerpunkt
+               FROM fms_test WHERE spieler_id=? ORDER BY datum""",
+            (spieler_id,),
+        ).fetchall())
+
+
 # ─── Anthropometrie ────────────────────────────────────────────────────────
 
 def anthropometrie_speichern(spieler_id, datum, groesse, gewicht, sitzhoehe,
                               beinlaenge, armspannweite, koerperfett, muskelmasse,
-                              bmi, bmi_kat, phv_offset, reifestatus):
+                              bmi, bmi_kat, phv_offset, reifestatus,
+                              beinlaenge_r=None, beinlaenge_l=None):
     with get_conn() as conn:
         conn.execute("""
         INSERT INTO anthropometrie
         (spieler_id,datum,groesse,gewicht,sitzhoehe,beinlaenge,armspannweite,
-         koerperfett,muskelmasse,bmi,bmi_kategorie,phv_offset,reifestatus)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
+         koerperfett,muskelmasse,bmi,bmi_kategorie,phv_offset,reifestatus,
+         beinlaenge_r,beinlaenge_l)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         """, (spieler_id, datum, groesse, gewicht, sitzhoehe, beinlaenge,
-              armspannweite, koerperfett, muskelmasse, bmi, bmi_kat, phv_offset, reifestatus))
+              armspannweite, koerperfett, muskelmasse, bmi, bmi_kat, phv_offset, reifestatus,
+              beinlaenge_r, beinlaenge_l))
 
 
 def anthropometrie_letzter(spieler_id):
@@ -832,7 +855,9 @@ def anthropometrie_history(spieler_id):
     with get_conn() as conn:
         return _rows(conn.execute(
             """SELECT datum,groesse,gewicht,koerperfett,muskelmasse,bmi,bmi_kategorie,
-                      sitzhoehe,beinlaenge,armspannweite,phv_offset,reifestatus
+                      sitzhoehe,beinlaenge,armspannweite,phv_offset,reifestatus,
+                      COALESCE(beinlaenge_r,0) as beinlaenge_r,
+                      COALESCE(beinlaenge_l,0) as beinlaenge_l
                FROM anthropometrie WHERE spieler_id=? ORDER BY datum""",
             (spieler_id,),
         ).fetchall())
@@ -876,6 +901,21 @@ def y_balance_history(spieler_id):
     with get_conn() as conn:
         return _rows(conn.execute(
             "SELECT datum,composite_rechts,composite_links,asymmetrie,schwerpunkt FROM y_balance_test WHERE spieler_id=? ORDER BY datum",
+            (spieler_id,),
+        ).fetchall())
+
+
+def y_balance_history_full(spieler_id):
+    """Vollständiger Y-Balance-Verlauf — alle Einzelreichweiten und Composite-Scores."""
+    with get_conn() as conn:
+        return _rows(conn.execute(
+            """SELECT datum,anterior_rechts,anterior_links,
+                      posteromedial_rechts,posteromedial_links,
+                      posterolateral_rechts,posterolateral_links,
+                      composite_rechts,composite_links,
+                      diff_anterior,diff_posteromedial,diff_posterolateral,
+                      asymmetrie,schwerpunkt
+               FROM y_balance_test WHERE spieler_id=? ORDER BY datum""",
             (spieler_id,),
         ).fetchall())
 
