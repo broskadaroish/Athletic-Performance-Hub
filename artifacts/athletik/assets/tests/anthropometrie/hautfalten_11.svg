@@ -1,0 +1,90 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 340 460">
+  <rect width="340" height="460" fill="#0d1117" rx="10"/>
+  <text x="170" y="22" text-anchor="middle" fill="#e6edf3" font-size="12" font-weight="700" font-family="sans-serif">11-Punkt Hautfaltenmessung</text>
+  <text x="170" y="36" text-anchor="middle" fill="#8b949e" font-size="9" font-family="sans-serif">Pařízkova (1977) · rechte Körperseite · %KF = 11.7 × log₁₀(Σ) − 11.6 (M)</text>
+
+  <!-- Body silhouette -->
+  <ellipse cx="170" cy="65" rx="22" ry="25" fill="#161b22" stroke="#444c56" stroke-width="1.5"/>
+  <path d="M155,87 L147,91 Q132,102 130,122 L128,192 Q128,205 140,208 L200,208 Q212,205 212,192 L210,122 Q208,102 193,91 L185,87 Z" fill="#161b22" stroke="#444c56" stroke-width="1.5"/>
+  <path d="M130,122 Q117,128 110,148 L103,185 Q101,194 111,196 L122,193 L128,155 L130,122 Z" fill="#161b22" stroke="#444c56" stroke-width="1.5"/>
+  <path d="M210,122 Q223,128 230,148 L237,185 Q239,194 229,196 L218,193 L212,155 L210,122 Z" fill="#161b22" stroke="#444c56" stroke-width="1.5"/>
+  <path d="M140,208 L136,300 Q135,308 145,309 L162,309 L167,208 Z" fill="#161b22" stroke="#444c56" stroke-width="1.5"/>
+  <path d="M200,208 L204,300 Q205,308 195,309 L178,309 L173,208 Z" fill="#161b22" stroke="#444c56" stroke-width="1.5"/>
+  <!-- Calf -->
+  <path d="M136,309 L134,360 Q133,368 144,368 L162,368 L162,309 Z" fill="#161b22" stroke="#444c56" stroke-width="1.2"/>
+  <path d="M204,309 L206,360 Q207,368 196,368 L178,368 L178,309 Z" fill="#161b22" stroke="#444c56" stroke-width="1.2"/>
+
+  <!-- Measurements - front -->
+  <!-- 1: Brust -->
+  <circle cx="152" cy="128" r="8" fill="#3b82f6"/>
+  <text x="152" y="132" text-anchor="middle" fill="white" font-size="8" font-weight="700" font-family="sans-serif">1</text>
+  <text x="70" y="115" fill="#79c0ff" font-size="8" font-family="sans-serif">①Brust</text>
+
+  <!-- 2: Mittelachse (side) -->
+  <circle cx="228" cy="148" r="8" fill="#58a6ff"/>
+  <text x="228" y="152" text-anchor="middle" fill="white" font-size="8" font-weight="700" font-family="sans-serif">2</text>
+  <text x="238" y="146" fill="#79c0ff" font-size="8" font-family="sans-serif">②Mittelachse</text>
+
+  <!-- 3: Trizeps (outer arm) -->
+  <circle cx="113" cy="158" r="8" fill="#d29922"/>
+  <text x="113" y="162" text-anchor="middle" fill="white" font-size="8" font-weight="700" font-family="sans-serif">3</text>
+  <text x="60" y="156" fill="#e3b341" font-size="8" font-family="sans-serif" text-anchor="end">③Trizeps</text>
+
+  <!-- 4: Subskapular (back, dashed border) -->
+  <circle cx="195" cy="118" r="8" fill="#f0883e" stroke="#ffa657" stroke-width="1.5" stroke-dasharray="3,2"/>
+  <text x="195" y="122" text-anchor="middle" fill="white" font-size="8" font-weight="700" font-family="sans-serif">4</text>
+  <text x="238" y="116" fill="#ffa657" font-size="8" font-family="sans-serif">④Subskapular*</text>
+
+  <!-- 5: Abdomen -->
+  <circle cx="178" cy="168" r="8" fill="#f85149"/>
+  <text x="178" y="172" text-anchor="middle" fill="white" font-size="8" font-weight="700" font-family="sans-serif">5</text>
+  <text x="238" y="166" fill="#ff7b72" font-size="8" font-family="sans-serif">⑤Abdomen</text>
+
+  <!-- 6: Suprailiakal -->
+  <circle cx="194" cy="190" r="8" fill="#a371f7"/>
+  <text x="194" y="194" text-anchor="middle" fill="white" font-size="8" font-weight="700" font-family="sans-serif">6</text>
+  <text x="238" y="188" fill="#c191ff" font-size="8" font-family="sans-serif">⑥Suprailiakal</text>
+
+  <!-- 7: Oberschenkel -->
+  <circle cx="152" cy="250" r="8" fill="#3fb950"/>
+  <text x="152" y="254" text-anchor="middle" fill="white" font-size="8" font-weight="700" font-family="sans-serif">7</text>
+  <text x="70" y="248" fill="#56d364" font-size="8" font-family="sans-serif">⑦Oberschenkel</text>
+
+  <!-- 8: Bizeps (front upper arm) -->
+  <circle cx="115" cy="138" r="8" fill="#e3b341"/>
+  <text x="115" y="142" text-anchor="middle" fill="white" font-size="8" font-weight="700" font-family="sans-serif">8</text>
+  <text x="60" y="136" fill="#e3b341" font-size="8" font-family="sans-serif" text-anchor="end">⑧Bizeps</text>
+
+  <!-- 9: Wadeninnenseite -->
+  <circle cx="155" cy="338" r="8" fill="#38bdf8"/>
+  <text x="155" y="342" text-anchor="middle" fill="white" font-size="8" font-weight="700" font-family="sans-serif">9</text>
+  <text x="70" y="336" fill="#38bdf8" font-size="8" font-family="sans-serif">⑨Wade innen</text>
+
+  <!-- 10: Unterer Rücken (dashed) -->
+  <circle cx="185" cy="200" r="8" fill="#fb923c" stroke="#fbbf24" stroke-width="1.5" stroke-dasharray="3,2"/>
+  <text x="185" y="204" text-anchor="middle" fill="white" font-size="8" font-weight="700" font-family="sans-serif">10</text>
+  <text x="238" y="208" fill="#fbbf24" font-size="8" font-family="sans-serif">⑩Unt. Rücken*</text>
+
+  <!-- 11: Pektoral -->
+  <circle cx="162" cy="114" r="8" fill="#ec4899"/>
+  <text x="162" y="118" text-anchor="middle" fill="white" font-size="8" font-weight="700" font-family="sans-serif">11</text>
+  <text x="70" y="110" fill="#f472b6" font-size="8" font-family="sans-serif">⑪Pektoral</text>
+
+  <!-- Connector lines -->
+  <line x1="142" y1="125" x2="120" y2="113" stroke="#3b82f6" stroke-width="0.6" stroke-dasharray="2,2"/>
+  <line x1="162" y1="111" x2="120" y2="108" stroke="#ec4899" stroke-width="0.6" stroke-dasharray="2,2"/>
+  <line x1="108" y1="154" x2="80" y2="154" stroke="#d29922" stroke-width="0.6" stroke-dasharray="2,2"/>
+  <line x1="108" y1="134" x2="80" y2="134" stroke="#e3b341" stroke-width="0.6" stroke-dasharray="2,2"/>
+  <line x1="148" y1="248" x2="100" y2="246" stroke="#3fb950" stroke-width="0.6" stroke-dasharray="2,2"/>
+  <line x1="148" y1="336" x2="100" y2="334" stroke="#38bdf8" stroke-width="0.6" stroke-dasharray="2,2"/>
+  <line x1="220" y1="147" x2="239" y2="144" stroke="#58a6ff" stroke-width="0.6" stroke-dasharray="2,2"/>
+  <line x1="186" y1="162" x2="239" y2="164" stroke="#f85149" stroke-width="0.6" stroke-dasharray="2,2"/>
+  <line x1="202" y1="188" x2="239" y2="186" stroke="#a371f7" stroke-width="0.6" stroke-dasharray="2,2"/>
+  <line x1="203" y1="116" x2="239" y2="114" stroke="#f0883e" stroke-width="0.6" stroke-dasharray="2,2"/>
+  <line x1="193" y1="198" x2="239" y2="206" stroke="#fbbf24" stroke-width="0.6" stroke-dasharray="2,2"/>
+
+  <!-- Legend -->
+  <text x="10" y="395" fill="#8b949e" font-size="8" font-family="sans-serif">* = Rückenfalten (gestrichelt): Subskapular → 45° unter Schulterblatt; Unt. Rücken → L3-Höhe</text>
+  <text x="10" y="408" fill="#8b949e" font-size="8" font-family="sans-serif">Caliper rechtwinklig zur Falte ansetzen · Ablesen nach 2 Sekunden · Alle rechte Körperseite</text>
+  <text x="10" y="421" fill="#8b949e" font-size="8" font-family="sans-serif">Formel: Männer %KF = 11,7 × log₁₀(Σ11) − 11,6  |  Frauen: 15,0 × log₁₀(Σ11) − 12,6</text>
+</svg>

@@ -5,6 +5,7 @@ Main Streamlit entry point.  All pages live in this single file to keep
 imports simple; shared logic is delegated to the module layer.
 """
 
+import os
 import streamlit as st
 from datetime import date, datetime
 import plotly.graph_objects as go
@@ -227,6 +228,46 @@ def _score_badge(score: int) -> str:
 def _progress_html(value: int, max_val: int, color: str = "#1f6feb") -> str:
     pct = min(value / max_val * 100, 100)
     return f'<div class="prog-wrap"><div class="prog-fill" style="width:{pct:.0f}%;background:{color}"></div></div>'
+
+def _save_ok(msg: str) -> None:
+    """Speichert eine Erfolgsmeldung in session_state für Anzeige nach st.rerun()."""
+    st.session_state["__save_ok__"] = msg
+
+def _check_save_ok() -> None:
+    """Zeigt eine gespeicherte Erfolgsmeldung dauerhaft und löscht sie danach."""
+    msg = st.session_state.pop("__save_ok__", None)
+    if msg:
+        st.markdown(
+            f'<div style="background:#1a4a2e;border:1px solid #3fb950;border-radius:8px;'
+            f'padding:10px 16px;margin:8px 0;font-size:0.97em;color:#e6edf3">'
+            f'✅ {msg}</div>',
+            unsafe_allow_html=True,
+        )
+
+def _validate_geburtsdatum(datum_str: str):
+    """Prüft Datum TT.MM.JJJJ — gibt (True, None) oder (False, Fehlermeldung) zurück."""
+    from datetime import datetime as _dt, date as _d
+    s = datum_str.strip()
+    if not s:
+        return False, "Bitte ein Geburtsdatum eingeben."
+    parts = s.split(".")
+    if len(parts) != 3:
+        return False, f"Format TT.MM.JJJJ erwartet (z. B. 15.03.2008), eingegeben: »{s}«"
+    try:
+        day, month, year = int(parts[0]), int(parts[1]), int(parts[2])
+    except ValueError:
+        return False, f"Datum enthält ungültige Zeichen: »{s}«"
+    if not (1 <= month <= 12):
+        return False, f"Monat {month} ist ungültig — erlaubt: 1–12."
+    if not (1 <= day <= 31):
+        return False, f"Tag {day} ist ungültig — erlaubt: 1–31."
+    if not (1940 <= year <= _d.today().year):
+        return False, f"Jahr {year} ist ungültig — erlaubt: 1940–{_d.today().year}."
+    try:
+        _dt(year, month, day)
+    except ValueError:
+        return False, f"Das Datum {day}.{month}.{year} existiert nicht (z. B. 31.02 gibt es nicht)."
+    return True, None
 
 def _color_for_score(score: int, max_val: int = 100) -> str:
     pct = score / max_val
@@ -738,21 +779,24 @@ def page_spieler():
         trainingsstatus = t2.selectbox("Trainingsstatus", TRAININGSSTATUS,         key="neu_ts")
 
         st.markdown("---")
+        _check_save_ok()
         if st.button("💾 Spieler speichern", key="neu_save"):
             if not vorname.strip() or not nachname.strip():
                 st.error("❌ Bitte Vor- und Nachnamen eingeben.")
-            elif not geburtsdatum.strip():
-                st.error("❌ Bitte ein Geburtsdatum eingeben.")
             else:
-                spieler_speichern(
-                    vorname.strip(), nachname.strip(), geburtsdatum.strip(),
-                    geschlecht, hauptposition,
-                    nebenposition if nebenposition != "—" else "",
-                    altersklasse, spielbein, leistungsniveau,
-                    mannschaft.strip(), trainingsstatus,
-                )
-                st.success(f"✅ Spieler **{vorname} {nachname}** wurde gespeichert.")
-                st.rerun()
+                _geb_ok, _geb_err = _validate_geburtsdatum(geburtsdatum)
+                if not _geb_ok:
+                    st.error(f"❌ Ungültiges Geburtsdatum: {_geb_err}")
+                else:
+                    spieler_speichern(
+                        vorname.strip(), nachname.strip(), geburtsdatum.strip(),
+                        geschlecht, hauptposition,
+                        nebenposition if nebenposition != "—" else "",
+                        altersklasse, spielbein, leistungsniveau,
+                        mannschaft.strip(), trainingsstatus,
+                    )
+                    _save_ok(f"Spieler **{vorname} {nachname}** wurde gespeichert.")
+                    st.rerun()
 
     # ── Tab 2: Spieler bearbeiten ─────────────────────────────────────────────
     with tab_edit:
@@ -810,22 +854,25 @@ def page_spieler():
                 e_ts   = et2.selectbox("Trainingsstatus", TRAININGSSTATUS, index=_tsi, key="e_ts")
 
                 st.markdown("---")
+                _check_save_ok()
                 if st.button("💾 Änderungen speichern", key="edit_save"):
                     if not e_vn.strip() or not e_nn.strip():
                         st.error("❌ Bitte Vor- und Nachnamen eingeben.")
-                    elif not e_geb.strip():
-                        st.error("❌ Bitte ein Geburtsdatum eingeben.")
                     else:
-                        spieler_aktualisieren(
-                            sp["id"],
-                            e_vn.strip(), e_nn.strip(), e_geb.strip(),
-                            e_gesch, e_hpos,
-                            e_npos if e_npos != "—" else "",
-                            e_ak, e_sb, e_lvl,
-                            e_mann.strip(), e_ts,
-                        )
-                        st.success(f"✅ Spieler **{e_vn} {e_nn}** wurde aktualisiert.")
-                        st.rerun()
+                        _egeb_ok, _egeb_err = _validate_geburtsdatum(e_geb)
+                        if not _egeb_ok:
+                            st.error(f"❌ Ungültiges Geburtsdatum: {_egeb_err}")
+                        else:
+                            spieler_aktualisieren(
+                                sp["id"],
+                                e_vn.strip(), e_nn.strip(), e_geb.strip(),
+                                e_gesch, e_hpos,
+                                e_npos if e_npos != "—" else "",
+                                e_ak, e_sb, e_lvl,
+                                e_mann.strip(), e_ts,
+                            )
+                            _save_ok(f"Spieler **{e_vn} {e_nn}** wurde aktualisiert.")
+                            st.rerun()
 
     # ── Tab 3: Alle Spieler — Suche, Filter, Multi-Löschen ───────────────────
     with tab_list:
@@ -902,9 +949,9 @@ def page_spieler():
                     for pid in ids_loeschen:
                         spieler_loeschen(pid)
                     if n_del == 1:
-                        st.success(f"✅ **{loeschen_auswahl[0]}** wurde gelöscht.")
+                        _save_ok(f"**{loeschen_auswahl[0]}** wurde gelöscht.")
                     else:
-                        st.success(f"✅ {n_del} Spieler wurden gelöscht.")
+                        _save_ok(f"{n_del} Spieler wurden gelöscht.")
                     st.rerun()
 
 
@@ -1635,7 +1682,7 @@ def page_spieler_profil():
             v_notizen    = st.text_area("Notizen / Anmerkungen", key="v_notizen", height=80)
             if st.button("💾 Verletzung speichern", key="v_save"):
                 verletzung_speichern(sid, v_datum, v_art, v_koerper, v_schwere, int(v_ausfall), v_notizen)
-                st.success("✅ Verletzung gespeichert.")
+                _save_ok("Verletzung gespeichert.")
                 st.rerun()
 
         # Verletzungsliste
@@ -1674,7 +1721,7 @@ def page_spieler_profil():
                 )
                 if st.button("Eintrag löschen", key="del_v_btn"):
                     verletzung_loeschen(del_v["id"])
-                    st.success("✅ Verletzungseintrag gelöscht.")
+                    _save_ok("Verletzungseintrag gelöscht.")
                     st.rerun()
 
     with tab_pdf:
@@ -1818,7 +1865,7 @@ def page_trainingsplan():
                         u["bereich"], u["uebung"], u["saetze"], u["wiederholungen"], u["haeufigkeit"],
                     )
                 woche = min(woche + 1, 4)
-            st.success("✅ Trainingsplan wurde erstellt!")
+            _save_ok("Trainingsplan wurde erstellt!")
             st.rerun()
 
     with tab_manual:
@@ -1832,7 +1879,7 @@ def page_trainingsplan():
         woche     = mc2.number_input("Woche",          1, 12, 1)
         if st.button("➕ Übung speichern"):
             trainingsplan_eintrag_speichern(sid, str(date.today()), woche, bereich, uebung, saetze, wdh, haeufigkeit)
-            st.success("✅ Übung gespeichert.")
+            _save_ok("Übung gespeichert.")
             st.rerun()
 
     with tab_view:
@@ -1883,7 +1930,7 @@ def page_periodisierung():
         st.markdown("<br>", unsafe_allow_html=True)
         if st.button("⚡ Zyklus erstellen / neu generieren", use_container_width=True):
             zyklus_erstellen(sid, schwerpunkt)
-            st.success("✅ 12-Wochen-Zyklus generiert!")
+            _save_ok("12-Wochen-Zyklus generiert!")
             st.rerun()
 
     plan = zyklus_laden(sid)
@@ -2292,9 +2339,95 @@ def page_anthropometrie():
 
     with tab_neu:
         st.markdown("### Körpermessung eingeben")
-        c1, c2 = st.columns(2)
-        datum        = c1.date_input("Datum", value=date.today(), key="anthro_datum")
+        _check_save_ok()
         _fh = lambda fid: show_field_help("anthropometrie", fid)
+        _APP_DIR = os.path.dirname(os.path.abspath(__file__))
+
+        datum = st.date_input("Datum", value=date.today(), key="anthro_datum")
+
+        # ── Körperfett-Methode — zuerst und volle Breite ──────────────────────
+        st.markdown("#### 📏 Körperfett-Messung")
+        kf_methode = st.radio(
+            "Methode wählen",
+            ["Manuell", "7-Hautfalten (JP)", "11-Hautfalten (JP)", "Körperanalysewaage"],
+            key="anthro_kf_methode", horizontal=True, label_visibility="collapsed",
+        )
+        _kf_default = float(letzter["koerperfett"]) if letzter and letzter.get("koerperfett") else 0.0
+        koerperfett = 0.0
+
+        if kf_methode in ("Manuell", "Körperanalysewaage"):
+            _kf_note = "Gerätewert direkt eingeben (BIA-Waage, DEXA o. ä.)" if kf_methode == "Körperanalysewaage" else "Bekannten Prozentwert direkt eingeben"
+            st.caption(_kf_note)
+            _kfrc1, _kfrc2 = st.columns([2, 5])
+            koerperfett = _kfrc1.number_input(
+                "Körperfett (%)", 0.0, 50.0, _kf_default, step=0.1, key="anthro_kf_man"
+            )
+            if koerperfett > 0:
+                norm_badge(koerperfett, "anthropometrie", "koerperfett", _kfrc1, altersgruppe=altersgruppe_norm)
+
+        elif kf_methode == "7-Hautfalten (JP)":
+            _svg7 = os.path.join(_APP_DIR, "assets", "tests", "anthropometrie", "hautfalten_7.svg")
+            _img7_col, _inp7_col = st.columns([5, 11])
+            with _img7_col:
+                if os.path.exists(_svg7):
+                    st.image(_svg7, use_container_width=True)
+                else:
+                    st.caption("📍 Brust · Abdomen · Suprailiakal · Oberschenkel · Trizeps · Subskapular · Mittelachse")
+            with _inp7_col:
+                st.caption("**Jackson & Pollock (1978)** — alle Werte in mm, rechte Körperseite, entspannte Muskulatur")
+                _h7r1, _h7r2, _h7r3, _h7r4 = st.columns(4)
+                _h7r5, _h7r6, _h7r7, _h7res  = st.columns(4)
+                s_brust  = _h7r1.number_input("Brust (mm)",        0.0, 80.0, 0.0, step=0.5, key="hf7_br")
+                s_mittel = _h7r2.number_input("Mittelachse (mm)",  0.0, 60.0, 0.0, step=0.5, key="hf7_mi")
+                s_tri    = _h7r3.number_input("Trizeps (mm)",      0.0, 60.0, 0.0, step=0.5, key="hf7_tr")
+                s_sub    = _h7r4.number_input("Subskapular (mm)",  0.0, 60.0, 0.0, step=0.5, key="hf7_su")
+                s_abd    = _h7r5.number_input("Abdomen (mm)",      0.0, 80.0, 0.0, step=0.5, key="hf7_ab")
+                s_sup    = _h7r6.number_input("Suprailiakal (mm)", 0.0, 60.0, 0.0, step=0.5, key="hf7_sp")
+                s_ober   = _h7r7.number_input("Oberschenkel (mm)", 0.0, 60.0, 0.0, step=0.5, key="hf7_ob")
+                _all7 = [s_brust, s_mittel, s_tri, s_sub, s_abd, s_sup, s_ober]
+                if all(v > 0 for v in _all7) and alter and alter > 0:
+                    koerperfett = koerperfett_jp7(*_all7, float(alter), geschl)
+                    _h7res.metric("Körperfett (JP7)", f"{koerperfett} %")
+                    norm_badge(koerperfett, "anthropometrie", "koerperfett", _h7res, altersgruppe=altersgruppe_norm)
+                else:
+                    st.info("ℹ️ Alle 7 Werte > 0 eingeben — Körperfett wird automatisch berechnet.")
+
+        elif kf_methode == "11-Hautfalten (JP)":
+            _svg11 = os.path.join(_APP_DIR, "assets", "tests", "anthropometrie", "hautfalten_11.svg")
+            _img11_col, _inp11_col = st.columns([5, 11])
+            with _img11_col:
+                if os.path.exists(_svg11):
+                    st.image(_svg11, use_container_width=True)
+                else:
+                    st.caption("📍 7-Punkt + Bizeps · Wadeninnenseite · unt. Rücken · Pektoral")
+            with _inp11_col:
+                st.caption("**Pařízkova (1977)** — 11 Messpunkte, rechte Körperseite, Werte in mm")
+                _h11a, _h11b, _h11c, _h11d   = st.columns(4)
+                _h11e, _h11f, _h11g, _h11h   = st.columns(4)
+                _h11i, _h11j, _h11k, _h11res = st.columns(4)
+                s11_br  = _h11a.number_input("Brust",        0.0, 80.0, 0.0, step=0.5, key="hf11_br")
+                s11_mi  = _h11b.number_input("Mittelachse",  0.0, 60.0, 0.0, step=0.5, key="hf11_mi")
+                s11_tr  = _h11c.number_input("Trizeps",      0.0, 60.0, 0.0, step=0.5, key="hf11_tr")
+                s11_su  = _h11d.number_input("Subskapular",  0.0, 60.0, 0.0, step=0.5, key="hf11_su")
+                s11_ab  = _h11e.number_input("Abdomen",      0.0, 80.0, 0.0, step=0.5, key="hf11_ab")
+                s11_sp  = _h11f.number_input("Suprailiakal", 0.0, 60.0, 0.0, step=0.5, key="hf11_sp")
+                s11_ob  = _h11g.number_input("Oberschenkel", 0.0, 60.0, 0.0, step=0.5, key="hf11_ob")
+                s11_biz = _h11h.number_input("Bizeps",       0.0, 60.0, 0.0, step=0.5, key="hf11_bz")
+                s11_wa  = _h11i.number_input("Wade innen",   0.0, 40.0, 0.0, step=0.5, key="hf11_wa")
+                s11_rk  = _h11j.number_input("Unt. Rücken",  0.0, 60.0, 0.0, step=0.5, key="hf11_rk")
+                s11_pk  = _h11k.number_input("Pektoral",     0.0, 60.0, 0.0, step=0.5, key="hf11_pk")
+                _all11 = [s11_br, s11_mi, s11_tr, s11_su, s11_ab, s11_sp, s11_ob, s11_biz, s11_wa, s11_rk, s11_pk]
+                if all(v > 0 for v in _all11) and alter and alter > 0:
+                    koerperfett = koerperfett_jp11(*_all11, float(alter), geschl)
+                    _h11res.metric("Körperfett (JP11)", f"{koerperfett} %")
+                    norm_badge(koerperfett, "anthropometrie", "koerperfett", _h11res, altersgruppe=altersgruppe_norm)
+                else:
+                    st.info("ℹ️ Alle 11 Werte > 0 eingeben — Körperfett wird automatisch berechnet.")
+
+        # ── Körpermessungen ───────────────────────────────────────────────────
+        st.markdown("---")
+        st.markdown("#### 📐 Körpermessungen")
+        c1, c2 = st.columns(2)
         g_h, g_i = c1.columns([5, 1]); g_h.markdown("**Körpergröße (cm)**"); field_info_col(g_i, "anthropometrie", "groesse")
         groesse      = c1.number_input("Körpergröße (cm)", 100.0, 220.0,
                                         float(letzter["groesse"]) if letzter else 175.0,
@@ -2303,20 +2436,6 @@ def page_anthropometrie():
         gewicht      = c1.number_input("Körpergewicht (kg)", 15.0, 150.0,
                                         float(letzter["gewicht"]) if letzter else 70.0,
                                         step=0.5, key="anthro_gewicht", label_visibility="collapsed", help=_fh("gewicht"))
-        # ── Körperfett-Methode ───────────────────────────────────────────────
-        kf_methode = c1.radio(
-            "Körperfett-Methode",
-            ["Manuell", "7-Hautfalten (JP)", "11-Hautfalten (JP)", "Körperanalysewaage"],
-            key="anthro_kf_methode",
-        )
-        _kf_default = float(letzter["koerperfett"]) if letzter and letzter.get("koerperfett") else 0.0
-        koerperfett = 0.0
-        if kf_methode in ("Manuell", "Körperanalysewaage"):
-            kf_lbl = "Körperfett (%)" if kf_methode == "Manuell" else "KF % (Waage)"
-            koerperfett = c1.number_input(kf_lbl, 0.0, 50.0, _kf_default,
-                                           step=0.1, key="anthro_kf_man")
-            if koerperfett > 0:
-                norm_badge(koerperfett, "anthropometrie", "koerperfett", c1, altersgruppe=altersgruppe_norm)
         mm_h, mm_i = c1.columns([5, 1]); mm_h.markdown("**Muskelmasse (kg)**"); field_info_col(mm_i, "anthropometrie", "muskelmasse")
         muskelmasse  = c1.number_input("Muskelmasse (kg)", 0.0, 100.0,
                                         float(letzter["muskelmasse"]) if letzter else 0.0,
@@ -2342,51 +2461,6 @@ def page_anthropometrie():
         armspann     = c2.number_input("Armspannweite (cm)", 0.0, 250.0,
                                         float(letzter["armspannweite"]) if letzter else 0.0,
                                         step=0.5, key="anthro_arm", label_visibility="collapsed", help=_fh("armspann"))
-
-        # ── Hautfalten-Berechnung (volle Breite, nur wenn Methode gewählt) ───
-        if kf_methode == "7-Hautfalten (JP)":
-            st.markdown("##### 7-Hautfalten-Messung (mm) — Jackson & Pollock 1978")
-            st.caption("Brust · Mittelachse · Trizeps · Subskapular · Abdomen · Suprailiakal · Oberschenkel")
-            hfc1, hfc2, hfc3, hfc4 = st.columns(4)
-            hfc5, hfc6, hfc7, hfc_res = st.columns(4)
-            s_brust  = hfc1.number_input("Brust (mm)",        0.0, 80.0, 0.0, step=0.5, key="hf7_br")
-            s_mittel = hfc2.number_input("Mittelachse (mm)",  0.0, 60.0, 0.0, step=0.5, key="hf7_mi")
-            s_tri    = hfc3.number_input("Trizeps (mm)",      0.0, 60.0, 0.0, step=0.5, key="hf7_tr")
-            s_sub    = hfc4.number_input("Subskapular (mm)",  0.0, 60.0, 0.0, step=0.5, key="hf7_su")
-            s_abd    = hfc5.number_input("Abdomen (mm)",      0.0, 80.0, 0.0, step=0.5, key="hf7_ab")
-            s_sup    = hfc6.number_input("Suprailiakal (mm)", 0.0, 60.0, 0.0, step=0.5, key="hf7_sp")
-            s_ober   = hfc7.number_input("Oberschenkel (mm)", 0.0, 60.0, 0.0, step=0.5, key="hf7_ob")
-            _all7 = [s_brust, s_mittel, s_tri, s_sub, s_abd, s_sup, s_ober]
-            if all(v > 0 for v in _all7) and alter and alter > 0:
-                koerperfett = koerperfett_jp7(*_all7, float(alter), geschl)
-                hfc_res.metric("Körperfett (JP7)", f"{koerperfett} %")
-                norm_badge(koerperfett, "anthropometrie", "koerperfett", hfc_res, altersgruppe=altersgruppe_norm)
-            else:
-                st.info("ℹ️ Alle 7 Werte > 0 eingeben — Körperfett wird automatisch berechnet.")
-        elif kf_methode == "11-Hautfalten (JP)":
-            st.markdown("##### 11-Hautfalten-Messung (mm) — Jackson & Pollock (erweitert)")
-            st.caption("7 Punkte + Bizeps · Wadeninnenseite · unterer Rücken · Pektoral")
-            hf11a, hf11b, hf11c, hf11d = st.columns(4)
-            hf11e, hf11f, hf11g, hf11h = st.columns(4)
-            hf11i, hf11j, hf11k, hf11res = st.columns(4)
-            s11_br  = hf11a.number_input("Brust",          0.0, 80.0, 0.0, step=0.5, key="hf11_br")
-            s11_mi  = hf11b.number_input("Mittelachse",    0.0, 60.0, 0.0, step=0.5, key="hf11_mi")
-            s11_tr  = hf11c.number_input("Trizeps",        0.0, 60.0, 0.0, step=0.5, key="hf11_tr")
-            s11_su  = hf11d.number_input("Subskapular",    0.0, 60.0, 0.0, step=0.5, key="hf11_su")
-            s11_ab  = hf11e.number_input("Abdomen",        0.0, 80.0, 0.0, step=0.5, key="hf11_ab")
-            s11_sp  = hf11f.number_input("Suprailiakal",   0.0, 60.0, 0.0, step=0.5, key="hf11_sp")
-            s11_ob  = hf11g.number_input("Oberschenkel",   0.0, 60.0, 0.0, step=0.5, key="hf11_ob")
-            s11_biz = hf11h.number_input("Bizeps",         0.0, 60.0, 0.0, step=0.5, key="hf11_bz")
-            s11_wa  = hf11i.number_input("Wade innen",     0.0, 40.0, 0.0, step=0.5, key="hf11_wa")
-            s11_rk  = hf11j.number_input("Unt. Rücken",    0.0, 60.0, 0.0, step=0.5, key="hf11_rk")
-            s11_pk  = hf11k.number_input("Pektoral",       0.0, 60.0, 0.0, step=0.5, key="hf11_pk")
-            _all11  = [s11_br, s11_mi, s11_tr, s11_su, s11_ab, s11_sp, s11_ob, s11_biz, s11_wa, s11_rk, s11_pk]
-            if all(v > 0 for v in _all11) and alter and alter > 0:
-                koerperfett = koerperfett_jp11(*_all11, float(alter), geschl)
-                hf11res.metric("Körperfett (JP11)", f"{koerperfett} %")
-                norm_badge(koerperfett, "anthropometrie", "koerperfett", hf11res, altersgruppe=altersgruppe_norm)
-            else:
-                st.info("ℹ️ Alle 11 Werte > 0 eingeben — Körperfett wird automatisch berechnet.")
 
         bmi     = bmi_berechnen(gewicht, groesse)
         bmi_kat = bmi_kategorie(bmi)
@@ -2450,12 +2524,12 @@ def page_anthropometrie():
                         obs_anthro["seite"], obs_anthro["auspraegung"],
                         obs_anthro["freitext"], obs_anthro["text_generiert"],
                     )
-                st.success("✅ Messung gespeichert!")
+                _save_ok("Messung gespeichert!")
                 st.rerun()
         with col_del:
             if letzter and st.button("🗑️ Letzte löschen", use_container_width=True, key="anthro_del"):
                 anthropometrie_loeschen_letzten(sid)
-                st.success("✅ Letzte Messung gelöscht.")
+                _save_ok("Letzte Messung gelöscht.")
                 st.rerun()
 
     with tab_verlauf:
@@ -2653,7 +2727,7 @@ def page_sprint():
                         obs_sprint["seite"], obs_sprint["auspraegung"],
                         obs_sprint["freitext"], obs_sprint["text_generiert"],
                     )
-                st.success("✅ Sprint-Test gespeichert!")
+                _save_ok("Sprint-Test gespeichert!")
                 st.rerun()
 
     with tab_verlauf:
@@ -2862,7 +2936,7 @@ def page_sprung():
                         obs_sprung["seite"], obs_sprung["auspraegung"],
                         obs_sprung["freitext"], obs_sprung["text_generiert"],
                     )
-                st.success("✅ Sprung-Test gespeichert!")
+                _save_ok("Sprung-Test gespeichert!")
                 st.rerun()
 
     with tab_verlauf:
@@ -3103,7 +3177,7 @@ def page_agilitaet():
                         obs_agil["seite"], obs_agil["auspraegung"],
                         obs_agil["freitext"], obs_agil["text_generiert"],
                     )
-                st.success("✅ Agilität-Test gespeichert!")
+                _save_ok("Agilität-Test gespeichert!")
                 st.rerun()
 
     with tab_verlauf:
@@ -3598,7 +3672,7 @@ def _page_spiro():
                         })
                     spiro_nachbelastung_speichern(test_id, nb_liste)
                 st.session_state.pop(f"spiro_editor_{sid}_data", None)
-                st.success(f"✅ Stufentest vom {datum_spiro.strftime('%d.%m.%Y')} gespeichert!")
+                _save_ok(f"Stufentest vom {datum_spiro.strftime('%d.%m.%Y')} gespeichert!")
                 st.rerun()
 
     # ═══════════════════════════════════════════════════════════════════════════
@@ -4054,7 +4128,7 @@ def page_ausdauer():
                         obs_aus["seite"], obs_aus["auspraegung"],
                         obs_aus["freitext"], obs_aus["text_generiert"],
                     )
-                st.success("✅ Ausdauer-Test gespeichert!")
+                _save_ok("Ausdauer-Test gespeichert!")
                 st.rerun()
 
     with tab_verlauf:
@@ -4298,7 +4372,7 @@ def page_kraft():
                         obs_kraft["seite"], obs_kraft["auspraegung"],
                         obs_kraft["freitext"], obs_kraft["text_generiert"],
                     )
-                st.success("✅ Kraft-Test gespeichert!")
+                _save_ok("Kraft-Test gespeichert!")
                 st.rerun()
 
     with tab_verlauf:
@@ -6078,6 +6152,7 @@ with st.sidebar:
     )
 
 # ── Route ─────────────────────────────────────────────────────────────────────
+_check_save_ok()
 if section == "🏠  Startseite":
     page_startseite()
 elif section == "👤  Spieler":
