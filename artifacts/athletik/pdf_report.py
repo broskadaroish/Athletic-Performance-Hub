@@ -501,7 +501,7 @@ def generate_report(
     # FMS
     # ════════════════════════════════════════════════════════════════════════════
     if fms_row:
-        pdf.check_page_break(55)
+        pdf.check_page_break(75)
         pdf.section_title("FMS - FUNCTIONAL MOVEMENT SCREEN")
         f_col2 = GREEN if fms_row["score"] >= 15 else YELLOW if fms_row["score"] >= 13 else RED
         pdf.row2("Testdatum",   fms_row.get("datum", "-"),
@@ -509,19 +509,78 @@ def generate_report(
                  color_r=f_col2)
         pdf.row2("Asymmetrien", fms_row.get("asymmetrie", "-"),
                  "Schwerpunkt", fms_row.get("schwerpunkt", "-"))
-        pdf.ln(1)
-        patterns = [
-            ("Deep Squat",           fms_row.get("deep_squat", 0)),
-            ("Hurdle Step (min)",     min(fms_row.get("hurdle_links",0), fms_row.get("hurdle_rechts",0))),
-            ("Inline Lunge (min)",    min(fms_row.get("inline_links",0), fms_row.get("inline_rechts",0))),
-            ("Shoulder Mob. (min)",   min(fms_row.get("shoulder_links",0), fms_row.get("shoulder_rechts",0))),
-            ("ASLR (min)",            min(fms_row.get("aslr_links",0), fms_row.get("aslr_rechts",0))),
-            ("Trunk Stability",       fms_row.get("trunk", 0)),
-            ("Rotary Stab. (min)",    min(fms_row.get("rotary_links",0), fms_row.get("rotary_rechts",0))),
+        pdf.ln(2)
+
+        # ── FMS Einzelwerte-Tabelle (Links / Rechts / Score / Asymmetrie) ──────
+        # Spaltenbreiten: Muster 62 | Links 22 | Rechts 22 | Score 24 | Bemerkung 60
+        pdf.table_header([
+            ("Bewegungsmuster", 62), ("Links", 22), ("Rechts", 22),
+            ("Score /3", 24), ("Bemerkung", 60),
+        ])
+
+        # (name, l_val, r_val, bilat_val)
+        # bilat_val gesetzt fuer beidseitige Pattern (kein L/R)
+        fms_detail = [
+            ("Deep Squat",       None, None,
+             fms_row.get("deep_squat", 0)),
+            ("Hurdle Step",
+             fms_row.get("hurdle_links",  0), fms_row.get("hurdle_rechts",  0), None),
+            ("Inline Lunge",
+             fms_row.get("inline_links",  0), fms_row.get("inline_rechts",  0), None),
+            ("Shoulder Mob.",
+             fms_row.get("shoulder_links",0), fms_row.get("shoulder_rechts",0), None),
+            ("ASLR",
+             fms_row.get("aslr_links",    0), fms_row.get("aslr_rechts",    0), None),
+            ("Trunk Stability",  None, None,
+             fms_row.get("trunk", 0)),
+            ("Rotary Stability",
+             fms_row.get("rotary_links",  0), fms_row.get("rotary_rechts",  0), None),
         ]
-        for name, val in patterns:
-            pdf.progress_bar(name, val, 3)
-        pdf.ln(1)
+
+        for i, (name, l_val, r_val, bilat_val) in enumerate(fms_detail):
+            fill = (i % 2 == 0)
+            pdf.set_fill_color(*(pdf.LIGHT if fill else pdf.WHITE))
+
+            if bilat_val is not None:
+                score   = int(bilat_val or 0)
+                l_str   = "-"
+                r_str   = "-"
+                has_asym = False
+                asym_str = ""
+            else:
+                l_v      = int(l_val or 0)
+                r_v      = int(r_val or 0)
+                score    = min(l_v, r_v)
+                l_str    = str(l_v)
+                r_str    = str(r_v)
+                has_asym = (l_v != r_v)
+                asym_str = "! Asymmetrie" if has_asym else ""
+
+            score_col = GREEN if score == 3 else YELLOW if score == 2 else RED
+
+            # Muster
+            pdf.set_font("Helvetica", "", 7)
+            pdf.set_text_color(*pdf.DARK)
+            pdf.cell(62, 5, _safe(name), fill=fill)
+            # Links / Rechts
+            pdf.cell(22, 5, l_str, fill=fill, align="C")
+            pdf.cell(22, 5, r_str, fill=fill, align="C")
+            # Score (farbig)
+            pdf.set_font("Helvetica", "B", 7)
+            pdf.set_text_color(*score_col)
+            pdf.cell(24, 5, "%d/3" % score, fill=fill, align="C")
+            # Bemerkung
+            if has_asym:
+                pdf.set_text_color(*RED)
+                pdf.set_font("Helvetica", "B", 7)
+            else:
+                pdf.set_text_color(*pdf.MID)
+                pdf.set_font("Helvetica", "", 7)
+            pdf.cell(60, 5, _safe(asym_str), fill=fill,
+                     new_x="LMARGIN", new_y="NEXT")
+            pdf.set_text_color(*pdf.DARK)
+
+        pdf.ln(2)
         pdf.disclaimer_box(_safe(FMS_HINWEIS), border_color=(80, 100, 160))
         pdf.ln(1)
 
@@ -529,17 +588,86 @@ def generate_report(
     # Y-BALANCE
     # ════════════════════════════════════════════════════════════════════════════
     if y_row:
-        pdf.check_page_break(35)
+        pdf.check_page_break(55)
         pdf.section_title("Y-BALANCE TEST")
         avg_y2 = (y_row["composite_rechts"] + y_row["composite_links"]) / 2
         y_col2 = GREEN if avg_y2 >= 89 else YELLOW if avg_y2 >= 85 else RED
-        pdf.row2("Testdatum",        y_row.get("datum", "-"),
-                 "Composite Rechts", "%.1f %%" % y_row["composite_rechts"])
-        pdf.row2("Composite Links",  "%.1f %%" % y_row["composite_links"],
-                 "Composite Oe",     "%.1f %%" % avg_y2,
-                 color_r=y_col2)
-        pdf.row2("Asymmetrie",       y_row.get("asymmetrie", "-"),
-                 "Schwerpunkt",      y_row.get("schwerpunkt", "-"))
+        pdf.row2("Testdatum",   y_row.get("datum", "-"),
+                 "Schwerpunkt", y_row.get("schwerpunkt", "-"))
+        pdf.row2("Asymmetrie",  y_row.get("asymmetrie", "-"),
+                 "Composite Oe", "%.1f %%" % avg_y2, color_r=y_col2)
+        pdf.ln(2)
+
+        # ── Y-Balance Richtungs-Tabelle (Ant / PM / PL) ──────────────────────
+        # Spalten: Richtung 58 | Rechts 32 | Links 32 | Differenz 30 | Hinweis 38
+        pdf.table_header([
+            ("Richtung", 58), ("Rechts (cm)", 32), ("Links (cm)", 32),
+            ("Differenz", 30), ("Hinweis", 38),
+        ])
+
+        yb_directions = [
+            ("Anterior (Ant)",
+             y_row.get("anterior_rechts",      0),
+             y_row.get("anterior_links",        0),
+             y_row.get("diff_anterior",         None)),
+            ("Posteromedial (PM)",
+             y_row.get("posteromedial_rechts",  0),
+             y_row.get("posteromedial_links",   0),
+             y_row.get("diff_posteromedial",    None)),
+            ("Posterolateral (PL)",
+             y_row.get("posterolateral_rechts", 0),
+             y_row.get("posterolateral_links",  0),
+             y_row.get("diff_posterolateral",   None)),
+        ]
+
+        for i, (name, r_val, l_val, diff) in enumerate(yb_directions):
+            fill  = (i % 2 == 0)
+            r_val = float(r_val or 0)
+            l_val = float(l_val or 0)
+            diff  = float(diff) if diff is not None else abs(r_val - l_val)
+            has_asym = diff >= 4.0
+
+            pdf.set_fill_color(*(pdf.LIGHT if fill else pdf.WHITE))
+            pdf.set_font("Helvetica", "", 7)
+            pdf.set_text_color(*pdf.DARK)
+            pdf.cell(58, 5, _safe(name), fill=fill)
+            pdf.cell(32, 5, "%.1f" % r_val, fill=fill, align="C")
+            pdf.cell(32, 5, "%.1f" % l_val, fill=fill, align="C")
+            # Differenz farbig
+            diff_col = RED if diff >= 4.0 else YELLOW if diff >= 2.0 else GREEN
+            pdf.set_font("Helvetica", "B", 7)
+            pdf.set_text_color(*diff_col)
+            pdf.cell(30, 5, "%.1f cm" % diff, fill=fill, align="C")
+            # Hinweis
+            if has_asym:
+                pdf.set_text_color(*RED)
+                pdf.set_font("Helvetica", "B", 7)
+                hint = "! Asymmetrie"
+            else:
+                pdf.set_text_color(*pdf.MID)
+                pdf.set_font("Helvetica", "", 7)
+                hint = ""
+            pdf.cell(38, 5, _safe(hint), fill=fill, new_x="LMARGIN", new_y="NEXT")
+            pdf.set_text_color(*pdf.DARK)
+
+        # ── Composite-Zeile (hervorgehoben) ───────────────────────────────────
+        comp_r    = float(y_row.get("composite_rechts", 0))
+        comp_l    = float(y_row.get("composite_links",  0))
+        comp_diff = abs(comp_r - comp_l)
+        pdf.set_fill_color(*pdf.BRAND)
+        pdf.set_text_color(*pdf.WHITE)
+        pdf.set_font("Helvetica", "B", 7)
+        pdf.cell(58, 5, "Composite Score (%)", fill=True)
+        pdf.cell(32, 5, "%.1f %%" % comp_r, fill=True, align="C")
+        pdf.cell(32, 5, "%.1f %%" % comp_l, fill=True, align="C")
+        comp_diff_col = RED if comp_diff >= 4 else YELLOW if comp_diff >= 2 else GREEN
+        pdf.set_text_color(*comp_diff_col)
+        pdf.cell(30, 5, "%.1f %%" % comp_diff, fill=True, align="C")
+        pdf.set_text_color(*pdf.WHITE)
+        pdf.set_font("Helvetica", "", 7)
+        pdf.cell(38, 5, "", fill=True, new_x="LMARGIN", new_y="NEXT")
+        pdf.set_text_color(*pdf.DARK)
+
         pdf.ln(2)
 
     # ════════════════════════════════════════════════════════════════════════════
