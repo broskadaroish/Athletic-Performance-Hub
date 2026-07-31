@@ -154,6 +154,8 @@ class TestprotokollPDF(FPDF):
     W_V     = 27
     W_BEST  = 29   # W_LABEL + W_UNIT + 3*W_V + W_BEST = 180
 
+    logo_bytes: bytes | None = None   # gesetzt vor output()
+
     def header(self):
         self.set_fill_color(*self.GR_DARK)
         self.rect(0, 0, 210, 16, "F")
@@ -163,6 +165,13 @@ class TestprotokollPDF(FPDF):
         self.cell(0, 10, "  BRUCE FOOTBALL PERFORMANCE DIAGNOSTICS  -  TESTPROTOKOLL", align="L")
         self.set_font("Helvetica", "", 8)
         self.cell(0, 10, f"Druckdatum: {date.today().strftime('%d.%m.%Y')}  ", align="R")
+        # Vereinslogo oben rechts im Header (sofern vorhanden)
+        if self.logo_bytes:
+            try:
+                _logo_buf = io.BytesIO(self.logo_bytes)
+                self.image(_logo_buf, x=188, y=1, h=14, keep_aspect_ratio=True)
+            except Exception:
+                pass
         self.set_text_color(*self.GR_DARK)
         self.ln(14)
 
@@ -463,6 +472,7 @@ def generate_testprotokoll(
     test_ids: list[str],
     spieler_liste: list[dict] | None = None,
     variante: str = "leer",
+    logo_bytes: bytes | None = None,
 ) -> bytes:
     """
     Erzeugt das Testprotokoll-PDF.
@@ -471,6 +481,7 @@ def generate_testprotokoll(
     variante="spieler"   → pro Spieler eine eigene Seite / Abschnitt
     """
     pdf = TestprotokollPDF(orientation="P", unit="mm", format="A4")
+    pdf.logo_bytes = logo_bytes
     pdf.set_auto_page_break(auto=True, margin=14)
     pdf.set_margins(10, 18, 10)
     pdf.set_font("Helvetica", "", 9)

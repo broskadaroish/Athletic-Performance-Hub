@@ -210,13 +210,23 @@ class AthletikReport(FPDF):
             self.add_page()
 
     def cover_page(self, spieler: dict, vereinsname: str = "", saison: str = "",
-                   athletik_score: int = 0, module_vorhanden: list = None):
+                   athletik_score: int = 0, module_vorhanden: list = None,
+                   logo_bytes: bytes | None = None):
         """Erstes Blatt — professionelles Deckblatt mit Spieler-Stammdaten."""
+        import io as _cio
         module_vorhanden = module_vorhanden or []
 
         # ── Blauer Header-Block ──────────────────────────────────────────────
         self.set_fill_color(*self.BRAND)
         self.rect(0, 0, 210, 60, "F")
+
+        # Vereinslogo oben rechts im Header
+        if logo_bytes:
+            try:
+                _logo_buf = _cio.BytesIO(logo_bytes)
+                self.image(_logo_buf, x=170, y=8, h=20, keep_aspect_ratio=True)
+            except Exception:
+                pass
 
         # Verein / Organisation
         self.set_xy(15, 10)
@@ -401,6 +411,7 @@ def generate_report(
     beobachtungen: list = None,
     vereinsname: str = "",
     saison: str = "",
+    logo_bytes: bytes | None = None,
 ) -> bytes:
     """
     Vollstaendiger Athletik-Bericht fuer alle Testmodule.
@@ -431,6 +442,7 @@ def generate_report(
         saison=saison,
         athletik_score=athletik_score,
         module_vorhanden=_module_vorhanden,
+        logo_bytes=logo_bytes,
     )
 
     # ── Athletik-Kennzahlen ──────────────────────────────────────────────────

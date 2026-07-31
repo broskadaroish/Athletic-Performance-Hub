@@ -377,6 +377,11 @@ def init_db():
             created_at     TEXT    DEFAULT (datetime('now')),
             updated_at     TEXT    DEFAULT (datetime('now'))
         );
+        CREATE TABLE IF NOT EXISTS app_einstellungen (
+            schluessel TEXT PRIMARY KEY,
+            wert       BLOB,
+            geaendert  TEXT DEFAULT (datetime('now'))
+        );
         """)
     # Migrationen: neue Spalten und Indizes für bestehende Datenbanken nachträglich anlegen
     _migrate_spieler_columns()
@@ -463,6 +468,52 @@ def beobachtungen_alle_fuer_spieler(spieler_id: int) -> list[dict]:
 
 
 # ─── Trainer-Checkliste (custom) ──────────────────────────────────────────────
+
+# ─── App-Einstellungen (key-value, inkl. Vereinslogo BLOB) ───────────────────
+
+def einstellung_speichern(schluessel: str, wert) -> None:
+    """Speichert einen Einstellungswert (Text oder bytes) dauerhaft."""
+    with get_conn() as conn:
+        conn.execute(
+            """INSERT INTO app_einstellungen (schluessel, wert, geaendert)
+               VALUES (?, ?, datetime('now'))
+               ON CONFLICT(schluessel) DO UPDATE
+               SET wert=excluded.wert, geaendert=datetime('now')""",
+            (schluessel, wert),
+        )
+
+
+def einstellung_laden(schluessel: str):
+    """Lädt einen gespeicherten Einstellungswert (oder None)."""
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT wert FROM app_einstellungen WHERE schluessel=?", (schluessel,)
+        ).fetchone()
+    return row["wert"] if row else None
+
+
+def einstellung_loeschen(schluessel: str) -> None:
+    """Löscht einen Einstellungseintrag vollständig."""
+    with get_conn() as conn:
+        conn.execute(
+            "DELETE FROM app_einstellungen WHERE schluessel=?", (schluessel,)
+        )
+
+
+def logo_laden() -> bytes | None:
+    """Lädt das gespeicherte Vereinslogo (bytes) oder None."""
+    return einstellung_laden("vereinslogo")
+
+
+def logo_speichern(logo_bytes: bytes) -> None:
+    """Speichert das Vereinslogo als BLOB in der Datenbank."""
+    einstellung_speichern("vereinslogo", logo_bytes)
+
+
+def logo_loeschen() -> None:
+    """Entfernt das gespeicherte Vereinslogo."""
+    einstellung_loeschen("vereinslogo")
+
 
 def checkliste_custom_laden(test_id: str) -> str:
     """Gibt gespeicherte Custom-Punkte als mehrzeiligen Text zurück (leer = keine)."""

@@ -48,6 +48,7 @@ from database import (
     einwilligung_speichern, einwilligung_letzter, einwilligung_alle,
     db_komplett_zuruecksetzen,
     checkliste_custom_laden, checkliste_custom_speichern,
+    logo_laden, logo_speichern, logo_loeschen,
     beobachtung_speichern,
     beobachtungen_alle_fuer_spieler,
     spiro_protokoll_alle, spiro_protokoll_speichern,
@@ -129,13 +130,15 @@ from field_eval import alter_zu_altersgruppe, asymmetrie_badge_html, fms_asymmet
 # ─── Anleitung-Download-Button (wiederverwendbar auf jeder Testseite) ─────────
 
 @st.cache_data(show_spinner=False)
-def _generate_anleitung_cached(test_id: str, vereinsname: str, saison: str) -> bytes:
-    """Generiert ein Einzel-Test-PDF (gecacht nach test_id + Vereinsinfos)."""
+def _generate_anleitung_cached(test_id: str, vereinsname: str, saison: str,
+                               logo_bytes: bytes | None = None) -> bytes:
+    """Generiert ein Einzel-Test-PDF (gecacht nach test_id + Vereinsinfos + Logo)."""
     return generate_anleitung_pdf(
         [test_id],
         mit_deckblatt=False,
         vereinsname=vereinsname,
         saison=saison,
+        logo_bytes=logo_bytes,
     )
 
 
@@ -144,7 +147,7 @@ def _anleitung_download_button(test_id: str) -> None:
     vn = st.session_state.get("cfg_vereinsname", "")
     sn = st.session_state.get("cfg_saison", "")
     try:
-        pdf_bytes = _generate_anleitung_cached(test_id, vn, sn)
+        pdf_bytes = _generate_anleitung_cached(test_id, vn, sn, logo_bytes=logo_laden())
     except Exception:
         return
     test_name = TEST_LABELS.get(test_id, test_id)
@@ -1904,6 +1907,7 @@ def page_spieler_profil():
                 beobachtungen= _m("pdf_m_beob",     beob_pdf) or [],
                 vereinsname=st.session_state.get("cfg_vereinsname", ""),
                 saison=st.session_state.get("cfg_saison", ""),
+                logo_bytes=logo_laden(),
             )
             st.session_state["pdf_bytes_cache"] = pdf_bytes
             st.download_button(
@@ -5255,6 +5259,46 @@ def page_einstellungen():
             st.success("✅ Einstellungen gespeichert (Session).")
 
         st.markdown("---")
+        st.markdown("### 🏷️ Vereinslogo")
+        st.caption(
+            "Das Logo wird in allen generierten PDFs (Anleitungen, Profile, Protokolle) "
+            "automatisch eingebunden — einmal hochladen, dauerhaft gespeichert."
+        )
+        _gespeichertes_logo = logo_laden()
+        _col_logo, _col_logo_btn = st.columns([3, 1])
+        with _col_logo:
+            _neue_logo_datei = st.file_uploader(
+                "Logo hochladen (PNG, JPG — max. 2 MB)",
+                type=["png", "jpg", "jpeg"],
+                key="cfg_logo_upload",
+                label_visibility="collapsed",
+            )
+        with _col_logo_btn:
+            if _gespeichertes_logo:
+                if st.button("🗑️ Logo löschen", key="cfg_logo_del",
+                             use_container_width=True):
+                    logo_loeschen()
+                    _save_ok("Vereinslogo gelöscht.")
+                    st.rerun()
+        if _neue_logo_datei is not None:
+            _logo_raw = _neue_logo_datei.getvalue()
+            if len(_logo_raw) > 2 * 1024 * 1024:
+                st.error("❌ Datei zu groß — maximale Größe: 2 MB.")
+            else:
+                logo_speichern(_logo_raw)
+                _save_ok("Vereinslogo gespeichert.")
+                st.rerun()
+        if _gespeichertes_logo:
+            import io as _io
+            try:
+                st.image(_io.BytesIO(_gespeichertes_logo), width=160,
+                         caption=f"Gespeichertes Logo ({len(_gespeichertes_logo)//1024} KB)")
+            except Exception:
+                st.info("Logo gespeichert (Vorschau nicht verfügbar).")
+        else:
+            st.info("Noch kein Vereinslogo gespeichert.")
+
+        st.markdown("---")
         st.markdown("### Kader-Übersicht")
         alle = spieler_laden()
         st.metric("Spieler gesamt", len(alle))
@@ -5688,7 +5732,7 @@ def page_export_pdf():
                         mit_deckblatt=False,
                         vereinsname=st.session_state.get("cfg_vereinsname", ""),
                         saison=st.session_state.get("cfg_saison", ""),
-                        logo_bytes=None,
+                        logo_bytes=logo_laden(),
                     )
                     st.download_button(
                         f"⬇️ {_ql} herunterladen",
@@ -5743,12 +5787,32 @@ def page_export_pdf():
                 "Unter **⚙️ Einstellungen → Allgemein** eintragen, um das PDF zu personalisieren."
             )
 
-        _logo_file = st.file_uploader(
-            "Vereinslogo (optional, PNG/JPG — nur für dieses PDF)",
+        # ── Logo: dauerhaft aus DB, optional überschreiben ───────────────────
+        _logo_bytes: bytes | None = logo_laden()
+        if _logo_bytes:
+            import io as _io2
+            try:
+                _lcol1, _lcol2 = st.columns([1, 4])
+                _lcol1.image(_io2.BytesIO(_logo_bytes), width=80)
+                _lcol2.success(
+                    "✅ Vereinslogo aus den Einstellungen wird automatisch verwendet. "
+                    "Anderes Logo hochladen, um es für dieses PDF zu ersetzen."
+                )
+            except Exception:
+                st.success("✅ Vereinslogo gespeichert — wird im PDF verwendet.")
+        else:
+            st.info(
+                "Kein Logo gespeichert. Unter **⚙️ Einstellungen → Allgemein** dauerhaft hinterlegen, "
+                "oder hier einmalig für dieses PDF hochladen."
+            )
+        _logo_override = st.file_uploader(
+            "Alternatives Logo (nur für diesen Export, PNG/JPG)",
             type=["png", "jpg", "jpeg"],
             key="pdf_logo_upload",
+            label_visibility="collapsed",
         )
-        _logo_bytes: bytes | None = _logo_file.read() if _logo_file is not None else None
+        if _logo_override is not None:
+            _logo_bytes = _logo_override.getvalue()
 
         st.markdown("---")
 
@@ -6864,6 +6928,7 @@ def page_testprotokoll():
                 test_ids=selected_tests,
                 spieler_liste=selected_spieler if not leer else None,
                 variante="leer" if leer else "spieler",
+                logo_bytes=logo_laden(),
             )
         dateiname = "testprotokoll_leer.pdf" if leer else "testprotokoll_spieler.pdf"
         st.download_button(
