@@ -176,9 +176,13 @@ def _zweck_bestaetigt() -> bool:
     return False
 
 # ─── Page config ──────────────────────────────────────────────────────────────
+from PIL import Image as _PILImage
+_APP_ICON_PATH = os.path.join(os.path.dirname(__file__), "assets", "icon.png")
+_app_icon_img  = _PILImage.open(_APP_ICON_PATH) if os.path.exists(_APP_ICON_PATH) else "⚽"
+
 st.set_page_config(
     page_title="Bruce Football Performance Diagnostics",
-    page_icon="⚽",
+    page_icon=_app_icon_img,
     layout="wide",
     initial_sidebar_state="expanded",
 )
@@ -231,9 +235,12 @@ if "splash_done" not in st.session_state:
     import time as _time
     _sc1, _sc2, _sc3 = st.columns([1, 2, 1])
     with _sc2:
+        if os.path.exists(_APP_ICON_PATH):
+            _ic1, _ic2, _ic3 = st.columns([1, 2, 1])
+            _ic2.image(_APP_ICON_PATH, width=120)
         st.markdown(
-            f'<div style="text-align:center;padding:80px 0 24px">'
-            f'<div style="font-size:80px;line-height:1">⚽</div>'
+            f'<div style="text-align:center;padding:20px 0 24px">'
+            f'<div style="font-size:80px;line-height:1">{"" if os.path.exists(_APP_ICON_PATH) else "⚽"}</div>'
             f'<h1 style="color:#e6edf3;font-size:26px;font-weight:800;'
             f'letter-spacing:1px;margin:20px 0 6px;line-height:1.3">'
             f'Bruce Football<br>Performance Diagnostics</h1>'
@@ -6664,14 +6671,15 @@ _MAIN_SECTIONS = [
 with st.sidebar:
     # ── Logo ──────────────────────────────────────────────────────────────────
     st.markdown(
-        f'<div style="padding:18px 0 10px;text-align:center">'
-        f'<div style="font-size:38px">⚽</div>'
-        f'<div style="font-weight:800;font-size:13px;color:{C["text"]};letter-spacing:0.5px;margin-top:4px">BRUCE FOOTBALL</div>'
+        f'<div style="padding:10px 0 8px;text-align:center">'
+        f'<div style="font-weight:800;font-size:13px;color:{C["text"]};letter-spacing:0.5px;margin-top:6px">BRUCE FOOTBALL</div>'
         f'<div style="font-weight:700;font-size:11px;color:{C["text"]};letter-spacing:0.5px">PERFORMANCE DIAGNOSTICS</div>'
         f'<div style="font-size:9px;color:{C["muted"]};margin-top:2px">v{APP_VERSION}</div>'
         f'</div>',
         unsafe_allow_html=True,
     )
+    if os.path.exists(_APP_ICON_PATH):
+        st.image(_APP_ICON_PATH, width=64)
 
     # ── Global player selector ────────────────────────────────────────────────
     alle_spieler = spieler_laden()
