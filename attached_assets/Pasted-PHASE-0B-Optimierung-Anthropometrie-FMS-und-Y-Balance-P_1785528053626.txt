@@ -1,0 +1,195 @@
+PHASE 0B – Optimierung Anthropometrie, FMS und Y-Balance
+Projektziel
+Du arbeitest an der bestehenden Software Bruce Football Performance Diagnostics.
+Diese Teilphase dient ausschließlich der Optimierung der bereits vorhandenen Module:
+•	Anthropometrie
+•	Functional Movement Screen (FMS)
+•	Y-Balance-Test
+Es dürfen keine neuen Hauptfunktionen entwickelt werden.
+Die wissenschaftlichen Grundlagen, Berechnungen und Bewertungslogiken dürfen nicht verändert werden.
+Die Plattform muss jederzeit vollständig lauffähig bleiben.
+
+Langfristiges Projektziel
+Die Plattform soll später sowohl als:
+•	Windows-Software (.exe)
+•	Web-Anwendung
+•	Cloud-Plattform
+genutzt werden können.
+Alle Änderungen müssen modular entwickelt werden.
+Die Plattform muss weiterhin vollständig offline funktionieren.
+
+Arbeitsweise
+Analysiere zunächst die vorhandenen Module.
+Prüfe insbesondere:
+•	Benutzeroberfläche
+•	Datenbank
+•	Speicherfunktionen
+•	Historie
+•	Diagramme
+•	Layout
+•	Performance
+•	Stabilität
+Erstelle anschließend einen kurzen Umsetzungsplan.
+Arbeite danach Schritt für Schritt.
+Nach jeder Änderung:
+•	testen
+•	dokumentieren
+•	Fehler sofort beheben
+
+Wichtige Regeln
+Nicht verändern:
+•	Berechnungslogik
+•	Diagnostikalgorithmen
+•	wissenschaftliche Grundlagen
+•	Athletik-Score
+Nicht löschen:
+•	Spielerdaten
+•	Datenbank
+•	vorhandene Funktionen
+Bestehende Funktionen dürfen ausschließlich verbessert werden.
+
+Aufgabe 1 – Anthropometrie
+Überarbeite das komplette Anthropometrie-Modul.
+Körperfett
+Der Trainer soll zwischen folgenden Methoden wählen können:
+•	Manuelle Eingabe
+•	Berechnung über 7-Hautfalten-Methode
+•	Berechnung über 11-Hautfalten-Methode
+•	Eingabe über Körperanalysewaage
+Die Berechnung soll automatisch erfolgen, sobald alle erforderlichen Werte eingegeben wurden.
+
+Beinlänge
+Ergänze:
+•	Beinlänge links
+•	Beinlänge rechts
+Bei einer deutlichen Differenz soll automatisch ein Hinweis erscheinen.
+Beispiel:
+⚠️ Mögliche Beinlängendifferenz erkannt. Eine ärztliche Untersuchung wird empfohlen.
+Der Hinweis dient ausschließlich der Information und blockiert den Speichervorgang nicht.
+
+Verlauf
+Ergänze einen Verlauf.
+Anzeige:
+•	Datum
+•	Körpergröße
+•	Gewicht
+•	BMI
+•	Körperfett
+•	Muskelmasse (falls vorhanden)
+•	weitere vorhandene Werte
+Zusätzlich Diagramme zur Entwicklung erstellen.
+
+Aufgabe 2 – Functional Movement Screen (FMS)
+Überarbeite das komplette FMS-Modul.
+
+Letzter Test
+Beim letzten gespeicherten Test sollen sämtliche Einzelbewertungen angezeigt werden.
+Anzeige:
+•	Deep Squat
+•	Hurdle Step links
+•	Hurdle Step rechts
+•	Inline Lunge links
+•	Inline Lunge rechts
+•	Shoulder Mobility links
+•	Shoulder Mobility rechts
+•	Active Straight Leg Raise links
+•	Active Straight Leg Raise rechts
+•	Trunk Stability Push-up
+•	Rotary Stability links
+•	Rotary Stability rechts
+•	Gesamtpunktzahl
+Dadurch soll der Trainer sofort erkennen können, welche Übungen sich verbessert oder verschlechtert haben.
+
+Verlauf
+Ergänze einen Button:
+📈 Verlauf
+Dort sollen angezeigt werden:
+•	Datum
+•	sämtliche Einzelbewertungen
+•	Gesamtpunktzahl
+•	Vergleich zum vorherigen Test
+•	Diagramme der Entwicklung
+Zusätzlich soll der Trainer zwei beliebige Testtermine direkt miteinander vergleichen können.
+
+Aufgabe 3 – Y-Balance-Test
+Überarbeite das komplette Modul.
+
+Letzter Test
+Anzeige:
+•	Anterior links
+•	Anterior rechts
+•	Posteromedial links
+•	Posteromedial rechts
+•	Posterolateral links
+•	Posterolateral rechts
+•	Beinlänge links
+•	Beinlänge rechts
+•	Composite Score
+•	Asymmetrien
+•	Bewertung
+Dadurch soll nachvollziehbar sein, welche Richtung sich verbessert oder verschlechtert hat.
+
+Verlauf
+Ergänze einen Button:
+📈 Verlauf
+Anzeige:
+•	Datum
+•	sämtliche Einzelwerte
+•	Composite Score
+•	Asymmetrien
+•	Diagramme
+•	Vergleich zum vorherigen Test
+Zusätzlich soll der Trainer zwei beliebige Testtermine direkt miteinander vergleichen können.
+
+Aufgabe 4 – Diagramme
+Überprüfe sämtliche Diagramme.
+Stelle sicher, dass:
+•	alle Werte korrekt dargestellt werden
+•	Achsen richtig beschriftet sind
+•	Diagramme auch bei vielen Tests funktionieren
+•	keine Darstellungsfehler auftreten
+
+Aufgabe 5 – Qualitätskontrolle
+Prüfe zusätzlich:
+•	Datenbank
+•	Speicherfunktion
+•	Historie
+•	Diagramme
+•	Performance
+•	Stabilität
+•	Layout
+•	Responsivität
+Falls weitere Fehler entdeckt werden:
+•	dokumentieren
+•	Lösung vorschlagen
+Größere Änderungen nur nach meiner Freigabe durchführen.
+
+Testpflicht
+Nach jeder abgeschlossenen Aufgabe:
+•	Änderungen testen
+•	Fehler beheben
+•	erneut testen
+Die Plattform muss jederzeit vollständig funktionieren.
+
+Dokumentation
+Dokumentiere jede Änderung.
+Beschreibe:
+•	welche Datei geändert wurde
+•	was geändert wurde
+•	warum geändert wurde
+
+Abschlussbericht
+Nach Abschluss dieser Teilphase erstelle einen Bericht mit:
+•	allen geänderten Dateien
+•	allen behobenen Fehlern
+•	allen getesteten Funktionen
+•	offenen Punkten
+•	Verbesserungsvorschlägen
+Anschließend die komplette Anwendung testen.
+Es dürfen keine bestehenden Funktionen beschädigt worden sein.
+
+Abschlussregel
+Arbeite strukturiert und professionell.
+Führe keine großen Änderungen gleichzeitig durch.
+Erst wenn alle Aufgaben erfolgreich abgeschlossen, getestet und dokumentiert wurden, gilt Phase 0B als abgeschlossen.
+Wichtig: Falls während der Analyse weitere Fehler oder Verbesserungsmöglichkeiten entdeckt werden, die nicht in dieser Phase beschrieben sind, dokumentiere sie und schlage eine Lösung vor. Setze sie jedoch nur um, wenn sie zur Fehlerbehebung gehören oder ich sie ausdrücklich freigebe.
