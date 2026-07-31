@@ -3,3 +3,4 @@
 - [Phase completion status](phase-status.md) — which of the 19 implementation phases are done; phases 17, 18, 19 remain open
 - [Phase 0B Skinfold-Formel-Fallstrick](phase-0b-formulas.md) — JP11-Konstanten (3-Punkt-JP) nicht für 11 Messpunkte verwenden; Pařízkova-Logarithmus nutzen
 - [Spiroergometrie extension](spiro-extension.md) — new spiro.py + DB tables + full UI in _page_spiro() wired into page_ausdauer()
+- [Periodisierung Engine v2](periodisierung-engine.md) — exercise pool tuple order is (uebung, saetze, volumen, haeufigkeit); pool must be capped to len to avoid in-week duplicates

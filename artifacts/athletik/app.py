@@ -108,7 +108,7 @@ from analytics import (
     risiko_score, risiko_label, athletik_score, athletik_sub_scores,
     defizite_ermitteln, schwerpunkt_sammeln,
 )
-from periodisierung import zyklus_erstellen, zyklus_laden
+from periodisierung import zyklus_erstellen, zyklus_laden, trainingsplan_multi_erstellen, defizit_tabelle
 from pdf_report import generate_report, generate_vergleich_pdf
 from pdf_anleitung import generate_anleitung_pdf, ALL_TEST_IDS, TEST_LABELS
 from export import kader_excel_bytes, spieler_excel_bytes
@@ -1835,74 +1835,133 @@ def page_trainingsplan():
     if not auswahl:
         return
 
-    sid    = auswahl["id"]
-    fms    = fms_letzter(sid)
-    y      = y_balance_letzter(sid)
-    sprint = sprint_letzter(sid)
-    sprung = sprung_letzter(sid)
-    agil   = agilitaet_letzter(sid)
-    aus    = ausdauer_letzter(sid)
+    sid     = auswahl["id"]
+    fms     = fms_letzter(sid)
+    y       = y_balance_letzter(sid)
+    sprint  = sprint_letzter(sid)
+    sprung  = sprung_letzter(sid)
+    agil    = agilitaet_letzter(sid)
+    aus     = ausdauer_letzter(sid)
     schwerpunkt = schwerpunkt_sammeln(fms, y, sprint, sprung, agil, aus)
 
     tab_auto, tab_manual, tab_view = st.tabs(["🤖 Automatisch generieren", "✍️ Manuell hinzufügen", "📋 Plan anzeigen"])
 
     with tab_auto:
-        st.markdown("### Individuellen Plan aus Diagnostik generieren")
-        bereiche = empfehlung_bereiche(schwerpunkt)
-        if bereiche:
-            st.info(f"**Erkannte Schwerpunkte aus allen Testmodulen:** {', '.join(bereiche)}")
-        else:
-            st.warning("Kein Diagnostik-Schwerpunkt vorhanden. Standard-Plan wird erstellt.")
+        st.markdown("### Individuellen Trainingsplan aus Diagnostikdaten")
 
-        if st.button("⚡ Trainingsplan jetzt erstellen"):
-            trainingsplan_loeschen(sid)
-            alle_uebungen = uebungen_fuer_bereiche(bereiche or ["Hüfte", "Rumpf", "Knie"])
-            woche = 1
-            for bereich, uebungen in alle_uebungen.items():
-                for u in uebungen:
-                    trainingsplan_eintrag_speichern(
-                        sid, str(date.today()), woche,
-                        u["bereich"], u["uebung"], u["saetze"], u["wiederholungen"], u["haeufigkeit"],
-                    )
-                woche = min(woche + 1, 4)
-            _save_ok("Trainingsplan wurde erstellt!")
+        # ── Deficit Analysis ──────────────────────────────────────────────────
+        defizite = defizit_tabelle(schwerpunkt)
+        if defizite:
+            st.markdown("#### 🔍 Erkannte Defizite")
+            _d_cols = st.columns(min(len(defizite), 4))
+            _farben = {"🔴 Primär": "#f85149", "🟡 Sekundär": "#d29922", "🟢 Tertiär": "#3fb950"}
+            for i, d in enumerate(defizite):
+                col = _d_cols[i % len(_d_cols)]
+                _clr = _farben.get(d["Priorität"], "#8b949e")
+                col.markdown(
+                    f'<div style="background:#161b22;border:2px solid {_clr};border-radius:8px;'
+                    f'padding:10px 14px;margin-bottom:8px;text-align:center">'
+                    f'<div style="font-size:18px">{d["Priorität"].split()[0]}</div>'
+                    f'<div style="font-weight:700;color:#e6edf3;font-size:14px">{d["Bereich"]}</div>'
+                    f'<div style="color:{_clr};font-size:12px">{d["Volumen/Woche"]}</div>'
+                    f'</div>',
+                    unsafe_allow_html=True,
+                )
+        else:
+            st.info("ℹ️ Keine Testdaten vorhanden — Standard-Plan (Hüfte + Rumpf + Knie) wird erstellt.")
+
+        st.markdown("---")
+        st.markdown("#### ⚙️ Planparameter")
+        _pc1, _pc2 = st.columns(2)
+        plan_laenge = _pc1.selectbox(
+            "Planlänge",
+            [4, 6, 8],
+            format_func=lambda x: f"{x} Wochen",
+            index=1,
+            key="plan_laenge",
+        )
+        _pc2.markdown(
+            f'<div style="background:#161b22;border:1px solid #30363d;border-radius:8px;'
+            f'padding:12px 14px;margin-top:26px">'
+            f'<b>Aufbau:</b> {plan_laenge // 2 if plan_laenge > 4 else plan_laenge} Wochen Aufbau · '
+            f'{"je Woche 4 Deload" if plan_laenge >= 4 else ""}<br>'
+            f'<small style="color:#8b949e">Mehrere Trainingsbereiche pro Woche · '
+            f'Belastungssteuerung nach 4-Wochen-Block</small></div>',
+            unsafe_allow_html=True,
+        )
+
+        if st.button("⚡ Trainingsplan erstellen", use_container_width=True, key="auto_gen_btn"):
+            n = trainingsplan_multi_erstellen(sid, schwerpunkt, wochen=plan_laenge)
+            _save_ok(f"Trainingsplan erstellt — {n} Übungen über {plan_laenge} Wochen.")
             st.rerun()
 
     with tab_manual:
         st.markdown("### Übung manuell hinzufügen")
         mc1, mc2 = st.columns(2)
-        bereich   = mc1.selectbox("Bereich", ["Sprunggelenk","Knie","Hüfte","Rumpf","Oberschenkel","Schnelligkeit","Explosivität","Agilität","Fußball"])
-        uebung    = mc2.text_input("Übungsname")
-        saetze    = mc1.text_input("Sätze",           "3")
-        wdh       = mc2.text_input("Wiederholungen",  "10")
-        haeufigkeit = mc1.text_input("Häufigkeit",    "2x Woche")
-        woche     = mc2.number_input("Woche",          1, 12, 1)
+        bereich     = mc1.selectbox("Bereich", ["Sprunggelenk","Knie","Hüfte","Rumpf","Oberschenkel",
+                                                  "Schnelligkeit","Explosivität","Agilität","Fußball"])
+        uebung      = mc2.text_input("Übungsname")
+        saetze      = mc1.text_input("Sätze", "3")
+        wdh         = mc2.text_input("Wiederholungen", "10")
+        haeufigkeit = mc1.text_input("Häufigkeit", "2×/Woche")
+        woche       = mc2.number_input("Woche", 1, 12, 1)
         if st.button("➕ Übung speichern"):
-            trainingsplan_eintrag_speichern(sid, str(date.today()), woche, bereich, uebung, saetze, wdh, haeufigkeit)
+            trainingsplan_eintrag_speichern(sid, str(date.today()), woche,
+                                            bereich, uebung, saetze, wdh, haeufigkeit)
             _save_ok("Übung gespeichert.")
             st.rerun()
 
     with tab_view:
         plan = trainingsplan_laden(sid)
         if not plan:
-            st.info("Noch kein Trainingsplan vorhanden.")
+            st.info("Noch kein Trainingsplan vorhanden. Bitte zuerst automatisch generieren oder manuell Übungen hinzufügen.")
             return
 
         df = pd.DataFrame(plan)
         df.columns = ["Bereich", "Übung", "Sätze", "Wdh.", "Häufigkeit", "Woche"]
-        df = df[["Woche", "Bereich", "Übung", "Sätze", "Wdh.", "Häufigkeit"]]
+
+        _total_wochen = int(df["Woche"].max())
+        _total_uebungen = len(df)
+        _ci1, _ci2, _ci3 = st.columns(3)
+        _ci1.metric("Wochen", _total_wochen)
+        _ci2.metric("Übungen gesamt", _total_uebungen)
+        _ci3.metric("Bereiche abgedeckt", df["Bereich"].nunique())
+
+        st.markdown("---")
+        _farbe_bereich = {
+            "Hüfte": "#3b82f6", "Knie": "#3fb950", "Rumpf": "#d29922",
+            "Sprunggelenk": "#a371f7", "Oberschenkel": "#f85149",
+            "Schnelligkeit": "#58a6ff", "Explosivität": "#e3b341",
+            "Agilität": "#56d364", "Fußball": "#ff7b72",
+        }
 
         for woche_nr in sorted(df["Woche"].unique()):
-            with st.expander(f"**Woche {woche_nr}**", expanded=(woche_nr == 1)):
+            _is_deload = (woche_nr % 4 == 0)
+            _woche_label = f"Woche {woche_nr}" + (" — 🔄 Deload" if _is_deload else "")
+            _border = "#444c56" if _is_deload else "#1f6feb"
+            with st.expander(_woche_label, expanded=(woche_nr <= 2)):
+                if _is_deload:
+                    st.caption("⬇️ Deload-Woche: reduziertes Volumen zur Regeneration")
                 sub = df[df["Woche"] == woche_nr].drop("Woche", axis=1)
-                st.dataframe(sub, use_container_width=True, hide_index=True)
+                # Color-code rows by Bereich
+                _bereiche_woche = sub["Bereich"].unique()
+                for breich in sorted(_bereiche_woche):
+                    _clr = _farbe_bereich.get(breich, "#8b949e")
+                    st.markdown(
+                        f'<div style="font-size:12px;font-weight:700;color:{_clr};'
+                        f'margin:6px 0 2px;border-left:3px solid {_clr};padding-left:8px">'
+                        f'{breich}</div>',
+                        unsafe_allow_html=True,
+                    )
+                    _sub_b = sub[sub["Bereich"] == breich].drop("Bereich", axis=1)
+                    st.dataframe(_sub_b, use_container_width=True, hide_index=True)
 
 
 # ──────────────────────────────────────────────────────────────────────────────
 
 def page_periodisierung():
-    st.markdown("# 🔄 12-Wochen-Periodisierung")
-    st.markdown("Vollautomatischer Trainingszyklus in 3 Phasen: Stabilisation → Kraftaufbau → Fußballspezifisch.")
+    st.markdown("# 🔄 Periodisierungsplan")
+    st.markdown("Regelbasierter Athletik-Zyklus: Defizit-gewichtet · Multi-Fokus pro Woche · Progressive Belastungssteuerung")
 
     auswahl = _player_selector("perio")
     if not auswahl:
@@ -1917,20 +1976,52 @@ def page_periodisierung():
     aus    = ausdauer_letzter(sid)
     schwerpunkt = schwerpunkt_sammeln(fms, y, sprint, sprung, agil, aus)
 
-    col_info, col_btn = st.columns([3, 1])
+    # ── Deficit summary ───────────────────────────────────────────────────────
+    defizite = defizit_tabelle(schwerpunkt)
+    if defizite:
+        st.markdown("#### 🔍 Defizit-Analyse")
+        _d_cols = st.columns(min(len(defizite), 4))
+        _farben = {"🔴 Primär": "#f85149", "🟡 Sekundär": "#d29922", "🟢 Tertiär": "#3fb950"}
+        for i, d in enumerate(defizite):
+            _clr = _farben.get(d["Priorität"], "#8b949e")
+            _d_cols[i % len(_d_cols)].markdown(
+                f'<div style="background:#161b22;border:2px solid {_clr};border-radius:8px;'
+                f'padding:8px 12px;margin-bottom:6px;text-align:center">'
+                f'<div style="font-size:16px">{d["Priorität"].split()[0]}</div>'
+                f'<div style="font-weight:700;color:#e6edf3;font-size:13px">{d["Bereich"]}</div>'
+                f'<div style="color:{_clr};font-size:11px">{d["Volumen/Woche"]}/Woche</div>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+    else:
+        st.info("ℹ️ Keine Testdaten — Standard-Basisplan wird erstellt.")
+
+    st.markdown("---")
+    col_info, col_gen = st.columns([3, 2])
     with col_info:
-        st.markdown("""
-        | Phase | Wochen | Ziel |
-        |---|---|---|
-        | 1 — Stabilisation | 1–4 | Bewegungsqualität & Verletzungsprävention |
-        | 2 — Kraftaufbau   | 5–8 | Maximalkraft & funktionelle Stärke |
-        | 3 — Fußballspezifisch | 9–12 | Leistung & Wettkampfvorbereitung |
-        """)
-    with col_btn:
+        wochen_auswahl = st.selectbox(
+            "Planlänge",
+            [4, 8, 12],
+            index=2,
+            format_func=lambda x: f"{x} Wochen",
+            key="perio_wochen",
+        )
+        if wochen_auswahl == 4:
+            st.markdown("**Phase 1** (W1–4): Stabilisation & Bewegungsqualität")
+        elif wochen_auswahl == 8:
+            st.markdown("**Phase 1** (W1–4): Stabilisation  \n**Phase 2** (W5–8): Kraftaufbau")
+        else:
+            st.markdown(
+                "**Phase 1** (W1–4): Stabilisation  \n"
+                "**Phase 2** (W5–8): Kraftaufbau  \n"
+                "**Phase 3** (W9–12): Fußballspezifisch"
+            )
+        st.caption("Jede 4. Woche = Deload · Jede Woche = mehrere Trainingsschwerpunkte")
+    with col_gen:
         st.markdown("<br>", unsafe_allow_html=True)
-        if st.button("⚡ Zyklus erstellen / neu generieren", use_container_width=True):
-            zyklus_erstellen(sid, schwerpunkt)
-            _save_ok("12-Wochen-Zyklus generiert!")
+        if st.button("⚡ Zyklus erstellen / neu generieren", use_container_width=True, key="perio_gen"):
+            zyklus_erstellen(sid, schwerpunkt, wochen=wochen_auswahl)
+            _save_ok(f"{wochen_auswahl}-Wochen-Zyklus generiert!")
             st.rerun()
 
     plan = zyklus_laden(sid)
@@ -1941,32 +2032,74 @@ def page_periodisierung():
     df = pd.DataFrame(plan)
     df.columns = ["Woche", "Phase", "Ziel", "Bereich", "Übung", "Intensität", "Volumen", "Häufigkeit"]
 
-    # Phase colour map
-    phase_colors = {
-        "Phase 1 — Stabilisation":      "#1f6feb",
-        "Phase 2 — Kraftaufbau":         "#3fb950",
-        "Phase 3 — Fußballspezifisch":   "#d29922",
+    # Statistik-Header
+    _pi1, _pi2, _pi3, _pi4 = st.columns(4)
+    _pi1.metric("Wochen", int(df["Woche"].max()))
+    _pi2.metric("Übungen gesamt", len(df))
+    _pi3.metric("Bereiche", df["Bereich"].nunique())
+    _pi4.metric("Phasen", df["Phase"].str.split("(").str[0].str.strip().nunique())
+    st.markdown("---")
+
+    # Phase colour map — match on prefix (new format includes week type in parens)
+    _phase_defs = [
+        ("Phase 1 — Stabilisation",    "#1f6feb"),
+        ("Phase 2 — Kraftaufbau",       "#3fb950"),
+        ("Phase 3 — Fußballspezifisch", "#d29922"),
+        # Short plans (4/8 wk) may use generic phase names
+        ("Stabilisation",               "#1f6feb"),
+        ("Kraftaufbau",                 "#3fb950"),
+    ]
+    _seen_phases: set = set()
+
+    _farbe_bereich = {
+        "Hüfte": "#3b82f6", "Knie": "#3fb950", "Rumpf": "#d29922",
+        "Sprunggelenk": "#a371f7", "Oberschenkel": "#f85149",
+        "Schnelligkeit": "#58a6ff", "Explosivität": "#e3b341",
+        "Agilität": "#56d364", "Fußball": "#ff7b72",
     }
 
-    for phase_name, color in phase_colors.items():
-        sub = df[df["Phase"] == phase_name]
-        if sub.empty:
+    # Group by leading phase name (strip the "(Woche-Typ)" suffix)
+    df["_PhaseGroup"] = df["Phase"].str.extract(r"^(Phase \d+ — [^(]+|[^(]+)", expand=False).str.strip()
+
+    for phase_prefix, color in _phase_defs:
+        sub = df[df["_PhaseGroup"].str.startswith(phase_prefix)]
+        if sub.empty or phase_prefix in _seen_phases:
             continue
+        _seen_phases.add(phase_prefix)
         weeks = sorted(sub["Woche"].unique())
-        label = f"**{phase_name}** — Wochen {weeks[0]}–{weeks[-1]}"
-        st.markdown(f'<div style="border-left:4px solid {color};padding-left:12px;margin:16px 0 6px">'
-                    f'<h4 style="color:{color};margin:0">{phase_name}</h4>'
-                    f'<small style="color:#8b949e">{sub.iloc[0]["Ziel"]}</small></div>',
-                    unsafe_allow_html=True)
+        _ziel = sub.iloc[0]["Ziel"]
+        st.markdown(
+            f'<div style="border-left:4px solid {color};padding-left:12px;margin:20px 0 8px">'
+            f'<h4 style="color:{color};margin:0 0 2px">{phase_prefix}</h4>'
+            f'<small style="color:#8b949e">Wochen {weeks[0]}–{weeks[-1]} · {_ziel}</small></div>',
+            unsafe_allow_html=True,
+        )
         for woche_nr in weeks:
-            w_sub = sub[sub["Woche"] == woche_nr][["Bereich", "Übung", "Intensität", "Volumen", "Häufigkeit"]]
-            with st.expander(f"Woche {woche_nr}", expanded=(woche_nr == weeks[0])):
-                st.dataframe(w_sub, use_container_width=True, hide_index=True)
+            _is_deload = (woche_nr % 4 == 0)
+            _woche_typ = sub[sub["Woche"] == woche_nr]["Phase"].iloc[0]
+            _typ_label = _woche_typ.split("(")[-1].rstrip(")") if "(" in _woche_typ else ""
+            _exp_label = f"Woche {woche_nr}" + (f" — {_typ_label}" if _typ_label else "")
+            w_sub = sub[sub["Woche"] == woche_nr]
+            with st.expander(_exp_label, expanded=(woche_nr == weeks[0])):
+                if _is_deload:
+                    st.caption("⬇️ Deload-Woche: reduziertes Volumen zur aktiven Regeneration")
+                for breich in sorted(w_sub["Bereich"].unique()):
+                    _clr = _farbe_bereich.get(breich, "#8b949e")
+                    st.markdown(
+                        f'<div style="font-size:12px;font-weight:700;color:{_clr};'
+                        f'border-left:3px solid {_clr};padding-left:8px;margin:6px 0 2px">{breich}</div>',
+                        unsafe_allow_html=True,
+                    )
+                    _b_sub = w_sub[w_sub["Bereich"] == breich][["Übung", "Intensität", "Volumen", "Häufigkeit"]]
+                    st.dataframe(_b_sub, use_container_width=True, hide_index=True)
 
     # Download plan CSV
-    csv = df.to_csv(index=False).encode("utf-8")
-    st.download_button("⬇️ Plan als CSV herunterladen", csv,
-                       f"periodisierung_{auswahl['name'].replace(' ','_')}.csv", "text/csv")
+    _csv_df = df.drop(columns=["_PhaseGroup"])
+    csv = _csv_df.to_csv(index=False).encode("utf-8")
+    st.download_button(
+        "⬇️ Plan als CSV herunterladen", csv,
+        f"periodisierung_{auswahl['name'].replace(' ', '_')}.csv", "text/csv",
+    )
 
 
 # ──────────────────────────────────────────────────────────────────────────────
