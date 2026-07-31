@@ -1,0 +1,182 @@
+PHASE 0A – Allgemeine Qualitätsverbesserung, Benutzerfreundlichkeit, Plausibilitätsprüfung und Spielerverwaltung
+Projektziel
+Du arbeitest an einer bereits weit entwickelten Python- und Streamlit-Anwendung für Leistungsdiagnostik und Athletiktraining im Fußball.
+Der offizielle Projektname lautet:
+Bruce Football Performance Diagnostics
+Die Software enthält bereits zahlreiche Module wie:
+•	Spielerverwaltung
+•	Anthropometrie
+•	FMS
+•	Y-Balance
+•	Sprinttest
+•	Krafttest
+•	Agility
+•	Spiroergometrie
+•	Trainingsplanung
+•	Dashboard
+•	PDF-Berichte
+•	Athletik-Score
+•	Automatische Analysen
+Die Software funktioniert bereits.
+In dieser Phase sollen keine neuen Hauptfunktionen entwickelt werden.
+Der Schwerpunkt liegt ausschließlich auf:
+•	Qualitätsverbesserung
+•	Fehlerbehebung
+•	Benutzerfreundlichkeit
+•	Stabilität
+•	Performance
+
+Langfristiges Projektziel
+Die Plattform soll später sowohl als:
+•	Windows-Software (.exe)
+•	Web-Anwendung
+•	Cloud-Plattform
+genutzt werden können.
+Alle Änderungen müssen deshalb sauber, modular und langfristig erweiterbar entwickelt werden.
+Die Plattform muss jederzeit vollständig offline funktionieren.
+
+Arbeitsweise
+Bevor Änderungen vorgenommen werden:
+Analysiere zunächst das komplette Projekt.
+Prüfe:
+•	Projektstruktur
+•	Ordnerstruktur
+•	Module
+•	Datenbank
+•	Benutzeroberfläche
+•	Navigation
+•	Funktionen
+•	Abhängigkeiten
+Erstelle anschließend einen kurzen Umsetzungsplan.
+Arbeite danach Aufgabe für Aufgabe.
+Nach jeder abgeschlossenen Aufgabe:
+•	Funktion testen
+•	Änderungen dokumentieren
+•	Fehler sofort beheben
+Die Software muss jederzeit vollständig lauffähig bleiben.
+
+Wichtige Regeln
+Folgende Bereiche dürfen NICHT verändert werden:
+•	wissenschaftliche Grundlagen
+•	Diagnostikalgorithmen
+•	Berechnungslogik
+•	Athletik-Score
+•	Fachlogik
+Nicht löschen:
+•	Datenbank
+•	Spielerdaten
+•	Tabellen
+•	bestehende Funktionen
+Bestehende Funktionen dürfen ausschließlich verbessert werden.
+
+Aufgabe 1 – Allgemeine Benutzerfreundlichkeit
+Überprüfe sämtliche Module.
+Nach jedem erfolgreichen Speichern soll eine einheitliche Erfolgsmeldung erscheinen.
+Beispiel:
+✅ Daten erfolgreich gespeichert.
+Bei Fehlern sollen verständliche Fehlermeldungen erscheinen.
+Nach erfolgreichem Speichern sollen Formulare automatisch zurückgesetzt werden.
+Beibehalten:
+•	aktuelles Datum
+•	ausgewählter Spieler
+Alle übrigen Eingabefelder werden geleert.
+Zusätzlich überprüfen:
+•	Buttons
+•	Navigation
+•	Menüs
+•	Ladezeiten
+•	Benutzerführung
+•	Layout
+Alle Bereiche sollen ein einheitliches Erscheinungsbild besitzen.
+
+Aufgabe 2 – Plausibilitätsprüfung
+Überprüfe sämtliche Eingaben auf Plausibilität.
+Unter anderem:
+•	Geburtsdatum
+•	Alter
+•	Körpergröße
+•	Gewicht
+•	BMI
+•	Körperfett
+•	Sprintzeiten
+•	Zahlenbereiche
+•	Pflichtfelder
+Bei ungewöhnlichen Eingaben darf der Speichervorgang NICHT automatisch blockiert werden.
+Stattdessen soll eine Warnmeldung erscheinen.
+Beispiel:
+⚠️ Der eingegebene Wert liegt außerhalb des üblichen Bereichs.
+Bitte überprüfen Sie Ihre Eingabe.
+Der Benutzer erhält anschließend zwei Möglichkeiten:
+•	Eingabe korrigieren
+•	Trotzdem speichern
+Dadurch entscheidet der Athletiktrainer selbst, ob der Wert korrekt ist.
+Nur technisch falsche Eingaben dürfen das Speichern verhindern.
+Beispiele:
+•	Text statt Zahl
+•	ungültiges Datum
+•	leere Pflichtfelder
+
+Aufgabe 3 – Spielerverwaltung
+Überarbeite die komplette Spielerverwaltung.
+Neue Funktionen:
+•	Spieler bearbeiten
+•	Spieler löschen
+•	mehrere Spieler markieren
+•	mehrere Spieler gleichzeitig löschen
+•	Suchfunktion
+•	Filter
+•	Sortierung
+Die Bearbeitung soll direkt innerhalb der Tabelle möglich sein.
+Zusätzlich prüfen:
+•	Tabellenlayout
+•	Geschwindigkeit
+•	Datenbankzugriffe
+•	Suchfunktion
+•	Filterfunktion
+
+Aufgabe 4 – Allgemeine Qualitätsverbesserung
+Überprüfe zusätzlich:
+•	Performance
+•	Stabilität
+•	Responsivität
+•	Layout
+•	doppelte Funktionen
+•	ungenutzten Code
+•	fehlerhafte Berechnungen
+•	inkonsistente Benutzerführung
+Falls weitere Fehler entdeckt werden:
+•	dokumentieren
+•	Lösung vorschlagen
+Größere Änderungen nur nach meiner Freigabe durchführen.
+
+Testpflicht
+Nach jeder abgeschlossenen Aufgabe:
+•	Änderungen testen
+•	Fehler beheben
+•	erneut testen
+Die Plattform muss jederzeit vollständig funktionieren.
+
+Dokumentation
+Dokumentiere jede Änderung.
+Beschreibe:
+•	welche Datei geändert wurde
+•	was geändert wurde
+•	warum geändert wurde
+
+Abschlussbericht
+Nach Abschluss dieser Teilphase erstelle einen Bericht mit:
+•	allen geänderten Dateien
+•	allen behobenen Fehlern
+•	allen getesteten Funktionen
+•	offenen Punkten
+•	Verbesserungsvorschlägen
+Anschließend die komplette Anwendung testen.
+Es dürfen keine bestehenden Funktionen beschädigt worden sein.
+
+Abschlussregel
+Arbeite langsam, strukturiert und professionell.
+Führe keine großen Änderungen gleichzeitig durch.
+Erst wenn alle Aufgaben erfolgreich abgeschlossen, getestet und dokumentiert wurden, gilt Phase 0A als abgeschlossen.
+Wichtig: Falls während der Analyse weitere Fehler oder Verbesserungsmöglichkeiten entdeckt werden, die nicht in dieser Phase beschrieben sind, dokumentiere sie und schlage eine Lösung vor. Setze sie jedoch nur um, wenn sie zur Fehlerbehebung gehören oder ich sie ausdrücklich freigebe.
+
+
