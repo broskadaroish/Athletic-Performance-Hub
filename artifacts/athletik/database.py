@@ -563,6 +563,12 @@ def _migrate_db():
             except Exception:
                 pass
 
+        # ── Anthropometrie: Körperfett-Methode ──────────────────────────────
+        try:
+            conn.execute("ALTER TABLE anthropometrie ADD COLUMN koerperfett_methode TEXT")
+        except Exception:
+            pass
+
         # ── Duplikate in trainerbeobachtung bereinigen ───────────────────────
         conn.execute("""
             DELETE FROM trainerbeobachtung WHERE id NOT IN (
@@ -830,17 +836,18 @@ def fms_history_full(spieler_id):
 def anthropometrie_speichern(spieler_id, datum, groesse, gewicht, sitzhoehe,
                               beinlaenge, armspannweite, koerperfett, muskelmasse,
                               bmi, bmi_kat, phv_offset, reifestatus,
-                              beinlaenge_r=None, beinlaenge_l=None):
+                              beinlaenge_r=None, beinlaenge_l=None,
+                              koerperfett_methode=None):
     with get_conn() as conn:
         conn.execute("""
         INSERT INTO anthropometrie
         (spieler_id,datum,groesse,gewicht,sitzhoehe,beinlaenge,armspannweite,
          koerperfett,muskelmasse,bmi,bmi_kategorie,phv_offset,reifestatus,
-         beinlaenge_r,beinlaenge_l)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+         beinlaenge_r,beinlaenge_l,koerperfett_methode)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         """, (spieler_id, datum, groesse, gewicht, sitzhoehe, beinlaenge,
               armspannweite, koerperfett, muskelmasse, bmi, bmi_kat, phv_offset, reifestatus,
-              beinlaenge_r, beinlaenge_l))
+              beinlaenge_r, beinlaenge_l, koerperfett_methode))
 
 
 def anthropometrie_letzter(spieler_id):
@@ -857,7 +864,8 @@ def anthropometrie_history(spieler_id):
             """SELECT datum,groesse,gewicht,koerperfett,muskelmasse,bmi,bmi_kategorie,
                       sitzhoehe,beinlaenge,armspannweite,phv_offset,reifestatus,
                       COALESCE(beinlaenge_r,0) as beinlaenge_r,
-                      COALESCE(beinlaenge_l,0) as beinlaenge_l
+                      COALESCE(beinlaenge_l,0) as beinlaenge_l,
+                      koerperfett_methode
                FROM anthropometrie WHERE spieler_id=? ORDER BY datum""",
             (spieler_id,),
         ).fetchall())

@@ -2278,7 +2278,7 @@ def page_fortschritt():
             df = pd.DataFrame(anthro_hist)
             df.columns = ["Datum", "Größe (cm)", "Gewicht (kg)", "Körperfett (%)", "Muskelmasse (kg)",
                           "BMI", "BMI-Kat.", "Sitzhöhe (cm)", "Beinlänge (cm)", "Armspann (cm)",
-                          "PHV-Offset", "Reifestatus"]
+                          "PHV-Offset", "Reifestatus", "Beinlänge R", "Beinlänge L", "KF-Methode"]
             fig7 = go.Figure()
             fig7.add_trace(go.Scatter(
                 x=df["Datum"], y=df["Gewicht (kg)"],
@@ -2516,6 +2516,7 @@ def page_anthropometrie():
                     koerperfett, muskelmasse,
                     bmi, bmi_kat, phv, reife,
                     beinlaenge_r=beinlaenge_r, beinlaenge_l=beinlaenge_l,
+                    koerperfett_methode=kf_methode,
                 )
                 if obs_anthro["beob_ids"] or obs_anthro.get("freitext"):
                     beobachtung_speichern(
@@ -2540,7 +2541,8 @@ def page_anthropometrie():
         df = pd.DataFrame(history)
         df.columns = ["Datum", "Größe", "Gewicht", "Körperfett", "Muskelmasse",
                       "BMI", "BMI-Kat.", "Sitzhöhe", "Beinlänge", "Armspann",
-                      "PHV-Offset", "Reifestatus"]
+                      "PHV-Offset", "Reifestatus", "Beinlänge R", "Beinlänge L",
+                      "KF-Methode"]
 
         # Wachstum/Monat
         wachstum = wachstum_berechnen(history)
@@ -2571,9 +2573,14 @@ def page_anthropometrie():
         c_kf, c_bmi = st.columns(2)
         with c_kf:
             fig3 = go.Figure()
+            _kf_hover = df.apply(
+                lambda r: f"{r['Körperfett']:.1f} %<br>Methode: {r['KF-Methode'] or '—'}",
+                axis=1,
+            )
             fig3.add_trace(go.Scatter(x=df["Datum"], y=df["Körperfett"],
                                       mode="lines+markers+text", text=df["Körperfett"].round(1),
                                       textposition="top center",
+                                      hovertext=_kf_hover, hoverinfo="x+text",
                                       line=dict(color="#d29922", width=3),
                                       marker=dict(size=8), name="Körperfett (%)"))
             fig3.update_layout(**_pl(height=280, title="Körperfett"))
@@ -2592,7 +2599,7 @@ def page_anthropometrie():
             st.plotly_chart(fig4, use_container_width=True)
 
         st.dataframe(df[["Datum", "Größe", "Gewicht", "BMI", "BMI-Kat.", "Körperfett",
-                          "Muskelmasse", "PHV-Offset", "Reifestatus"]],
+                          "KF-Methode", "Muskelmasse", "PHV-Offset", "Reifestatus"]],
                      use_container_width=True, hide_index=True)
 
 
@@ -6182,4 +6189,3 @@ elif section == "⚙️  Einstellungen":
         unsafe_allow_html=True,
     )
     st.markdown('<hr style="border-color:#30363d;margin:12px 0">', unsafe_allow_html=True)
-
