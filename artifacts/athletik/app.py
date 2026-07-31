@@ -108,7 +108,8 @@ from analytics import (
     risiko_score, risiko_label, athletik_score, athletik_sub_scores,
     defizite_ermitteln, schwerpunkt_sammeln,
 )
-from periodisierung import zyklus_erstellen, zyklus_laden, trainingsplan_multi_erstellen, defizit_tabelle
+from periodisierung import (zyklus_erstellen, zyklus_laden, trainingsplan_multi_erstellen,
+                             defizit_tabelle, _alter_zu_plangruppe, _PLANGRUPPEN_CONFIG)
 from pdf_report import generate_report, generate_vergleich_pdf
 from pdf_anleitung import generate_anleitung_pdf, ALL_TEST_IDS, TEST_LABELS
 from export import kader_excel_bytes, spieler_excel_bytes
@@ -1931,9 +1932,28 @@ def page_trainingsplan():
             unsafe_allow_html=True,
         )
 
+        # Altersgruppe ermitteln und anzeigen
+        _tp_alter = berechne_alter(auswahl.get("geburtsdatum"))
+        _tp_pg    = _alter_zu_plangruppe(_tp_alter)
+        _tp_cfg   = _PLANGRUPPEN_CONFIG[_tp_pg]
+        _pg_farben = {
+            "U10": "#3fb950", "U14": "#3fb950", "U18": "#d29922",
+            "Senior": "#58a6ff", "Ü40": "#d29922", "Ü55": "#f85149",
+        }
+        _pg_clr = _pg_farben.get(_tp_pg, "#8b949e")
+        st.markdown(
+            f'<div style="background:#161b22;border:2px solid {_pg_clr};border-radius:8px;'
+            f'padding:10px 16px;margin-bottom:12px">'
+            f'<span style="font-size:13px;color:{_pg_clr};font-weight:700">🎯 Altersgruppe: {_tp_pg}</span>'
+            f'<span style="color:#8b949e;font-size:12px;margin-left:10px">— {_tp_cfg["label"]}</span><br>'
+            f'<small style="color:#8b949e">Quelle: Faigenbaum & Myer (2010) · Lloyd et al. (2014) · NSCA Youth RT Position Statement</small>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+
         if st.button("⚡ Trainingsplan erstellen", use_container_width=True, key="auto_gen_btn"):
-            n = trainingsplan_multi_erstellen(sid, schwerpunkt, wochen=plan_laenge)
-            _save_ok(f"Trainingsplan erstellt — {n} Übungen über {plan_laenge} Wochen.")
+            n = trainingsplan_multi_erstellen(sid, schwerpunkt, wochen=plan_laenge, alter=_tp_alter)
+            _save_ok(f"Trainingsplan erstellt — {n} Übungen über {plan_laenge} Wochen ({_tp_pg}).")
             st.rerun()
 
     with tab_manual:
@@ -2113,11 +2133,31 @@ def page_periodisierung():
                 "**Phase 3** (W9–12): Fußballspezifisch"
             )
         st.caption("Jede 4. Woche = Deload · Jede Woche = mehrere Trainingsschwerpunkte")
+    # Altersgruppe ermitteln
+    _pz_alter = berechne_alter(auswahl.get("geburtsdatum"))
+    _pz_pg    = _alter_zu_plangruppe(_pz_alter)
+    _pz_cfg   = _PLANGRUPPEN_CONFIG[_pz_pg]
+    _pg_farben2 = {
+        "U10": "#3fb950", "U14": "#3fb950", "U18": "#d29922",
+        "Senior": "#58a6ff", "Ü40": "#d29922", "Ü55": "#f85149",
+    }
+    _pg_clr2 = _pg_farben2.get(_pz_pg, "#8b949e")
+
+    with col_info:
+        st.markdown(
+            f'<div style="background:#161b22;border:2px solid {_pg_clr2};border-radius:8px;'
+            f'padding:8px 14px;margin-top:8px">'
+            f'<span style="color:{_pg_clr2};font-weight:700;font-size:13px">🎯 {_pz_pg}</span>'
+            f'<span style="color:#8b949e;font-size:11px;margin-left:8px">{_pz_cfg["label"]}</span>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+
     with col_gen:
         st.markdown("<br>", unsafe_allow_html=True)
         if st.button("⚡ Zyklus erstellen / neu generieren", use_container_width=True, key="perio_gen"):
-            zyklus_erstellen(sid, schwerpunkt, wochen=wochen_auswahl)
-            _save_ok(f"{wochen_auswahl}-Wochen-Zyklus generiert!")
+            zyklus_erstellen(sid, schwerpunkt, wochen=wochen_auswahl, alter=_pz_alter)
+            _save_ok(f"{wochen_auswahl}-Wochen-Zyklus generiert! ({_pz_pg})")
             st.rerun()
 
     plan = zyklus_laden(sid)

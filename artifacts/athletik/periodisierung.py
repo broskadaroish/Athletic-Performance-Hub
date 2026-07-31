@@ -346,41 +346,73 @@ def _woche_eintraege(
 # Public API
 # ─────────────────────────────────────────────────────────────────────────────
 
-def zyklus_erstellen(spieler_id: int, schwerpunkt_text: str, wochen: int = 12) -> list[dict]:
+def zyklus_erstellen(spieler_id: int, schwerpunkt_text: str,
+                     wochen: int = 12,
+                     alter: float | None = None) -> list[dict]:
     """
-    Generate and persist a multi-focus, deficit-driven training cycle.
+    Altersbasierter Periodisierungszyklus (12-Wochen oder kürzer).
+    Quelle: Faigenbaum & Myer (2010), Lloyd et al. (2014), NSCA Essentials.
 
-    Parameters
-    ----------
-    spieler_id      : DB id of the player
-    schwerpunkt_text: Combined deficit text from schwerpunkt_sammeln()
-    wochen          : Plan length — 4, 6, 8, or 12 weeks
+    Altersanpassung:
+      U10  → Nur Phase 1 (Stabilisation) / max. 4 Wochen
+      U14  → Phase 1 + 2 (Stabilisation + Kraft), kein Power
+      U18  → Alle Phasen (moderate Power-Intensität)
+      Senior → Vollständig
+      Ü40  → Alle Phasen, reduzierte Power-Intensität
+      Ü55  → Phase 1 + 2 nur (keine Power-Phase)
     """
     wochen = wochen if wochen in (4, 6, 8, 12) else 12
     scores = defizit_score(schwerpunkt_text)
+    plangruppe = _alter_zu_plangruppe(alter)
+    cfg        = _PLANGRUPPEN_CONFIG[plangruppe]
     plan: list[dict] = []
 
+    # Phasen altersgerecht begrenzen
+    def _phase_erlaubt(pool_key: str) -> bool:
+        return _max_pool_key(pool_key, cfg["max_pool_key"]) == pool_key
+
     if wochen == 12:
-        # Full 3-phase 12-week plan
         for woche_start, woche_end, pool_key, ph_name, ph_ziel in _PHASEN:
+            _pk = _max_pool_key(pool_key, cfg["max_pool_key"])
             for w in range(woche_start, woche_end + 1):
-                plan.extend(_woche_eintraege(w, 12, scores, ph_name, ph_ziel, pool_key))
+                if w > wochen:
+                    break
+                plan.extend(_woche_eintraege(w, wochen, scores, ph_name, ph_ziel, _pk))
     else:
-        # Shorter plans: use stabilisation + kraft pools proportionally
         block_size = wochen // (len(_SHORT_PLAN_PHASE.get(wochen, [(1, "stabilisation", "", "")])))
         phase_defs = _SHORT_PLAN_PHASE.get(wochen, [(1, "stabilisation", "Stabilisation", "")])
         w = 1
         for phase_start, pool_key, ph_name, ph_ziel in phase_defs:
-            end = min(phase_start + block_size - 1, wochen)
+            _pk = _max_pool_key(pool_key, cfg["max_pool_key"])
             for week_nr in range(w, w + block_size):
                 if week_nr > wochen:
                     break
-                plan.extend(_woche_eintraege(week_nr, wochen, scores, ph_name, ph_ziel, pool_key))
+                plan.extend(_woche_eintraege(week_nr, wochen, scores, ph_name, ph_ziel, _pk))
             w += block_size
 
+    # Altersgerechte Übungssubstitution im Zyklus-Plan
+    filtered = []
+    for entry in plan:
+        uebung = entry.get("uebung", "")
+        ersatz = _ersatz_uebung(uebung, plangruppe)
+        if ersatz is None:
+            continue  # nicht geeignet
+        if ersatz != "ok":
+            entry = dict(entry)
+            entry["uebung"]      = ersatz[0]
+            entry["saetze"]      = _saetze_begrenzen(ersatz[1], cfg["max_saetze"])
+            entry["volumen"]     = ersatz[2]
+            entry["haeufigkeit"] = _haeufigkeit_begrenzen(ersatz[3], cfg["haeuf_cap"])
+        else:
+            entry = dict(entry)
+            entry["saetze"] = _saetze_begrenzen(str(entry.get("saetze", "3")), cfg["max_saetze"])
+            h = entry.get("haeufigkeit", "")
+            entry["haeufigkeit"] = _haeufigkeit_begrenzen(h, cfg["haeuf_cap"])
+        filtered.append(entry)
+
     periodisierung_loeschen(spieler_id)
-    periodisierung_bulk_insert(spieler_id, plan)
-    return plan
+    periodisierung_bulk_insert(spieler_id, filtered)
+    return filtered
 
 
 def zyklus_laden(spieler_id: int) -> list:
@@ -488,17 +520,274 @@ _AUSFUEHRUNG_FALLBACK: dict[str, str] = {
 
 
 def _pause_und_ausfuehrung(bereich: str, pool_key: str,
-                            is_deload: bool = False) -> tuple[int, str]:
-    """Gibt bereichsspezifische (pause_sek, ausfuehrung) zurück."""
+                            is_deload: bool = False,
+                            plangruppe: str = "Senior") -> tuple[int, str]:
+    """Gibt alters- und bereichsspezifische (pause_sek, ausfuehrung) zurück."""
     pause_s, ausfuehr = _BEREICH_PARAMS.get(
         (bereich, pool_key),
         (_PAUSE_FALLBACK.get(pool_key, 90), _AUSFUEHRUNG_FALLBACK.get(pool_key, "kontrolliert")),
     )
+    # Alters-Offset addieren
+    cfg = _PLANGRUPPEN_CONFIG.get(plangruppe, _PLANGRUPPEN_CONFIG["Senior"])
+    pause_s += cfg["pause_offset"]
+    prefix = cfg["ausfuehr_prefix"]
+    if prefix and not ausfuehr.startswith(prefix):
+        ausfuehr = prefix + ausfuehr
     if is_deload:
         pause_s = max(30, pause_s - 15)
         ausfuehr = ausfuehr + " / leicht"
     return pause_s, ausfuehr
 
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Altersbasiertes Planungs-System
+# Quellen: Faigenbaum & Myer (2010) Br J Sports Med; Lloyd et al. (2014) BJSM;
+#          NSCA Position Statement Youth Resistance Training (2009);
+#          Kraemer et al.; Harridge & Suominen (Ü-40 Trainingslehre)
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _alter_zu_plangruppe(alter: float | None) -> str:
+    """Ordnet ein Lebensalter der Trainingsplangruppe zu."""
+    if not alter or alter <= 0:
+        return "Senior"
+    a = int(alter)
+    if a <= 10: return "U10"
+    if a <= 14: return "U14"
+    if a <= 18: return "U18"
+    if a <= 35: return "Senior"
+    if a <= 50: return "Ü40"
+    return "Ü55"
+
+
+# Konfiguration je Plangruppe:
+#   max_pool_key    : höchste erlaubte Phase (U10 nur Stabilisation, kein Power)
+#   pause_offset    : Sekunden zusätzlich zur bereichsspezifischen Pause
+#   ausfuehr_prefix : Textpräfix für die Ausführungsanweisung
+#   max_saetze      : Maximale Satzzahl (ersetzt grössere Werte im Pool)
+#   haeuf_cap       : Frequenzbegrenzung (z. B. max 2×/Woche)
+#   label           : Anzeigename für die UI
+_PLANGRUPPEN_CONFIG: dict[str, dict] = {
+    "U10": {
+        "max_pool_key":  "stabilisation",  # Kein Kraft/Power → Koordination & Körpergewicht
+        "pause_offset":  45,               # +45 s Coaching-/Erklärungszeit
+        "ausfuehr_prefix": "Technisch / Körpergefühl entwickeln — kein Tempo-Ziel · ",
+        "max_saetze":    2,
+        "haeuf_cap":     "2×",
+        "label":         "U10 — Koordination & Bewegungsbildung",
+    },
+    "U14": {
+        "max_pool_key":  "kraft",          # Kein Power → Intro Widerstandstraining
+        "pause_offset":  20,
+        "ausfuehr_prefix": "Technisch kontrolliert · ",
+        "max_saetze":    3,
+        "haeuf_cap":     None,
+        "label":         "U14 — Technischer Aufbau & Intro Krafttraining",
+    },
+    "U18": {
+        "max_pool_key":  "power",          # Vollständig, moderate Power-Intensität
+        "pause_offset":  10,
+        "ausfuehr_prefix": "",
+        "max_saetze":    99,
+        "haeuf_cap":     None,
+        "label":         "U18 — Strukturiertes Athletiktraining",
+    },
+    "Senior": {
+        "max_pool_key":  "power",
+        "pause_offset":  0,
+        "ausfuehr_prefix": "",
+        "max_saetze":    99,
+        "haeuf_cap":     None,
+        "label":         "Senior — Vollständiges Leistungstraining",
+    },
+    "Ü40": {
+        "max_pool_key":  "power",          # Power erlaubt, aber reduziert (s. u.)
+        "pause_offset":  20,               # +20 s — Erholung dauert länger
+        "ausfuehr_prefix": "Kontrolliert / gelenkschonend · ",
+        "max_saetze":    99,
+        "haeuf_cap":     None,
+        "label":         "Ü40 — Erhalt & Verletzungsprävention",
+    },
+    "Ü55": {
+        "max_pool_key":  "kraft",          # Kein Power → Funktionelle Stärke
+        "pause_offset":  40,               # +40 s — längere Regeneration nötig
+        "ausfuehr_prefix": "Sehr kontrolliert / gelenkschonend · ",
+        "max_saetze":    3,
+        "haeuf_cap":     "2×",
+        "label":         "Ü55 — Funktionelle Stärke & Gelenkschonung",
+    },
+}
+
+
+# Übungsersatz für altersungeeignete Übungen
+# Format: Übungsname → { Plangruppe: (Ersatzübung, Sätze, Volumen, Häufigkeit) | None }
+# None = Übung komplett weglassen
+_ALTERS_ERSATZ: dict[str, dict[str, tuple | None]] = {
+    # ── Hochbelastende Hamstring/Kraft-Übungen ────────────────────────────────
+    "Nordic Hamstring Eccentric": {
+        "U10": ("Einbeinige Hüftbrücke",             "2", "10 je Seite",  "3×/Woche"),
+        "U14": ("Nordic Hamstring Eccentric (assist.)","3", "4",           "2×/Woche"),
+    },
+    "Nordic Hamstring Curl": {
+        "U10": ("Einbeinige Hüftbrücke",             "2", "10 je Seite",  "3×/Woche"),
+        "U14": ("Nordic Eccentric (kontrolliert)",   "3", "4",            "2×/Woche"),
+        "Ü55": ("Lying Hamstring Curl (Maschine)",   "3", "12",           "2×/Woche"),
+    },
+    "Box Squat": {
+        "U10": ("Mini-Squat Körpergewicht",          "2", "12",           "3×/Woche"),
+        "U14": ("Goblet Squat (leicht)",             "3", "10",           "2×/Woche"),
+    },
+    "Bulgarian Split Squat": {
+        "U10": ("Ausfallschritt Körpergewicht",      "2", "8 je Seite",   "3×/Woche"),
+        "U14": ("Ausfallschritt Körpergewicht",      "3", "8 je Seite",   "2×/Woche"),
+    },
+    "Single Leg Leg Press": {
+        "U10": ("Einbeiniger Kniestand (Balance)",   "2", "10 je Seite",  "2×/Woche"),
+    },
+    "Good Morning": {
+        "U10": ("Hinge-Bewegung Körpergewicht",      "2", "10",           "2×/Woche"),
+        "U14": ("Rumänisches Kreuzheben (leicht)",   "3", "10",           "2×/Woche"),
+    },
+    "Ab Wheel Rollout": {
+        "U10": ("Plank mit Armheben",               "2", "8 je Seite",   "3×/Woche"),
+        "U14": ("Rollout (klein, kniend)",           "3", "6",            "2×/Woche"),
+    },
+    "Hanging Knee Raise": {
+        "U10": ("Beckenheben liegend",              "2", "12",            "3×/Woche"),
+        "U14": ("Knieheben an Stange (leicht)",     "3", "8",            "2×/Woche"),
+    },
+    "Farmer's Walk": {
+        "U10": ("Einbeiniger Stand auf Wackelmatte","2", "30 Sekunden",  "2×/Woche"),
+    },
+    # ── Plyometrie / Power-Übungen ────────────────────────────────────────────
+    "Depth Jump": {
+        "U10": ("Beidbeinige Sprünge (Boden)",      "2", "5",             "2×/Woche"),
+        "U14": ("Box Jump (Höhe 30 cm)",            "3", "4",             "2×/Woche"),
+        "Ü55": ("Box Step-Down kontrolliert",        "3", "6 je Seite",   "2×/Woche"),
+    },
+    "Depth Drop → Sprung": {
+        "U10": ("Beidbeinige Sprünge (Boden)",      "2", "5",             "2×/Woche"),
+        "U14": ("Drop Step → Squat",                "3", "5",             "2×/Woche"),
+        "Ü55": ("Box Step-Down kontrolliert",        "3", "6 je Seite",   "2×/Woche"),
+    },
+    "Einbeinige Plyo Sprünge": {
+        "U10": ("Einbeiniger Stand + Rumpfrotation","2", "8 je Seite",   "2×/Woche"),
+        "U14": ("Einbeinige Hops (niedrig)",        "3", "5 je Seite",   "1×/Woche"),
+        "Ü55": ("Einbeinige Wadenheben (langsam)",  "3", "12 je Seite",  "2×/Woche"),
+    },
+    "Box Jump maximal": {
+        "U10": ("Beidbeiniger Bodenabsprung (kniend aufkommen)", "2", "5", "2×/Woche"),
+        "U14": ("Box Jump (Höhe 30–40 cm)",         "3", "4",             "2×/Woche"),
+        "Ü55": ("Box Step-Up kontrolliert",          "3", "8 je Seite",   "2×/Woche"),
+    },
+    "Reaktive Sprünge (DJ-RSI)": {
+        "U10": ("Koordinations-Hops (Boden)",       "2", "8",             "2×/Woche"),
+        "U14": ("Ankle Jumps (niedrig)",            "3", "8",             "2×/Woche"),
+        "Ü55": ("Pogo Hops (sehr leicht, kurz)",    "3", "8 Sekunden",   "2×/Woche"),
+    },
+    "Explosive Nordic": {
+        "U10": ("Hip Bridge reaktiv",               "2", "8",             "2×/Woche"),
+        "U14": ("Nordic Eccentric (kontrolliert)",  "3", "4",             "1×/Woche"),
+        "Ü55": ("Lying Hamstring Curl langsam",     "3", "10",            "2×/Woche"),
+    },
+    "Hamstring Sliders reaktiv": {
+        "U10": ("Einbeinige Hüftbrücke",            "2", "10 je Seite",  "2×/Woche"),
+        "U14": ("Hamstring Curl Maschine (leicht)", "3", "10",            "2×/Woche"),
+        "Ü55": ("Lying Hamstring Curl (langsam)",   "3", "12",            "2×/Woche"),
+    },
+    "Power RDL": {
+        "U10": ("Hinge Körpergewicht",              "2", "10",            "2×/Woche"),
+        "U14": ("RDL leicht (Körpergewicht)",       "3", "8 je Seite",   "2×/Woche"),
+    },
+    "Sprung aus Kniebeuge": {
+        "U10": ("Squat Körpergewicht (langsam)",    "2", "10",            "3×/Woche"),
+    },
+    # ── Sprint-Übungen (U10: Technik statt Intensität) ─────────────────────────
+    "10 m Sprintstarts": {
+        "U10": ("Lauf-ABC — Knieheben (technisch)",  "3", "15 Meter",    "2×/Woche"),
+    },
+    "Resistenz-Sprints (Band)": {
+        "U10": ("Steigerungsläufe (technisch)",     "4", "30 Meter",     "2×/Woche"),
+        "Ü55": ("Steigerungsläufe (moderat)",       "4", "20 Meter",     "2×/Woche"),
+    },
+    "20–30 m Maximalsprints": {
+        "U10": ("Lauf-ABC + kurze Steigerung",      "4", "20 Meter",     "2×/Woche"),
+        "Ü55": ("Steigerungsläufe (70–80 %)",       "4", "20 Meter",     "1×/Woche"),
+    },
+    "Fliegende 30er": {
+        "U10": ("Fahrtenspiele 20 m",               "4", "20 Meter",     "2×/Woche"),
+        "Ü55": ("Steigerungsläufe (fliegend)",       "4", "20 Meter",     "1×/Woche"),
+    },
+    "Bergaufsprints": {
+        "U10": ("Bergauflaufen (locker)",            "4", "20 Meter",     "1×/Woche"),
+        "Ü55": ("Bergaufgehen (zügig)",              "4", "30 Meter",     "1×/Woche"),
+    },
+    # ── Rumpfübungen ──────────────────────────────────────────────────────────
+    "Medizinball Rotationswurf": {
+        "U10": ("Pallof Press (Gummiband)",         "2", "10",            "2×/Woche"),
+    },
+    "Landmine Rotation": {
+        "U10": ("Russischer Twist (leicht)",        "2", "12",            "2×/Woche"),
+        "U14": ("Landmine Rotation (leicht)",       "3", "8 je Seite",   "2×/Woche"),
+    },
+    # ── Hip Thrust / Explosiv-Hüfte ───────────────────────────────────────────
+    "Explosiver Hip Thrust": {
+        "U10": ("Einbeinige Hüftbrücke (normal)",   "2", "10 je Seite",  "3×/Woche"),
+        "U14": ("Hip Thrust (langsam, Körpergewicht)", "3", "10",        "2×/Woche"),
+    },
+    "Lateral Bound stabilisiert": {
+        "U10": ("Seitensprung Boden (kurz)",        "2", "5 je Seite",   "2×/Woche"),
+    },
+    # ── Sprunggelenk Power ────────────────────────────────────────────────────
+    "Ankle Jumps reaktiv": {
+        "U10": ("Pogo Hops beidbeinig (kurz)",      "2", "6 Sekunden",   "2×/Woche"),
+    },
+    "Lateral Hops reaktiv": {
+        "U10": ("Seitliche Schritte mit Balance",   "2", "6 je Seite",   "2×/Woche"),
+    },
+    "Einbeinige Hüpfsprints": {
+        "U10": ("Beidbeinige Hops (Boden)",         "2", "15 Meter",     "1×/Woche"),
+        "Ü55": ("Gehsprints (zügig)",               "3", "20 Meter",     "2×/Woche"),
+    },
+}
+
+
+def _ersatz_uebung(uebung: str, plangruppe: str) -> tuple | None | str:
+    """
+    Gibt einen alternativen Übungseintrag zurück, wenn die Übung für die
+    Plangruppe nicht geeignet ist. None = Übung weglassen. "ok" = keine Änderung.
+    """
+    ersatz = _ALTERS_ERSATZ.get(uebung, {})
+    if plangruppe in ersatz:
+        return ersatz[plangruppe]  # (uebung, saetze, volumen, haeufigkeit) oder None
+    return "ok"
+
+
+def _saetze_begrenzen(saetze_str: str, max_saetze: int) -> str:
+    """Begrenzt die Satzzahl gemäß Konfiguration der Altersgruppe."""
+    try:
+        s = int(saetze_str)
+        return str(min(s, max_saetze))
+    except (ValueError, TypeError):
+        return saetze_str
+
+
+def _haeufigkeit_begrenzen(haeuf: str, cap: str | None) -> str:
+    """Begrenzt Trainingshäufigkeit (z. B. U10/Ü55 max 2×/Woche)."""
+    if not cap:
+        return haeuf
+    h = haeuf or ""
+    if "3×" in h: return h.replace("3×", cap)
+    if "4×" in h: return h.replace("4×", cap)
+    return h
+
+
+def _max_pool_key(pool_key: str, max_key: str) -> str:
+    """Begrenzt pool_key auf das Alter-Maximum (Hierarchie: stabilisation < kraft < power)."""
+    rangfolge = {"stabilisation": 0, "kraft": 1, "power": 2}
+    if rangfolge.get(pool_key, 1) > rangfolge.get(max_key, 2):
+        return max_key
+    return pool_key
 
 def _tags_fuer_haeufigkeit(haeuf: str) -> list[int]:
     """Return training-day tags for a given haeufigkeit string."""
@@ -512,16 +801,21 @@ def _tags_fuer_haeufigkeit(haeuf: str) -> list[int]:
     return [2]           # 1×/Woche → Mitte der Woche
 
 
-def trainingsplan_multi_erstellen(spieler_id: int, schwerpunkt_text: str, wochen: int = 8) -> int:
+def trainingsplan_multi_erstellen(spieler_id: int, schwerpunkt_text: str,
+                                  wochen: int = 8,
+                                  alter: float | None = None) -> int:
     """
-    Generate a multi-focus plan into the trainingsplan table (shorter plans).
-    Each exercise is stored as separate rows per training day (Tag 1/2/3).
-    Returns number of entries created.
+    Altersbasierter Trainingsplan in die trainingsplan-Tabelle.
+    Quelle: Faigenbaum & Myer (2010), Lloyd et al. (2014), NSCA Youth RT Position Statement.
     """
     wochen = wochen if wochen in (4, 6, 8) else 8
     scores = defizit_score(schwerpunkt_text)
+    plangruppe = _alter_zu_plangruppe(alter)
+    cfg        = _PLANGRUPPEN_CONFIG[plangruppe]
 
-    pool_key = "stabilisation" if wochen <= 4 else "kraft" if wochen <= 8 else "power"
+    base_pool_key = "stabilisation" if wochen <= 4 else "kraft" if wochen <= 8 else "power"
+    # Alters-Beschränkung: z. B. U10 darf nie "power" nutzen
+    pool_key = _max_pool_key(base_pool_key, cfg["max_pool_key"])
 
     from database import trainingsplan_loeschen, trainingsplan_eintrag_speichern
     from datetime import date
@@ -538,11 +832,21 @@ def trainingsplan_multi_erstellen(spieler_id: int, schwerpunkt_text: str, wochen
             n = max(0, score - 1) if is_deload else score
             exercises = _pool_fuer_area(area, pool_key, n, offset=offset)
             for uebung, saetze, volumen, haeufigkeit in exercises:
+                # Altersgerechte Übungssubstitution prüfen
+                ersatz = _ersatz_uebung(uebung, plangruppe)
+                if ersatz is None:
+                    continue  # Übung für diese Altersgruppe nicht geeignet
+                if ersatz != "ok":
+                    uebung, saetze, volumen, haeufigkeit = ersatz
+
                 if is_deload:
                     haeufigkeit = haeufigkeit.replace("3×", "2×").replace("4×", "2×")
-                tags = _tags_fuer_haeufigkeit(haeufigkeit)
-                # Bereichsspezifische Pause & Ausführung (sportwiss. korrekt)
-                _pause, _aust = _pause_und_ausfuehrung(area, pool_key, is_deload)
+                # Altersbedingte Begrenzungen
+                saetze      = _saetze_begrenzen(saetze, cfg["max_saetze"])
+                haeufigkeit = _haeufigkeit_begrenzen(haeufigkeit, cfg["haeuf_cap"])
+                tags        = _tags_fuer_haeufigkeit(haeufigkeit)
+                # Bereichs- + Altersbasierte Pause & Ausführung
+                _pause, _aust = _pause_und_ausfuehrung(area, pool_key, is_deload, plangruppe)
                 for tag in tags:
                     trainingsplan_eintrag_speichern(
                         spieler_id, str(date.today()), w,
