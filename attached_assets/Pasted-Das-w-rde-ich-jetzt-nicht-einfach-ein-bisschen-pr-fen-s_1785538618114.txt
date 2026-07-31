@@ -1,0 +1,313 @@
+Das würde ich jetzt **nicht einfach "ein bisschen prüfen"**, sondern als eigene **Usability- und UI/UX-Optimierungsphase** durchführen. Das ist genau das, was professionelle Software vor einer Veröffentlichung macht.
+
+Hier ist der Arbeitsauftrag für Replit:
+
+---
+
+# PHASE 0 – Benutzeroberfläche, Menüstruktur und modernes Design optimieren
+
+## Projektziel
+
+Bevor mit den nächsten Entwicklungsphasen begonnen wird, soll die komplette Benutzeroberfläche von **Bruce Football Performance Diagnostics** professionell überprüft und optimiert werden.
+
+Das Ziel ist eine moderne, übersichtliche und intuitive Software, die ohne lange Einarbeitung bedient werden kann.
+
+Analysiere dabei die gesamte Anwendung aus Sicht eines Trainers, Athletiktrainers und Vereinsadministrators.
+
+Überprüfe nicht nur die technische Funktion, sondern insbesondere die Benutzerfreundlichkeit (Usability), die Navigation, die Menüstruktur und das Design.
+
+Die Software soll modern, professionell und hochwertig wirken.
+
+---
+
+# Arbeitsauftrag
+
+Analysiere die komplette Software.
+
+Gehe jede einzelne Seite durch.
+
+Prüfe sämtliche:
+
+* Menüs
+* Untermenüs
+* Tabs
+* Buttons
+* Eingabefelder
+* Tabellen
+* Dialoge
+* Dashboard
+* Diagramme
+* PDF-Bereiche
+* Formulare
+* Karten (Cards)
+* Navigation
+
+Versetze dich dabei in einen Benutzer, der die Software zum ersten Mal verwendet.
+
+Beurteile, ob die Bedienung logisch und intuitiv ist.
+
+---
+
+# Aufgabe 1 – Menüstruktur
+
+Überprüfe die komplette Menüstruktur.
+
+Prüfe insbesondere:
+
+* Ist die Reihenfolge logisch?
+* Sind alle Menüpunkte verständlich?
+* Gibt es doppelte Menüpunkte?
+* Gibt es unnötige Menüpunkte?
+* Sind wichtige Funktionen leicht erreichbar?
+* Muss der Benutzer zu oft klicken?
+* Können Menüpunkte sinnvoll zusammengefasst werden?
+
+Schlage Verbesserungen vor und setze sie nach meiner Freigabe um.
+
+---
+
+# Aufgabe 2 – Buttons
+
+Überprüfe sämtliche Buttons.
+
+Prüfe:
+
+* Sind die Bezeichnungen verständlich?
+* Sind die Buttons einheitlich gestaltet?
+* Sind Farben einheitlich?
+* Sind Größen einheitlich?
+* Sind Positionen logisch?
+* Gibt es doppelte Buttons?
+* Fehlen wichtige Buttons?
+* Sind wichtige Aktionen deutlich hervorgehoben?
+
+Nach jeder Aktion soll eine passende Erfolgsmeldung oder Warnmeldung erscheinen.
+
+---
+
+# Aufgabe 3 – Navigation
+
+Überprüfe den gesamten Programmablauf.
+
+Ein Benutzer soll möglichst mit wenigen Klicks ans Ziel gelangen.
+
+Prüfe:
+
+* Zu viele Unterseiten?
+* Zu viele Klicks?
+* Unlogische Reihenfolge?
+* Fehlende Zurück-Buttons?
+* Fehlende Schnellzugriffe?
+
+Schlage Verbesserungen vor.
+
+---
+
+# Aufgabe 4 – Benutzerfreundlichkeit (Usability)
+
+Bewerte jede Seite nach folgenden Kriterien:
+
+* Übersichtlichkeit
+* Verständlichkeit
+* Geschwindigkeit
+* Bedienbarkeit
+* Lesbarkeit
+* Konsistenz
+* Ergonomie
+
+Alle Seiten sollen einheitlich aufgebaut sein.
+
+---
+
+# Aufgabe 5 – Modernes Design
+
+Modernisiere die komplette Benutzeroberfläche.
+
+Orientiere dich an professioneller Software wie:
+
+* Hudl
+* Kitman Labs
+* Catapult Sports
+* VALD Performance
+* Apple
+* Microsoft Fluent Design
+* Material Design 3
+
+Die Software soll modern, hochwertig und professionell wirken.
+
+---
+
+# Designvorgaben
+
+Verwende:
+
+* moderne Karten (Cards)
+* gleichmäßige Abstände
+* klare Linien
+* abgerundete Elemente
+* moderne Icons
+* dezente Schatten
+* harmonische Farben
+* gut lesbare Schriftarten
+* klare Überschriften
+* einheitliche Farbpalette
+
+Die Software soll ruhig und hochwertig wirken.
+
+Nicht verspielt.
+
+---
+
+# Dashboard
+
+Das Dashboard soll deutlich moderner gestaltet werden.
+
+Die wichtigsten Informationen sollen sofort sichtbar sein.
+
+Keine überladenen Seiten.
+
+Klare Struktur.
+
+---
+
+# Tabellen
+
+Überarbeite sämtliche Tabellen.
+
+Ergänze:
+
+* Suche
+* Filter
+* Sortierung
+* Spalten ein-/ausblenden
+* Pagination
+* Zeilen farblich hervorheben
+* Mehrfachauswahl
+
+---
+
+# Formulare
+
+Überarbeite sämtliche Eingabeformulare.
+
+Prüfe:
+
+* Reihenfolge logisch?
+* Pflichtfelder deutlich?
+* Eingaben einfach?
+* Erfolgsmeldungen vorhanden?
+* Plausibilitätsprüfung vorhanden?
+
+---
+
+# Icons
+
+Verwende einheitliche moderne Icons.
+
+Zum Beispiel:
+
+👤 Spieler
+
+📊 Diagnostik
+
+📈 Entwicklung
+
+🏃 Sprint
+
+💪 Kraft
+
+⚖ Anthropometrie
+
+🧍 FMS
+
+🦵 Y-Balance
+
+🫁 Spiroergometrie
+
+📄 PDF
+
+⚙ Einstellungen
+
+---
+
+# Farben
+
+Verwende eine professionelle Farbpalette.
+
+Beispielsweise:
+
+* Dunkelblau
+* Weiß
+* Hellgrau
+* Grün für Erfolg
+* Orange für Warnung
+* Rot für Fehler
+
+Keine grellen Farben.
+
+---
+
+# Animationen
+
+Falls technisch sinnvoll:
+
+* sanfte Übergänge
+* Ladeanimationen
+* Hover-Effekte
+* Buttons mit leichtem Feedback
+
+Nicht übertreiben.
+
+---
+
+# Responsives Design
+
+Prüfe die komplette Software für:
+
+* Desktop
+* Laptop
+* Tablet
+* Smartphone
+
+Die Bedienung soll auf allen Geräten angenehm sein.
+
+---
+
+# Abschlussprüfung
+
+Nach Abschluss der Analyse:
+
+Erstelle einen vollständigen UI-/UX-Bericht.
+
+Für jede Seite dokumentieren:
+
+* Was ist gut?
+* Was ist verbesserungswürdig?
+* Welche Änderungen wurden vorgenommen?
+* Warum wurden diese Änderungen durchgeführt?
+
+Erstelle zusätzlich eine Prioritätenliste:
+
+🔴 Kritisch
+
+🟡 Wichtig
+
+🟢 Optional
+
+---
+
+# Abschlussregel
+
+Die Software soll nach Abschluss dieser Phase den Eindruck einer professionellen kommerziellen Anwendung vermitteln.
+
+Alle Menüs, Buttons, Formulare und Seiten sollen logisch aufgebaut, einheitlich gestaltet und intuitiv bedienbar sein.
+
+Änderungen dürfen keine bestehenden Funktionen beeinträchtigen.
+
+---
+
+## 💡 Eine Empfehlung für dein Projekt
+
+Ich würde Replit zusätzlich diesen Satz mitgeben:
+
+> **Denke nicht wie ein Programmierer, sondern wie ein UX-/UI-Designer und ein Athletiktrainer. Stelle dir vor, du würdest die Software täglich im Trainingsalltag nutzen. Hinterfrage jede Seite kritisch: Kann sie einfacher, schneller, übersichtlicher oder professioneller gestaltet werden? Schlage Verbesserungen aktiv vor und setze sie nach meiner Freigabe um.**
