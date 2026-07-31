@@ -1088,6 +1088,19 @@ def page_fms():
             m1.metric("Gesamtscore", f"{result.score} / 21")
             m2.metric("Bewertung", result.bewertung)
             m3.metric("Risikostufe", result.risiko_level.capitalize())
+            # ── Kurze Beurteilung ──────────────────────────────────────
+            from fms import fms_bewertung_kurz as _fms_bkurz
+            _fms_bw_clr = {"Ausgezeichnet": "#3fb950", "Gut": "#3fb950",
+                           "Beobachten": "#d29922", "Aktionsbedarf": "#f85149"}
+            _fms_bc = _fms_bw_clr.get(result.bewertung, "#8b949e")
+            st.markdown(
+                f'<div style="background:#161b22;border-left:4px solid {_fms_bc};'
+                f'border-radius:0 8px 8px 0;padding:10px 16px;margin:8px 0">'
+                f'<span style="color:{_fms_bc};font-weight:700">{result.bewertung}</span>'
+                f'<span style="color:#8b949e;font-size:12px;margin-left:10px">{result.score}/21 Punkte</span><br>'
+                f'<small style="color:#c9d1d9">{_fms_bkurz(result.score)}</small></div>',
+                unsafe_allow_html=True,
+            )
             st.markdown("#### Pattern-Scores")
             for name, val in result.pattern_scores.items():
                 col = _color_for_score(val, 3)
@@ -1106,6 +1119,19 @@ def page_fms():
             lm1.metric("Gesamtscore", f"{last.get('score', 0)} / 21")
             lm2.metric("Bewertung",   last.get("bewertung", "—"))
             lm3.metric("Datum",       last.get("datum", "—"))
+            # ── Kurze Beurteilung ──────────────────────────────────────────────
+            from fms import fms_bewertung_kurz as _fms_bkurz2
+            _fms_bw_clr2 = {"Ausgezeichnet": "#3fb950", "Gut": "#3fb950",
+                             "Beobachten": "#d29922", "Aktionsbedarf": "#f85149"}
+            _fms_bc2 = _fms_bw_clr2.get(last.get("bewertung", ""), "#8b949e")
+            st.markdown(
+                f'<div style="background:#161b22;border-left:4px solid {_fms_bc2};'
+                f'border-radius:0 8px 8px 0;padding:10px 16px;margin:8px 0">'
+                f'<span style="color:{_fms_bc2};font-weight:700">{last.get("bewertung","—")}</span>'
+                f'<span style="color:#8b949e;font-size:12px;margin-left:10px">{last.get("score",0)}/21 Punkte</span><br>'
+                f'<small style="color:#c9d1d9">{_fms_bkurz2(last.get("score"))}</small></div>',
+                unsafe_allow_html=True,
+            )
             st.markdown("---")
             st.markdown("#### Einzelbewertungen")
             _SC = {3: "#3fb950", 2: "#d29922", 1: "#f0883e", 0: "#f85149"}
@@ -4890,7 +4916,10 @@ def page_startseite():
     _yb_rating_s = str(y["asymmetrie"]) if y and y.get("asymmetrie") else None
 
     cards = [
-        ("FMS",       "📝", fms,    fms["bewertung"]        if fms    else None, fms["datum"]    if fms    else None),
+        ("FMS", "📝", fms,
+         (fms["bewertung"] + " — " + __import__("fms").fms_bewertung_kurz(fms["score"])[:55] + "…")
+          if fms else None,
+         fms["datum"] if fms else None),
         ("Y-Balance", "📏", y,      _yb_rating_s,           y["datum"] if y else None),
         ("Sprint",    "⚡", sprint, sprint["bewertung_10m"] if sprint else None, sprint["datum"] if sprint else None),
         ("Sprung",    "🦘", sprung, sprung["bewertung_cmj"] if sprung else None, sprung["datum"] if sprung else None),
@@ -6076,7 +6105,11 @@ def page_diagnostik_overview() -> None:
             "desc": "Functional Movement Screen",
             "sub":  "📝 FMS",
             "metric": f"{fms_d['score']}/21" if fms_d else None,
-            "rating": fms_d.get("bewertung") if fms_d else None,
+            "rating": (
+                fms_d.get("bewertung","") + " — " +
+                __import__("fms").fms_bewertung_kurz(fms_d.get("score"))[:60] + "…"
+                if fms_d else None
+            ),
             "date":   fms_d.get("datum")     if fms_d else None,
         },
         {

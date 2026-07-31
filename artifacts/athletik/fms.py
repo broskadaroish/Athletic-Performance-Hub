@@ -64,6 +64,18 @@ class FMSResult:
         return "Aktionsbedarf"
 
     @property
+    def bewertung_kurz(self) -> str:
+        """Kurze Erläuterung der Bewertungsstufe für Trainer und Eltern."""
+        s = self.score
+        if s >= 18:
+            return "Sehr gute Bewegungsqualität — kein Handlungsbedarf, Niveau halten."
+        if s >= 15:
+            return "Solide Bewegungsbasis — gezielte Optimierung einzelner Muster empfohlen."
+        if s >= 13:
+            return "Einzelne Schwächen erkannt — regelmäßig beobachten und im Training ansprechen."
+        return "Erhebliche Bewegungsdefizite — sofortiger Trainingsfokus auf Korrektur notwendig, erhöhtes Verletzungsrisiko."
+
+    @property
     def risiko_level(self) -> str:
         if self.score <= 12:
             return "hoch"
@@ -132,3 +144,17 @@ def fms_aus_row(row) -> FMSResult:
         rotary_l=row["rotary_links"],
         rotary_r=row["rotary_rechts"],
     )
+
+
+def fms_bewertung_kurz(score: int | None) -> str:
+    """Kurze Beurteilung aus dem FMS-Score — nutzbar mit DB-Zeilen ohne FMS-Objekt."""
+    if score is None:
+        return "—"
+    s = int(score)
+    if s >= 18:
+        return "Sehr gute Bewegungsqualität — kein Handlungsbedarf, Niveau halten."
+    if s >= 15:
+        return "Solide Bewegungsbasis — gezielte Optimierung einzelner Muster empfohlen."
+    if s >= 13:
+        return "Einzelne Schwächen erkannt — regelmäßig beobachten und im Training ansprechen."
+    return "Erhebliche Bewegungsdefizite — sofortiger Trainingsfokus notwendig, erhöhtes Verletzungsrisiko."
