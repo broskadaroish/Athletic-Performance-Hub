@@ -2157,7 +2157,7 @@ def _sprint_eingabe(distanz_label: str, key_prefix: str, letzter_row, col,
 
 def page_sprint():
     st.markdown("# ⚡ Sprint-Diagnostik")
-    st.markdown("Lineare Beschleunigung und Maximalgeschwindigkeit — 5 m bis 30 m, je 3 Versuche.")
+    st.markdown("Lineare Beschleunigung und Maximalgeschwindigkeit — 5 m bis 40 m, je 3 Versuche.")
 
     # ── Sicherheitshinweis & Testanleitung ────────────────────────────────────
     sicherheitshinweis_box()
@@ -2192,32 +2192,37 @@ def page_sprint():
         v1_10, v2_10, v3_10, b10 = _sprint_eingabe("10 m", "s10", letzter, c_l, "sprint_10m", altersgruppe)
         v1_20, v2_20, v3_20, b20 = _sprint_eingabe("20 m", "s20", letzter, c_r, "sprint_20m", altersgruppe)
         v1_30, v2_30, v3_30, b30 = _sprint_eingabe("30 m", "s30", letzter, c_r, "sprint_30m", altersgruppe)
+        v1_40, v2_40, v3_40, b40 = _sprint_eingabe("40 m", "s40", letzter, c_l, "sprint_5m", altersgruppe)
+        c_l.caption("40-m-Zeit nur eingeben wenn gemessen — sonst auf 0.00 lassen.")
 
         from sprint import (beschleunigungsindex, bewertung_sprint, bewertung_farbe,
                             SprintErgebnis as _SE)
         res = _SE(beste_5m=b5, beste_10m=b10, beste_20m=b20, beste_30m=b30,
                   geschlecht=geschl, niveau=niveau)
 
-        if any([b5, b10, b20, b30]):
+        if any([b5, b10, b20, b30, b40]):
             st.markdown("---")
-            m1, m2, m3, m4 = st.columns(4)
+            m1, m2, m3, m4, m5 = st.columns(5)
             if b10: m1.metric("10 m", f"{b10:.2f} s", res.bewertung_10m)
             if b20: m2.metric("20 m", f"{b20:.2f} s")
             if b30: m3.metric("30 m", f"{b30:.2f} s", res.bewertung_30m)
-            if res.beschl_index: m4.metric("Beschl.-Index", f"{res.beschl_index:.3f}")
+            if b40: m4.metric("40 m", f"{b40:.2f} s")
+            if res.beschl_index: m5.metric("Beschl.-Index", f"{res.beschl_index:.3f}")
 
             if res.defizite:
                 st.markdown("**🔴 Identifizierte Defizite:**")
                 for d in res.defizite:
                     st.markdown(f"- {d}")
 
-        # F-04: Plausibilitätsprüfung Sprint-Zeiten
+        # Plausibilitätsprüfung Sprint-Zeiten
         if b5 and b10 and b10 < b5:
             st.warning("⚠️ Plausibilitätsprüfung: Die 10-m-Zeit ist kleiner als die 5-m-Zeit — bitte Eingaben prüfen.")
         if b10 and b20 and b20 < b10:
             st.warning("⚠️ Plausibilitätsprüfung: Die 20-m-Zeit ist kleiner als die 10-m-Zeit — bitte Eingaben prüfen.")
         if b20 and b30 and b30 < b20:
             st.warning("⚠️ Plausibilitätsprüfung: Die 30-m-Zeit ist kleiner als die 20-m-Zeit — bitte Eingaben prüfen.")
+        if b30 and b40 and b40 < b30:
+            st.warning("⚠️ Plausibilitätsprüfung: Die 40-m-Zeit ist kleiner als die 30-m-Zeit — bitte Eingaben prüfen.")
 
         # ── Trainerbeobachtungen ────────────────────────────────────────────
         st.markdown("---")
@@ -2227,7 +2232,7 @@ def page_sprint():
         if st.button("💾 Test speichern", use_container_width=True, key="sprint_save"):
             if _dup_spr == "abbrechen":
                 st.info("Kein Test gespeichert."); st.stop()
-            if not any([b5, b10, b20, b30]):
+            if not any([b5, b10, b20, b30, b40]):
                 st.error("Bitte mindestens eine Distanz eingeben.")
             else:
                 from sprint import beschleunigungsindex, bewertung_sprint
@@ -2244,6 +2249,7 @@ def page_sprint():
                     res.beschl_index or 0,
                     res.bewertung_10m, res.bewertung_30m,
                     json.dumps(res.defizite, ensure_ascii=False),
+                    v1_40=v1_40, v2_40=v2_40, v3_40=v3_40, b40=b40,
                 )
                 if obs_sprint["beob_ids"] or obs_sprint.get("freitext"):
                     beobachtung_speichern(
@@ -2261,12 +2267,31 @@ def page_sprint():
             return
 
         df = pd.DataFrame(hist)
-        df.columns = ["Datum", "5 m", "10 m", "20 m", "30 m", "Beschl.-Index", "Bew. 10 m"]
+        df.columns = ["Datum", "5 m", "10 m", "20 m", "30 m", "40 m", "Beschl.-Index", "Bew. 10 m"]
 
+        # ── Letzter Test ────────────────────────────────────────────────────
+        if letzter:
+            with st.expander("📋 Letzter gespeicherter Test", expanded=True):
+                lt = letzter
+                l1, l2, l3, l4, l5, l6 = st.columns(6)
+                def _sm(col, label, val):
+                    if val and val > 0:
+                        col.metric(label, f"{val:.2f} s")
+                _sm(l1, "5 m",  lt.get("beste_5m"))
+                _sm(l2, "10 m", lt.get("beste_10m"))
+                _sm(l3, "20 m", lt.get("beste_20m"))
+                _sm(l4, "30 m", lt.get("beste_30m"))
+                _sm(l5, "40 m", lt.get("beste_40m"))
+                if lt.get("beschl_index"):
+                    l6.metric("Beschl.-Index", f"{lt['beschl_index']:.3f}")
+                if lt.get("bewertung_10m"):
+                    st.caption(f"Bewertung 10 m: **{lt['bewertung_10m']}** | Datum: {lt.get('datum','—')}")
+
+        # ── Verlaufschart ────────────────────────────────────────────────────
         fig = go.Figure()
         for col_name, color in [("10 m", "#3b82f6"), ("20 m", "#3fb950"),
-                                  ("30 m", "#d29922"), ("5 m", "#f85149")]:
-            sub = df[df[col_name] > 0]
+                                  ("30 m", "#d29922"), ("40 m", "#a371f7"), ("5 m", "#f85149")]:
+            sub = df[df[col_name] > 0] if col_name in df.columns else pd.DataFrame()
             if sub.empty:
                 continue
             fig.add_trace(go.Scatter(x=sub["Datum"], y=sub[col_name],
@@ -2278,6 +2303,29 @@ def page_sprint():
                                            title="Zeit (s) — niedriger = besser")))
         st.plotly_chart(fig, use_container_width=True)
         st.dataframe(df, use_container_width=True, hide_index=True)
+
+        # ── Zwei Termine vergleichen ─────────────────────────────────────────
+        if len(df) >= 2:
+            with st.expander("🔍 Zwei Termine vergleichen"):
+                datums = df["Datum"].tolist()
+                cd1, cd2 = st.columns(2)
+                d1 = cd1.selectbox("Termin 1", datums, index=0, key="spr_cmp_d1")
+                d2 = cd2.selectbox("Termin 2", datums, index=len(datums)-1, key="spr_cmp_d2")
+                r1 = df[df["Datum"] == d1].iloc[0]
+                r2 = df[df["Datum"] == d2].iloc[0]
+                compare_cols = ["5 m", "10 m", "20 m", "30 m", "40 m", "Beschl.-Index"]
+                rows_cmp = []
+                for c in compare_cols:
+                    v1_c = r1.get(c, 0) or 0
+                    v2_c = r2.get(c, 0) or 0
+                    if v1_c > 0 or v2_c > 0:
+                        diff = round(v2_c - v1_c, 3) if v1_c > 0 and v2_c > 0 else "—"
+                        rows_cmp.append({"Messung": c, d1: f"{v1_c:.2f}" if v1_c else "—",
+                                         d2: f"{v2_c:.2f}" if v2_c else "—",
+                                         "Differenz": f"{diff:+.3f}" if isinstance(diff, float) else diff})
+                if rows_cmp:
+                    st.dataframe(pd.DataFrame(rows_cmp), use_container_width=True, hide_index=True)
+                    st.caption("Differenz: negativ = schneller, positiv = langsamer")
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -2510,29 +2558,78 @@ def page_agilitaet():
                 norm_badge(best, "agility", field_id, col, altersgruppe=altersgruppe)
         return (v1 or None), (v2 or None), (v3 or None), best
 
+    _ALLE_AGIL = ["505-Test R/L", "5-10-5 Shuttle", "T-Test", "Illinois Agility",
+                  "Modified T-Test", "Pro Agility Shuttle", "Arrowhead R/L", "Zig-Zag", "Balsom"]
+
     with tab_neu:
         datum = st.date_input("Testdatum", value=date.today(), key="agil_datum")
         if datum > date.today():
             st.warning("⚠️ Testdatum liegt in der Zukunft — bitte prüfen.")
+
+        aktive_agil = st.multiselect(
+            "Tests für diese Sitzung aktivieren — nicht benötigte Tests abwählen",
+            _ALLE_AGIL, default=_ALLE_AGIL, key="agil_aktive_tests",
+        )
+
         st.markdown("#### Zeiten — je 3 Versuche | Bestzeit = min(V1, V2, V3)")
         st.caption("0.00 = Versuch nicht durchgeführt")
-
         c1, c2 = st.columns(2)
 
-        v1_505r, v2_505r, v3_505r, t505_r   = _v3_agil("505-Test rechts (s)", "a505r_", c1, field_id="t505_r")
-        v1_505l, v2_505l, v3_505l, t505_l   = _v3_agil("505-Test links (s)",  "a505l_", c1, field_id="t505_l")
-        if t505_r and t505_l:
-            c1.markdown(asymmetrie_badge_html(t505_r, t505_l, niedriger_besser=True), unsafe_allow_html=True)
-        v1_510, v2_510, v3_510, t5_10_5     = _v3_agil("5-10-5 Shuttle (s)", "a5105_", c2, field_id="t5_10_5")
-        v1_tt,  v2_tt,  v3_tt,  t_test      = _v3_agil("T-Test (s)", "att_", c2, field_id="t_test")
-        v1_ill, v2_ill, v3_ill, illinois     = _v3_agil("Illinois Agility (s)", "aill_", c1, field_id="illinois")
+        # ── Standardtests (mit Normbewertung) ─────────────────────────────
+        v1_505r=v2_505r=v3_505r=t505_r = None
+        v1_505l=v2_505l=v3_505l=t505_l = None
+        v1_510=v2_510=v3_510=t5_10_5 = None
+        v1_tt=v2_tt=v3_tt=t_test = None
+        v1_ill=v2_ill=v3_ill=illinois = None
+
+        if "505-Test R/L" in aktive_agil:
+            v1_505r, v2_505r, v3_505r, t505_r = _v3_agil("505-Test rechts (s)", "a505r_", c1, field_id="t505_r")
+            v1_505l, v2_505l, v3_505l, t505_l = _v3_agil("505-Test links (s)",  "a505l_", c1, field_id="t505_l")
+            if t505_r and t505_l:
+                c1.markdown(asymmetrie_badge_html(t505_r, t505_l, niedriger_besser=True), unsafe_allow_html=True)
+        if "5-10-5 Shuttle" in aktive_agil:
+            v1_510, v2_510, v3_510, t5_10_5 = _v3_agil("5-10-5 Shuttle (s)", "a5105_", c2, field_id="t5_10_5")
+        if "T-Test" in aktive_agil:
+            v1_tt, v2_tt, v3_tt, t_test = _v3_agil("T-Test (s)", "att_", c2, field_id="t_test")
+        if "Illinois Agility" in aktive_agil:
+            v1_ill, v2_ill, v3_ill, illinois = _v3_agil("Illinois Agility (s)", "aill_", c1, field_id="illinois")
+
+        # ── Weitere Tests (ohne automatische Normbewertung) ───────────────
+        v1_mtt=v2_mtt=v3_mtt=modified_t_test = None
+        v1_pa=v2_pa=v3_pa=pro_agility = None
+        v1_arr_r=v2_arr_r=v3_arr_r=arrowhead_r = None
+        v1_arr_l=v2_arr_l=v3_arr_l=arrowhead_l = None
+        v1_zz=v2_zz=v3_zz=zigzag = None
+        v1_bal=v2_bal=v3_bal=balsom_t = None
+
+        weitere_aktiv = [t for t in ["Modified T-Test","Pro Agility Shuttle","Arrowhead R/L","Zig-Zag","Balsom"]
+                         if t in aktive_agil]
+        if weitere_aktiv:
+            st.markdown("---")
+            st.markdown("##### Weitere Tests (Bestzeit erfassen)")
+        if "Modified T-Test" in aktive_agil:
+            v1_mtt, v2_mtt, v3_mtt, modified_t_test = _v3_agil("Modified T-Test (s)", "amtt_", c2)
+        if "Pro Agility Shuttle" in aktive_agil:
+            v1_pa, v2_pa, v3_pa, pro_agility = _v3_agil("Pro Agility Shuttle (s)", "apa_", c1)
+        if "Arrowhead R/L" in aktive_agil:
+            v1_arr_r, v2_arr_r, v3_arr_r, arrowhead_r = _v3_agil("Arrowhead rechts (s)", "aarrr_", c2)
+            v1_arr_l, v2_arr_l, v3_arr_l, arrowhead_l = _v3_agil("Arrowhead links (s)",  "adarrl_", c2)
+            if arrowhead_r and arrowhead_l:
+                c2.markdown(asymmetrie_badge_html(arrowhead_r, arrowhead_l, niedriger_besser=True), unsafe_allow_html=True)
+        if "Zig-Zag" in aktive_agil:
+            v1_zz, v2_zz, v3_zz, zigzag = _v3_agil("Zig-Zag Agility (s)", "azz_", c1)
+        if "Balsom" in aktive_agil:
+            v1_bal, v2_bal, v3_bal, balsom_t = _v3_agil("Balsom Agility Test (s)", "abal_", c2)
 
         from agilitaet import AgilitaetErgebnis as _AE
         res = _AE(t505_r=t505_r, t505_l=t505_l, t5_10_5=t5_10_5,
                   t_test=t_test, illinois=illinois,
                   geschlecht=geschl, niveau=niveau)
 
-        if any([t505_r, t505_l, t5_10_5, t_test, illinois]):
+        alle_werte = [t505_r, t505_l, t5_10_5, t_test, illinois,
+                      modified_t_test, pro_agility, arrowhead_r, arrowhead_l, zigzag, balsom_t]
+
+        if any(alle_werte):
             st.markdown("---")
             m1, m2, m3, m4 = st.columns(4)
             if t505_r:   m1.metric("505 rechts", f"{t505_r:.2f} s",   res.bew_505)
@@ -2560,7 +2657,7 @@ def page_agilitaet():
         if st.button("💾 Test speichern", use_container_width=True, key="agil_save"):
             if _dup_agil == "abbrechen":
                 st.info("Kein Test gespeichert."); st.stop()
-            if not any([t505_r, t505_l, t5_10_5, t_test, illinois]):
+            if not any(alle_werte):
                 st.error("Bitte mindestens einen Testwert eingeben.")
             else:
                 import json, datetime as _dtm
@@ -2578,6 +2675,15 @@ def page_agilitaet():
                     v1_t5_10_5=v1_510, v2_t5_10_5=v2_510, v3_t5_10_5=v3_510,
                     v1_t_test=v1_tt,   v2_t_test=v2_tt,   v3_t_test=v3_tt,
                     v1_illinois=v1_ill, v2_illinois=v2_ill, v3_illinois=v3_ill,
+                    modified_t_test=modified_t_test, pro_agility=pro_agility,
+                    arrowhead_r=arrowhead_r, arrowhead_l=arrowhead_l,
+                    zigzag=zigzag, balsom=balsom_t,
+                    v1_modified_t_test=v1_mtt, v2_modified_t_test=v2_mtt, v3_modified_t_test=v3_mtt,
+                    v1_pro_agility=v1_pa, v2_pro_agility=v2_pa, v3_pro_agility=v3_pa,
+                    v1_arrowhead_r=v1_arr_r, v2_arrowhead_r=v2_arr_r, v3_arrowhead_r=v3_arr_r,
+                    v1_arrowhead_l=v1_arr_l, v2_arrowhead_l=v2_arr_l, v3_arrowhead_l=v3_arr_l,
+                    v1_zigzag=v1_zz, v2_zigzag=v2_zz, v3_zigzag=v3_zz,
+                    v1_balsom=v1_bal, v2_balsom=v2_bal, v3_balsom=v3_bal,
                 )
                 if obs_agil["beob_ids"] or obs_agil.get("freitext"):
                     beobachtung_speichern(
@@ -2595,18 +2701,52 @@ def page_agilitaet():
         else:
             df = pd.DataFrame(hist)
             df.columns = ["Datum", "505 R", "505 L", "Asymmetrie %",
-                          "5-10-5", "T-Test", "Illinois", "Bewertung T-Test"]
+                          "5-10-5", "T-Test", "Illinois", "Bew. T-Test",
+                          "Mod. T-Test", "Pro Agility", "Arrowhead R", "Arrowhead L",
+                          "Zig-Zag", "Balsom"]
+
+            # Letzter Test
+            if letzter:
+                with st.expander("📋 Letzter gespeicherter Test", expanded=True):
+                    la = letzter
+                    _agil_zeiten = [
+                        ("505 R", la.get("t505_r")), ("505 L", la.get("t505_l")),
+                        ("5-10-5", la.get("t5_10_5")), ("T-Test", la.get("t_test")),
+                        ("Illinois", la.get("illinois")),
+                        ("Mod. T-Test", la.get("modified_t_test")),
+                        ("Pro Agility", la.get("pro_agility")),
+                        ("Arrow. R", la.get("arrowhead_r")),
+                        ("Arrow. L", la.get("arrowhead_l")),
+                        ("Zig-Zag", la.get("zigzag")),
+                        ("Balsom", la.get("balsom")),
+                    ]
+                    vorh = [(lbl, v) for lbl, v in _agil_zeiten if v and float(v) > 0]
+                    if vorh:
+                        cols_la = st.columns(min(len(vorh), 6))
+                        for i, (lbl, v) in enumerate(vorh[:6]):
+                            cols_la[i].metric(lbl, f"{float(v):.2f} s")
+                        if len(vorh) > 6:
+                            cols_la2 = st.columns(len(vorh) - 6)
+                            for i, (lbl, v) in enumerate(vorh[6:]):
+                                cols_la2[i].metric(lbl, f"{float(v):.2f} s")
+                    st.caption(f"Datum: {la.get('datum','—')}")
+
             fig = go.Figure()
-            for col_name, color in [("T-Test","#3b82f6"),("Illinois","#3fb950"),
-                                     ("5-10-5","#d29922"),("505 R","#f85149"),("505 L","#a371f7")]:
+            for col_name, clr in [("T-Test","#3b82f6"),("Illinois","#3fb950"),
+                                   ("5-10-5","#d29922"),("505 R","#f85149"),("505 L","#a371f7"),
+                                   ("Mod. T-Test","#79c0ff"),("Pro Agility","#56d364"),
+                                   ("Arrowhead R","#ffa657"),("Arrowhead L","#ff7b72"),
+                                   ("Zig-Zag","#bc8cff"),("Balsom","#e3b341")]:
+                if col_name not in df.columns: continue
                 sub = df[df[col_name] > 0]
                 if sub.empty: continue
                 fig.add_trace(go.Scatter(x=sub["Datum"], y=sub[col_name],
                                          mode="lines+markers", name=col_name,
-                                         line=dict(width=2), marker=dict(size=7)))
-            fig.update_layout(**_pl(height=320, title="Agilitätszeiten-Verlauf (s)",
+                                         line=dict(color=clr, width=2), marker=dict(size=7)))
+            fig.update_layout(**_pl(height=350, title="Agilitätszeiten-Verlauf (s)",
                                     yaxis=dict(autorange="reversed", title="Zeit (s)")))
             st.plotly_chart(fig, use_container_width=True)
+
             sub_a = df[df["Asymmetrie %"] > 0]
             if not sub_a.empty:
                 fig2 = go.Figure()
@@ -2620,14 +2760,43 @@ def page_agilitaet():
                 st.plotly_chart(fig2, use_container_width=True)
             st.dataframe(df, use_container_width=True, hide_index=True)
 
+            if len(df) >= 2:
+                with st.expander("🔍 Zwei Termine vergleichen"):
+                    datums_a = df["Datum"].tolist()
+                    ac1, ac2 = st.columns(2)
+                    ad1 = ac1.selectbox("Termin 1", datums_a, index=0, key="agil_cmp_d1")
+                    ad2 = ac2.selectbox("Termin 2", datums_a, index=len(datums_a)-1, key="agil_cmp_d2")
+                    ar1 = df[df["Datum"] == ad1].iloc[0]
+                    ar2 = df[df["Datum"] == ad2].iloc[0]
+                    cmp_cols_a = ["505 R","505 L","5-10-5","T-Test","Illinois",
+                                  "Mod. T-Test","Pro Agility","Arrowhead R","Arrowhead L","Zig-Zag","Balsom"]
+                    rows_a = []
+                    for ca in cmp_cols_a:
+                        if ca not in df.columns: continue
+                        v1a = ar1.get(ca, 0) or 0
+                        v2a = ar2.get(ca, 0) or 0
+                        if v1a > 0 or v2a > 0:
+                            diff_a = round(v2a - v1a, 3) if v1a > 0 and v2a > 0 else "—"
+                            rows_a.append({"Test": ca, ad1: f"{v1a:.2f}" if v1a else "—",
+                                           ad2: f"{v2a:.2f}" if v2a else "—",
+                                           "Differenz": f"{diff_a:+.3f}" if isinstance(diff_a, float) else diff_a})
+                    if rows_a:
+                        st.dataframe(pd.DataFrame(rows_a), use_container_width=True, hide_index=True)
+                        st.caption("Differenz: negativ = schneller, positiv = langsamer")
+
     with tab_info:
         st.markdown("""
-        | Test | Distanz / Aufbau | Misst |
-        |---|---|---|
-        | **505-Test** | 10 m anlaufen → 180° Wendung → 5 m Sprint | Richtungswechsel, getrennt R/L |
-        | **5-10-5 Shuttle** | 5 m links → 10 m rechts → 5 m zurück | Shuttle-Beschleunigung, Abbremsen |
-        | **T-Test** | 9,14 m vor, je 4,57 m seitwärts, zurück | Mehrdirektionale Agilität |
-        | **Illinois Agility** | 10 m Slalomkurs | Gesamtagilität, Richtungswechselgeschwindigkeit |
+        | Test | Distanz / Aufbau | Misst | Bewertung |
+        |---|---|---|---|
+        | **505-Test R/L** | 10 m anlaufen → 180° Wendung → 5 m Sprint | Richtungswechsel, getrennt R/L | ✅ Normbewertung |
+        | **5-10-5 Shuttle** | 5 m links → 10 m rechts → 5 m zurück | Shuttle-Beschleunigung, Abbremsen | ✅ Normbewertung |
+        | **T-Test** | 9,14 m vor, je 4,57 m seitwärts, zurück | Mehrdirektionale Agilität | ✅ Normbewertung |
+        | **Illinois Agility** | 10 m Slalomkurs | Gesamtagilität, RW-Geschwindigkeit | ✅ Normbewertung |
+        | **Modified T-Test** | Kürzere Version des T-Tests (9,14 m × 2 Kegel) | Schnelle Richtungswechsel | Bestzeit |
+        | **Pro Agility Shuttle** | 5 yd → 10 yd → 5 yd (NFL Combine Standard) | Explosivkraft + Abbremsen | Bestzeit |
+        | **Arrowhead R/L** | Pfeilförmiges Muster, bilateral | Asymmetrieerkennung | Bestzeit |
+        | **Zig-Zag** | 4–5 Kegel, Slalom ca. 20–25 m | Kurskontrolle, Richtungswechsel | Bestzeit |
+        | **Balsom** | 4×4 m Rechteck + Mittelpunkt, 3×25 s | Richtungswechselausdauer | Bestzeit |
         """)
 
 
@@ -3698,6 +3867,28 @@ def page_kraft():
             "Ventral (s)", "Lateral R (s)", "Lateral L (s)",
             "Dorsal (s)", "Lat.-Asym. %", "V/D-Ratio",
         ]
+
+        # ── Letzter Test ──────────────────────────────────────────────────────
+        with st.expander("📋 Letzter gespeicherter Test", expanded=True):
+            lr = df.iloc[-1]
+            ka1, ka2, ka3, ka4, ka5, ka6 = st.columns(6)
+            def _km(col, label, val, fmt="%.1f", suffix=""):
+                if val and float(val) > 0:
+                    col.metric(label, f"{float(val):{fmt.replace('%','')}} {suffix}".strip())
+            _km(ka1, "Direkt 1RM",  lr.get("Direkt 1RM"), fmt="%.1f", suffix="kg")
+            _km(ka2, "Epley 1RM",   lr.get("Epley 1RM"),  fmt="%.1f", suffix="kg")
+            _km(ka3, "Ventral",     lr.get("Ventral (s)"),   fmt="%.0f", suffix="s")
+            _km(ka4, "Lateral R",   lr.get("Lateral R (s)"), fmt="%.0f", suffix="s")
+            _km(ka5, "Lateral L",   lr.get("Lateral L (s)"), fmt="%.0f", suffix="s")
+            _km(ka6, "Dorsal",      lr.get("Dorsal (s)"),    fmt="%.0f", suffix="s")
+            if lr.get("Lat.-Asym. %") and float(lr["Lat.-Asym. %"]) > 0:
+                color = "#f85149" if float(lr["Lat.-Asym. %"]) > 10 else "#3fb950"
+                st.markdown(
+                    f'<small style="color:{color}">Lateral-Asymmetrie: '
+                    f'<b>{float(lr["Lat.-Asym. %"]):.1f} %</b> | Datum: {lr["Datum"]}</small>',
+                    unsafe_allow_html=True,
+                )
+
         c1, c2 = st.columns(2)
         with c1:
             fig = go.Figure()
@@ -3719,6 +3910,29 @@ def page_kraft():
             fig2.update_layout(**_pl(height=280, title="Rumpfkraftausdauer-Verlauf (s)", yaxis=dict(title="s")))
             st.plotly_chart(fig2, use_container_width=True)
         st.dataframe(df, use_container_width=True, hide_index=True)
+
+        # ── Zwei Termine vergleichen ──────────────────────────────────────────
+        if len(df) >= 2:
+            with st.expander("🔍 Zwei Termine vergleichen"):
+                datums_k = df["Datum"].tolist()
+                kc1, kc2 = st.columns(2)
+                kd1 = kc1.selectbox("Termin 1", datums_k, index=0, key="kr_cmp_d1")
+                kd2 = kc2.selectbox("Termin 2", datums_k, index=len(datums_k)-1, key="kr_cmp_d2")
+                kr1 = df[df["Datum"] == kd1].iloc[0]
+                kr2 = df[df["Datum"] == kd2].iloc[0]
+                compare_cols_k = ["Direkt 1RM", "Epley 1RM", "Rel. Kraft D", "Rel. Kraft E",
+                                   "Ventral (s)", "Lateral R (s)", "Lateral L (s)", "Dorsal (s)", "Lat.-Asym. %"]
+                rows_k = []
+                for ck in compare_cols_k:
+                    v1k = kr1.get(ck, 0) or 0
+                    v2k = kr2.get(ck, 0) or 0
+                    if v1k > 0 or v2k > 0:
+                        diff_k = round(v2k - v1k, 2) if v1k > 0 and v2k > 0 else "—"
+                        rows_k.append({"Messung": ck, kd1: f"{v1k:.2f}" if v1k else "—",
+                                       kd2: f"{v2k:.2f}" if v2k else "—",
+                                       "Differenz": f"{diff_k:+.2f}" if isinstance(diff_k, float) else diff_k})
+                if rows_k:
+                    st.dataframe(pd.DataFrame(rows_k), use_container_width=True, hide_index=True)
 
 
 # ══════════════════════════════════════════════════════════════════════════════

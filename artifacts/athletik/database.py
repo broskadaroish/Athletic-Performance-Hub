@@ -518,17 +518,41 @@ def _migrate_db():
             except Exception:
                 pass
 
-        # ── Agilität: v1/v2/v3-Versuchsspalten hinzufügen ───────────────────
+        # ── Agilität: v1/v2/v3-Versuchsspalten + neue Tests ─────────────────
         agil_cols = [
             ("v1_t505_r","REAL"),  ("v2_t505_r","REAL"),  ("v3_t505_r","REAL"),
             ("v1_t505_l","REAL"),  ("v2_t505_l","REAL"),  ("v3_t505_l","REAL"),
             ("v1_t5_10_5","REAL"), ("v2_t5_10_5","REAL"), ("v3_t5_10_5","REAL"),
             ("v1_t_test","REAL"),  ("v2_t_test","REAL"),  ("v3_t_test","REAL"),
             ("v1_illinois","REAL"),("v2_illinois","REAL"),("v3_illinois","REAL"),
+            # Phase 0C — neue Agility-Tests
+            ("modified_t_test","REAL DEFAULT 0"),
+            ("pro_agility","REAL DEFAULT 0"),
+            ("arrowhead_r","REAL DEFAULT 0"),
+            ("arrowhead_l","REAL DEFAULT 0"),
+            ("zigzag","REAL DEFAULT 0"),
+            ("balsom","REAL DEFAULT 0"),
+            ("v1_modified_t_test","REAL"),("v2_modified_t_test","REAL"),("v3_modified_t_test","REAL"),
+            ("v1_pro_agility","REAL"),    ("v2_pro_agility","REAL"),    ("v3_pro_agility","REAL"),
+            ("v1_arrowhead_r","REAL"),    ("v2_arrowhead_r","REAL"),    ("v3_arrowhead_r","REAL"),
+            ("v1_arrowhead_l","REAL"),    ("v2_arrowhead_l","REAL"),    ("v3_arrowhead_l","REAL"),
+            ("v1_zigzag","REAL"),         ("v2_zigzag","REAL"),         ("v3_zigzag","REAL"),
+            ("v1_balsom","REAL"),         ("v2_balsom","REAL"),         ("v3_balsom","REAL"),
         ]
         for col, typ in agil_cols:
             try:
                 conn.execute(f"ALTER TABLE agilitaet_test ADD COLUMN {col} {typ}")
+            except Exception:
+                pass
+
+        # ── Sprint: 40m-Spalten ──────────────────────────────────────────────
+        sprint_cols = [
+            ("v1_40m","REAL DEFAULT 0"),("v2_40m","REAL DEFAULT 0"),
+            ("v3_40m","REAL DEFAULT 0"),("beste_40m","REAL DEFAULT 0"),
+        ]
+        for col, typ in sprint_cols:
+            try:
+                conn.execute(f"ALTER TABLE sprint_test ADD COLUMN {col} {typ}")
             except Exception:
                 pass
 
@@ -873,7 +897,8 @@ def sprint_speichern(spieler_id, datum,
                      v1_10, v2_10, v3_10, b10,
                      v1_20, v2_20, v3_20, b20,
                      v1_30, v2_30, v3_30, b30,
-                     beschl_index, bew_10, bew_30, defizite):
+                     beschl_index, bew_10, bew_30, defizite,
+                     v1_40=None, v2_40=None, v3_40=None, b40=None):
     with get_conn() as conn:
         conn.execute("""
         INSERT INTO sprint_test
@@ -882,13 +907,15 @@ def sprint_speichern(spieler_id, datum,
          v1_10m,v2_10m,v3_10m,beste_10m,
          v1_20m,v2_20m,v3_20m,beste_20m,
          v1_30m,v2_30m,v3_30m,beste_30m,
+         v1_40m,v2_40m,v3_40m,beste_40m,
          beschl_index,bewertung_10m,bewertung_30m,defizite)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         """, (spieler_id, datum,
               v1_5, v2_5, v3_5, b5,
               v1_10, v2_10, v3_10, b10,
               v1_20, v2_20, v3_20, b20,
               v1_30, v2_30, v3_30, b30,
+              v1_40, v2_40, v3_40, b40 or 0,
               beschl_index, bew_10, bew_30, defizite))
 
 
@@ -903,7 +930,10 @@ def sprint_letzter(spieler_id):
 def sprint_history(spieler_id):
     with get_conn() as conn:
         return _rows(conn.execute(
-            "SELECT datum,beste_5m,beste_10m,beste_20m,beste_30m,beschl_index,bewertung_10m FROM sprint_test WHERE spieler_id=? ORDER BY datum",
+            """SELECT datum,beste_5m,beste_10m,beste_20m,beste_30m,
+                      COALESCE(beste_40m,0) as beste_40m,
+                      beschl_index,bewertung_10m
+               FROM sprint_test WHERE spieler_id=? ORDER BY datum""",
             (spieler_id,),
         ).fetchall())
 
@@ -986,7 +1016,17 @@ def agilitaet_speichern(spieler_id, datum, t505_r, t505_l, asym_505,
                          v1_t505_l=None, v2_t505_l=None, v3_t505_l=None,
                          v1_t5_10_5=None, v2_t5_10_5=None, v3_t5_10_5=None,
                          v1_t_test=None, v2_t_test=None, v3_t_test=None,
-                         v1_illinois=None, v2_illinois=None, v3_illinois=None):
+                         v1_illinois=None, v2_illinois=None, v3_illinois=None,
+                         # Phase 0C — neue Tests
+                         modified_t_test=None, pro_agility=None,
+                         arrowhead_r=None, arrowhead_l=None,
+                         zigzag=None, balsom=None,
+                         v1_modified_t_test=None, v2_modified_t_test=None, v3_modified_t_test=None,
+                         v1_pro_agility=None, v2_pro_agility=None, v3_pro_agility=None,
+                         v1_arrowhead_r=None, v2_arrowhead_r=None, v3_arrowhead_r=None,
+                         v1_arrowhead_l=None, v2_arrowhead_l=None, v3_arrowhead_l=None,
+                         v1_zigzag=None, v2_zigzag=None, v3_zigzag=None,
+                         v1_balsom=None, v2_balsom=None, v3_balsom=None):
     with get_conn() as conn:
         conn.execute("""
         INSERT INTO agilitaet_test
@@ -996,8 +1036,15 @@ def agilitaet_speichern(spieler_id, datum, t505_r, t505_l, asym_505,
          v1_t505_l,v2_t505_l,v3_t505_l,
          v1_t5_10_5,v2_t5_10_5,v3_t5_10_5,
          v1_t_test,v2_t_test,v3_t_test,
-         v1_illinois,v2_illinois,v3_illinois)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+         v1_illinois,v2_illinois,v3_illinois,
+         modified_t_test,pro_agility,arrowhead_r,arrowhead_l,zigzag,balsom,
+         v1_modified_t_test,v2_modified_t_test,v3_modified_t_test,
+         v1_pro_agility,v2_pro_agility,v3_pro_agility,
+         v1_arrowhead_r,v2_arrowhead_r,v3_arrowhead_r,
+         v1_arrowhead_l,v2_arrowhead_l,v3_arrowhead_l,
+         v1_zigzag,v2_zigzag,v3_zigzag,
+         v1_balsom,v2_balsom,v3_balsom)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         ON CONFLICT(spieler_id,datum) DO UPDATE SET
             t505_r=excluded.t505_r,t505_l=excluded.t505_l,
             asym_505=excluded.asym_505,t5_10_5=excluded.t5_10_5,
@@ -1008,7 +1055,16 @@ def agilitaet_speichern(spieler_id, datum, t505_r, t505_l, asym_505,
             v1_t505_l=excluded.v1_t505_l,v2_t505_l=excluded.v2_t505_l,v3_t505_l=excluded.v3_t505_l,
             v1_t5_10_5=excluded.v1_t5_10_5,v2_t5_10_5=excluded.v2_t5_10_5,v3_t5_10_5=excluded.v3_t5_10_5,
             v1_t_test=excluded.v1_t_test,v2_t_test=excluded.v2_t_test,v3_t_test=excluded.v3_t_test,
-            v1_illinois=excluded.v1_illinois,v2_illinois=excluded.v2_illinois,v3_illinois=excluded.v3_illinois
+            v1_illinois=excluded.v1_illinois,v2_illinois=excluded.v2_illinois,v3_illinois=excluded.v3_illinois,
+            modified_t_test=excluded.modified_t_test,pro_agility=excluded.pro_agility,
+            arrowhead_r=excluded.arrowhead_r,arrowhead_l=excluded.arrowhead_l,
+            zigzag=excluded.zigzag,balsom=excluded.balsom,
+            v1_modified_t_test=excluded.v1_modified_t_test,v2_modified_t_test=excluded.v2_modified_t_test,v3_modified_t_test=excluded.v3_modified_t_test,
+            v1_pro_agility=excluded.v1_pro_agility,v2_pro_agility=excluded.v2_pro_agility,v3_pro_agility=excluded.v3_pro_agility,
+            v1_arrowhead_r=excluded.v1_arrowhead_r,v2_arrowhead_r=excluded.v2_arrowhead_r,v3_arrowhead_r=excluded.v3_arrowhead_r,
+            v1_arrowhead_l=excluded.v1_arrowhead_l,v2_arrowhead_l=excluded.v2_arrowhead_l,v3_arrowhead_l=excluded.v3_arrowhead_l,
+            v1_zigzag=excluded.v1_zigzag,v2_zigzag=excluded.v2_zigzag,v3_zigzag=excluded.v3_zigzag,
+            v1_balsom=excluded.v1_balsom,v2_balsom=excluded.v2_balsom,v3_balsom=excluded.v3_balsom
         """, (spieler_id, datum, t505_r, t505_l, asym_505,
               t5_10_5, t_test, illinois,
               bew_505, bew_t_test, bew_illinois, defizite,
@@ -1016,7 +1072,16 @@ def agilitaet_speichern(spieler_id, datum, t505_r, t505_l, asym_505,
               v1_t505_l, v2_t505_l, v3_t505_l,
               v1_t5_10_5, v2_t5_10_5, v3_t5_10_5,
               v1_t_test, v2_t_test, v3_t_test,
-              v1_illinois, v2_illinois, v3_illinois))
+              v1_illinois, v2_illinois, v3_illinois,
+              modified_t_test or 0, pro_agility or 0,
+              arrowhead_r or 0, arrowhead_l or 0,
+              zigzag or 0, balsom or 0,
+              v1_modified_t_test, v2_modified_t_test, v3_modified_t_test,
+              v1_pro_agility, v2_pro_agility, v3_pro_agility,
+              v1_arrowhead_r, v2_arrowhead_r, v3_arrowhead_r,
+              v1_arrowhead_l, v2_arrowhead_l, v3_arrowhead_l,
+              v1_zigzag, v2_zigzag, v3_zigzag,
+              v1_balsom, v2_balsom, v3_balsom))
 
 
 def agilitaet_letzter(spieler_id):
@@ -1030,7 +1095,14 @@ def agilitaet_letzter(spieler_id):
 def agilitaet_history(spieler_id):
     with get_conn() as conn:
         return _rows(conn.execute(
-            "SELECT datum,t505_r,t505_l,asym_505,t5_10_5,t_test,illinois,bew_t_test FROM agilitaet_test WHERE spieler_id=? ORDER BY datum",
+            """SELECT datum,t505_r,t505_l,asym_505,t5_10_5,t_test,illinois,bew_t_test,
+                      COALESCE(modified_t_test,0) as modified_t_test,
+                      COALESCE(pro_agility,0) as pro_agility,
+                      COALESCE(arrowhead_r,0) as arrowhead_r,
+                      COALESCE(arrowhead_l,0) as arrowhead_l,
+                      COALESCE(zigzag,0) as zigzag,
+                      COALESCE(balsom,0) as balsom
+               FROM agilitaet_test WHERE spieler_id=? ORDER BY datum""",
             (spieler_id,),
         ).fetchall())
 
