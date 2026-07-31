@@ -2608,18 +2608,18 @@ def page_agilitaet():
             st.markdown("---")
             st.markdown("##### Weitere Tests (Bestzeit erfassen)")
         if "Modified T-Test" in aktive_agil:
-            v1_mtt, v2_mtt, v3_mtt, modified_t_test = _v3_agil("Modified T-Test (s)", "amtt_", c2)
+            v1_mtt, v2_mtt, v3_mtt, modified_t_test = _v3_agil("Modified T-Test (s)", "amtt_", c2, field_id="modified_t_test")
         if "Pro Agility Shuttle" in aktive_agil:
-            v1_pa, v2_pa, v3_pa, pro_agility = _v3_agil("Pro Agility Shuttle (s)", "apa_", c1)
+            v1_pa, v2_pa, v3_pa, pro_agility = _v3_agil("Pro Agility Shuttle (s)", "apa_", c1, field_id="pro_agility")
         if "Arrowhead R/L" in aktive_agil:
-            v1_arr_r, v2_arr_r, v3_arr_r, arrowhead_r = _v3_agil("Arrowhead rechts (s)", "aarrr_", c2)
-            v1_arr_l, v2_arr_l, v3_arr_l, arrowhead_l = _v3_agil("Arrowhead links (s)",  "adarrl_", c2)
+            v1_arr_r, v2_arr_r, v3_arr_r, arrowhead_r = _v3_agil("Arrowhead rechts (s)", "aarrr_", c2, field_id="arrowhead_r")
+            v1_arr_l, v2_arr_l, v3_arr_l, arrowhead_l = _v3_agil("Arrowhead links (s)",  "adarrl_", c2, field_id="arrowhead_l")
             if arrowhead_r and arrowhead_l:
                 c2.markdown(asymmetrie_badge_html(arrowhead_r, arrowhead_l, niedriger_besser=True), unsafe_allow_html=True)
         if "Zig-Zag" in aktive_agil:
-            v1_zz, v2_zz, v3_zz, zigzag = _v3_agil("Zig-Zag Agility (s)", "azz_", c1)
+            v1_zz, v2_zz, v3_zz, zigzag = _v3_agil("Zig-Zag Agility (s)", "azz_", c1, field_id="zigzag")
         if "Balsom" in aktive_agil:
-            v1_bal, v2_bal, v3_bal, balsom_t = _v3_agil("Balsom Agility Test (s)", "abal_", c2)
+            v1_bal, v2_bal, v3_bal, balsom_t = _v3_agil("Balsom Agility Test (s)", "abal_", c2, field_id="balsom")
 
         from agilitaet import AgilitaetErgebnis as _AE
         res = _AE(t505_r=t505_r, t505_l=t505_l, t5_10_5=t5_10_5,
@@ -2785,19 +2785,51 @@ def page_agilitaet():
                         st.caption("Differenz: negativ = schneller, positiv = langsamer")
 
     with tab_info:
-        st.markdown("""
-        | Test | Distanz / Aufbau | Misst | Bewertung |
-        |---|---|---|---|
-        | **505-Test R/L** | 10 m anlaufen → 180° Wendung → 5 m Sprint | Richtungswechsel, getrennt R/L | ✅ Normbewertung |
-        | **5-10-5 Shuttle** | 5 m links → 10 m rechts → 5 m zurück | Shuttle-Beschleunigung, Abbremsen | ✅ Normbewertung |
-        | **T-Test** | 9,14 m vor, je 4,57 m seitwärts, zurück | Mehrdirektionale Agilität | ✅ Normbewertung |
-        | **Illinois Agility** | 10 m Slalomkurs | Gesamtagilität, RW-Geschwindigkeit | ✅ Normbewertung |
-        | **Modified T-Test** | Kürzere Version des T-Tests (9,14 m × 2 Kegel) | Schnelle Richtungswechsel | Bestzeit |
-        | **Pro Agility Shuttle** | 5 yd → 10 yd → 5 yd (NFL Combine Standard) | Explosivkraft + Abbremsen | Bestzeit |
-        | **Arrowhead R/L** | Pfeilförmiges Muster, bilateral | Asymmetrieerkennung | Bestzeit |
-        | **Zig-Zag** | 4–5 Kegel, Slalom ca. 20–25 m | Kurskontrolle, Richtungswechsel | Bestzeit |
-        | **Balsom** | 4×4 m Rechteck + Mittelpunkt, 3×25 s | Richtungswechselausdauer | Bestzeit |
-        """)
+        # ── Standardtests mit Normbewertung ──────────────────────────────────
+        st.markdown("#### Standardtests — mit automatischer Normbewertung ✅")
+        _agil_info_std = [
+            ("assets/tests/agility/test_505.svg",    "505-Test R/L",
+             "10 m anlaufen → 180° Wendung → 5 m Sprint\nGetrennt für rechts und links. Asymmetrie > 10 % = trainingsrelevant."),
+            ("assets/tests/agility/shuttle_5_10_5.svg", "5-10-5 Shuttle",
+             "5 m links → 10 m rechts → 5 m zurück zur Mitte\nShuttle-Beschleunigung und Abbremsfähigkeit."),
+            ("assets/tests/agility/t_test.svg",      "T-Test",
+             "9,14 m vor → je 4,57 m seitwärts → rückwärts\nMehrdirektionale Agilität: vorwärts, lateral, rückwärts."),
+            ("assets/tests/agility/illinois.svg",    "Illinois Agility",
+             "10 m Slalomkurs mit 8 Kegeln\nGesamtagilität und Richtungswechselgeschwindigkeit."),
+        ]
+        cols_std = st.columns(4)
+        for i, (svg, name, desc) in enumerate(_agil_info_std):
+            with cols_std[i]:
+                st.markdown(f"**{name}**")
+                try:
+                    st.image(svg, use_container_width=True)
+                except Exception:
+                    st.caption("(Skizze nicht verfügbar)")
+                st.caption(desc)
+
+        st.markdown("---")
+        st.markdown("#### Weitere Tests — Bestzeit erfassen")
+        _agil_info_neu = [
+            ("assets/tests/agility/modified_t_test.svg", "Modified T-Test",
+             "Kürzere T-Test-Variante\nStart → A (9,15 m) → B links → C rechts → A → Start"),
+            ("assets/tests/agility/pro_agility.svg",     "Pro Agility Shuttle",
+             "NFL-Combine-Standard (5-10-5)\n5 yd links → 10 yd rechts → 5 yd zurück"),
+            ("assets/tests/agility/arrowhead.svg",       "Arrowhead R/L",
+             "Pfeilförmiges Muster, bilateral\nStart → Spitze → Kegel rechts/links → Start"),
+            ("assets/tests/agility/zigzag.svg",          "Zig-Zag Agility",
+             "4–5 Kegel im Zickzack\nca. 20–25 m, Kurskontrolle"),
+            ("assets/tests/agility/balsom.svg",          "Balsom Agility Test",
+             "4×4 m Rechteck + Mittelpunkt\n3 Läufe à 25 s, Richtungswechsel zählen"),
+        ]
+        cols_neu = st.columns(5)
+        for i, (svg, name, desc) in enumerate(_agil_info_neu):
+            with cols_neu[i]:
+                st.markdown(f"**{name}**")
+                try:
+                    st.image(svg, use_container_width=True)
+                except Exception:
+                    st.caption("(Skizze nicht verfügbar)")
+                st.caption(desc)
 
 
 # ──────────────────────────────────────────────────────────────────────────────
