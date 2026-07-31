@@ -7,6 +7,8 @@ from dataclasses import dataclass
 from typing import List, Tuple
 
 
+from age_norms import fms_bewertung_alter as _fms_bw_alter
+
 @dataclass
 class FMSResult:
     deep_squat: int
@@ -21,6 +23,8 @@ class FMSResult:
     trunk: int
     rotary_l: int
     rotary_r: int
+
+    alter: float | None = None
 
     @property
     def score(self) -> int:
@@ -54,14 +58,7 @@ class FMSResult:
 
     @property
     def bewertung(self) -> str:
-        s = self.score
-        if s >= 18:
-            return "Ausgezeichnet"
-        if s >= 15:
-            return "Gut"
-        if s >= 13:
-            return "Beobachten"
-        return "Aktionsbedarf"
+        return _fms_bw_alter(self.score, self.alter)
 
     @property
     def bewertung_kurz(self) -> str:

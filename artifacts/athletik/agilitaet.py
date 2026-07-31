@@ -8,6 +8,8 @@ from dataclasses import dataclass
 from typing import Optional
 
 
+from age_norms import AGIL_NORMEN as _AN_AGIL, alter_zu_normgruppe as _A2NG
+
 # ─── Referenzwerte (Männlich, Fußball, Leistungssport) ───────────────────────
 # Quellen: Sheppard & Young (2006), Pauole et al. (2000)
 
@@ -30,11 +32,18 @@ REFERENZ_W = {
 
 def bewertung(zeit: float, test_key: str,
               niveau: str = "Leistungssport",
-              geschlecht: str = "Männlich") -> str:
-    ref = REFERENZ_W if geschlecht == "Weiblich" else REFERENZ
-    if test_key not in ref:
-        return "—"
-    r = ref[test_key]
+              geschlecht: str = "Männlich",
+              alter: float | None = None) -> str:
+    """Altersbasierte Agilität-Bewertung."""
+    gruppe = _A2NG(alter)
+    tab = _AN_AGIL.get(geschlecht, _AN_AGIL["Männlich"])
+    if test_key in tab:
+        r = tab[test_key].get(gruppe, tab[test_key]["Senioren"])
+    else:
+        ref = REFERENZ_W if geschlecht == "Weiblich" else REFERENZ
+        if test_key not in ref:
+            return "—"
+        r = ref[test_key]
     if zeit <= r["Profi"]:           return "Sehr gut (Profi-Niveau)"
     if zeit <= r["Leistungssport"]:  return "Gut (Leistungssport)"
     if zeit <= r["Breitensport"]:    return "Mittel (Breitensport)"
@@ -67,6 +76,7 @@ class AgilitaetErgebnis:
     illinois: Optional[float] = None   # s
     geschlecht: str = "Männlich"
     niveau:     str = "Leistungssport"
+    alter:      float | None = None
 
     @property
     def asym_505(self) -> Optional[float]:
@@ -75,19 +85,19 @@ class AgilitaetErgebnis:
     @property
     def bew_505(self) -> str:
         if self.t505_r:
-            return bewertung(self.t505_r, "505_rechts", self.niveau, self.geschlecht)
+            return bewertung(self.t505_r, "505_rechts", self.niveau, self.geschlecht, self.alter)
         return "—"
 
     @property
     def bew_t_test(self) -> str:
         if self.t_test:
-            return bewertung(self.t_test, "t_test", self.niveau, self.geschlecht)
+            return bewertung(self.t_test, "t_test", self.niveau, self.geschlecht, self.alter)
         return "—"
 
     @property
     def bew_illinois(self) -> str:
         if self.illinois:
-            return bewertung(self.illinois, "illinois", self.niveau, self.geschlecht)
+            return bewertung(self.illinois, "illinois", self.niveau, self.geschlecht, self.alter)
         return "—"
 
     @property

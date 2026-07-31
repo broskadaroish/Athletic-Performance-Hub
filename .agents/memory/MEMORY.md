@@ -1,3 +1,4 @@
+- [Age-based diagnostic norms](age-norms.md) — age_norms.py is single source for all U8–Ü50 norm tables; all test modules accept alter= param
 - [Help system architecture](help-system.md) — test_help.py + help_ui.py are the single source of truth for all test instructions; SVGs live under assets/tests/<test_id>/
 - [App nav widget quirk](nav-radio-quirk.md) — empty-label radio warnings on startup are pre-existing nav widgets, not bugs introduced by new code
 - [Phase completion status](phase-status.md) — which of the 19 implementation phases are done; phases 17, 18, 19 remain open

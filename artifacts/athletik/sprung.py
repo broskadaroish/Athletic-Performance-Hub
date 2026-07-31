@@ -10,6 +10,8 @@ from typing import Optional
 import math
 
 
+from age_norms import SPRUNG_NORMEN as _AN_SPRUNG, alter_zu_normgruppe as _A2NG
+
 # ─── Normwerte (männlich, Fußball, Leistungssport) ───────────────────────────
 # Quellen: Markovic (2004), Meylan et al. (2009)
 
@@ -53,8 +55,12 @@ def asymmetrie_prozent(rechts: float, links: float) -> Optional[float]:
 
 
 def bewertung_cmj(hoehe_cm: float, niveau: str = "Leistungssport",
-                  geschlecht: str = "Männlich") -> str:
-    ref = NORMWERTE_CMJ_W if geschlecht == "Weiblich" else NORMWERTE_CMJ
+                  geschlecht: str = "Männlich",
+                  alter: float | None = None) -> str:
+    """Altersbasierte CMJ-Bewertung."""
+    gruppe = _A2NG(alter)
+    tab = _AN_SPRUNG.get(geschlecht, _AN_SPRUNG["Männlich"])["cmj"]
+    ref = tab.get(gruppe, tab["Senioren"])
     if hoehe_cm >= ref["Profi"]:          return "Sehr gut (Profi-Niveau)"
     if hoehe_cm >= ref["Leistungssport"]: return "Gut (Leistungssport)"
     if hoehe_cm >= ref["Breitensport"]:   return "Mittel (Breitensport)"
@@ -83,6 +89,7 @@ class SprungErgebnis:
     standweit:      Optional[float] = None   # cm
     geschlecht: str = "Männlich"
     niveau: str = "Leistungssport"
+    alter: float | None = None
 
     @property
     def cmj_asymmetrie(self) -> Optional[float]:
@@ -99,7 +106,7 @@ class SprungErgebnis:
     @property
     def bewertung_cmj(self) -> str:
         if self.cmj_beid:
-            return bewertung_cmj(self.cmj_beid, self.niveau, self.geschlecht)
+            return bewertung_cmj(self.cmj_beid, self.niveau, self.geschlecht, self.alter)
         return "—"
 
     @property

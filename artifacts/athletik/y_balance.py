@@ -6,6 +6,7 @@ Standard thresholds based on sports science literature:
 """
 
 from dataclasses import dataclass, field
+from age_norms import yb_schwellenwert as _yb_sw
 from typing import List
 
 
@@ -19,6 +20,8 @@ class YBalanceResult:
     posterolateral_l: float
     beinlaenge_r: float
     beinlaenge_l: float
+
+    alter: float | None = None  # für altersbasierte Schwellenwerte
 
     # Computed on post_init
     diff_anterior: float = field(init=False)
@@ -62,8 +65,9 @@ class YBalanceResult:
 
     @property
     def risiko_level(self) -> str:
-        """Overall injury risk based on composite scores and asymmetries."""
-        low_score = self.composite_r < 89 or self.composite_l < 89
+        """Overall injury risk based on age-adjusted composite scores and asymmetries."""
+        schwelle = _yb_sw(self.alter)
+        low_score = self.composite_r < schwelle or self.composite_l < schwelle
         has_asym = len(self.asymmetrien) > 0
         if low_score and has_asym:
             return "hoch"
@@ -79,7 +83,8 @@ class YBalanceResult:
             return "Knie Kontrolle + seitliche Stabilität"
         if self.diff_anterior >= 4:
             return "Sprunggelenk Mobilität + Knie-Vorschub verbessern"
-        if self.composite_r < 89 or self.composite_l < 89:
+        _sw_th = _yb_sw(self.alter)
+        if self.composite_r < _sw_th or self.composite_l < _sw_th:
             return "Allgemeine Balance + Beinachsenstabilität"
         return "Keine relevante Asymmetrie erkannt"
 

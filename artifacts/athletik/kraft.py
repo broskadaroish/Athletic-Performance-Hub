@@ -164,28 +164,17 @@ class KraftErgebnis:
 
 # ─── Beurteilung / Normbewertung ─────────────────────────────────────────────
 
-def beurteilung_relative_kraft(rel_kraft: float | None) -> tuple[str, str]:
+def beurteilung_relative_kraft(rel_kraft: float | None,
+                               alter: float | None = None,
+                               geschlecht: str = "Männlich") -> tuple[str, str]:
     """
-    Beurteilung der relativen Bankdrück-Kraft für Fußballspieler.
-    Orientierungswerte (kein standardisierter Normtest):
-      < 0.80 × KGW  = Kritisch
-      0.80–0.99     = Unterdurchschnittlich
-      1.00–1.24     = Durchschnittlich
-      1.25–1.49     = Gut
-      ≥ 1.50        = Sehr gut / Elite
-    Returns (Stufe: str, Empfehlung: str)
+    Altersbasierte Beurteilung der relativen Bankdrück-Kraft (U8–Ü50).
+    Quelle: NSCA Youth Strength Standards, Faigenbaum & Myer (2010).
     """
     if rel_kraft is None or rel_kraft <= 0:
         return "—", "Keine Daten"
-    if rel_kraft < 0.80:
-        return "Kritisch", "Kraftaufbau Bankdrücken hat höchste Priorität"
-    if rel_kraft < 1.00:
-        return "Unterdurchschnittlich", "Systematischer Kraftaufbau empfohlen"
-    if rel_kraft < 1.25:
-        return "Durchschnittlich", "Planmäßige Kraftentwicklung fortsetzen"
-    if rel_kraft < 1.50:
-        return "Gut", "Niveau halten, Explosivität integrieren"
-    return "Sehr gut", "Elite-Niveau — Krafterhalt und spezifische Schnellkraft"
+    from age_norms import kraft_bewertung_alter as _kba
+    return _kba(rel_kraft, alter, geschlecht)
 
 
 def beurteilung_ventral_plank(sekunden: float | None) -> tuple[str, str]:

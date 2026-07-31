@@ -8,6 +8,8 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 
+from age_norms import SPRINT_NORMEN as _AN_SPRINT, alter_zu_normgruppe as _A2NG
+
 # ─── Referenzwerte (Durchschnitt männlich, Fußball, Leistungssport) ───────────
 # Quellen: Little & Williams (2005), Haugen et al. (2014)
 
@@ -46,12 +48,20 @@ def beschleunigungsindex(t5: Optional[float], t10: Optional[float]) -> Optional[
 
 def bewertung_sprint(beste_zeit: float, distanz: str,
                      niveau: str = "Leistungssport",
-                     geschlecht: str = "Männlich") -> str:
-    """Gibt eine Textbewertung zur Sprintzeit zurück."""
-    ref = REFERENZ_WEIBLICH if geschlecht == "Weiblich" else REFERENZ_ZEITEN
-    if distanz not in ref:
-        return "—"
-    r = ref[distanz]
+                     geschlecht: str = "Männlich",
+                     alter: float | None = None) -> str:
+    """Altersbasierte Textbewertung zur Sprintzeit."""
+    gruppe = _A2NG(alter)
+    tab = _AN_SPRINT.get(geschlecht, _AN_SPRINT["Männlich"])
+    dist_tab = tab.get(distanz)
+    if dist_tab:
+        r = dist_tab.get(gruppe, dist_tab["Senioren"])
+    else:
+        # Fallback auf alte Tabellen
+        ref = REFERENZ_WEIBLICH if geschlecht == "Weiblich" else REFERENZ_ZEITEN
+        if distanz not in ref:
+            return "—"
+        r = ref[distanz]
     if beste_zeit <= r["Profi"]:
         return "Sehr gut (Profi-Niveau)"
     if beste_zeit <= r["Leistungssport"]:
@@ -80,6 +90,7 @@ class SprintErgebnis:
     beste_30m: Optional[float] = None
     geschlecht: str = "Männlich"
     niveau: str = "Leistungssport"
+    alter: float | None = None
 
     @property
     def beschl_index(self) -> Optional[float]:
@@ -88,13 +99,13 @@ class SprintErgebnis:
     @property
     def bewertung_10m(self) -> str:
         if self.beste_10m:
-            return bewertung_sprint(self.beste_10m, "10m", self.niveau, self.geschlecht)
+            return bewertung_sprint(self.beste_10m, "10m", self.niveau, self.geschlecht, self.alter)
         return "—"
 
     @property
     def bewertung_30m(self) -> str:
         if self.beste_30m:
-            return bewertung_sprint(self.beste_30m, "30m", self.niveau, self.geschlecht)
+            return bewertung_sprint(self.beste_30m, "30m", self.niveau, self.geschlecht, self.alter)
         return "—"
 
     @property

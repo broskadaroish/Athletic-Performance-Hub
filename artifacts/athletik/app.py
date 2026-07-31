@@ -999,6 +999,9 @@ def page_fms():
         return
 
     spieler_id = auswahl["id"]
+    _fms_sp = spieler_by_id(spieler_id)
+    _fms_alter = berechne_alter(_fms_sp.get("geburtsdatum", "") if _fms_sp else None)
+    _fms_geschl = _fms_sp.get("geschlecht", "Männlich") if _fms_sp else "Männlich"
 
     tab_neu, tab_letzter, tab_verlauf = st.tabs(["📋 Neuer Test", "📂 Letzter Test", "📈 Verlauf"])
 
@@ -1067,6 +1070,7 @@ def page_fms():
                 shoulder_l=shoulder_l, shoulder_r=shoulder_r,
                 aslr_l=aslr_l, aslr_r=aslr_r, trunk=trunk,
                 rotary_l=rotary_l, rotary_r=rotary_r,
+                alter=_fms_alter,
             )
             fms_speichern(
                 spieler_id, _datum_fms,
@@ -1088,6 +1092,8 @@ def page_fms():
             m1.metric("Gesamtscore", f"{result.score} / 21")
             m2.metric("Bewertung", result.bewertung)
             m3.metric("Risikostufe", result.risiko_level.capitalize())
+            from age_norms import normgruppe_label as _ngl
+            st.caption(f"📊 {_ngl(_fms_alter)}")
             # ── Kurze Beurteilung ──────────────────────────────────────
             from fms import fms_bewertung_kurz as _fms_bkurz
             _fms_bw_clr = {"Ausgezeichnet": "#3fb950", "Gut": "#3fb950",
@@ -1258,6 +1264,9 @@ def page_ybalance():
         return
 
     spieler_id = auswahl["id"]
+    _yb_sp = spieler_by_id(spieler_id)
+    _yb_alter = berechne_alter(_yb_sp.get("geburtsdatum", "") if _yb_sp else None)
+    _yb_geschl = _yb_sp.get("geschlecht", "Männlich") if _yb_sp else "Männlich"
 
     tab_neu, tab_letzter, tab_verlauf = st.tabs(["📋 Neuer Test", "📂 Letzter Test", "📈 Verlauf"])
 
@@ -1321,6 +1330,7 @@ def page_ybalance():
                 posteromedial_r=pm_r, posteromedial_l=pm_l,
                 posterolateral_r=pl_r, posterolateral_l=pl_l,
                 beinlaenge_r=bein_r, beinlaenge_l=bein_l,
+                alter=_yb_alter,
             )
             y_balance_speichern(
                 spieler_id, _datum_yb,
@@ -1343,6 +1353,8 @@ def page_ybalance():
             m1.metric("Composite Rechts", f"{res.composite_r} %")
             m2.metric("Composite Links",  f"{res.composite_l} %")
             m3.metric("Risikostufe", res.risiko_level.capitalize())
+            from age_norms import normgruppe_label as _ngl, yb_schwellenwert as _ybs
+            st.caption(f"📊 {_ngl(_yb_alter)} — Composite-Grenzwert: {_ybs(_yb_alter, _yb_geschl):.0f} %")
             fig = go.Figure()
             categories = ["Anterior", "Posteromedial", "Posterolateral"]
             fig.add_trace(go.Scatterpolar(
@@ -2866,7 +2878,8 @@ def page_sprint():
     sp     = spieler_by_id(sid)
     geschl = sp.get("geschlecht", "Männlich") if sp else "Männlich"
     niveau = sp.get("leistungsniveau", "Leistungssport") if sp else "Leistungssport"
-    altersgruppe = alter_zu_altersgruppe(berechne_alter(sp.get("geburtsdatum", "")) if sp else 0)
+    alter_sprint = berechne_alter(sp.get("geburtsdatum", "")) if sp else None
+    altersgruppe = alter_zu_altersgruppe(alter_sprint or 0)
 
     letzter = sprint_letzter(sid)
     hist    = sprint_history(sid)
@@ -2891,7 +2904,7 @@ def page_sprint():
         from sprint import (beschleunigungsindex, bewertung_sprint, bewertung_farbe,
                             SprintErgebnis as _SE)
         res = _SE(beste_5m=b5, beste_10m=b10, beste_20m=b20, beste_30m=b30,
-                  geschlecht=geschl, niveau=niveau)
+                  geschlecht=geschl, niveau=niveau, alter=alter_sprint)
 
         if any([b5, b10, b20, b30, b40]):
             st.markdown("---")
@@ -2901,6 +2914,8 @@ def page_sprint():
             if b30: m3.metric("30 m", f"{b30:.2f} s", res.bewertung_30m)
             if b40: m4.metric("40 m", f"{b40:.2f} s")
             if res.beschl_index: m5.metric("Beschl.-Index", f"{res.beschl_index:.3f}")
+            from age_norms import normgruppe_label as _ngl
+            st.caption(f"📊 {_ngl(alter_sprint)}")
 
             if res.defizite:
                 st.markdown("**🔴 Identifizierte Defizite:**")
@@ -3040,7 +3055,8 @@ def page_sprung():
     sp     = spieler_by_id(sid)
     geschl = sp.get("geschlecht", "Männlich") if sp else "Männlich"
     niveau = sp.get("leistungsniveau", "Leistungssport") if sp else "Leistungssport"
-    altersgruppe = alter_zu_altersgruppe(berechne_alter(sp.get("geburtsdatum", "")) if sp else 0)
+    alter_sprung = berechne_alter(sp.get("geburtsdatum", "")) if sp else None
+    altersgruppe = alter_zu_altersgruppe(alter_sprung or 0)
 
     letzter = sprung_letzter(sid)
     hist    = sprung_history(sid)
@@ -3092,7 +3108,7 @@ def page_sprung():
         from sprung import SprungErgebnis as _SpE
         res = _SpE(cmj_beid=b_cmj_beid, cmj_rechts=b_cmj_r, cmj_links=b_cmj_l,
                    squat_jump=b_squat, drop_jump_hoehe=b_dj_h, drop_jump_kz=b_dj_kz,
-                   standweit=b_swj, geschlecht=geschl, niveau=niveau)
+                   standweit=b_swj, geschlecht=geschl, niveau=niveau, alter=alter_sprung)
 
         if any([b_cmj_beid, b_cmj_r, b_cmj_l, b_squat, b_dj_h, b_swj]):
             st.markdown("---")
@@ -3103,6 +3119,8 @@ def page_sprung():
             if res.cmj_asymmetrie:
                 color_txt = "⚠️ auffällig" if res.cmj_asymmetrie > 10 else "✅ ok"
                 m4.metric("Asymmetrie", f"{res.cmj_asymmetrie:.1f} %", color_txt)
+            from age_norms import normgruppe_label as _ngl
+            st.caption(f"📊 {_ngl(alter_sprung)}")
             if res.defizite:
                 st.markdown("**🔴 Identifizierte Defizite:**")
                 for d in res.defizite: st.markdown(f"- {d}")
@@ -3236,7 +3254,8 @@ def page_agilitaet():
     sp     = spieler_by_id(sid)
     geschl = sp.get("geschlecht", "Männlich") if sp else "Männlich"
     niveau = sp.get("leistungsniveau", "Leistungssport") if sp else "Leistungssport"
-    altersgruppe = alter_zu_altersgruppe(berechne_alter(sp.get("geburtsdatum", "")) if sp else 0)
+    alter_agil = berechne_alter(sp.get("geburtsdatum", "")) if sp else None
+    altersgruppe = alter_zu_altersgruppe(alter_agil or 0)
 
     letzter = agilitaet_letzter(sid)
     hist    = agilitaet_history(sid)
@@ -3333,7 +3352,7 @@ def page_agilitaet():
         from agilitaet import AgilitaetErgebnis as _AE
         res = _AE(t505_r=t505_r, t505_l=t505_l, t5_10_5=t5_10_5,
                   t_test=t_test, illinois=illinois,
-                  geschlecht=geschl, niveau=niveau)
+                  geschlecht=geschl, niveau=niveau, alter=alter_agil)
 
         alle_werte = [t505_r, t505_l, t5_10_5, t_test, illinois,
                       modified_t_test, pro_agility, arrowhead_r, arrowhead_l, zigzag, balsom_t]
@@ -3345,6 +3364,8 @@ def page_agilitaet():
             if t505_l:   m2.metric("505 links",  f"{t505_l:.2f} s")
             if t_test:   m3.metric("T-Test",     f"{t_test:.2f} s",   res.bew_t_test)
             if illinois: m4.metric("Illinois",   f"{illinois:.2f} s", res.bew_illinois)
+            from age_norms import normgruppe_label as _ngl
+            st.caption(f"📊 {_ngl(alter_agil)}")
             if res.asym_505:
                 color = "#f85149" if res.asym_505 > 10 else "#3fb950"
                 sign  = "⚠️ auffällig" if res.asym_505 > 10 else "✅ symmetrisch"
@@ -4569,16 +4590,18 @@ def page_kraft():
             rel = kraft_res.relative_kraft_direkt or kraft_res.relative_kraft_geschaetzt
             if rel:
                 m3.metric("Relative Kraft", f"{rel:.2f} ×KGW")
-                _stufe_rk, _empf_rk = _bwrk(rel)
+                _stufe_rk, _empf_rk = _bwrk(rel, alter=alter, geschlecht=geschl)
                 _clr_rk = {"Sehr gut": "#3fb950", "Gut": "#3fb950",
                            "Durchschnittlich": "#d29922",
                            "Unterdurchschnittlich": "#f85149", "Kritisch": "#f85149"}.get(_stufe_rk, "#8b949e")
+                from age_norms import normgruppe_label as _ngl
                 st.markdown(
                     f'<div style="background:#161b22;border:1px solid {_clr_rk};border-radius:8px;'
                     f'padding:10px 14px;margin:6px 0">'
                     f'<span style="color:{_clr_rk};font-weight:700">Bankdrücken Rel. Kraft: {_stufe_rk}</span>'
                     f'<span style="color:#8b949e;font-size:12px;margin-left:12px">{rel:.2f} ×KGW</span><br>'
-                    f'<small style="color:#8b949e">{_empf_rk}</small></div>',
+                    f'<small style="color:#8b949e">{_empf_rk}</small>'
+                    f'<br><small style="color:#8b949e;font-size:11px">📊 {_ngl(alter)}</small></div>',
                     unsafe_allow_html=True,
                 )
 
@@ -4906,7 +4929,7 @@ def page_startseite():
     from kraft import beurteilung_relative_kraft as _bwrk_s
     _rel_ks = (kraft.get("relative_kraft_direkt") or kraft.get("relative_kraft_geschaetzt")) if kraft else None
     if _rel_ks:
-        _kraft_rating_s = _bwrk_s(_rel_ks)[0]           # z. B. "Gut", "Kritisch"
+        _kraft_rating_s = _bwrk_s(_rel_ks, alter=alter, geschlecht=auswahl.get("geschlecht", "Männlich"))[0]
     elif kraft and kraft.get("ventral_sekunden"):
         _kraft_rating_s = "Ventral: %.0f s" % kraft["ventral_sekunden"]
     else:
@@ -6168,7 +6191,7 @@ def page_diagnostik_overview() -> None:
             "rating": (
                 __import__("kraft").beurteilung_relative_kraft(
                     kraft_d.get("relative_kraft_direkt") or kraft_d.get("relative_kraft_geschaetzt")
-                )[0]
+                )[0]  # alter nicht verfügbar im Vergleichs-Kontext
                 if kraft_d and (kraft_d.get("relative_kraft_direkt") or kraft_d.get("relative_kraft_geschaetzt"))
                 else ("Ventral: %.0f s" % kraft_d["ventral_sekunden"]
                       if kraft_d and kraft_d.get("ventral_sekunden") else None)
