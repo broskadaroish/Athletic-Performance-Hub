@@ -2739,9 +2739,14 @@ def page_fortschritt():
             if not agil_hist:
                 st.info("Noch keine Agilitäts-Tests vorhanden.")
             else:
-                df = pd.DataFrame(agil_hist)
-                df.columns = ["Datum", "505 R (s)", "505 L (s)", "Asymm. 505 (%)",
-                              "5-10-5 (s)", "T-Test (s)", "Illinois (s)", "Bewertung T-Test"]
+                df = pd.DataFrame(agil_hist).rename(columns={
+                    "datum": "Datum", "t505_r": "505 R (s)", "t505_l": "505 L (s)",
+                    "asym_505": "Asymm. 505 (%)", "t5_10_5": "5-10-5 (s)",
+                    "t_test": "T-Test (s)", "illinois": "Illinois (s)",
+                    "bew_t_test": "Bewertung T-Test", "modified_t_test": "Mod. T-Test (s)",
+                    "pro_agility": "Pro Agility (s)", "arrowhead_r": "Arrowhead R (s)",
+                    "arrowhead_l": "Arrowhead L (s)", "zigzag": "Zigzag (s)", "balsom": "Balsom (s)",
+                })
                 fig5 = go.Figure()
                 for col, color in [("T-Test (s)", "#3b82f6"), ("Illinois (s)", "#3fb950")]:
                     if col in df.columns and df[col].notna().any():
