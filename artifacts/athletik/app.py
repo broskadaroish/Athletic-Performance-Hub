@@ -6026,13 +6026,14 @@ def page_diagnostik_overview() -> None:
         if not rating:
             return C["muted"]
         r = rating.lower()
-        if any(x in r for x in ["sehr gut", "gut", "unauffällig", "keine asym", "keine auffäl", "optimal", "symmetrisch"]):
+        if any(x in r for x in ["sehr gut", "gut", "ausgezeichnet", "unauffällig",
+                                  "keine asym", "keine auffäl", "optimal", "symmetrisch", "kein akuter"]):
             return C["green"]
-        if any(x in r for x in ["mittel", "grenzwertig", "gering", "durchschnitt"]):
+        if any(x in r for x in ["beobachten", "mittel", "grenzwertig", "gering", "durchschnitt"]):
             return C["yellow"]
-        if any(x in r for x in ["verbesserung", "risiko", "mangelhaft", "schlecht",
-                                  "asymmetrie", "auffällig", "hoch", "schwäche",
-                                  "kritisch", "unterdurchschnitt"]):
+        if any(x in r for x in ["aktionsbedarf", "handlungsbedarf", "verbesserung",
+                                  "risiko", "mangelhaft", "schlecht", "asymmetrie",
+                                  "auffällig", "hoch", "schwäche", "kritisch", "unterdurchschnitt"]):
             return C["red"]
         return C["muted"]
 
