@@ -784,9 +784,89 @@ def page_dashboard():
 
 # ──────────────────────────────────────────────────────────────────────────────
 
+def _render_inline_edit_form(sp: dict) -> None:
+    """Inline-Bearbeitungsformular für einen Spieler direkt in der Spielerliste."""
+    _sid = sp["id"]
+    _vn_def = sp.get("vorname") or (sp["name"].split()[0] if " " in sp["name"] else sp["name"])
+    _nn_def = sp.get("nachname") or (" ".join(sp["name"].split()[1:]) if " " in sp["name"] else "")
+
+    st.markdown(
+        '<div style="background:#161b22;border:1px solid #388bfd44;'
+        'border-left:3px solid #388bfd;border-radius:8px;padding:16px 20px;margin:6px 0 14px 0">',
+        unsafe_allow_html=True,
+    )
+    st.markdown(f"##### ✏️ {sp['name']} bearbeiten")
+
+    st.markdown("**👤 Persönliche Daten**")
+    _c1, _c2 = st.columns(2)
+    _e_vn    = _c1.text_input("Vorname *",                    value=_vn_def,                     key=f"il_vn_{_sid}")
+    _e_nn    = _c2.text_input("Nachname *",                   value=_nn_def,                     key=f"il_nn_{_sid}")
+    _e_geb   = _c1.text_input("Geburtsdatum (TT.MM.JJJJ) *", value=sp.get("geburtsdatum") or "", key=f"il_geb_{_sid}")
+    _gi      = ["Männlich", "Weiblich", "Divers"].index(sp.get("geschlecht", "Männlich")) \
+               if sp.get("geschlecht") in ["Männlich", "Weiblich", "Divers"] else 0
+    _e_gesch = _c2.selectbox("Geschlecht", ["Männlich", "Weiblich", "Divers"],
+                              index=_gi, key=f"il_gesch_{_sid}")
+    _e_alter = berechne_alter(_e_geb)
+    _e_ak_vs = altersklasse_vorschlag(_e_geb)
+    if _e_alter:
+        _c1.markdown(f"<small style='color:#3fb950'>Alter: **{_e_alter} Jahre** — Vorschlag: {_e_ak_vs}</small>",
+                     unsafe_allow_html=True)
+    _aki  = ALTERSKLASSEN.index(sp.get("altersklasse")) \
+            if sp.get("altersklasse") in ALTERSKLASSEN else 7
+    _e_ak = _c2.selectbox("Altersklasse", ALTERSKLASSEN, index=_aki, key=f"il_ak_{_sid}")
+
+    st.markdown("**🏟️ Sportliche Daten**")
+    _p1, _p2 = st.columns(2)
+    _cur_hpos = sp.get("hauptposition") or sp.get("position") or POSITIONEN[0]
+    _hpi    = POSITIONEN.index(_cur_hpos) if _cur_hpos in POSITIONEN else 0
+    _e_hpos = _p1.selectbox("Hauptposition *", POSITIONEN, index=_hpi, key=f"il_hpos_{_sid}")
+    _npl    = ["—"] + POSITIONEN
+    _cur_npos = sp.get("nebenposition") or "—"
+    _npi    = _npl.index(_cur_npos) if _cur_npos in _npl else 0
+    _e_npos = _p2.selectbox("Nebenposition", _npl, index=_npi, key=f"il_npos_{_sid}")
+    _sbi    = ["Rechts", "Links", "Beidfüßig"].index(sp.get("spielbein", "Rechts")) \
+              if sp.get("spielbein") in ["Rechts", "Links", "Beidfüßig"] else 0
+    _e_sb   = _p1.selectbox("Spielbein", ["Rechts", "Links", "Beidfüßig"], index=_sbi, key=f"il_sb_{_sid}")
+    _lvi    = LEISTUNGSNIVEAUS.index(sp.get("leistungsniveau", LEISTUNGSNIVEAUS[0])) \
+              if sp.get("leistungsniveau") in LEISTUNGSNIVEAUS else 0
+    _e_lvl  = _p2.selectbox("Leistungsniveau", LEISTUNGSNIVEAUS, index=_lvi, key=f"il_lvl_{_sid}")
+
+    st.markdown("**🏃 Teamdaten**")
+    _t1, _t2 = st.columns(2)
+    _e_mann = _t1.text_input("Mannschaft / Verein", value=sp.get("mannschaft") or "", key=f"il_mann_{_sid}")
+    _tsi    = TRAININGSSTATUS.index(sp.get("trainingsstatus", TRAININGSSTATUS[0])) \
+              if sp.get("trainingsstatus") in TRAININGSSTATUS else 0
+    _e_ts   = _t2.selectbox("Trainingsstatus", TRAININGSSTATUS, index=_tsi, key=f"il_ts_{_sid}")
+
+    _ba, _bb = st.columns([3, 1])
+    if _ba.button("💾 Speichern", key=f"il_save_{_sid}", type="primary", use_container_width=True):
+        if not _e_vn.strip() or not _e_nn.strip():
+            st.error("❌ Bitte Vor- und Nachnamen eingeben.")
+        else:
+            _gok, _gerr = _validate_geburtsdatum(_e_geb)
+            if not _gok:
+                st.error(f"❌ Ungültiges Geburtsdatum: {_gerr}")
+            else:
+                spieler_aktualisieren(
+                    _sid,
+                    _e_vn.strip(), _e_nn.strip(), _e_geb.strip(),
+                    _e_gesch, _e_hpos,
+                    _e_npos if _e_npos != "—" else "",
+                    _e_ak, _e_sb, _e_lvl,
+                    _e_mann.strip(), _e_ts,
+                )
+                st.session_state.pop("inline_edit_id", None)
+                _save_ok(f"**{_e_vn} {_e_nn}** wurde aktualisiert.")
+                st.rerun()
+    if _bb.button("✖️ Abbrechen", key=f"il_cancel_{_sid}", use_container_width=True):
+        st.session_state.pop("inline_edit_id", None)
+        st.rerun()
+    st.markdown("</div>", unsafe_allow_html=True)
+
+
 def page_spieler():
     st.markdown("# 👤 Spielerverwaltung")
-    tab_add, tab_edit, tab_list = st.tabs(["➕ Neu anlegen", "✏️ Bearbeiten", "📋 Alle Spieler"])
+    tab_add, tab_list = st.tabs(["➕ Neu anlegen", "📋 Alle Spieler"])
 
     # ── Tab 1: Neuen Spieler anlegen ──────────────────────────────────────────
     with tab_add:
@@ -847,83 +927,7 @@ def page_spieler():
                     _save_ok(f"Spieler **{vorname} {nachname}** wurde gespeichert.")
                     st.rerun()
 
-    # ── Tab 2: Spieler bearbeiten ─────────────────────────────────────────────
-    with tab_edit:
-        _sp_alle = spieler_laden()
-        if not _sp_alle:
-            st.info("Noch keine Spieler vorhanden. Bitte zuerst einen Spieler anlegen.")
-        else:
-            sel = st.selectbox("Spieler auswählen", _sp_alle,
-                               format_func=lambda x: x["name"], key="edit_sel")
-            if sel:
-                sp = sel
-                st.markdown("---")
-                st.markdown("#### 👤 Persönliche Daten")
-                ce1, ce2 = st.columns(2)
-                _vn_def  = sp.get("vorname") or (sp["name"].split()[0] if " " in sp["name"] else sp["name"])
-                _nn_def  = sp.get("nachname") or (" ".join(sp["name"].split()[1:]) if " " in sp["name"] else "")
-                e_vn     = ce1.text_input("Vorname *",                      value=_vn_def,                     key="e_vn")
-                e_nn     = ce2.text_input("Nachname *",                     value=_nn_def,                     key="e_nn")
-                e_geb    = ce1.text_input("Geburtsdatum (TT.MM.JJJJ) *",   value=sp.get("geburtsdatum") or "", key="e_geb")
-                _gi = ["Männlich", "Weiblich", "Divers"].index(sp.get("geschlecht", "Männlich")) \
-                      if sp.get("geschlecht") in ["Männlich", "Weiblich", "Divers"] else 0
-                e_gesch  = ce2.selectbox("Geschlecht", ["Männlich", "Weiblich", "Divers"],
-                                         index=_gi, key="e_gesch")
-
-                _e_alter = berechne_alter(e_geb)
-                _e_ak_vs = altersklasse_vorschlag(e_geb)
-                if _e_alter:
-                    ce1.markdown(f"<small style='color:#3fb950'>Alter: **{_e_alter} Jahre** — Vorschlag: {_e_ak_vs}</small>",
-                                 unsafe_allow_html=True)
-                _aki = ALTERSKLASSEN.index(sp.get("altersklasse")) \
-                       if sp.get("altersklasse") in ALTERSKLASSEN else 7
-                e_ak = ce2.selectbox("Altersklasse", ALTERSKLASSEN, index=_aki, key="e_ak")
-
-                st.markdown("#### 🏟️ Sportliche Daten")
-                ep1, ep2 = st.columns(2)
-                _cur_hpos = sp.get("hauptposition") or sp.get("position") or POSITIONEN[0]
-                _hpi = POSITIONEN.index(_cur_hpos) if _cur_hpos in POSITIONEN else 0
-                e_hpos = ep1.selectbox("Hauptposition *", POSITIONEN, index=_hpi, key="e_hpos")
-                _npl   = ["—"] + POSITIONEN
-                _cur_npos = sp.get("nebenposition") or "—"
-                _npi   = _npl.index(_cur_npos) if _cur_npos in _npl else 0
-                e_npos = ep2.selectbox("Nebenposition", _npl, index=_npi, key="e_npos")
-                _sbi   = ["Rechts", "Links", "Beidfüßig"].index(sp.get("spielbein", "Rechts")) \
-                         if sp.get("spielbein") in ["Rechts", "Links", "Beidfüßig"] else 0
-                e_sb   = ep1.selectbox("Spielbein", ["Rechts", "Links", "Beidfüßig"], index=_sbi, key="e_sb")
-                _lvi   = LEISTUNGSNIVEAUS.index(sp.get("leistungsniveau", LEISTUNGSNIVEAUS[0])) \
-                         if sp.get("leistungsniveau") in LEISTUNGSNIVEAUS else 0
-                e_lvl  = ep2.selectbox("Leistungsniveau", LEISTUNGSNIVEAUS, index=_lvi, key="e_lvl")
-
-                st.markdown("#### 🏃 Teamdaten")
-                et1, et2 = st.columns(2)
-                e_mann = et1.text_input("Mannschaft / Verein", value=sp.get("mannschaft") or "", key="e_mann")
-                _tsi   = TRAININGSSTATUS.index(sp.get("trainingsstatus", TRAININGSSTATUS[0])) \
-                         if sp.get("trainingsstatus") in TRAININGSSTATUS else 0
-                e_ts   = et2.selectbox("Trainingsstatus", TRAININGSSTATUS, index=_tsi, key="e_ts")
-
-                st.markdown("---")
-                _check_save_ok()
-                if st.button("💾 Änderungen speichern", key="edit_save", type="primary", use_container_width=True):
-                    if not e_vn.strip() or not e_nn.strip():
-                        st.error("❌ Bitte Vor- und Nachnamen eingeben.")
-                    else:
-                        _egeb_ok, _egeb_err = _validate_geburtsdatum(e_geb)
-                        if not _egeb_ok:
-                            st.error(f"❌ Ungültiges Geburtsdatum: {_egeb_err}")
-                        else:
-                            spieler_aktualisieren(
-                                sp["id"],
-                                e_vn.strip(), e_nn.strip(), e_geb.strip(),
-                                e_gesch, e_hpos,
-                                e_npos if e_npos != "—" else "",
-                                e_ak, e_sb, e_lvl,
-                                e_mann.strip(), e_ts,
-                            )
-                            _save_ok(f"Spieler **{e_vn} {e_nn}** wurde aktualisiert.")
-                            st.rerun()
-
-    # ── Tab 3: Alle Spieler — Suche, Filter, Multi-Löschen ───────────────────
+    # ── Tab 2: Alle Spieler — Suche, Filter, Inline-Bearbeiten, Löschen ────────
     with tab_list:
         _sp_list = spieler_laden()
         if not _sp_list:
@@ -960,21 +964,47 @@ def page_spieler():
                          p.get("hauptposition") == f_pos or p.get("position") == f_pos]
 
         if gefiltert:
-            zeilen = []
+            # ── Tabellenkopf ─────────────────────────────────────────────────
+            _th = st.columns([3, 1.2, 2, 2.2, 1.8, 0.6])
+            for _tc, _tl in zip(_th, ["Name", "Alter", "Position", "Mannschaft", "Status", ""]):
+                _tc.markdown(
+                    f"<small style='color:#8b949e;font-weight:600;text-transform:uppercase;"
+                    f"letter-spacing:.05em'>{_tl}</small>",
+                    unsafe_allow_html=True,
+                )
+            st.markdown('<hr style="margin:4px 0 0 0;opacity:0.25">', unsafe_allow_html=True)
+
+            # ── Spieler-Zeilen mit ✏️-Button ─────────────────────────────────
             for p in gefiltert:
                 _al = berechne_alter(p.get("geburtsdatum"))
-                zeilen.append({
-                    "Name":            p["name"],
-                    "Alter":           f"{_al} J." if _al else "—",
-                    "Altersklasse":    p.get("altersklasse") or "—",
-                    "Hauptposition":   p.get("hauptposition") or p.get("position") or "—",
-                    "Spielbein":       p.get("spielbein") or "—",
-                    "Mannschaft":      p.get("mannschaft") or "—",
-                    "Leistungsniveau": p.get("leistungsniveau") or "—",
-                    "Status":          p.get("trainingsstatus") or "Volltraining",
-                })
-            st.dataframe(pd.DataFrame(zeilen), use_container_width=True, hide_index=True)
-            st.caption(f"{len(zeilen)} von {len(_sp_list)} Spielern angezeigt.")
+                _is_editing = st.session_state.get("inline_edit_id") == p["id"]
+                _rc = st.columns([3, 1.2, 2, 2.2, 1.8, 0.6])
+                _rc[0].markdown(f"**{p['name']}**")
+                _rc[1].markdown(f"{_al} J." if _al else "—")
+                _rc[2].markdown(p.get("hauptposition") or p.get("position") or "—")
+                _rc[3].markdown(p.get("mannschaft") or "—")
+                _rc[4].markdown(p.get("trainingsstatus") or "—")
+                if _rc[5].button(
+                    "✖️" if _is_editing else "✏️",
+                    key=f"il_btn_{p['id']}",
+                    use_container_width=True,
+                    help="Formular schließen" if _is_editing else "Spieler bearbeiten",
+                ):
+                    if _is_editing:
+                        st.session_state.pop("inline_edit_id", None)
+                    else:
+                        st.session_state["inline_edit_id"] = p["id"]
+                    st.rerun()
+
+                if _is_editing:
+                    _render_inline_edit_form(p)
+                else:
+                    st.markdown(
+                        '<hr style="margin:2px 0;opacity:0.12">',
+                        unsafe_allow_html=True,
+                    )
+
+            st.caption(f"{len(gefiltert)} von {len(_sp_list)} Spielern angezeigt.")
         else:
             st.info("Keine Spieler gefunden.")
 
