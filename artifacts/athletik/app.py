@@ -109,7 +109,7 @@ from analytics import (
     defizite_ermitteln, schwerpunkt_sammeln,
 )
 from periodisierung import (zyklus_erstellen, zyklus_laden, trainingsplan_multi_erstellen,
-                             defizit_tabelle, _alter_zu_plangruppe, _PLANGRUPPEN_CONFIG)
+                             defizit_tabelle, _alter_zu_plangruppe, _PLANGRUPPEN_CONFIG, _POOL)
 from pdf_report import generate_report, generate_vergleich_pdf
 from pdf_anleitung import generate_anleitung_pdf, ALL_TEST_IDS, TEST_LABELS
 from export import kader_excel_bytes, spieler_excel_bytes
@@ -751,21 +751,27 @@ def page_spieler():
         st.markdown("### Spieler hinzufügen")
 
         st.markdown("#### 👤 Persönliche Daten")
-        c1, c2 = st.columns(2)
-        vorname      = c1.text_input("Vorname *",                              key="neu_vn")
-        nachname     = c2.text_input("Nachname *",                             key="neu_nn")
-        geburtsdatum = c1.text_input("Geburtsdatum (TT.MM.JJJJ) *",
-                                     placeholder="15.03.2008",                 key="neu_geb")
-        geschlecht   = c2.selectbox("Geschlecht", ["Männlich", "Weiblich", "Divers"], key="neu_gesch")
+        # Zeile 1: Vorname | Nachname  (separate columns-Deklaration → korrekte Reihenfolge auch auf Mobilgeräten)
+        _r1c1, _r1c2 = st.columns(2)
+        vorname  = _r1c1.text_input("Vorname *",  key="neu_vn")
+        nachname = _r1c2.text_input("Nachname *", key="neu_nn")
 
+        # Zeile 2: Geburtsdatum | Geschlecht
+        _r2c1, _r2c2 = st.columns(2)
+        geburtsdatum = _r2c1.text_input("Geburtsdatum (TT.MM.JJJJ) *",
+                                        placeholder="15.03.2008", key="neu_geb")
+        geschlecht   = _r2c2.selectbox("Geschlecht", ["Männlich", "Weiblich", "Divers"], key="neu_gesch")
+
+        # Zeile 3: Alter-Anzeige | Altersklasse
         alter        = berechne_alter(geburtsdatum)
         ak_vorschlag = altersklasse_vorschlag(geburtsdatum)
+        _r3c1, _r3c2 = st.columns(2)
         if alter:
-            c1.markdown(f"<small style='color:#3fb950'>Alter: **{alter} Jahre** — Vorschlag: {ak_vorschlag}</small>",
-                        unsafe_allow_html=True)
-        altersklasse = c2.selectbox("Altersklasse", ALTERSKLASSEN,
-                                    index=ALTERSKLASSEN.index(ak_vorschlag) if ak_vorschlag in ALTERSKLASSEN else 7,
-                                    key="neu_ak")
+            _r3c1.markdown(f"<small style='color:#3fb950'>Alter: **{alter} Jahre** — Vorschlag: {ak_vorschlag}</small>",
+                           unsafe_allow_html=True)
+        altersklasse = _r3c2.selectbox("Altersklasse", ALTERSKLASSEN,
+                                       index=ALTERSKLASSEN.index(ak_vorschlag) if ak_vorschlag in ALTERSKLASSEN else 7,
+                                       key="neu_ak")
 
         st.markdown("#### 🏟️ Sportliche Daten")
         p1, p2 = st.columns(2)
@@ -1959,13 +1965,33 @@ def page_trainingsplan():
     with tab_manual:
         st.markdown("### Übung manuell hinzufügen")
         mc1, mc2 = st.columns(2)
-        bereich     = mc1.selectbox("Bereich", ["Sprunggelenk","Knie","Hüfte","Rumpf","Oberschenkel",
-                                                  "Schnelligkeit","Explosivität","Agilität","Fußball"])
-        uebung      = mc2.text_input("Übungsname")
-        saetze      = mc1.text_input("Sätze", "3")
-        wdh         = mc2.text_input("Wiederholungen", "10")
-        haeufigkeit = mc1.text_input("Häufigkeit", "2×/Woche")
-        woche       = mc2.number_input("Woche", 1, 12, 1)
+        bereich = mc1.selectbox("Bereich", ["Sprunggelenk","Knie","Hüfte","Rumpf","Oberschenkel",
+                                             "Schnelligkeit","Explosivität","Agilität","Fußball"],
+                                key="manual_bereich")
+
+        # Übungskatalog aus Pool für gewählten Bereich (ohne Duplikate, alle Phasen)
+        _katalog: list[str] = []
+        for _pk in ["stabilisation", "kraft", "power"]:
+            for _u, *_ in _POOL.get(bereich, {}).get(_pk, []):
+                if _u not in _katalog:
+                    _katalog.append(_u)
+        _EIGENE_OPT = "✏️ Eigene Übung eingeben..."
+        _katalog_opts = _katalog + [_EIGENE_OPT]
+
+        _ub_sel = mc2.selectbox("Übungsname", _katalog_opts,
+                                key=f"manual_ub_{bereich}",
+                                help="Alle Übungen aus dem Katalog für diesen Bereich. "
+                                     "Ganz unten: eigene Übung frei eingeben.")
+        if _ub_sel == _EIGENE_OPT:
+            uebung = st.text_input("Eigene Übung eingeben", key="manual_ub_custom",
+                                   placeholder="z. B. Reverse Lunge mit Rotation")
+        else:
+            uebung = _ub_sel
+
+        saetze      = mc1.text_input("Sätze", "3",          key="manual_saetze")
+        wdh         = mc2.text_input("Wiederholungen", "10", key="manual_wdh")
+        haeufigkeit = mc1.text_input("Häufigkeit", "2×/Woche", key="manual_haeuf")
+        woche       = mc2.number_input("Woche", 1, 12, 1,   key="manual_woche")
         if st.button("➕ Übung speichern"):
             trainingsplan_eintrag_speichern(sid, str(date.today()), woche,
                                             bereich, uebung, saetze, wdh, haeufigkeit)
