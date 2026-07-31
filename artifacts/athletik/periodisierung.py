@@ -391,12 +391,113 @@ def zyklus_laden(spieler_id: int) -> list:
 # Called from page_trainingsplan() — generate into the trainingsplan table
 # ─── Training-Day assignment helpers ─────────────────────────────────────────
 
-_PAUSE_SEKUNDEN = {"stabilisation": 60, "kraft": 90, "power": 120}
-_AUSFUEHRUNG    = {
-    "stabilisation": "kontrolliert (2-1-2 s)",
-    "kraft":         "kontrolliert (2-0-2 s)",
-    "power":         "explosiv-kontrolliert",
+# ─── Pause und Ausführung — BEREICHSSPEZIFISCH ───────────────────────────────
+# Format Ausführung: exzentrisch - isometr. Pause - konzentrisch (s)
+#
+# Sportwissenschaftliche Grundlagen:
+#   Stabilisation  → 2-1-2 s Tempo (neuromot. Kontrolle), 30–45 s Pause
+#   Kraft          → 3-0-1 s Tempo (exzentrischer Overload + schnell konzentrisch),
+#                    60–90 s Pause (je nach Muskelgruppe)
+#   Power/Explosiv → kein Tempo-Protokoll (max. Geschwindigkeit jede WH),
+#                    90–180 s Pause (ZNS-Erholung entscheidend)
+#   Sprint         → volle ZNS-Erholung 120–180 s (Qualität > Quantität)
+#   Isometrisch    → Haltedauer definiert Intensität, 45 s Pause
+#
+# Quellen: Haff & Triplett (NSCA 2016), Zatsiorsky & Kraemer (2006),
+#          Faigenbaum & Myer (2010), Buchheit & Laursen (2013)
+#
+# Schlüssel: (bereich, pool_key) → (pause_sekunden, ausfuehrung_text)
+
+_BEREICH_PARAMS: dict[tuple[str, str], tuple[int, str]] = {
+
+    # ── Rumpf (Core) ──────────────────────────────────────────────────────────
+    # Stabilisation: isometrische Kontrolle, kurze Pause für Dauerreiz
+    # Kraft: dynamische Rumpfkraft, kontrolliert exzentrisch
+    # Power: rotative Kraft / Medizinball — explosiv, volle Pause
+    ("Rumpf", "stabilisation"): (45,  "2-1-2 s (Stabilisationsphase halten)"),
+    ("Rumpf", "kraft"):         (60,  "2-0-1 s (kontrolliert-exzentrisch)"),
+    ("Rumpf", "power"):         (90,  "Explosiv / reaktiv"),
+
+    # ── Hüfte ─────────────────────────────────────────────────────────────────
+    # Hüftabduktoren, Gluteus medius — kurze Pause bei Stabi
+    # Hip Thrust Kraft: moderate Pause, langsam exzentrisch
+    # Power: explosiver Hip Thrust — volle Pause, max. Hüftstreckung
+    ("Hüfte", "stabilisation"): (45,  "2-1-2 s (Hüftkontrolle betonen)"),
+    ("Hüfte", "kraft"):         (75,  "3-0-1 s (langsam exzentrisch)"),
+    ("Hüfte", "power"):         (90,  "Explosiv / max. Hüftextension"),
+
+    # ── Knie ──────────────────────────────────────────────────────────────────
+    # Knie: exzentrischer Fokus (Patellasehne, ACL-Prävention)
+    # Kraft: längere Pause bei Bulgarian Split Squat etc.
+    # Power: reaktiv — keine Erschöpfung, volle ZNS-Erholung
+    ("Knie", "stabilisation"): (45,  "2-1-2 s (Knieachse kontrollieren)"),
+    ("Knie", "kraft"):         (90,  "3-0-1 s (exzentrischer Fokus)"),
+    ("Knie", "power"):         (120, "Reaktiv / max. Explosivkraft"),
+
+    # ── Sprunggelenk ──────────────────────────────────────────────────────────
+    # Wadenheben / Mobilisation — kurze Pause, hohe Wdh.-Qualität
+    # Power: Ankle Jumps reaktiv — Elastizität der Achillessehne
+    ("Sprunggelenk", "stabilisation"): (45, "2-1-2 s (Balance & Bodenkontakt)"),
+    ("Sprunggelenk", "kraft"):         (60, "2-0-1 s (Exzentrik Wadenheben)"),
+    ("Sprunggelenk", "power"):         (90, "Reaktiv / max. Elastizität Achillessehne"),
+
+    # ── Oberschenkel (Hamstring-Fokus) ────────────────────────────────────────
+    # Nordic Hamstring: besonders hohe exzentrische Belastung → längste Pause
+    # Power: Explosive Nordic / Power RDL — volle ZNS-Erholung nötig
+    ("Oberschenkel", "stabilisation"): (60,  "3-1-2 s (exzentrischer Hamstring-Fokus)"),
+    ("Oberschenkel", "kraft"):         (90,  "3-0-1 s (kontrolliert exzentrisch)"),
+    ("Oberschenkel", "power"):         (120, "Explosiv / max. Kraft — keine Ermüdung"),
+
+    # ── Schnelligkeit (Sprint) ────────────────────────────────────────────────
+    # WICHTIG: Sprinttraining erfordert VOLLE ZNS-Erholung
+    # Kein Tempo-Protokoll — max. Geschwindigkeit jede Einheit
+    # Kurze Pausen zerstören die Qualität und bewirken Laktatkonditionierung statt Schnelligkeit
+    ("Schnelligkeit", "stabilisation"): (90,  "Max. Qualität / Lauf-ABC technisch"),
+    ("Schnelligkeit", "kraft"):         (120, "Max. Intensität — volle ZNS-Erholung"),
+    ("Schnelligkeit", "power"):         (180, "Max. Intensität — vollständige ZNS-Erholung"),
+
+    # ── Explosivität (Plyometrie) ─────────────────────────────────────────────
+    # Plyometrische Übungen: je höher Intensität, desto länger Pause
+    # Ziel: jede WH mit maximaler Explosivität (keine Ermüdungsakkumulation)
+    ("Explosivität", "stabilisation"): (60,  "Reaktiv / Qualität jede Wiederholung"),
+    ("Explosivität", "kraft"):         (90,  "Explosiv / volle Pause zwischen Sätzen"),
+    ("Explosivität", "power"):         (120, "Max. Explosivität — keine Ermüdung zulassen"),
+
+    # ── Agilität ──────────────────────────────────────────────────────────────
+    # Agility: reaktionsbasiert — moderate Pause, Qualität über Quantität
+    # Power-Agility: signalbasiert, volle kognitive Erholung nötig
+    ("Agilität", "stabilisation"): (60,  "Max. Richtungswechselqualität"),
+    ("Agilität", "kraft"):         (90,  "Max. Intensität / COD-Geschwindigkeit"),
+    ("Agilität", "power"):         (90,  "Reaktiv / signalbasiert — volle Konzentration"),
+
+    # ── Fußball (fußballspezifisch) ───────────────────────────────────────────
+    # Fußball-spezifische Belastungssteuerung: wettkampfnahe Intervalle
+    # Power: kurze Pausen wie im Spiel (repeated sprint ability)
+    ("Fußball", "stabilisation"): (45,  "Technisch / kontrolliert"),
+    ("Fußball", "kraft"):         (60,  "Mittel-intensiv / wettkampfnah"),
+    ("Fußball", "power"):         (60,  "Wettkampfintensität — kurze Pausen (RSA)"),
 }
+
+# Fallback-Werte falls Bereich nicht in der Tabelle
+_PAUSE_FALLBACK:    dict[str, int] = {"stabilisation": 45, "kraft": 90, "power": 120}
+_AUSFUEHRUNG_FALLBACK: dict[str, str] = {
+    "stabilisation": "2-1-2 s (kontrolliert)",
+    "kraft":         "3-0-1 s (exzentrisch-konzentrisch)",
+    "power":         "Explosiv / max. Geschwindigkeit",
+}
+
+
+def _pause_und_ausfuehrung(bereich: str, pool_key: str,
+                            is_deload: bool = False) -> tuple[int, str]:
+    """Gibt bereichsspezifische (pause_sek, ausfuehrung) zurück."""
+    pause_s, ausfuehr = _BEREICH_PARAMS.get(
+        (bereich, pool_key),
+        (_PAUSE_FALLBACK.get(pool_key, 90), _AUSFUEHRUNG_FALLBACK.get(pool_key, "kontrolliert")),
+    )
+    if is_deload:
+        pause_s = max(30, pause_s - 15)
+        ausfuehr = ausfuehr + " / leicht"
+    return pause_s, ausfuehr
 
 
 def _tags_fuer_haeufigkeit(haeuf: str) -> list[int]:
@@ -421,8 +522,6 @@ def trainingsplan_multi_erstellen(spieler_id: int, schwerpunkt_text: str, wochen
     scores = defizit_score(schwerpunkt_text)
 
     pool_key = "stabilisation" if wochen <= 4 else "kraft" if wochen <= 8 else "power"
-    pause_s  = _PAUSE_SEKUNDEN.get(pool_key, 90)
-    ausfuehr = _AUSFUEHRUNG.get(pool_key, "kontrolliert")
 
     from database import trainingsplan_loeschen, trainingsplan_eintrag_speichern
     from datetime import date
@@ -442,9 +541,8 @@ def trainingsplan_multi_erstellen(spieler_id: int, schwerpunkt_text: str, wochen
                 if is_deload:
                     haeufigkeit = haeufigkeit.replace("3×", "2×").replace("4×", "2×")
                 tags = _tags_fuer_haeufigkeit(haeufigkeit)
-                # Pausezeit bei Deload reduzieren
-                _pause = max(30, pause_s - 30) if is_deload else pause_s
-                _aust  = ausfuehr + " / leicht" if is_deload else ausfuehr
+                # Bereichsspezifische Pause & Ausführung (sportwiss. korrekt)
+                _pause, _aust = _pause_und_ausfuehrung(area, pool_key, is_deload)
                 for tag in tags:
                     trainingsplan_eintrag_speichern(
                         spieler_id, str(date.today()), w,
