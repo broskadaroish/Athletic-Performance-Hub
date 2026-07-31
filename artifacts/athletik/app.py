@@ -319,6 +319,32 @@ def _color_for_score(score: int, max_val: int = 100) -> str:
     return C["red"]
 
 
+def _datum_filter(df: "pd.DataFrame", key: str) -> "pd.DataFrame":
+    """Rendert einen optionalen Datum-Bereichsfilter über einer Verlaufstabelle.
+    Erwartet eine Spalte 'Datum' im DataFrame. Gibt den gefilterten DataFrame zurück."""
+    if df is None or df.empty or "Datum" not in df.columns:
+        return df
+    daten = df["Datum"].tolist()
+    if len(daten) < 2:
+        return df
+    _fc1, _fc2 = st.columns(2)
+    _von = _fc1.selectbox("📅 Zeitraum von", ["Alle"] + daten,
+                           key=f"dfilter_von_{key}", label_visibility="visible")
+    _bis = _fc2.selectbox("bis", ["Alle"] + list(reversed(daten)),
+                           key=f"dfilter_bis_{key}", label_visibility="visible")
+    if _von != "Alle" or _bis != "Alle":
+        try:
+            _von_idx = daten.index(_von) if _von != "Alle" else 0
+            _bis_idx = daten.index(_bis) if _bis != "Alle" else len(daten) - 1
+            if _von_idx > _bis_idx:
+                _von_idx, _bis_idx = _bis_idx, _von_idx
+            df = df.iloc[_von_idx:_bis_idx + 1].reset_index(drop=True)
+            st.caption(f"🔍 {len(df)} von {len(daten)} Einträgen angezeigt.")
+        except Exception:
+            pass
+    return df
+
+
 def _player_selector(key_suffix="") -> dict | None:
     """Returns the globally selected player (no per-page dropdown rendered).
     The selector lives in the sidebar; all pages share the same active player."""
@@ -741,29 +767,63 @@ def page_dashboard():
             st.plotly_chart(fig_bar, use_container_width=True)
 
         st.markdown("---")
+        # ── Suche & Filter ────────────────────────────────────────────────────
+        _kt_c1, _kt_c2, _kt_c3 = st.columns([3, 2, 2])
+        _kt_suche = _kt_c1.text_input("🔍 Spieler suchen", placeholder="Name …",
+                                       key="kt_suche", label_visibility="collapsed")
+        _kt_risiko = _kt_c2.selectbox("Risikolevel", ["Alle", "🔴 Hoch", "🟡 Mittel", "🟢 Gering"],
+                                       key="kt_risiko")
+        _alle_kt_mann = sorted({d["p"].get("mannschaft") or "" for d in player_data if d["p"].get("mannschaft")})
+        _kt_mann = _kt_c3.selectbox("Mannschaft", ["Alle"] + _alle_kt_mann, key="kt_mann2")
+
         rows = []
         for d in player_data:
             p, fms, y, sprint, sprung, agil, aus = (
                 d["p"], d["fms"], d["y"], d["sprint"], d["sprung"], d["agil"], d["aus"]
             )
-            icon = _RISK_ICON[d["level"]]
+            # Suche & Filter anwenden
+            if _kt_suche.strip() and _kt_suche.lower() not in p["name"].lower():
+                continue
+            _rl = d["level"]
+            if _kt_risiko == "🔴 Hoch"   and _rl != "hoch":   continue
+            if _kt_risiko == "🟡 Mittel" and _rl != "mittel": continue
+            if _kt_risiko == "🟢 Gering" and _rl != "gering": continue
+            if _kt_mann != "Alle" and p.get("mannschaft") != _kt_mann: continue
+
+            icon = _RISK_ICON[_rl]
             rows.append({
                 "Name":           p["name"],
-                "Position":       p.get("position") or "—",
+                "Position":       p.get("hauptposition") or p.get("position") or "—",
                 "Mannschaft":     p.get("mannschaft") or "—",
                 "Altersklasse":   p.get("altersklasse") or "—",
                 "Athletik Score": d["sc"],
-                "FMS Score":      fms["score"] if fms else "—",
-                "Y-Balance Ø":    (f"{(y['composite_rechts']+y['composite_links'])/2:.1f}%"
-                                   if y else "—"),
-                "Sprint 10m":     (f"{sprint['beste_10m']:.2f}s"
-                                   if sprint and sprint.get("beste_10m") else "—"),
-                "CMJ":            (f"{sprung['cmj_beid']:.0f}cm"
-                                   if sprung and sprung.get("cmj_beid") else "—"),
-                "VO₂max":         (f"{aus['vo2max']:.1f}" if aus and aus.get("vo2max") else "—"),
-                "Risiko":         f"{icon} {d['level'].capitalize()}",
+                "FMS Score":      fms["score"] if fms else None,
+                "Y-Balance Ø":    round((y["composite_rechts"] + y["composite_links"]) / 2, 1)
+                                  if y else None,
+                "Sprint 10m (s)": sprint["beste_10m"] if sprint and sprint.get("beste_10m") else None,
+                "CMJ (cm)":       sprung["cmj_beid"] if sprung and sprung.get("cmj_beid") else None,
+                "VO₂max":         aus["vo2max"] if aus and aus.get("vo2max") else None,
+                "Risiko":         f"{icon} {_rl.capitalize()}",
             })
-        st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+        _df_kt = pd.DataFrame(rows)
+        if not _df_kt.empty:
+            st.dataframe(
+                _df_kt,
+                use_container_width=True,
+                hide_index=True,
+                column_config={
+                    "Athletik Score": st.column_config.ProgressColumn(
+                        "Athletik Score", min_value=0, max_value=100, format="%d"),
+                    "FMS Score":      st.column_config.NumberColumn("FMS Score", format="%d / 21"),
+                    "Y-Balance Ø":    st.column_config.NumberColumn("Y-Balance Ø", format="%.1f %%"),
+                    "Sprint 10m (s)": st.column_config.NumberColumn("Sprint 10m (s)", format="%.2f s"),
+                    "CMJ (cm)":       st.column_config.NumberColumn("CMJ (cm)", format="%.0f cm"),
+                    "VO₂max":         st.column_config.NumberColumn("VO₂max", format="%.1f"),
+                },
+            )
+            st.caption(f"{len(rows)} von {total} Spielern angezeigt.")
+        else:
+            st.info("Keine Spieler für die gewählten Filter.")
 
         st.markdown("---")
         st.markdown("### 📥 Kader-Export")
@@ -1324,7 +1384,17 @@ def page_fms():
             st.markdown("##### Alle Tests")
             show_cols = ["Datum","Deep Squat","Hurdle L","Hurdle R","Inline L","Inline R",
                          "Shoulder L","Shoulder R","ASLR L","ASLR R","Trunk","Rotary L","Rotary R","Gesamtscore","Bewertung"]
-            st.dataframe(df_fms[show_cols], use_container_width=True, hide_index=True)
+            _df_fms_show = _datum_filter(df_fms[show_cols].copy(), "fms_voll")
+            st.dataframe(
+                _df_fms_show,
+                use_container_width=True, hide_index=True,
+                column_config={
+                    "Gesamtscore": st.column_config.NumberColumn("Gesamtscore", format="%d / 21"),
+                    **{c: st.column_config.NumberColumn(c, format="%d") for c in
+                       ["Deep Squat","Hurdle L","Hurdle R","Inline L","Inline R",
+                        "Shoulder L","Shoulder R","ASLR L","ASLR R","Trunk","Rotary L","Rotary R"]},
+                },
+            )
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -1526,9 +1596,20 @@ def page_ybalance():
             # Volltabelle
             st.markdown("---")
             st.markdown("##### Alle Tests")
-            st.dataframe(df_yb[["Datum","Composite R (%)","Composite L (%)","Ant R","Ant L",
-                                  "PM R","PM L","PL R","PL L","Asymmetrie","Schwerpunkt"]],
-                         use_container_width=True, hide_index=True)
+            _df_yb_show = df_yb[["Datum","Composite R (%)","Composite L (%)","Ant R","Ant L",
+                                   "PM R","PM L","PL R","PL L","Asymmetrie","Schwerpunkt"]].copy()
+            _df_yb_show = _datum_filter(_df_yb_show, "yb_voll")
+            st.dataframe(
+                _df_yb_show,
+                use_container_width=True, hide_index=True,
+                column_config={
+                    "Composite R (%)": st.column_config.NumberColumn("Composite R (%)", format="%.1f %%"),
+                    "Composite L (%)": st.column_config.NumberColumn("Composite L (%)", format="%.1f %%"),
+                    "Asymmetrie":      st.column_config.NumberColumn("Asymmetrie", format="%.1f %%"),
+                    **{c: st.column_config.NumberColumn(c, format="%.1f cm")
+                       for c in ["Ant R","Ant L","PM R","PM L","PL R","PL L"]},
+                },
+            )
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -2563,7 +2644,11 @@ def page_fortschritt():
                               annotation_text="Aktionsbedarf ≤12", annotation_position="top right")
                 fig.update_layout(**_pl(height=340, title="FMS Score Verlauf", yaxis=dict(range=[0, 22])))
                 st.plotly_chart(fig, use_container_width=True)
-                st.dataframe(df, use_container_width=True, hide_index=True)
+                _df_fms_f = _datum_filter(df.copy(), "fort_fms")
+                st.dataframe(_df_fms_f, use_container_width=True, hide_index=True,
+                             column_config={
+                                 "Score": st.column_config.NumberColumn("Score", format="%d / 21"),
+                             })
         else:
             if not yb_hist:
                 st.info("Noch keine Y-Balance Tests vorhanden.")
@@ -2586,7 +2671,13 @@ def page_fortschritt():
                 fig2.update_layout(**_pl(height=340, title="Y-Balance Composite Score Verlauf",
                                         yaxis=dict(range=[70, 115])))
                 st.plotly_chart(fig2, use_container_width=True)
-                st.dataframe(df, use_container_width=True, hide_index=True)
+                _df_yb_f = _datum_filter(df.copy(), "fort_yb")
+                st.dataframe(_df_yb_f, use_container_width=True, hide_index=True,
+                             column_config={
+                                 "Composite R": st.column_config.NumberColumn("Composite R (%)", format="%.1f %%"),
+                                 "Composite L": st.column_config.NumberColumn("Composite L (%)", format="%.1f %%"),
+                                 "Asymmetrie":  st.column_config.NumberColumn("Asymmetrie", format="%.1f %%"),
+                             })
 
     # ── Speed & Kraft: Sprint + Sprung + Agilität + Kraft ─────────────────────
     with tab_speed:
@@ -2599,7 +2690,7 @@ def page_fortschritt():
                 st.info("Noch keine Sprint-Tests vorhanden.")
             else:
                 df = pd.DataFrame(sprint_hist)
-                df.columns = ["Datum", "5m", "10m", "20m", "30m", "Beschl.-Index", "Bewertung 10m"]
+                df.columns = ["Datum", "5m", "10m", "20m", "30m", "40m", "Beschl.-Index", "Bewertung 10m"]
                 fig3 = go.Figure()
                 for col, color in [("10m", "#3b82f6"), ("30m", "#3fb950")]:
                     if col in df.columns and df[col].notna().any():
@@ -2611,7 +2702,10 @@ def page_fortschritt():
                 fig3.update_layout(**_pl(height=320, title="Sprintzeiten Verlauf",
                                         yaxis=dict(title="Zeit (s)")))
                 st.plotly_chart(fig3, use_container_width=True)
-                st.dataframe(df, use_container_width=True, hide_index=True)
+                _df_sp_f = _datum_filter(df.copy(), "fort_sprint")
+                st.dataframe(_df_sp_f, use_container_width=True, hide_index=True,
+                             column_config={c: st.column_config.NumberColumn(c, format="%.2f s")
+                                            for c in ["5m","10m","20m","30m"]})
         elif _speed_sel == "🦘 Sprung":
             if not sprung_hist:
                 st.info("Noch keine Sprung-Tests vorhanden.")
@@ -2633,7 +2727,14 @@ def page_fortschritt():
                 fig4.update_layout(**_pl(height=320, title="CMJ Sprunghöhe Verlauf",
                                         yaxis=dict(title="Höhe (cm)")))
                 st.plotly_chart(fig4, use_container_width=True)
-                st.dataframe(df, use_container_width=True, hide_index=True)
+                _df_sprung_f = _datum_filter(df.copy(), "fort_sprung")
+                st.dataframe(_df_sprung_f, use_container_width=True, hide_index=True,
+                             column_config={
+                                 "CMJ beid.":  st.column_config.NumberColumn("CMJ beid. (cm)", format="%.1f cm"),
+                                 "Squat Jump": st.column_config.NumberColumn("Squat Jump (cm)", format="%.1f cm"),
+                                 "Drop Jump":  st.column_config.NumberColumn("Drop Jump (cm)", format="%.1f cm"),
+                                 "CMJ Asymm.": st.column_config.NumberColumn("CMJ Asymm. (%)", format="%.1f %%"),
+                             })
         elif _speed_sel == "🔀 Agilität":
             if not agil_hist:
                 st.info("Noch keine Agilitäts-Tests vorhanden.")
@@ -2652,7 +2753,10 @@ def page_fortschritt():
                 fig5.update_layout(**_pl(height=320, title="Agilitätszeiten Verlauf",
                                         yaxis=dict(title="Zeit (s)")))
                 st.plotly_chart(fig5, use_container_width=True)
-                st.dataframe(df, use_container_width=True, hide_index=True)
+                _df_agil_f = _datum_filter(df.copy(), "fort_agil")
+                st.dataframe(_df_agil_f, use_container_width=True, hide_index=True,
+                             column_config={c: st.column_config.NumberColumn(c, format="%.2f s")
+                                            for c in ["505 R (s)","505 L (s)","5-10-5 (s)","T-Test (s)","Illinois (s)"]})
         else:  # Kraft
             if not kraft_hist:
                 st.info("Noch keine Krafttests vorhanden.")
@@ -2692,7 +2796,7 @@ def page_fortschritt():
                     figk2.update_layout(**_pl(height=300, title="Rumpfkraftausdauer Verlauf (s)",
                                              yaxis=dict(title="Sekunden")))
                     st.plotly_chart(figk2, use_container_width=True)
-                st.dataframe(df_k.rename(columns={
+                _df_kraft_ren = df_k.rename(columns={
                     "datum": "Datum", "direktes_1rm": "1RM direkt (kg)",
                     "geschaetztes_1rm": "1RM Epley (kg)",
                     "relative_kraft_direkt": "Rel. K. direkt",
@@ -2703,7 +2807,14 @@ def page_fortschritt():
                     "dorsal_sekunden": "Dorsal (s)",
                     "rumpf_gesamt_sekunden": "Rumpf ges. (s)",
                     "lateral_asymmetrie_prozent": "Lat. Asym (%)",
-                }), use_container_width=True, hide_index=True)
+                })
+                _df_kraft_f = _datum_filter(_df_kraft_ren, "fort_kraft")
+                st.dataframe(_df_kraft_f, use_container_width=True, hide_index=True,
+                             column_config={
+                                 "1RM direkt (kg)": st.column_config.NumberColumn("1RM direkt (kg)", format="%.1f kg"),
+                                 "1RM Epley (kg)":  st.column_config.NumberColumn("1RM Epley (kg)", format="%.1f kg"),
+                                 "Lat. Asym (%)":   st.column_config.NumberColumn("Lat. Asym (%)", format="%.1f %%"),
+                             })
 
     # ── Ausdauer & Körper: Ausdauer + Anthropometrie ───────────────────────────
     with tab_auskoerp:
@@ -2732,7 +2843,12 @@ def page_fortschritt():
                 fig6.update_layout(**_pl(height=320, title="VO₂max Verlauf",
                                         yaxis=dict(title="VO₂max (ml/kg/min)")))
                 st.plotly_chart(fig6, use_container_width=True)
-                st.dataframe(df, use_container_width=True, hide_index=True)
+                _df_aus_f = _datum_filter(df.copy(), "fort_ausdauer")
+                st.dataframe(_df_aus_f, use_container_width=True, hide_index=True,
+                             column_config={
+                                 "VO₂max":      st.column_config.NumberColumn("VO₂max", format="%.1f ml/kg/min"),
+                                 "Distanz (m)": st.column_config.NumberColumn("Distanz (m)", format="%d m"),
+                             })
         else:
             if not anthro_hist:
                 st.info("Noch keine Anthropometrie-Messungen vorhanden.")
@@ -2765,9 +2881,17 @@ def page_fortschritt():
                                annotation_text="Übergewicht ≥ 25", annotation_position="top right")
                 fig8.update_layout(**_pl(height=260, title="BMI Verlauf"))
                 st.plotly_chart(fig8, use_container_width=True)
-                st.dataframe(df[["Datum", "Größe (cm)", "Gewicht (kg)", "Körperfett (%)",
-                                  "Muskelmasse (kg)", "BMI", "BMI-Kat.", "PHV-Offset", "Reifestatus"]],
-                             use_container_width=True, hide_index=True)
+                _df_anthro_show = df[["Datum", "Größe (cm)", "Gewicht (kg)", "Körperfett (%)",
+                                       "Muskelmasse (kg)", "BMI", "BMI-Kat.", "PHV-Offset", "Reifestatus"]].copy()
+                _df_anthro_f = _datum_filter(_df_anthro_show, "fort_anthro")
+                st.dataframe(_df_anthro_f, use_container_width=True, hide_index=True,
+                             column_config={
+                                 "Größe (cm)":      st.column_config.NumberColumn("Größe (cm)", format="%.0f cm"),
+                                 "Gewicht (kg)":    st.column_config.NumberColumn("Gewicht (kg)", format="%.1f kg"),
+                                 "Körperfett (%)":  st.column_config.NumberColumn("Körperfett (%)", format="%.1f %%"),
+                                 "Muskelmasse (kg)":st.column_config.NumberColumn("Muskelmasse (kg)", format="%.1f kg"),
+                                 "BMI":             st.column_config.NumberColumn("BMI", format="%.1f"),
+                             })
 
 # ──────────────────────────────────────────────────────────────────────────────
 
@@ -6981,10 +7105,21 @@ def page_testprotokoll():
 # ── Sub-page maps per section ─────────────────────────────────────────────────
 def page_ueber_software():
     """Über die Software — Branding, Kontakt, Urheberrecht."""
+    import io as _uio
+    _ueber_logo = logo_laden()
+    if _ueber_logo:
+        try:
+            _ulcol, _umcol, _urcol = st.columns([1, 2, 1])
+            with _umcol:
+                st.image(_uio.BytesIO(_ueber_logo), use_container_width=True)
+        except Exception:
+            pass
+    _header_icon = "" if _ueber_logo else '<div style="font-size:64px">⚽</div>'
+    _header_pad  = "16px" if _ueber_logo else "40px"
     st.markdown(
         f'<div style="max-width:700px;margin:0 auto">'
-        f'<div style="text-align:center;padding:40px 0 24px">'
-        f'<div style="font-size:64px">⚽</div>'
+        f'<div style="text-align:center;padding:{_header_pad} 0 24px">'
+        f'{_header_icon}'
         f'<h1 style="color:#e6edf3;font-size:22px;font-weight:800;'
         f'letter-spacing:0.5px;margin:16px 0 4px">{APP_NAME}</h1>'
         f'<div style="color:#58a6ff;font-size:12px;font-weight:600;'
