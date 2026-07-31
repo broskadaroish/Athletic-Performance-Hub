@@ -196,54 +196,125 @@ def field_info_col(col, test_id: str, field_id: str) -> None:
 # ─────────────────────────────────────────────────────────────────────────────
 
 # Standard-Checkliste falls kein Test spezifische liefert
+# ─── Standard-Checkliste (gilt für ALLE Tests) ────────────────────────────────
+# Quellen: NSCA Testing Guidelines; DFB Lizenztrainer-Empfehlungen;
+#          Faigenbaum & Myer (2010) Sicherheitsprotokoll Jugendsport
 _DEFAULT_CHECKLISTE: list[tuple[str, str]] = [
-    ("🏟️", "Testfläche frei, rutschfest und ausreichend groß"),
-    ("🛠️", "Material vollständig bereitgestellt und geprüft"),
-    ("🔥", "Spieler mind. 10 Min. allgemein aufgewärmt"),
-    ("📋", "Spieler über Ablauf, Ziel und Abbruchsignal informiert"),
-    ("❓", "Akute Beschwerden oder Schmerzen beim Spieler abgefragt"),
-    ("⏱️", "Stoppuhr / Messgerät bereit und kalibriert"),
-    ("📝", "Testprotokoll / App geöffnet, Spieler ausgewählt"),
+    # Umgebung & Material
+    ("🏟️", "Testfläche frei, rutschfest, eben und ausreichend groß (min. Sicherheitsabstand 2 m)"),
+    ("🛠️", "Material vollständig bereitgestellt, gereinigt und auf Funktion geprüft"),
+    ("🌡️", "Umgebungstemperatur geprüft — optimal 15–25 °C, bei Hitze/Kälte Protokoll anpassen"),
+    # Spieler-Vorbereitung
+    ("🔥", "Spieler mind. 10 Min. allgemein aufgewärmt (Puls > 120 bpm)"),
+    ("💧", "Ausreichende Flüssigkeitszufuhr sichergestellt (mind. 500 ml in letzter Stunde)"),
+    ("🕐", "Mindestabstand zum letzten Hochintensitäts-Training: ≥ 24 Stunden"),
+    # Aufklärung & Sicherheit
+    ("📋", "Spieler über Ablauf, Ziel, Bewertungssystem und Abbruchsignal informiert"),
+    ("❓", "Akute Beschwerden, Schmerzen oder Verletzungen beim Spieler abgefragt"),
+    ("🚑", "Notfallprotokoll bekannt (Erste-Hilfe-Ausrüstung griffbereit, Notrufnummer bekannt)"),
+    # Dokumentation
+    ("⏱️", "Stoppuhr / Messgerät bereit, kalibriert und Nullpunkt geprüft"),
+    ("📝", "Testprotokoll / App geöffnet, richtiger Spieler ausgewählt"),
+    ("📸", "Videoaufnahme / Dokumentation nach Einwilligung vorbereitet"),
 ]
 
-# Testspezifische Zusätze
+# ─── Testspezifische Checklisten ──────────────────────────────────────────────
 _TEST_CHECKLISTE: dict[str, list[tuple[str, str]]] = {
+
+    # ── Sprint ────────────────────────────────────────────────────────────────
     "sprint": [
-        ("📐", "Startlinie und Lichtschrankenpositionen (10 m, 20 m, 30 m) ausgemessen"),
-        ("🚦", "Lichtschranken oder manuelle Stoppuhr synchronisiert"),
-        ("👟", "Spieler trägt Spikes oder geeignetes Schuhwerk"),
+        ("📐", "Startlinie und alle Lichtschrankenpositionen (10 m, 20 m, 30 m) exakt ausgemessen"),
+        ("🚦", "Lichtschranken kalibriert ODER manuelle Stoppuhren synchronisiert (≥ 2 Zeitnehmer)"),
+        ("👟", "Geeignetes Schuhwerk: Leichtathletik-Spikes oder Turnschuhe (keine Stollen)"),
+        ("🌬️", "Windverhältnisse notiert — Rückenwind > 2 m/s: Ergebnis als windunterstützt kennzeichnen"),
+        ("🔄", "Startposition und Startkommando erklärt (Standing Start / Crouch Start einheitlich)"),
+        ("😴", "Mindestpause zwischen Versuchen: ≥ 3 Minuten (vollständige ZNS-Erholung)"),
+        ("🏁", "Laufbahn eben, trocken und frei von Hindernissen bis 10 m hinter Ziellinie"),
     ],
+
+    # ── Y-Balance ─────────────────────────────────────────────────────────────
     "y_balance": [
-        ("📏", "Y-Balance-Kit aufgebaut, Skalen auf 0 gesetzt"),
-        ("🦵", "Standbeinlänge gemessen und notiert"),
-        ("🔁", "3 Probewiederholungen je Seite absolviert"),
+        ("📏", "Y-Balance-Kit aufgebaut, alle drei Schienen auf 0 cm gesetzt"),
+        ("🦵", "Beinlänge (ASIS bis Malleolus medialis) gemessen und in App eingetragen"),
+        ("🧦", "Spieler barfuß oder in Socken (kein Schuhwerk — verfälscht Ergebnis)"),
+        ("🔁", "3 Probewiederholungen je Seite und Richtung ohne Wertung absolviert"),
+        ("📋", "Reihenfolge eingehalten: Anterior → Posteromedial → Posterolateral"),
+        ("❌", "Disqualifikationskriterien erklärt: Standbein verlassen, Boden berühren, Balance verloren, Anstoßen"),
+        ("📐", "Markierungsband auf der Schiene (Höchstwert je Versuch sofort ablesen)"),
+        ("🔄", "3 gewertete Versuche je Seite — bester Versuch zählt"),
     ],
+
+    # ── FMS ───────────────────────────────────────────────────────────────────
     "fms": [
-        ("📏", "Hürde auf Hüfthöhe des Spielers eingestellt"),
-        ("🪵", "FMS-Brett auf ebenem Untergrund ausgerichtet"),
-        ("👣", "Spieler barfuß oder mit einheitlichem Schuhwerk"),
-        ("🔕", "Kein Coaching während der Ausführung — nur beobachten"),
-        ("📋", "Reihenfolge: Deep Squat → Hurdle → Lunge → Shoulder → ASLR → Trunk → Rotary"),
+        ("📏", "Hürde auf exakte Hüfthöhe des Spielers eingestellt und kontrolliert"),
+        ("🪵", "FMS-Brett auf ebenem Untergrund ausgerichtet, Befestigungsbolzen eingesteckt"),
+        ("👣", "Spieler barfuß oder mit einheitlichem dünnen Schuhwerk"),
+        ("🔕", "Kein Coaching oder Feedback während der Ausführung — ausschließlich beobachten"),
+        ("📋", "Reihenfolge: Deep Squat → Hurdle Step → Inline Lunge → Shoulder Mobility → ASLR → Trunk Stability → Rotary Stability"),
+        ("🎯", "Scoring-System erklärt: 3 = schmerzfrei korrekt, 2 = kompensiert, 1 = nicht möglich, 0 = Schmerz → sofort stoppen"),
+        ("⚠️", "Bei Score 0 (Schmerz): Test sofort abbrechen, medizinische Abklärung empfehlen"),
+        ("📊", "Bilateral: schlechteste Seite zählt als Gesamtscore"),
+        ("📸", "Videoaufnahme aus sagittaler und frontaler Ebene für Nachbesprechung aktiv"),
     ],
+
+    # ── Sprung / CMJ / Drop Jump ──────────────────────────────────────────────
     "jump": [
-        ("📐", "Kontaktmatte / Videokamera positioniert und gestartet"),
-        ("📦", "Drop-Jump-Box auf Standsicherheit geprüft"),
-        ("🦵", "3–5 submaximale Einsprünge als Einstimmung"),
+        ("📐", "Kontaktmatte ODER Videokamera positioniert, kalibriert und gestartet"),
+        ("📦", "Drop-Jump-Box auf Standsicherheit und korrekte Höhe geprüft (30/40/60 cm)"),
+        ("👟", "Geeignetes Schuhwerk: Turnschuhe mit flacher Sohle (keine Stollen)"),
+        ("🦵", "3–5 submaximale Einsprünge als Einstimmung — anschließend 2 Min. Pause"),
+        ("💨", "Armbewegung festgelegt: frei ODER fixiert (Hände in Hüfte) — einheitlich für alle"),
+        ("📐", "Sprungrichtung senkrecht nach oben instruiert (kein Anlauf, kein Ausholschritt)"),
+        ("🔄", "Mindestpause zwischen Versuchen: ≥ 30 Sekunden (Phosphatsystem erholen)"),
+        ("🔢", "Anzahl der gewerteten Versuche festgelegt: Standard = 3 (bester zählt)"),
     ],
+
+    # ── Agilität ──────────────────────────────────────────────────────────────
     "agility": [
-        ("📏", "Hütchen-Abstände nach Testprotokoll (T-Test / Illinois / 505 / 5-10-5) ausgemessen"),
-        ("🚦", "Lichtschrankenstartlinie markiert"),
-        ("🏃", "2 Probeläufe mit ~70% Intensität"),
+        ("📏", "Hütchen-Abstände nach Testprotokoll exakt ausgemessen: T-Test / Illinois / 505 / 5-10-5"),
+        ("🚦", "Lichtschrankenstartlinie markiert ODER Handstoppuhr synchronisiert"),
+        ("🏃", "2 Probeläufe mit ~70% Intensität — Strecke und Richtungswechsel geübt"),
+        ("👟", "Geeignetes Schuhwerk: Fußballschuhe mit Stollen oder Indoorschuhe (je nach Untergrund)"),
+        ("↩️", "Technik erklärt: frontales vs. seitliches Abdrehen je nach Test"),
+        ("🌬️", "Bei Außentest: Windverhältnisse und Untergrundqualität notiert"),
+        ("🔄", "Mindestpause zwischen Versuchen: ≥ 2–3 Minuten (vollständige Erholung)"),
+        ("🔢", "Anzahl Versuche: Standard = 2–3 (bester zählt)"),
     ],
+
+    # ── Yo-Yo Ausdauer ────────────────────────────────────────────────────────
     "yoyo": [
-        ("🔊", "Audio-CD oder App-Ton geprüft (20 m korrekt kalibriert)"),
-        ("📏", "20-m-Pendellinie und 5-m-Erholungszone markiert"),
-        ("💧", "Spieler ist ausreichend hydriert"),
+        ("🔊", "Audio-Signal geprüft: App-Ton oder CD — 20-m-Distanz zur Signalfrequenz kalibriert"),
+        ("📏", "20-m-Pendellinie und 5-m-Erholungszone mit Hütchen klar markiert"),
+        ("💧", "Spieler ausreichend hydriert — mind. 500 ml in letzter Stunde"),
+        ("🕐", "Test erst ≥ 48 Stunden nach letztem Hochintensitätstraining durchführen"),
+        ("❤️", "Herzfrequenz-Monitor angelegt (optional — für Intensitätskontrolle)"),
+        ("🚦", "Abbruchkriterien erklärt: 2× hintereinander Linie nicht rechtzeitig erreicht"),
+        ("📋", "Yo-Yo-Testvariante festgelegt: Intermittent Recovery Level 1 oder Level 2"),
+        ("🌡️", "Bei Temperaturen > 25 °C: erhöhte Monitoring-Frequenz, Abbruch bei Erschöpfung"),
     ],
+
+    # ── Anthropometrie ────────────────────────────────────────────────────────
     "anthropometrie": [
-        ("📏", "Maßband und Messzirkel gereinigt und auf 0 gesetzt"),
-        ("🧍", "Spieler in Sportunterwäsche oder engem Outfit"),
-        ("🔄", "Messungen je 2× — bei Abweichung > 5 mm: 3. Messung"),
+        ("📏", "Maßband, Messzirkel (Kaliper) und Waage gereinigt, auf 0 gesetzt und kalibriert"),
+        ("🧍", "Spieler in Sportunterwäsche oder engen Shorts (keine weite Kleidung)"),
+        ("🌡️", "Raumtemperatur 20–22 °C — entspannte Muskulatur für valide Hautfaltenmessung"),
+        ("🕐", "Messung morgens nüchtern ODER mind. 2 Stunden nach letzter Mahlzeit"),
+        ("💧", "Keine intensive Belastung ≥ 24 Stunden vor Messung (Wasserhaushalt stabil)"),
+        ("🔄", "Alle Maße je 2× gemessen — bei Abweichung > 5 mm / 0,5 kg: 3. Messung"),
+        ("📐", "Körpergröße barfuß, aufrecht, Fersen und Rücken an Wand (Frankfort-Ebene)"),
+        ("🗺️", "Messreihenfolge einhalten: Gewicht → Größe → Umfänge → Hautfalten"),
+    ],
+
+    # ── Kraft ─────────────────────────────────────────────────────────────────
+    "kraft": [
+        ("🏋️", "Geräte, Gewichte und Hanteln vollständig aufgebaut, gesichert und auf Funktion geprüft"),
+        ("📏", "Aktuelle Körpermaße notiert (Gewicht, Größe) — Grundlage für relative Kraftwerte"),
+        ("🔄", "Aufwärmsätze vollständig absolviert: 40% → 60% → 75% → 90% → 1RM-Versuch"),
+        ("👀", "Sicherheitssicherung (Spotter) bei Freihanteln obligatorisch und eingewiesen"),
+        ("⏱️", "Mindestpause zwischen Versuchen: 3–5 Minuten (vollständige Phosphatre-synthese)"),
+        ("📋", "Testformat festgelegt: 1RM / 3RM / Kraftausdauer (% 1RM × Wiederholungen)"),
+        ("🎯", "Bewegungsausführung standardisiert: Tiefe, Griffweite und Tempo definiert"),
+        ("❌", "Abbruchkriterien erklärt: Kompensationsbewegung, Schmerz, unkontrollierte Ausführung"),
     ],
 }
 

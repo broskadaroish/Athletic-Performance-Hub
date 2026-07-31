@@ -5206,8 +5206,9 @@ def page_einstellungen():
     st.markdown(section_header("⚙️ Einstellungen", "App-Konfiguration und Datenverwaltung"),
                 unsafe_allow_html=True)
 
-    tab_allg, tab_zweck, tab_chk, tab_export, tab_dsg = st.tabs([
-        "⚙️ Allgemein", "📋 Zweckbestimmung", "✅ Checklisten", "💾 Export & Backup", "🔒 Datenschutz"
+    tab_allg, tab_zweck, tab_chk, tab_export, tab_dsg, tab_lang = st.tabs([
+        "⚙️ Allgemein", "📋 Zweckbestimmung", "✅ Checklisten",
+        "💾 Export & Backup", "🔒 Datenschutz", "🌐 Sprache / Language",
     ])
 
     with tab_allg:
@@ -5232,33 +5233,156 @@ def page_einstellungen():
         page_zweckbestimmung()
 
     with tab_chk:
-        st.markdown("### ✅ Eigene Checklistenpunkte pro Test")
+        from help_ui import _DEFAULT_CHECKLISTE, _TEST_CHECKLISTE
+
+        chk_view_tab, chk_edit_tab = st.tabs(
+            ["👁️ Alle Checklisten ansehen", "✏️ Eigene Punkte ergänzen"]
+        )
+
+        with chk_view_tab:
+            st.markdown("### 📋 Standard-Checkliste (gilt für alle Tests)")
+            st.caption(
+                "Diese Punkte erscheinen vor jedem Test. "
+                "Basierend auf NSCA-Richtlinien und DFB-Trainerempfehlungen."
+            )
+            for icon, text in _DEFAULT_CHECKLISTE:
+                st.markdown(
+                    f'<div style="display:flex;gap:10px;padding:5px 0;'
+                    f'border-bottom:1px solid #21262d">'
+                    f'<span style="font-size:16px;min-width:22px">{icon}</span>'
+                    f'<span style="color:#e6edf3;font-size:13px">{text}</span>'
+                    f'</div>',
+                    unsafe_allow_html=True,
+                )
+
+            st.markdown("---")
+            st.markdown("### 🔬 Testspezifische Checklisten")
+
+            _CHK_TEST_MAP = {
+                "sprint": ("⚡ Sprint", "sprint"),
+                "jump":   ("🦘 Sprung / CMJ / Drop Jump", "jump"),
+                "agility":("🔀 Agilität", "agility"),
+                "yoyo":   ("🫁 Yo-Yo Ausdauer", "yoyo"),
+                "fms":    ("📝 FMS", "fms"),
+                "y_balance":("📏 Y-Balance", "y_balance"),
+                "anthropometrie": ("📐 Anthropometrie", "anthropometrie"),
+                "kraft":  ("💪 Kraft", "kraft"),
+            }
+            for tid, (label, chk_key) in _CHK_TEST_MAP.items():
+                items = _TEST_CHECKLISTE.get(chk_key, [])
+                if not items:
+                    continue
+                with st.expander(f"📋 {label}  ({len(items)} Punkte)", expanded=False):
+                    for icon, text in items:
+                        st.markdown(
+                            f'<div style="display:flex;gap:10px;padding:4px 0;'
+                            f'border-bottom:1px solid #21262d">'
+                            f'<span style="font-size:15px;min-width:22px">{icon}</span>'
+                            f'<span style="color:#c9d1d9;font-size:12px">{text}</span>'
+                            f'</div>',
+                            unsafe_allow_html=True,
+                        )
+                    # Eigene Punkte aus DB anzeigen
+                    custom = checkliste_custom_laden(tid)
+                    if custom:
+                        st.markdown(
+                            f'<div style="margin-top:8px;font-size:10px;color:#58a6ff;'
+                            f'letter-spacing:1px">EIGENE PUNKTE</div>',
+                            unsafe_allow_html=True,
+                        )
+                        for line in custom.splitlines():
+                            if line.strip():
+                                st.markdown(
+                                    f'<div style="display:flex;gap:10px;padding:4px 0">'
+                                    f'<span>📌</span>'
+                                    f'<span style="color:#c9d1d9;font-size:12px">{line.strip()}</span>'
+                                    f'</div>',
+                                    unsafe_allow_html=True,
+                                )
+
+        with chk_edit_tab:
+            st.markdown("### ✏️ Eigene Checklistenpunkte pro Test")
+            st.caption(
+                "Ergänze testspezifische Routineschritte, die nach den Standardpunkten "
+                "in der Trainer-Checkliste erscheinen. Ein Punkt pro Zeile."
+            )
+            st.markdown("---")
+            for tid in ALL_TEST_IDS:
+                label = TEST_LABELS[tid]
+                aktuell = checkliste_custom_laden(tid)
+                n_std = len(_DEFAULT_CHECKLISTE) + len(_TEST_CHECKLISTE.get(tid, []))
+                badge = f"{n_std} Standard"
+                with st.expander(f"📋 {label}  —  {badge}-Punkte", expanded=False):
+                    neuer_text = st.text_area(
+                        "Eigene Punkte (eine Zeile = ein Punkt)",
+                        value=aktuell,
+                        height=130,
+                        placeholder=(
+                            "z. B.\nVideoaufnahme starten\n"
+                            "Trikot-Nummer notiert\nEltern informiert"
+                        ),
+                        key=f"chk_custom_{tid}",
+                        label_visibility="collapsed",
+                    )
+                    col_save, col_reset = st.columns([2, 1])
+                    if col_save.button("💾 Speichern", key=f"chk_save_{tid}",
+                                       use_container_width=True):
+                        checkliste_custom_speichern(tid, neuer_text)
+                        st.success("✅ Gespeichert.")
+                    if col_reset.button("🗑️ Löschen", key=f"chk_del_{tid}",
+                                        use_container_width=True):
+                        checkliste_custom_speichern(tid, "")
+                        st.rerun()
+
+    with tab_lang:
+        st.markdown("### 🌐 Sprache / Language")
         st.caption(
-            "Ergänze testspezifische Routineschritte, die nach den Standardpunkten "
-            "in der Trainer-Checkliste erscheinen. Ein Punkt pro Zeile."
+            "Wähle die Anzeigesprache für die Navigation und Benutzeroberfläche. "
+            "Die fachlichen Testinhalte bleiben in der jeweiligen Originalsprache."
         )
         st.markdown("---")
-        for tid in ALL_TEST_IDS:
-            label = TEST_LABELS[tid]
-            aktuell = checkliste_custom_laden(tid)
-            with st.expander(f"📋 {label}", expanded=False):
-                neuer_text = st.text_area(
-                    "Eigene Punkte (eine Zeile = ein Punkt)",
-                    value=aktuell,
-                    height=120,
-                    placeholder="z. B.\nVideoaufnahme starten\nTrikot-Nummer notiert\nEltern informiert",
-                    key=f"chk_custom_{tid}",
-                    label_visibility="collapsed",
-                )
-                col_save, col_reset = st.columns([2, 1])
-                if col_save.button("💾 Speichern", key=f"chk_save_{tid}",
-                                   use_container_width=True):
-                    checkliste_custom_speichern(tid, neuer_text)
-                    st.success("✅ Checklisten-Text gespeichert.")
-                if col_reset.button("🗑️ Löschen", key=f"chk_del_{tid}",
-                                    use_container_width=True):
-                    checkliste_custom_speichern(tid, "")
-                    st.rerun()
+
+        aktuell_lang = get_lang()
+        lang_options  = list(SPRACHEN.keys())
+        lang_labels   = list(SPRACHEN.values())
+        try:
+            lang_idx = lang_options.index(aktuell_lang)
+        except ValueError:
+            lang_idx = 0
+
+        neue_sprache_label = st.radio(
+            "Sprache / Language",
+            lang_labels,
+            index=lang_idx,
+            key="lang_radio_sel",
+            label_visibility="collapsed",
+        )
+        # Index rückrechnen
+        neue_sprache_code = lang_options[lang_labels.index(neue_sprache_label)]
+
+        if st.button("✅ Sprache übernehmen / Apply Language", type="primary",
+                     use_container_width=True):
+            set_lang(neue_sprache_code)
+            st.success(
+                f"✅ Sprache gesetzt: {SPRACHEN[neue_sprache_code]}"
+                if neue_sprache_code == "de"
+                else f"✅ Language set: {SPRACHEN[neue_sprache_code]}"
+            )
+            st.rerun()
+
+        st.markdown("---")
+        st.markdown(
+            f'<div style="background:#161b22;border:1px solid #30363d;'
+            f'border-radius:8px;padding:14px 16px">'
+            f'<div style="font-size:10px;color:#8b949e;letter-spacing:1px;margin-bottom:8px">VORSCHAU / PREVIEW</div>'
+            f'<div style="color:#e6edf3;font-size:13px">'
+            f'<b>Navigation:</b> {t("nav_startseite")} &nbsp;·&nbsp; '
+            f'{t("nav_spieler")} &nbsp;·&nbsp; {t("nav_diagnostik")}<br>'
+            f'<b>Buttons:</b> {t("speichern")} &nbsp;·&nbsp; {t("loeschen")} &nbsp;·&nbsp; {t("generieren")}<br>'
+            f'<b>Felder:</b> {t("vorname")} &nbsp;·&nbsp; {t("nachname")} &nbsp;·&nbsp; {t("geburtsdatum")}'
+            f'</div></div>',
+            unsafe_allow_html=True,
+        )
 
     with tab_dsg:
         st.markdown("### 🔒 Datenschutz & Datenverwaltung")
@@ -6724,12 +6848,27 @@ with st.sidebar:
     if "_nav_sub_spieler_goto" in st.session_state:
         st.session_state["nav_sub_spieler"] = st.session_state.pop("_nav_sub_spieler_goto")
 
-    # ── Main navigation ───────────────────────────────────────────────────────
+    # ── Main navigation (mit Übersetzung) ────────────────────────────────────
+    _NAV_TRANS = {
+        "🏠  Startseite":    {"de": "🏠  Startseite",      "en": "🏠  Dashboard"},
+        "👤  Spieler":       {"de": "👤  Spieler",          "en": "👤  Players"},
+        "🔬  Diagnostik":    {"de": "🔬  Diagnostik",       "en": "🔬  Diagnostics"},
+        "📅  Training":      {"de": "📅  Training",          "en": "📅  Training"},
+        "📈  Entwicklung":   {"de": "📈  Entwicklung",       "en": "📈  Development"},
+        "⚖️  Vergleich":     {"de": "⚖️  Vergleich",        "en": "⚖️  Comparison"},
+        "👥  Mannschaft":    {"de": "👥  Mannschaft",        "en": "👥  Team"},
+        "🖨️  Protokoll":     {"de": "🖨️  Protokoll",        "en": "🖨️  Protocol"},
+        "📄  Anleitungen":   {"de": "📄  Anleitungen",       "en": "📄  Instructions"},
+        "⚙️  Einstellungen": {"de": "⚙️  Einstellungen",   "en": "⚙️  Settings"},
+        "ℹ️  Über":          {"de": "ℹ️  Über",              "en": "ℹ️  About"},
+    }
+    _cur_lang = get_lang()
     section = st.radio(
         "",
         _MAIN_SECTIONS,
         key="nav_section",
         label_visibility="collapsed",
+        format_func=lambda x: _NAV_TRANS.get(x, {}).get(_cur_lang, x),
     )
 
     # ── Sub-navigation ────────────────────────────────────────────────────────
