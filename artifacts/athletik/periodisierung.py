@@ -389,15 +389,40 @@ def zyklus_laden(spieler_id: int) -> list:
 
 # ─── Legacy compatibility ──────────────────────────────────────────────────
 # Called from page_trainingsplan() — generate into the trainingsplan table
+# ─── Training-Day assignment helpers ─────────────────────────────────────────
+
+_PAUSE_SEKUNDEN = {"stabilisation": 60, "kraft": 90, "power": 120}
+_AUSFUEHRUNG    = {
+    "stabilisation": "kontrolliert (2-1-2 s)",
+    "kraft":         "kontrolliert (2-0-2 s)",
+    "power":         "explosiv-kontrolliert",
+}
+
+
+def _tags_fuer_haeufigkeit(haeuf: str) -> list[int]:
+    """Return training-day tags for a given haeufigkeit string."""
+    h = (haeuf or "").lower()
+    if "4×" in h or "4x" in h:
+        return [1, 2, 3, 4]
+    if "3×" in h or "3x" in h:
+        return [1, 2, 3]
+    if "2×" in h or "2x" in h:
+        return [1, 3]   # Montag / Donnerstag
+    return [2]           # 1×/Woche → Mitte der Woche
+
+
 def trainingsplan_multi_erstellen(spieler_id: int, schwerpunkt_text: str, wochen: int = 8) -> int:
     """
     Generate a multi-focus plan into the trainingsplan table (shorter plans).
+    Each exercise is stored as separate rows per training day (Tag 1/2/3).
     Returns number of entries created.
     """
     wochen = wochen if wochen in (4, 6, 8) else 8
     scores = defizit_score(schwerpunkt_text)
 
     pool_key = "stabilisation" if wochen <= 4 else "kraft" if wochen <= 8 else "power"
+    pause_s  = _PAUSE_SEKUNDEN.get(pool_key, 90)
+    ausfuehr = _AUSFUEHRUNG.get(pool_key, "kontrolliert")
 
     from database import trainingsplan_loeschen, trainingsplan_eintrag_speichern
     from datetime import date
@@ -405,21 +430,31 @@ def trainingsplan_multi_erstellen(spieler_id: int, schwerpunkt_text: str, wochen
 
     total = 0
     for w in range(1, wochen + 1):
-        pos = (w - 1) % 4
+        pos       = (w - 1) % 4
         is_deload = pos == 3
-        offset = (w - 1) // 4
+        offset    = (w - 1) // 4
 
         sorted_areas = sorted(scores.items(), key=lambda x: -x[1])
         for area, score in sorted_areas:
             n = max(0, score - 1) if is_deload else score
             exercises = _pool_fuer_area(area, pool_key, n, offset=offset)
             for uebung, saetze, volumen, haeufigkeit in exercises:
-                trainingsplan_eintrag_speichern(
-                    spieler_id, str(date.today()), w,
-                    area, uebung, saetze, volumen,
-                    haeufigkeit.replace("3×", "2×") if is_deload else haeufigkeit,
-                )
-                total += 1
+                if is_deload:
+                    haeufigkeit = haeufigkeit.replace("3×", "2×").replace("4×", "2×")
+                tags = _tags_fuer_haeufigkeit(haeufigkeit)
+                # Pausezeit bei Deload reduzieren
+                _pause = max(30, pause_s - 30) if is_deload else pause_s
+                _aust  = ausfuehr + " / leicht" if is_deload else ausfuehr
+                for tag in tags:
+                    trainingsplan_eintrag_speichern(
+                        spieler_id, str(date.today()), w,
+                        area, uebung, saetze, volumen,
+                        haeufigkeit,
+                        tag=tag,
+                        pause_sekunden=_pause,
+                        ausfuehrung=_aust,
+                    )
+                    total += 1
 
     return total
 

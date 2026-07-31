@@ -419,12 +419,13 @@ def schwerpunkt_sammeln(
     sprung_row=None,
     agil_row=None,
     aus_row=None,
+    kraft_row=None,
 ) -> str:
     """Combine schwerpunkt/deficit texts from all modules for training recommendations."""
     parts = []
-    if fms_row and fms_row["schwerpunkt"]:
+    if fms_row and fms_row.get("schwerpunkt"):
         parts.append(str(fms_row["schwerpunkt"]))
-    if y_row and y_row["schwerpunkt"]:
+    if y_row and y_row.get("schwerpunkt"):
         parts.append(str(y_row["schwerpunkt"]))
     if sprint_row:
         defizite = str(sprint_row.get("defizite") or "")
@@ -451,4 +452,16 @@ def schwerpunkt_sammeln(
         bew = str(aus_row.get("bewertung") or "")
         if bew == "Verbesserungsbedarf":
             parts.append("ausdauer intermittierend")
+    if kraft_row:
+        # Relative Kraft auswerten
+        rel = kraft_row.get("relative_kraft_direkt") or kraft_row.get("relative_kraft_geschaetzt") or 0
+        if rel and float(rel) < 1.0:
+            parts.append("kraftdefizit bankdruecken rumpf")
+        # Rumpfkraftausdauer
+        ventral = kraft_row.get("ventral_sekunden") or 0
+        if ventral and float(ventral) < 90:
+            parts.append("rumpf stabilisation")
+        lateral_asym = kraft_row.get("lateral_asymmetrie_pct") or 0
+        if lateral_asym and float(lateral_asym) > 10:
+            parts.append("hüfte seitenasymmetrie rumpf")
     return " ".join(parts)

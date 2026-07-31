@@ -261,8 +261,8 @@ def _validate_geburtsdatum(datum_str: str):
         return False, f"Monat {month} ist ungültig — erlaubt: 1–12."
     if not (1 <= day <= 31):
         return False, f"Tag {day} ist ungültig — erlaubt: 1–31."
-    if not (1940 <= year <= _d.today().year):
-        return False, f"Jahr {year} ist ungültig — erlaubt: 1940–{_d.today().year}."
+    if not (1900 <= year <= _d.today().year):
+        return False, f"Jahr {year} ist ungültig — erlaubt: 1900–{_d.today().year}."
     try:
         _dt(year, month, day)
     except ValueError:
@@ -1468,7 +1468,7 @@ def page_spieler_profil():
     label, level = risiko_label(rs)
     ascore   = athletik_score(fms, y, sprint, sprung, agil, aus)
     defizite = defizite_ermitteln(fms, y, sprint, sprung, agil, aus, anthro)
-    schwerpunkt = schwerpunkt_sammeln(fms, y, sprint, sprung, agil, aus)
+    schwerpunkt = schwerpunkt_sammeln(fms, y, sprint, sprung, agil, aus, kraft_row=kraft_letzter(sid))
     alter = berechne_alter(auswahl.get("geburtsdatum"))
 
     # ── Header ────────────────────────────────────────────────────────────
@@ -1845,7 +1845,7 @@ def page_trainingsplan():
     sprung  = sprung_letzter(sid)
     agil    = agilitaet_letzter(sid)
     aus     = ausdauer_letzter(sid)
-    schwerpunkt = schwerpunkt_sammeln(fms, y, sprint, sprung, agil, aus)
+    schwerpunkt = schwerpunkt_sammeln(fms, y, sprint, sprung, agil, aus, kraft_row=kraft_letzter(sid))
 
     tab_auto, tab_manual, tab_view = st.tabs(["🤖 Automatisch generieren", "✍️ Manuell hinzufügen", "📋 Plan anzeigen"])
 
@@ -1921,16 +1921,29 @@ def page_trainingsplan():
             return
 
         df = pd.DataFrame(plan)
-        df.columns = ["Bereich", "Übung", "Sätze", "Wdh.", "Häufigkeit", "Woche"]
+        # New schema: bereich, uebung, saetze, wiederholungen, haeufigkeit, woche, tag, pause_sekunden, ausfuehrung
+        expected_cols = ["Bereich","Übung","Sätze","Wdh.","Häufigkeit","Woche","Tag","Pause (s)","Ausführung"]
+        if len(df.columns) == len(expected_cols):
+            df.columns = expected_cols
+        elif len(df.columns) == 6:
+            df.columns = ["Bereich","Übung","Sätze","Wdh.","Häufigkeit","Woche"]
+            df["Tag"]       = 1
+            df["Pause (s)"] = 90
+            df["Ausführung"] = "kontrolliert"
+        else:
+            df.columns = expected_cols[:len(df.columns)]
 
-        _total_wochen = int(df["Woche"].max())
-        _total_uebungen = len(df)
-        _ci1, _ci2, _ci3 = st.columns(3)
+        _total_wochen   = int(df["Woche"].max())
+        _total_uebungen = len(df["Übung"].unique()) if "Übung" in df.columns else len(df)
+        _total_einheiten = int(df["Tag"].max()) if "Tag" in df.columns else 0
+        _ci1, _ci2, _ci3, _ci4 = st.columns(4)
         _ci1.metric("Wochen", _total_wochen)
-        _ci2.metric("Übungen gesamt", _total_uebungen)
-        _ci3.metric("Bereiche abgedeckt", df["Bereich"].nunique())
+        _ci2.metric("Übungen (einzigartig)", _total_uebungen)
+        _ci3.metric("Bereiche", df["Bereich"].nunique())
+        _ci4.metric("Trainingstage/Woche", _total_einheiten)
 
         st.markdown("---")
+
         _farbe_bereich = {
             "Hüfte": "#3b82f6", "Knie": "#3fb950", "Rumpf": "#d29922",
             "Sprunggelenk": "#a371f7", "Oberschenkel": "#f85149",
@@ -1938,26 +1951,68 @@ def page_trainingsplan():
             "Agilität": "#56d364", "Fußball": "#ff7b72",
         }
 
+        # Standard-Warm-Up (fußballspezifisch, ~8–10 Minuten)
+        _WARMUP = [
+            ("🏃", "Aktivierungslauf",           "5 min",       "Leichtes Joggen, Seitwärtsläufe, Rückwärtsläufe"),
+            ("🔄", "Hüftkreisen beidbeinig",      "2×10",        "Kontrolliert, langsam"),
+            ("🌍", "World's Greatest Stretch",    "2×5/Seite",   "Tief und kontrolliert"),
+            ("🦵", "Leg Swings vor/rück",         "2×10/Seite",  "Freies Pendeln, zunehmende Amplitude"),
+            ("↔️", "Leg Swings seitlich",          "2×10/Seite",  "Lateral, gestreckt"),
+            ("🟢", "Glute Bridge",                "2×10",        "Langsam, Becken oben halten 2 s"),
+            ("🎯", "Mini-Band Walk",              "2×10 m",      "Lateral, Knie leicht gebeugt"),
+        ]
+
+        _tag_namen = {1: "Tag 1 — Montag", 2: "Tag 2 — Mittwoch", 3: "Tag 3 — Freitag",
+                      4: "Tag 4 — Samstag", 0: "Alle Tage"}
+
         for woche_nr in sorted(df["Woche"].unique()):
             _is_deload = (woche_nr % 4 == 0)
-            _woche_label = f"Woche {woche_nr}" + (" — 🔄 Deload" if _is_deload else "")
-            _border = "#444c56" if _is_deload else "#1f6feb"
+            _woche_label = f"Woche {int(woche_nr)}" + (" — 🔄 Deload" if _is_deload else "")
             with st.expander(_woche_label, expanded=(woche_nr <= 2)):
                 if _is_deload:
-                    st.caption("⬇️ Deload-Woche: reduziertes Volumen zur Regeneration")
-                sub = df[df["Woche"] == woche_nr].drop("Woche", axis=1)
-                # Color-code rows by Bereich
-                _bereiche_woche = sub["Bereich"].unique()
-                for breich in sorted(_bereiche_woche):
-                    _clr = _farbe_bereich.get(breich, "#8b949e")
+                    st.info("⬇️ **Deload-Woche:** Reduziertes Volumen und Intensität zur Regeneration. Technikfokus.")
+                sub_w = df[df["Woche"] == woche_nr]
+                tags_in_woche = sorted(sub_w["Tag"].unique())
+
+                for tag_nr in tags_in_woche:
+                    _tag_label = _tag_namen.get(int(tag_nr), f"Tag {int(tag_nr)}")
                     st.markdown(
-                        f'<div style="font-size:12px;font-weight:700;color:{_clr};'
-                        f'margin:6px 0 2px;border-left:3px solid {_clr};padding-left:8px">'
-                        f'{breich}</div>',
+                        f'<div style="background:#161b22;border-left:4px solid #1f6feb;'
+                        f'border-radius:0 8px 8px 0;padding:8px 14px;margin:12px 0 6px">' +
+                        f'<span style="color:#58a6ff;font-weight:700;font-size:14px">🗓️ {_tag_label}</span></div>',
                         unsafe_allow_html=True,
                     )
-                    _sub_b = sub[sub["Bereich"] == breich].drop("Bereich", axis=1)
-                    st.dataframe(_sub_b, use_container_width=True, hide_index=True)
+
+                    # ── Warm-Up Block ──────────────────────────────────────────
+                    with st.expander("🔥 Warm-Up (8–10 min) — Standard-Aktivierung", expanded=False):
+                        _wu_rows = []
+                        for _icon, _wu_name, _wu_vol, _wu_hinw in _WARMUP:
+                            _wu_rows.append({"Übung": f"{_icon} {_wu_name}", "Volumen": _wu_vol,
+                                             "Pause": "30 s", "Hinweis": _wu_hinw})
+                        st.dataframe(pd.DataFrame(_wu_rows), use_container_width=True, hide_index=True)
+
+                    # ── Hauptteil ──────────────────────────────────────────────
+                    sub_t = sub_w[sub_w["Tag"] == tag_nr].copy()
+                    _bereiche_tag = sub_t["Bereich"].unique()
+                    for breich in sorted(_bereiche_tag):
+                        _clr = _farbe_bereich.get(breich, "#8b949e")
+                        st.markdown(
+                            f'<div style="font-size:12px;font-weight:700;color:{_clr};'
+                            f'margin:8px 0 3px;border-left:3px solid {_clr};padding-left:8px">' +
+                            f'{breich}</div>',
+                            unsafe_allow_html=True,
+                        )
+                        _sub_b = sub_t[sub_t["Bereich"] == breich][
+                            ["Übung","Sätze","Wdh.","Pause (s)","Ausführung"]
+                        ].copy()
+                        _sub_b = _sub_b.rename(columns={"Wdh.": "Wdh. / Dauer", "Pause (s)": "Pause (s)"})
+                        st.dataframe(_sub_b, use_container_width=True, hide_index=True)
+
+                    # ── Cool-Down Hinweis ──────────────────────────────────────
+                    st.caption(
+                        "🧘 **Cool-Down:** 5–10 min Stretching der trainierten Muskelgruppen. "
+                        "Besonderes Augenmerk auf Hüftbeuger, Oberschenkel und Rumpf."
+                    )
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -1977,7 +2032,7 @@ def page_periodisierung():
     sprung = sprung_letzter(sid)
     agil   = agilitaet_letzter(sid)
     aus    = ausdauer_letzter(sid)
-    schwerpunkt = schwerpunkt_sammeln(fms, y, sprint, sprung, agil, aus)
+    schwerpunkt = schwerpunkt_sammeln(fms, y, sprint, sprung, agil, aus, kraft_row=kraft_letzter(sid))
 
     # ── Deficit summary ───────────────────────────────────────────────────────
     defizite = defizit_tabelle(schwerpunkt)
@@ -4481,11 +4536,25 @@ def page_kraft():
             sicherheit_bestaetigt=sicherheit_ok,
         )
         if kraft_res.hat_bankdruecken_daten:
+            from kraft import beurteilung_relative_kraft as _bwrk
             m1, m2, m3 = st.columns(3)
-            if direktes_1rm:                     m1.metric("Direkt 1RM", f"{direktes_1rm:.1f} kg")
-            if kraft_res.geschaetztes_1rm:        m2.metric("Epley-Schätzung", f"{kraft_res.geschaetztes_1rm:.1f} kg")
+            if direktes_1rm:              m1.metric("Direkt 1RM", f"{direktes_1rm:.1f} kg")
+            if kraft_res.geschaetztes_1rm: m2.metric("Epley-Schätzung", f"{kraft_res.geschaetztes_1rm:.1f} kg")
             rel = kraft_res.relative_kraft_direkt or kraft_res.relative_kraft_geschaetzt
-            if rel:                               m3.metric("Relative Kraft", f"{rel:.2f} ×KGW")
+            if rel:
+                m3.metric("Relative Kraft", f"{rel:.2f} ×KGW")
+                _stufe_rk, _empf_rk = _bwrk(rel)
+                _clr_rk = {"Sehr gut": "#3fb950", "Gut": "#3fb950",
+                           "Durchschnittlich": "#d29922",
+                           "Unterdurchschnittlich": "#f85149", "Kritisch": "#f85149"}.get(_stufe_rk, "#8b949e")
+                st.markdown(
+                    f'<div style="background:#161b22;border:1px solid {_clr_rk};border-radius:8px;'
+                    f'padding:10px 14px;margin:6px 0">'
+                    f'<span style="color:{_clr_rk};font-weight:700">Bankdrücken Rel. Kraft: {_stufe_rk}</span>'
+                    f'<span style="color:#8b949e;font-size:12px;margin-left:12px">{rel:.2f} ×KGW</span><br>'
+                    f'<small style="color:#8b949e">{_empf_rk}</small></div>',
+                    unsafe_allow_html=True,
+                )
 
         # ── Rumpfkraftausdauer ─────────────────────────────────────────────
         st.markdown("---")
@@ -4539,6 +4608,28 @@ def page_kraft():
                     f'<br><small style="color:#8b949e">Grenzwert: 10 % Seitendifferenz</small></div>',
                     unsafe_allow_html=True,
                 )
+            # ── Rumpfkraftausdauer Beurteilung ──────────────────────────────
+            from kraft import beurteilung_ventral_plank as _bwvp, beurteilung_dorsal as _bwdors
+            _rk_bwcols = [x for x in [
+                ("Ventral (Plank)", rumpf_res.ventral_bestwert, _bwvp),
+                ("Dorsal",          dorsal,                     _bwdors),
+            ] if x[1]]
+            if _rk_bwcols:
+                _bc = st.columns(len(_rk_bwcols))
+                _bw_clr_map = {"Sehr gut": "#3fb950", "Gut": "#3fb950",
+                               "Durchschnittlich": "#d29922",
+                               "Unterdurchschnittlich": "#f85149", "Kritisch": "#f85149"}
+                for _i, (_lbl, _val, _fn) in enumerate(_rk_bwcols):
+                    _st2, _em2 = _fn(_val)
+                    _c2 = _bw_clr_map.get(_st2, "#8b949e")
+                    _bc[_i].markdown(
+                        f'<div style="background:#161b22;border:1px solid {_c2};border-radius:8px;'
+                        f'padding:10px 14px;text-align:center">'
+                        f'<div style="color:{_c2};font-weight:700;font-size:13px">{_lbl}: {_st2}</div>'
+                        f'<div style="color:#e6edf3;font-size:22px;font-weight:700">{_val:.0f} s</div>'
+                        f'<small style="color:#8b949e">{_em2}</small></div>',
+                        unsafe_allow_html=True,
+                    )
             if rumpf_res.hinweise:
                 st.markdown("**🔵 Trainingshinweise:**")
                 for h in rumpf_res.hinweise:

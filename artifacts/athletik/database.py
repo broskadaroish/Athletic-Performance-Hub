@@ -569,6 +569,17 @@ def _migrate_db():
         except Exception:
             pass
 
+        # ── Trainingsplan: Tag, Pause, Ausführungsgeschwindigkeit ─────────────
+        for _col, _typ in [
+            ("tag",            "INTEGER DEFAULT 1"),
+            ("pause_sekunden", "INTEGER DEFAULT 90"),
+            ("ausfuehrung",    "TEXT DEFAULT 'kontrolliert'"),
+        ]:
+            try:
+                conn.execute(f"ALTER TABLE trainingsplan ADD COLUMN {_col} {_typ}")
+            except Exception:
+                pass
+
         # ── Duplikate in trainerbeobachtung bereinigen ───────────────────────
         conn.execute("""
             DELETE FROM trainerbeobachtung WHERE id NOT IN (
@@ -1363,18 +1374,27 @@ def trainingsplan_loeschen(spieler_id):
         conn.execute("DELETE FROM trainingsplan WHERE spieler_id=?", (spieler_id,))
 
 
-def trainingsplan_eintrag_speichern(spieler_id, datum, woche, bereich, uebung, saetze, wdh, haeufigkeit):
+def trainingsplan_eintrag_speichern(spieler_id, datum, woche, bereich, uebung, saetze, wdh,
+                                    haeufigkeit, tag: int = 1,
+                                    pause_sekunden: int = 90,
+                                    ausfuehrung: str = "kontrolliert"):
     with get_conn() as conn:
         conn.execute(
-            "INSERT INTO trainingsplan (spieler_id,datum,woche,bereich,uebung,saetze,wiederholungen,haeufigkeit,status) VALUES (?,?,?,?,?,?,?,?,?)",
-            (spieler_id, datum, woche, bereich, uebung, saetze, wdh, haeufigkeit, "offen"),
+            "INSERT INTO trainingsplan (spieler_id,datum,woche,bereich,uebung,saetze,wiederholungen,"
+            "haeufigkeit,status,tag,pause_sekunden,ausfuehrung) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+            (spieler_id, datum, woche, bereich, uebung, saetze, wdh, haeufigkeit, "offen",
+             tag, pause_sekunden, ausfuehrung),
         )
 
 
 def trainingsplan_laden(spieler_id):
     with get_conn() as conn:
         return _rows(conn.execute(
-            "SELECT bereich,uebung,saetze,wiederholungen,haeufigkeit,woche FROM trainingsplan WHERE spieler_id=? ORDER BY woche,id",
+            "SELECT bereich,uebung,saetze,wiederholungen,haeufigkeit,woche,"
+            "COALESCE(tag,1) as tag,"
+            "COALESCE(pause_sekunden,90) as pause_sekunden,"
+            "COALESCE(ausfuehrung,'kontrolliert') as ausfuehrung "
+            "FROM trainingsplan WHERE spieler_id=? ORDER BY woche,tag,id",
             (spieler_id,),
         ).fetchall())
 
