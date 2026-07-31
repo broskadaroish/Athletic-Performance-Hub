@@ -224,3 +224,26 @@ def beurteilung_dorsal(sekunden: float | None) -> tuple[str, str]:
     if sekunden < 150:
         return "Gut", "Gute dorsale Ausdauer"
     return "Sehr gut", "Exzellente dorsale Rumpfausdauer"
+
+
+def beurteilung_lateral(sekunden: float | None) -> tuple[str, str]:
+    """
+    Beurteilung der lateralen Rumpfkraftausdauer (Seitstütz-Haltezeit).
+    Orientierungswerte:
+      < 45 s   = Kritisch
+      45–59 s  = Unterdurchschnittlich
+      60–89 s  = Durchschnittlich
+      90–119 s = Gut
+      ≥ 120 s  = Sehr gut
+    """
+    if sekunden is None or sekunden <= 0:
+        return "—", "Keine Daten"
+    if sekunden < 45:
+        return "Kritisch", "Laterale Rumpfkraft sofort aufbauen (Sturzrisiko)"
+    if sekunden < 60:
+        return "Unterdurchschnittlich", "Laterale Stabilisatoren gezielt stärken"
+    if sekunden < 90:
+        return "Durchschnittlich", "Weiter steigern — Ziel 90 s pro Seite"
+    if sekunden < 120:
+        return "Gut", "Gute laterale Ausdauer"
+    return "Sehr gut", "Exzellente laterale Rumpfausdauer"

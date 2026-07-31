@@ -4609,9 +4609,11 @@ def page_kraft():
                     unsafe_allow_html=True,
                 )
             # ── Rumpfkraftausdauer Beurteilung ──────────────────────────────
-            from kraft import beurteilung_ventral_plank as _bwvp, beurteilung_dorsal as _bwdors
+            from kraft import beurteilung_ventral_plank as _bwvp, beurteilung_dorsal as _bwdors, beurteilung_lateral as _bwlat
             _rk_bwcols = [x for x in [
                 ("Ventral (Plank)", rumpf_res.ventral_bestwert, _bwvp),
+                ("Lateral R",       lateral_r,                  _bwlat),
+                ("Lateral L",       lateral_l,                  _bwlat),
                 ("Dorsal",          dorsal,                     _bwdors),
             ] if x[1]]
             if _rk_bwcols:
