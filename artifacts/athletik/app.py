@@ -826,7 +826,7 @@ def page_spieler():
 
         st.markdown("---")
         _check_save_ok()
-        if st.button("💾 Spieler speichern", key="neu_save"):
+        if st.button("💾 Spieler speichern", key="neu_save", type="primary", use_container_width=True):
             if not vorname.strip() or not nachname.strip():
                 st.error("❌ Bitte Vor- und Nachnamen eingeben.")
             else:
@@ -901,7 +901,7 @@ def page_spieler():
 
                 st.markdown("---")
                 _check_save_ok()
-                if st.button("💾 Änderungen speichern", key="edit_save"):
+                if st.button("💾 Änderungen speichern", key="edit_save", type="primary", use_container_width=True):
                     if not e_vn.strip() or not e_nn.strip():
                         st.error("❌ Bitte Vor- und Nachnamen eingeben.")
                     else:
@@ -1103,7 +1103,7 @@ def page_fms():
         obs_fms = render_observation_selector("fms", spieler_id, date.today().strftime("%d.%m.%Y"), "fms", standalone=False)
         _dup_fms = _duplikat_check("fms", str(date.today()), fms_history(spieler_id))
 
-        if st.button("✅ FMS speichern & auswerten", use_container_width=False):
+        if st.button("✅ FMS speichern & auswerten", use_container_width=True, type="primary"):
             if _dup_fms == "abbrechen":
                 st.info("Kein Test gespeichert."); st.stop()
             import json as _j, datetime as _dtm
@@ -1364,7 +1364,7 @@ def page_ybalance():
             st.warning("⚠️ Ungewöhnliche Werte — bitte Eingaben prüfen (Speichern trotzdem möglich):\n"
                        + "\n".join(f"• {w}" for w in _yb_warns))
 
-        if st.button("💾 Y-Balance berechnen & speichern"):
+        if st.button("💾 Y-Balance berechnen & speichern", type="primary", use_container_width=True):
             if _dup_yb == "abbrechen":
                 st.info("Kein Test gespeichert."); st.stop()
             import json as _j, datetime as _dtm
@@ -1734,7 +1734,7 @@ def page_spieler_profil():
             v_schwere    = va2.selectbox("Schweregrad", SCHWEREGRADE, key="v_schwere")
             v_ausfall    = va1.number_input("Ausfalltage (geschätzt)", 0, 365, 0, key="v_ausfall")
             v_notizen    = st.text_area("Notizen / Anmerkungen", key="v_notizen", height=80)
-            if st.button("💾 Verletzung speichern", key="v_save"):
+            if st.button("💾 Verletzung speichern", key="v_save", type="primary", use_container_width=True):
                 verletzung_speichern(sid, v_datum, v_art, v_koerper, v_schwere, int(v_ausfall), v_notizen)
                 _save_ok("Verletzung gespeichert.")
                 st.rerun()
@@ -2076,7 +2076,7 @@ def page_trainingsplan():
         wdh         = mc2.text_input("Wiederholungen", "10", key="manual_wdh")
         haeufigkeit = mc1.text_input("Häufigkeit", "2×/Woche", key="manual_haeuf")
         woche       = mc2.number_input("Woche", 1, 12, 1,   key="manual_woche")
-        if st.button("➕ Übung speichern"):
+        if st.button("➕ Übung speichern", type="primary", use_container_width=True):
             trainingsplan_eintrag_speichern(sid, str(date.today()), woche,
                                             bereich, uebung, saetze, wdh, haeufigkeit)
             _save_ok("Übung gespeichert.")
@@ -2423,20 +2423,15 @@ def page_fortschritt():
     kraft_hist  = kraft_history(sid)
     anthro_hist = anthropometrie_history(sid)
 
-    tab_radar, tab_fms, tab_yb, tab_sprint, tab_sprung, tab_agil, tab_aus, tab_kraft, tab_anthro = st.tabs([
+    tab_profil, tab_beweg, tab_speed, tab_auskoerp = st.tabs([
         "🕸️ Athletisches Profil",
-        "FMS Verlauf",
-        "Y-Balance Verlauf",
-        "Sprint Verlauf",
-        "Sprung Verlauf",
-        "Agilität Verlauf",
-        "Ausdauer Verlauf",
-        "💪 Kraft Verlauf",
-        "Anthropometrie Verlauf",
+        "🦵 Beweglichkeit",
+        "⚡ Speed & Kraft",
+        "🫁 Ausdauer & Körper",
     ])
 
     # ── Athletisches Profil — Radar-Chart ────────────────────────────────────
-    with tab_radar:
+    with tab_profil:
         fms_now    = fms_letzter(sid)
         y_now      = y_balance_letzter(sid)
         sprint_now = sprint_letzter(sid)
@@ -2507,241 +2502,238 @@ def page_fortschritt():
                         unsafe_allow_html=True,
                     )
 
-    # ── FMS ──────────────────────────────────────────────────────────────────
-    with tab_fms:
-        if not fms_hist:
-            st.info("Noch keine FMS Tests vorhanden.")
-        else:
-            df = pd.DataFrame(fms_hist)
-            df.columns = ["Datum", "Score", "Bewertung", "Asymmetrie", "Schwerpunkt"]
-            fig = go.Figure()
-            fig.add_trace(go.Scatter(
-                x=df["Datum"], y=df["Score"],
-                mode="lines+markers+text",
-                text=df["Score"], textposition="top center",
-                line=dict(color="#3b82f6", width=3),
-                marker=dict(size=9, color="#58a6ff"),
-                name="FMS Score",
-            ))
-            fig.add_hline(y=14, line_dash="dash", line_color="#d29922",
-                          annotation_text="Beobachten ≤14", annotation_position="top right")
-            fig.add_hline(y=12, line_dash="dash", line_color="#f85149",
-                          annotation_text="Aktionsbedarf ≤12", annotation_position="top right")
-            fig.update_layout(**_pl(height=340, title="FMS Score Verlauf", yaxis=dict(range=[0, 22])))
-            st.plotly_chart(fig, use_container_width=True)
-            st.dataframe(df, use_container_width=True, hide_index=True)
-
-    # ── Y-Balance ────────────────────────────────────────────────────────────
-    with tab_yb:
-        if not yb_hist:
-            st.info("Noch keine Y-Balance Tests vorhanden.")
-        else:
-            df = pd.DataFrame(yb_hist)
-            df.columns = ["Datum", "Composite R", "Composite L", "Asymmetrie", "Schwerpunkt"]
-            fig2 = go.Figure()
-            fig2.add_trace(go.Scatter(
-                x=df["Datum"], y=df["Composite R"],
-                mode="lines+markers", name="Rechts",
-                line=dict(color="#3b82f6", width=3), marker=dict(size=9),
-            ))
-            fig2.add_trace(go.Scatter(
-                x=df["Datum"], y=df["Composite L"],
-                mode="lines+markers", name="Links",
-                line=dict(color="#f85149", width=3), marker=dict(size=9),
-            ))
-            fig2.add_hline(y=89, line_dash="dash", line_color="#d29922",
-                           annotation_text="Normwert 89 %", annotation_position="top right")
-            fig2.update_layout(**_pl(height=340, title="Y-Balance Composite Score Verlauf",
-                                    yaxis=dict(range=[70, 115])))
-            st.plotly_chart(fig2, use_container_width=True)
-            st.dataframe(df, use_container_width=True, hide_index=True)
-
-    # ── Sprint ────────────────────────────────────────────────────────────────
-    with tab_sprint:
-        if not sprint_hist:
-            st.info("Noch keine Sprint-Tests vorhanden.")
-        else:
-            df = pd.DataFrame(sprint_hist)
-            df.columns = ["Datum", "5m", "10m", "20m", "30m", "Beschl.-Index", "Bewertung 10m"]
-            fig3 = go.Figure()
-            for col, color in [("10m", "#3b82f6"), ("30m", "#3fb950")]:
-                if col in df.columns and df[col].notna().any():
-                    fig3.add_trace(go.Scatter(
-                        x=df["Datum"], y=df[col],
-                        mode="lines+markers", name=f"Sprint {col}",
-                        line=dict(color=color, width=3), marker=dict(size=9),
-                    ))
-            fig3.update_layout(**_pl(height=320, title="Sprintzeiten Verlauf",
-                                    yaxis=dict(title="Zeit (s)")))
-            st.plotly_chart(fig3, use_container_width=True)
-            st.dataframe(df, use_container_width=True, hide_index=True)
-
-    # ── Sprung ────────────────────────────────────────────────────────────────
-    with tab_sprung:
-        if not sprung_hist:
-            st.info("Noch keine Sprung-Tests vorhanden.")
-        else:
-            df = pd.DataFrame(sprung_hist)
-            df.columns = ["Datum", "CMJ beid.", "Squat Jump", "Drop Jump", "RSI",
-                          "Standweit", "CMJ Asymm.", "Bewertung CMJ"]
-            fig4 = go.Figure()
-            fig4.add_trace(go.Scatter(
-                x=df["Datum"], y=df["CMJ beid."],
-                mode="lines+markers+text",
-                text=df["CMJ beid."], textposition="top center",
-                line=dict(color="#3b82f6", width=3), marker=dict(size=9),
-                name="CMJ beidbeinig (cm)",
-            ))
-            fig4.add_hline(y=33, line_dash="dash", line_color="#d29922",
-                           annotation_text="Norm Leistungssport 33 cm",
-                           annotation_position="top right")
-            fig4.update_layout(**_pl(height=320, title="CMJ Sprunghöhe Verlauf",
-                                    yaxis=dict(title="Höhe (cm)")))
-            st.plotly_chart(fig4, use_container_width=True)
-            st.dataframe(df, use_container_width=True, hide_index=True)
-
-    # ── Agilität ─────────────────────────────────────────────────────────────
-    with tab_agil:
-        if not agil_hist:
-            st.info("Noch keine Agilitäts-Tests vorhanden.")
-        else:
-            df = pd.DataFrame(agil_hist)
-            df.columns = ["Datum", "505 R (s)", "505 L (s)", "Asymm. 505 (%)",
-                          "5-10-5 (s)", "T-Test (s)", "Illinois (s)", "Bewertung T-Test"]
-            fig5 = go.Figure()
-            for col, color in [("T-Test (s)", "#3b82f6"), ("Illinois (s)", "#3fb950")]:
-                if col in df.columns and df[col].notna().any():
-                    fig5.add_trace(go.Scatter(
-                        x=df["Datum"], y=df[col],
-                        mode="lines+markers", name=col,
-                        line=dict(color=color, width=3), marker=dict(size=9),
-                    ))
-            fig5.update_layout(**_pl(height=320, title="Agilitätszeiten Verlauf",
-                                    yaxis=dict(title="Zeit (s)")))
-            st.plotly_chart(fig5, use_container_width=True)
-            st.dataframe(df, use_container_width=True, hide_index=True)
-
-    # ── Ausdauer ──────────────────────────────────────────────────────────────
-    with tab_aus:
-        if not aus_hist:
-            st.info("Noch keine Ausdauer-Tests vorhanden.")
-        else:
-            df = pd.DataFrame(aus_hist)
-            df.columns = ["Datum", "Test-Typ", "Distanz (m)", "VO₂max", "Bewertung", "HF max", "RPE"]
-            fig6 = go.Figure()
-            if "VO₂max" in df.columns and df["VO₂max"].notna().any():
-                fig6.add_trace(go.Scatter(
-                    x=df["Datum"], y=df["VO₂max"],
+    # ── Beweglichkeit: FMS + Y-Balance ──────────────────────────────────────────
+    with tab_beweg:
+        _beweg_sel = st.radio(
+            "Modul auswählen", ["📝 FMS", "📏 Y-Balance"],
+            horizontal=True, key="fort_beweg_radio", label_visibility="collapsed",
+        )
+        if _beweg_sel == "📝 FMS":
+            if not fms_hist:
+                st.info("Noch keine FMS Tests vorhanden.")
+            else:
+                df = pd.DataFrame(fms_hist)
+                df.columns = ["Datum", "Score", "Bewertung", "Asymmetrie", "Schwerpunkt"]
+                fig = go.Figure()
+                fig.add_trace(go.Scatter(
+                    x=df["Datum"], y=df["Score"],
                     mode="lines+markers+text",
-                    text=df["VO₂max"], textposition="top center",
-                    line=dict(color="#3b82f6", width=3), marker=dict(size=9),
-                    name="VO₂max (ml/kg/min)",
+                    text=df["Score"], textposition="top center",
+                    line=dict(color="#3b82f6", width=3),
+                    marker=dict(size=9, color="#58a6ff"),
+                    name="FMS Score",
                 ))
-            fig6.add_hline(y=50, line_dash="dash", line_color="#d29922",
-                           annotation_text="Zielwert ≥ 50 ml/kg/min",
-                           annotation_position="top right")
-            fig6.update_layout(**_pl(height=320, title="VO₂max Verlauf",
-                                    yaxis=dict(title="VO₂max (ml/kg/min)")))
-            st.plotly_chart(fig6, use_container_width=True)
-            st.dataframe(df, use_container_width=True, hide_index=True)
-
-    # ── Anthropometrie ────────────────────────────────────────────────────────
-    with tab_kraft:
-        if not kraft_hist:
-            st.info("Noch keine Krafttests vorhanden.")
+                fig.add_hline(y=14, line_dash="dash", line_color="#d29922",
+                              annotation_text="Beobachten ≤14", annotation_position="top right")
+                fig.add_hline(y=12, line_dash="dash", line_color="#f85149",
+                              annotation_text="Aktionsbedarf ≤12", annotation_position="top right")
+                fig.update_layout(**_pl(height=340, title="FMS Score Verlauf", yaxis=dict(range=[0, 22])))
+                st.plotly_chart(fig, use_container_width=True)
+                st.dataframe(df, use_container_width=True, hide_index=True)
         else:
-            df_k = pd.DataFrame(kraft_hist)
-            # expected columns from kraft_history: datum, direktes_1rm, geschaetztes_1rm,
-            # relative_kraft_direkt, relative_kraft_geschaetzt, ventral_sekunden,
-            # lateral_rechts_sekunden, lateral_links_sekunden, dorsal_sekunden,
-            # rumpf_gesamt_sekunden, lateral_asymmetrie_prozent, koerpergewicht
-            figk1 = go.Figure()
-            if "direktes_1rm" in df_k.columns:
-                figk1.add_trace(go.Scatter(
-                    x=df_k["datum"], y=df_k["direktes_1rm"],
-                    mode="lines+markers", name="Direktes 1RM (kg)",
+            if not yb_hist:
+                st.info("Noch keine Y-Balance Tests vorhanden.")
+            else:
+                df = pd.DataFrame(yb_hist)
+                df.columns = ["Datum", "Composite R", "Composite L", "Asymmetrie", "Schwerpunkt"]
+                fig2 = go.Figure()
+                fig2.add_trace(go.Scatter(
+                    x=df["Datum"], y=df["Composite R"],
+                    mode="lines+markers", name="Rechts",
+                    line=dict(color="#3b82f6", width=3), marker=dict(size=9),
+                ))
+                fig2.add_trace(go.Scatter(
+                    x=df["Datum"], y=df["Composite L"],
+                    mode="lines+markers", name="Links",
+                    line=dict(color="#f85149", width=3), marker=dict(size=9),
+                ))
+                fig2.add_hline(y=89, line_dash="dash", line_color="#d29922",
+                               annotation_text="Normwert 89 %", annotation_position="top right")
+                fig2.update_layout(**_pl(height=340, title="Y-Balance Composite Score Verlauf",
+                                        yaxis=dict(range=[70, 115])))
+                st.plotly_chart(fig2, use_container_width=True)
+                st.dataframe(df, use_container_width=True, hide_index=True)
+
+    # ── Speed & Kraft: Sprint + Sprung + Agilität + Kraft ─────────────────────
+    with tab_speed:
+        _speed_sel = st.radio(
+            "Modul auswählen", ["⚡ Sprint", "🦘 Sprung", "🔀 Agilität", "💪 Kraft"],
+            horizontal=True, key="fort_speed_radio", label_visibility="collapsed",
+        )
+        if _speed_sel == "⚡ Sprint":
+            if not sprint_hist:
+                st.info("Noch keine Sprint-Tests vorhanden.")
+            else:
+                df = pd.DataFrame(sprint_hist)
+                df.columns = ["Datum", "5m", "10m", "20m", "30m", "Beschl.-Index", "Bewertung 10m"]
+                fig3 = go.Figure()
+                for col, color in [("10m", "#3b82f6"), ("30m", "#3fb950")]:
+                    if col in df.columns and df[col].notna().any():
+                        fig3.add_trace(go.Scatter(
+                            x=df["Datum"], y=df[col],
+                            mode="lines+markers", name=f"Sprint {col}",
+                            line=dict(color=color, width=3), marker=dict(size=9),
+                        ))
+                fig3.update_layout(**_pl(height=320, title="Sprintzeiten Verlauf",
+                                        yaxis=dict(title="Zeit (s)")))
+                st.plotly_chart(fig3, use_container_width=True)
+                st.dataframe(df, use_container_width=True, hide_index=True)
+        elif _speed_sel == "🦘 Sprung":
+            if not sprung_hist:
+                st.info("Noch keine Sprung-Tests vorhanden.")
+            else:
+                df = pd.DataFrame(sprung_hist)
+                df.columns = ["Datum", "CMJ beid.", "Squat Jump", "Drop Jump", "RSI",
+                              "Standweit", "CMJ Asymm.", "Bewertung CMJ"]
+                fig4 = go.Figure()
+                fig4.add_trace(go.Scatter(
+                    x=df["Datum"], y=df["CMJ beid."],
+                    mode="lines+markers+text",
+                    text=df["CMJ beid."], textposition="top center",
+                    line=dict(color="#3b82f6", width=3), marker=dict(size=9),
+                    name="CMJ beidbeinig (cm)",
+                ))
+                fig4.add_hline(y=33, line_dash="dash", line_color="#d29922",
+                               annotation_text="Norm Leistungssport 33 cm",
+                               annotation_position="top right")
+                fig4.update_layout(**_pl(height=320, title="CMJ Sprunghöhe Verlauf",
+                                        yaxis=dict(title="Höhe (cm)")))
+                st.plotly_chart(fig4, use_container_width=True)
+                st.dataframe(df, use_container_width=True, hide_index=True)
+        elif _speed_sel == "🔀 Agilität":
+            if not agil_hist:
+                st.info("Noch keine Agilitäts-Tests vorhanden.")
+            else:
+                df = pd.DataFrame(agil_hist)
+                df.columns = ["Datum", "505 R (s)", "505 L (s)", "Asymm. 505 (%)",
+                              "5-10-5 (s)", "T-Test (s)", "Illinois (s)", "Bewertung T-Test"]
+                fig5 = go.Figure()
+                for col, color in [("T-Test (s)", "#3b82f6"), ("Illinois (s)", "#3fb950")]:
+                    if col in df.columns and df[col].notna().any():
+                        fig5.add_trace(go.Scatter(
+                            x=df["Datum"], y=df[col],
+                            mode="lines+markers", name=col,
+                            line=dict(color=color, width=3), marker=dict(size=9),
+                        ))
+                fig5.update_layout(**_pl(height=320, title="Agilitätszeiten Verlauf",
+                                        yaxis=dict(title="Zeit (s)")))
+                st.plotly_chart(fig5, use_container_width=True)
+                st.dataframe(df, use_container_width=True, hide_index=True)
+        else:  # Kraft
+            if not kraft_hist:
+                st.info("Noch keine Krafttests vorhanden.")
+            else:
+                df_k = pd.DataFrame(kraft_hist)
+                figk1 = go.Figure()
+                if "direktes_1rm" in df_k.columns:
+                    figk1.add_trace(go.Scatter(
+                        x=df_k["datum"], y=df_k["direktes_1rm"],
+                        mode="lines+markers", name="Direktes 1RM (kg)",
+                        line=dict(color="#3fb950", width=3), marker=dict(size=9),
+                    ))
+                if "geschaetztes_1rm" in df_k.columns:
+                    figk1.add_trace(go.Scatter(
+                        x=df_k["datum"], y=df_k["geschaetztes_1rm"],
+                        mode="lines+markers", name="Epley 1RM (kg)",
+                        line=dict(color="#3b82f6", width=2, dash="dash"), marker=dict(size=7),
+                    ))
+                figk1.update_layout(**_pl(height=300, title="Bankdrücken 1RM Verlauf (kg)",
+                                         yaxis=dict(title="kg")))
+                st.plotly_chart(figk1, use_container_width=True)
+                if "rumpf_gesamt_sekunden" in df_k.columns:
+                    figk2 = go.Figure()
+                    for col_k, lbl_k, clr_k in [
+                        ("ventral_sekunden",        "Ventral (Plank)", "#3fb950"),
+                        ("lateral_rechts_sekunden", "Lateral rechts",  "#3b82f6"),
+                        ("lateral_links_sekunden",  "Lateral links",   "#d29922"),
+                        ("dorsal_sekunden",          "Dorsal",          "#9e6a03"),
+                        ("rumpf_gesamt_sekunden",    "Gesamtzeit",      "#f85149"),
+                    ]:
+                        if col_k in df_k.columns:
+                            figk2.add_trace(go.Scatter(
+                                x=df_k["datum"], y=df_k[col_k],
+                                mode="lines+markers", name=lbl_k,
+                                line=dict(color=clr_k, width=2), marker=dict(size=7),
+                            ))
+                    figk2.update_layout(**_pl(height=300, title="Rumpfkraftausdauer Verlauf (s)",
+                                             yaxis=dict(title="Sekunden")))
+                    st.plotly_chart(figk2, use_container_width=True)
+                st.dataframe(df_k.rename(columns={
+                    "datum": "Datum", "direktes_1rm": "1RM direkt (kg)",
+                    "geschaetztes_1rm": "1RM Epley (kg)",
+                    "relative_kraft_direkt": "Rel. K. direkt",
+                    "relative_kraft_geschaetzt": "Rel. K. Epley",
+                    "ventral_sekunden": "Ventral (s)",
+                    "lateral_rechts_sekunden": "Lat. R (s)",
+                    "lateral_links_sekunden": "Lat. L (s)",
+                    "dorsal_sekunden": "Dorsal (s)",
+                    "rumpf_gesamt_sekunden": "Rumpf ges. (s)",
+                    "lateral_asymmetrie_prozent": "Lat. Asym (%)",
+                }), use_container_width=True, hide_index=True)
+
+    # ── Ausdauer & Körper: Ausdauer + Anthropometrie ───────────────────────────
+    with tab_auskoerp:
+        _ausd_sel = st.radio(
+            "Modul auswählen", ["🫁 Ausdauer", "⚖️ Anthropometrie"],
+            horizontal=True, key="fort_ausd_radio", label_visibility="collapsed",
+        )
+        if _ausd_sel == "🫁 Ausdauer":
+            if not aus_hist:
+                st.info("Noch keine Ausdauer-Tests vorhanden.")
+            else:
+                df = pd.DataFrame(aus_hist)
+                df.columns = ["Datum", "Test-Typ", "Distanz (m)", "VO₂max", "Bewertung", "HF max", "RPE"]
+                fig6 = go.Figure()
+                if "VO₂max" in df.columns and df["VO₂max"].notna().any():
+                    fig6.add_trace(go.Scatter(
+                        x=df["Datum"], y=df["VO₂max"],
+                        mode="lines+markers+text",
+                        text=df["VO₂max"], textposition="top center",
+                        line=dict(color="#3b82f6", width=3), marker=dict(size=9),
+                        name="VO₂max (ml/kg/min)",
+                    ))
+                fig6.add_hline(y=50, line_dash="dash", line_color="#d29922",
+                               annotation_text="Zielwert ≥ 50 ml/kg/min",
+                               annotation_position="top right")
+                fig6.update_layout(**_pl(height=320, title="VO₂max Verlauf",
+                                        yaxis=dict(title="VO₂max (ml/kg/min)")))
+                st.plotly_chart(fig6, use_container_width=True)
+                st.dataframe(df, use_container_width=True, hide_index=True)
+        else:
+            if not anthro_hist:
+                st.info("Noch keine Anthropometrie-Messungen vorhanden.")
+            else:
+                df = pd.DataFrame(anthro_hist)
+                df.columns = ["Datum", "Größe (cm)", "Gewicht (kg)", "Körperfett (%)", "Muskelmasse (kg)",
+                              "BMI", "BMI-Kat.", "Sitzhöhe (cm)", "Beinlänge (cm)", "Armspann (cm)",
+                              "PHV-Offset", "Reifestatus", "Beinlänge R", "Beinlänge L", "KF-Methode"]
+                fig7 = go.Figure()
+                fig7.add_trace(go.Scatter(
+                    x=df["Datum"], y=df["Gewicht (kg)"],
+                    mode="lines+markers", name="Gewicht (kg)",
+                    line=dict(color="#3b82f6", width=3), marker=dict(size=9),
+                ))
+                fig7.add_trace(go.Scatter(
+                    x=df["Datum"], y=df["Muskelmasse (kg)"],
+                    mode="lines+markers", name="Muskelmasse (kg)",
                     line=dict(color="#3fb950", width=3), marker=dict(size=9),
                 ))
-            if "geschaetztes_1rm" in df_k.columns:
-                figk1.add_trace(go.Scatter(
-                    x=df_k["datum"], y=df_k["geschaetztes_1rm"],
-                    mode="lines+markers", name="Epley 1RM (kg)",
-                    line=dict(color="#3b82f6", width=2, dash="dash"), marker=dict(size=7),
+                fig7.update_layout(**_pl(height=320, title="Körperzusammensetzung Verlauf",
+                                        yaxis=dict(title="kg")))
+                st.plotly_chart(fig7, use_container_width=True)
+                fig8 = go.Figure()
+                fig8.add_trace(go.Scatter(
+                    x=df["Datum"], y=df["BMI"],
+                    mode="lines+markers", name="BMI",
+                    line=dict(color="#d29922", width=3), marker=dict(size=9),
                 ))
-            figk1.update_layout(**_pl(height=300, title="Bankdrücken 1RM Verlauf (kg)",
-                                     yaxis=dict(title="kg")))
-            st.plotly_chart(figk1, use_container_width=True)
-
-            if "rumpf_gesamt_sekunden" in df_k.columns:
-                figk2 = go.Figure()
-                for col_k, lbl_k, clr_k in [
-                    ("ventral_sekunden",          "Ventral (Plank)", "#3fb950"),
-                    ("lateral_rechts_sekunden",   "Lateral rechts",  "#3b82f6"),
-                    ("lateral_links_sekunden",    "Lateral links",   "#d29922"),
-                    ("dorsal_sekunden",            "Dorsal",          "#9e6a03"),
-                    ("rumpf_gesamt_sekunden",      "Gesamtzeit",      "#f85149"),
-                ]:
-                    if col_k in df_k.columns:
-                        figk2.add_trace(go.Scatter(
-                            x=df_k["datum"], y=df_k[col_k],
-                            mode="lines+markers", name=lbl_k,
-                            line=dict(color=clr_k, width=2), marker=dict(size=7),
-                        ))
-                figk2.update_layout(**_pl(height=300, title="Rumpfkraftausdauer Verlauf (s)",
-                                         yaxis=dict(title="Sekunden")))
-                st.plotly_chart(figk2, use_container_width=True)
-
-            st.dataframe(df_k.rename(columns={
-                "datum": "Datum", "direktes_1rm": "1RM direkt (kg)",
-                "geschaetztes_1rm": "1RM Epley (kg)",
-                "relative_kraft_direkt": "Rel. K. direkt",
-                "relative_kraft_geschaetzt": "Rel. K. Epley",
-                "ventral_sekunden": "Ventral (s)",
-                "lateral_rechts_sekunden": "Lat. R (s)",
-                "lateral_links_sekunden": "Lat. L (s)",
-                "dorsal_sekunden": "Dorsal (s)",
-                "rumpf_gesamt_sekunden": "Rumpf ges. (s)",
-                "lateral_asymmetrie_prozent": "Lat. Asym (%)",
-            }), use_container_width=True, hide_index=True)
-
-    with tab_anthro:
-        if not anthro_hist:
-            st.info("Noch keine Anthropometrie-Messungen vorhanden.")
-        else:
-            df = pd.DataFrame(anthro_hist)
-            df.columns = ["Datum", "Größe (cm)", "Gewicht (kg)", "Körperfett (%)", "Muskelmasse (kg)",
-                          "BMI", "BMI-Kat.", "Sitzhöhe (cm)", "Beinlänge (cm)", "Armspann (cm)",
-                          "PHV-Offset", "Reifestatus", "Beinlänge R", "Beinlänge L", "KF-Methode"]
-            fig7 = go.Figure()
-            fig7.add_trace(go.Scatter(
-                x=df["Datum"], y=df["Gewicht (kg)"],
-                mode="lines+markers", name="Gewicht (kg)",
-                line=dict(color="#3b82f6", width=3), marker=dict(size=9),
-            ))
-            fig7.add_trace(go.Scatter(
-                x=df["Datum"], y=df["Muskelmasse (kg)"],
-                mode="lines+markers", name="Muskelmasse (kg)",
-                line=dict(color="#3fb950", width=3), marker=dict(size=9),
-            ))
-            fig7.update_layout(**_pl(height=320, title="Körperzusammensetzung Verlauf",
-                                    yaxis=dict(title="kg")))
-            st.plotly_chart(fig7, use_container_width=True)
-
-            # BMI + PHV chart
-            fig8 = go.Figure()
-            fig8.add_trace(go.Scatter(
-                x=df["Datum"], y=df["BMI"],
-                mode="lines+markers", name="BMI",
-                line=dict(color="#d29922", width=3), marker=dict(size=9),
-            ))
-            fig8.add_hline(y=25, line_dash="dash", line_color="#f85149",
-                           annotation_text="Übergewicht ≥ 25", annotation_position="top right")
-            fig8.update_layout(**_pl(height=260, title="BMI Verlauf"))
-            st.plotly_chart(fig8, use_container_width=True)
-            st.dataframe(df[["Datum", "Größe (cm)", "Gewicht (kg)", "Körperfett (%)",
-                              "Muskelmasse (kg)", "BMI", "BMI-Kat.", "PHV-Offset", "Reifestatus"]],
-                         use_container_width=True, hide_index=True)
-
+                fig8.add_hline(y=25, line_dash="dash", line_color="#f85149",
+                               annotation_text="Übergewicht ≥ 25", annotation_position="top right")
+                fig8.update_layout(**_pl(height=260, title="BMI Verlauf"))
+                st.plotly_chart(fig8, use_container_width=True)
+                st.dataframe(df[["Datum", "Größe (cm)", "Gewicht (kg)", "Körperfett (%)",
+                                  "Muskelmasse (kg)", "BMI", "BMI-Kat.", "PHV-Offset", "Reifestatus"]],
+                             use_container_width=True, hide_index=True)
 
 # ──────────────────────────────────────────────────────────────────────────────
 
@@ -2941,7 +2933,7 @@ def page_anthropometrie():
 
         col_sv, col_del = st.columns([3, 1])
         with col_sv:
-            if st.button("💾 Messung speichern", use_container_width=True, key="anthro_save"):
+            if st.button("💾 Messung speichern", use_container_width=True, key="anthro_save", type="primary"):
                 import json as _j
                 anthropometrie_speichern(
                     sid, datum.strftime("%d.%m.%Y"),
@@ -3141,7 +3133,7 @@ def page_sprint():
         obs_sprint = render_observation_selector("sprint", sid, datum.strftime("%d.%m.%Y"), "sprint", standalone=False)
         _dup_spr = _duplikat_check("sprint", datum.strftime("%d.%m.%Y"), hist)
 
-        if st.button("💾 Test speichern", use_container_width=True, key="sprint_save"):
+        if st.button("💾 Test speichern", use_container_width=True, key="sprint_save", type="primary"):
             if _dup_spr == "abbrechen":
                 st.info("Kein Test gespeichert."); st.stop()
             if not any([b5, b10, b20, b30, b40]):
@@ -3349,7 +3341,7 @@ def page_sprung():
         obs_sprung = render_observation_selector("sprung", sid, datum.strftime("%d.%m.%Y"), "sprung", standalone=False)
         _dup_spg = _duplikat_check("sprung", datum.strftime("%d.%m.%Y"), hist)
 
-        if st.button("💾 Test speichern", use_container_width=True, key="sprung_save"):
+        if st.button("💾 Test speichern", use_container_width=True, key="sprung_save", type="primary"):
             if _dup_spg == "abbrechen":
                 st.info("Kein Test gespeichert."); st.stop()
             if not any([b_cmj_beid, b_cmj_r, b_cmj_l, b_squat, b_dj_h, b_swj]):
@@ -3588,7 +3580,7 @@ def page_agilitaet():
         obs_agil = render_observation_selector("agilitaet", sid, datum.strftime("%d.%m.%Y"), "agil", standalone=False)
         _dup_agil = _duplikat_check("agil", datum.strftime("%d.%m.%Y"), hist)
 
-        if st.button("💾 Test speichern", use_container_width=True, key="agil_save"):
+        if st.button("💾 Test speichern", use_container_width=True, key="agil_save", type="primary"):
             if _dup_agil == "abbrechen":
                 st.info("Kein Test gespeichert."); st.stop()
             if not any(alle_werte):
@@ -3837,7 +3829,7 @@ def _page_spiro():
             pn_dauer     = pc2.number_input("Stufendauer (min)",             1.0, 10.0, 3.0, 0.5, key="prot_dauer")
             pn_steigung  = pc1.number_input("Laufbandsteigung (%)",          0.0, 15.0, 1.0, 0.5, key="prot_steigung")
             pn_pause     = pc2.number_input("Pausendauer Blutabnahme (s)",     0,  120,  30,   5, key="prot_pause")
-            if st.button("Protokoll speichern", key="prot_save"):
+            if st.button("💾 Protokoll speichern", key="prot_save", type="primary", use_container_width=True):
                 if not pn_name.strip():
                     st.error("Protokollname ist erforderlich.")
                 else:
@@ -4080,7 +4072,7 @@ def _page_spiro():
 
         # ── Speichern ─────────────────────────────────────────────────────────
         st.markdown("---")
-        if st.button("💾 Stufentest speichern", use_container_width=True, key="spiro_save"):
+        if st.button("💾 Stufentest speichern", use_container_width=True, key="spiro_save", type="primary"):
             df_valid = edited_stufen.dropna(subset=["Stufe"]) if not edited_stufen.empty else pd.DataFrame()
             if df_valid.empty:
                 st.error("Bitte mindestens eine Belastungsstufe eintragen.")
@@ -4613,7 +4605,7 @@ def page_ausdauer():
         obs_aus = render_observation_selector("ausdauer", sid, datum.strftime("%d.%m.%Y"), "aus", standalone=False)
         _dup_aus = _duplikat_check("aus", datum.strftime("%d.%m.%Y"), hist)
 
-        if st.button("💾 Test speichern", use_container_width=True, key="aus_save"):
+        if st.button("💾 Test speichern", use_container_width=True, key="aus_save", type="primary"):
             if _dup_aus == "abbrechen":
                 st.info("Kein Test gespeichert."); st.stop()
             if distanz_m <= 0:
@@ -4895,7 +4887,7 @@ def page_kraft():
         obs_kraft = render_observation_selector("kraft", sid, datum.strftime("%d.%m.%Y"), "kraft", standalone=False)
 
         save_disabled = ("Direkt" in bd_methode) and (not sicherheit_ok)
-        if st.button("💾 Test speichern", use_container_width=True, key="kraft_save",
+        if st.button("💾 Test speichern", use_container_width=True, key="kraft_save", type="primary",
                      disabled=save_disabled):
             if not rumpf_res.hat_daten:
                 st.error("Bitte mindestens einen Messwert eingeben.")
@@ -5252,17 +5244,12 @@ def page_einstellungen():
     st.markdown(section_header("⚙️ Einstellungen", "App-Konfiguration und Datenverwaltung"),
                 unsafe_allow_html=True)
 
-    tab_allg, tab_zweck, tab_chk, tab_export, tab_dsg, tab_lang = st.tabs([
-        "⚙️ Allgemein", "📋 Zweckbestimmung", "✅ Checklisten",
-        "💾 Export & Backup", "🔒 Datenschutz", "🌐 Sprache / Language",
-    ])
-
-    with tab_allg:
+    with st.expander("⚙️ Allgemein", expanded=True):
         st.markdown("### Vereinsinformationen")
         c1, c2 = st.columns(2)
         vereinsname = c1.text_input("Vereinsname", value=st.session_state.get("cfg_vereinsname", ""), key="cfg_vname")
         saison      = c2.text_input("Aktuelle Saison", value=st.session_state.get("cfg_saison", "2025/26"), key="cfg_saison")
-        if st.button("💾 Speichern", key="cfg_save"):
+        if st.button("💾 Speichern", key="cfg_save", type="primary"):
             st.session_state["cfg_vereinsname"] = vereinsname
             st.session_state["cfg_saison"]      = saison
             st.success("✅ Einstellungen gespeichert (Session).")
@@ -5275,10 +5262,10 @@ def page_einstellungen():
             mannschaften = list({p.get("mannschaft") or "Keine" for p in alle})
             st.markdown(f"**Mannschaften:** {', '.join(sorted(mannschaften))}")
 
-    with tab_zweck:
+    with st.expander("📋 Zweckbestimmung"):
         page_zweckbestimmung()
 
-    with tab_chk:
+    with st.expander("✅ Checklisten"):
         from help_ui import _DEFAULT_CHECKLISTE, _TEST_CHECKLISTE
 
         chk_view_tab, chk_edit_tab = st.tabs(
@@ -5380,7 +5367,7 @@ def page_einstellungen():
                         checkliste_custom_speichern(tid, "")
                         st.rerun()
 
-    with tab_lang:
+    with st.expander("🌐 Sprache / Language"):
         st.markdown("### 🌐 Sprache / Language")
         st.caption(
             "Wähle die Anzeigesprache für die Navigation und Benutzeroberfläche. "
@@ -5430,7 +5417,7 @@ def page_einstellungen():
             unsafe_allow_html=True,
         )
 
-    with tab_dsg:
+    with st.expander("🔒 Datenschutz & Datenverwaltung"):
         st.markdown("### 🔒 Datenschutz & Datenverwaltung")
 
         st.info(
@@ -5499,7 +5486,7 @@ def page_einstellungen():
             else:
                 st.error("❌ Bestätigungswort falsch — Reset abgebrochen.")
 
-    with tab_export:
+    with st.expander("💾 Export & Backup"):
         st.markdown("### Daten exportieren")
         alle = spieler_laden()
         if not alle:
@@ -5609,6 +5596,23 @@ def _custom_docs_section(kategorie: str, titel: str = "Eigene Dokumente"):
                         help=f"{pdf_path.name} löschen", use_container_width=True):
             pdf_path.unlink(missing_ok=True)
             st.rerun()
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# PAGE: DOKUMENTE (Protokoll + Anleitungen kombiniert)
+# ══════════════════════════════════════════════════════════════════════════════
+
+def page_dokumente():
+    """Kombinierte Dokumente-Seite: Anleitungen und Protokoll in einer."""
+    st.markdown(
+        section_header("📄 Dokumente", "Testanleitungen und Druckprotokolle"),
+        unsafe_allow_html=True,
+    )
+    tab_anl, tab_proto = st.tabs(["📄 Testanleitungen", "🖨️ Druckprotokoll"])
+    with tab_anl:
+        page_export_pdf()
+    with tab_proto:
+        page_testprotokoll()
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -6994,8 +6998,7 @@ _MAIN_SECTIONS = [
     "📈  Entwicklung",
     "⚖️  Vergleich",
     "👥  Mannschaft",
-    "🖨️  Protokoll",
-    "📄  Anleitungen",
+    "📄  Dokumente",
     "⚙️  Einstellungen",
     "ℹ️  Über",
 ]
@@ -7065,8 +7068,7 @@ with st.sidebar:
         "📈  Entwicklung":   {"de": "📈  Entwicklung",    "en": "📈  Development",  "tr": "📈  Gelişim",      "es": "📈  Desarrollo",    "fr": "📈  Développement", "pt": "📈  Desenvolvimento","ru": "📈  Развитие",       "ar": "📈  التطور"},
         "⚖️  Vergleich":     {"de": "⚖️  Vergleich",     "en": "⚖️  Comparison",   "tr": "⚖️  Karşılaştır", "es": "⚖️  Comparación",  "fr": "⚖️  Comparaison",   "pt": "⚖️  Comparação",    "ru": "⚖️  Сравнение",     "ar": "⚖️  المقارنة"},
         "👥  Mannschaft":    {"de": "👥  Mannschaft",     "en": "👥  Team",         "tr": "👥  Takım",        "es": "👥  Equipo",        "fr": "👥  Équipe",        "pt": "👥  Equipa",        "ru": "👥  Команда",        "ar": "👥  الفريق"},
-        "🖨️  Protokoll":     {"de": "🖨️  Protokoll",     "en": "🖨️  Protocol",     "tr": "🖨️  Protokol",    "es": "🖨️  Protocolo",    "fr": "🖨️  Protocole",     "pt": "🖨️  Protocolo",     "ru": "🖨️  Протокол",      "ar": "🖨️  البروتوكول"},
-        "📄  Anleitungen":   {"de": "📄  Anleitungen",    "en": "📄  Instructions", "tr": "📄  Talimatlar",   "es": "📄  Instrucciones", "fr": "📄  Instructions",   "pt": "📄  Instruções",    "ru": "📄  Инструкции",    "ar": "📄  التعليمات"},
+        "📄  Dokumente":      {"de": "📄  Dokumente",      "en": "📄  Documents",    "tr": "📄  Belgeler",     "es": "📄  Documentos",    "fr": "📄  Documents",      "pt": "📄  Documentos",    "ru": "📄  Документы",     "ar": "📄  المستندات"},
         "⚙️  Einstellungen": {"de": "⚙️  Einstellungen", "en": "⚙️  Settings",     "tr": "⚙️  Ayarlar",     "es": "⚙️  Ajustes",      "fr": "⚙️  Paramètres",    "pt": "⚙️  Definições",    "ru": "⚙️  Настройки",     "ar": "⚙️  الإعدادات"},
         "ℹ️  Über":          {"de": "ℹ️  Über",           "en": "ℹ️  About",        "tr": "ℹ️  Hakkında",    "es": "ℹ️  Acerca de",    "fr": "ℹ️  À propos",      "pt": "ℹ️  Sobre",         "ru": "ℹ️  О программе",   "ar": "ℹ️  حول"},
     }
@@ -7140,10 +7142,8 @@ elif section == "⚖️  Vergleich":
     page_spieler_vergleich()
 elif section == "👥  Mannschaft":
     page_dashboard()
-elif section == "🖨️  Protokoll":
-    page_testprotokoll()
-elif section == "📄  Anleitungen":
-    page_export_pdf()
+elif section == "📄  Dokumente":
+    page_dokumente()
 elif section == "⚙️  Einstellungen":
     page_einstellungen()
 elif section == "ℹ️  Über":
