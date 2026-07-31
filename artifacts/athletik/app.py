@@ -1810,54 +1810,128 @@ def page_spieler_profil():
 
     with tab_pdf:
         st.markdown("### 📄 PDF Report")
-        st.markdown(
-            "Der Bericht enthält alle vorhandenen Testergebnisse: "
-            "Anthropometrie, FMS, Y-Balance, Sprint, Sprung, Agilität, Ausdauer, "
-            "Verletzungshistorie, Defizite und Trainingsplan."
-        )
-        plan_rows   = zyklus_laden(sid)
-        anthro_row  = anthropometrie_letzter(sid)
-        sprint_row  = sprint_letzter(sid)
-        sprung_row  = sprung_letzter(sid)
-        agil_row    = agilitaet_letzter(sid)
-        aus_row     = ausdauer_letzter(sid)
+
+        # Daten laden
+        plan_rows        = zyklus_laden(sid)
+        anthro_row       = anthropometrie_letzter(sid)
+        sprint_row       = sprint_letzter(sid)
+        sprung_row       = sprung_letzter(sid)
+        agil_row         = agilitaet_letzter(sid)
+        aus_row          = ausdauer_letzter(sid)
         verletzungen_pdf = verletzungen_laden(sid)
+        kraft_pdf        = kraft_letzter(sid)
+        beob_pdf         = beobachtungen_alle_fuer_spieler(sid)
+        spiro_pdf        = spiro_test_letzter(sid)
 
-        kraft_pdf = kraft_letzter(sid)
-        beob_pdf  = beobachtungen_alle_fuer_spieler(sid)
+        # ── Modulauswahl ──────────────────────────────────────────────────────
+        st.markdown("#### 📋 Module auswählen")
+        st.caption(
+            "Wähle, welche Abschnitte im PDF erscheinen sollen. "
+            "Grau = noch keine Daten vorhanden."
+        )
 
-        spiro_pdf = spiro_test_letzter(sid)
-        module = {
-            "FMS": fms, "Y-Balance": y, "Anthropometrie": anthro_row,
-            "Sprint": sprint_row, "Sprung": sprung_row,
-            "Agilität": agil_row, "Ausdauer": aus_row,
-            "Kraftdiagnostik": kraft_pdf, "Spiroergometrie": spiro_pdf,
-        }
-        vorh = [k for k, v in module.items() if v]
-        fehlt = [k for k, v in module.items() if not v]
-        if vorh:
-            st.success(f"✅ Enthaltene Module: {', '.join(vorh)}")
-        if fehlt:
-            st.info(f"ℹ️ Noch keine Daten: {', '.join(fehlt)}")
+        # (label, session_key, hat_daten, daten_objekt)
+        _MODULE_CFG = [
+            ("📐 Anthropometrie",         "pdf_m_anthro",   bool(anthro_row),       anthro_row),
+            ("📝 FMS",                    "pdf_m_fms",      bool(fms),              fms),
+            ("📏 Y-Balance",              "pdf_m_ybal",     bool(y),                y),
+            ("⚡ Sprint",                 "pdf_m_sprint",   bool(sprint_row),       sprint_row),
+            ("🦘 Sprung / CMJ",           "pdf_m_sprung",   bool(sprung_row),       sprung_row),
+            ("🔀 Agilität",               "pdf_m_agil",     bool(agil_row),         agil_row),
+            ("🫁 Ausdauer (Yo-Yo)",       "pdf_m_ausdauer", bool(aus_row),          aus_row),
+            ("💪 Kraftdiagnostik",        "pdf_m_kraft",    bool(kraft_pdf),        kraft_pdf),
+            ("🫀 Spiroergometrie",        "pdf_m_spiro",    bool(spiro_pdf),        spiro_pdf),
+            ("🩹 Verletzungshistorie",    "pdf_m_verletz",  bool(verletzungen_pdf), verletzungen_pdf),
+            ("⚠️ Defizite & Empfehlungen","pdf_m_defizite", bool(defizite),         defizite),
+            ("📅 Trainingsplan",          "pdf_m_plan",     bool(plan_rows),        plan_rows),
+            ("🗒️ Trainerbeobachtungen",   "pdf_m_beob",     bool(beob_pdf),         beob_pdf),
+        ]
 
-        if st.button("📥 PDF Report generieren", key="pdf_gen"):
+        # Schnellauswahl-Buttons
+        _qa1, _qa2, _qa3 = st.columns(3)
+        if _qa1.button("✅ Alle aktivieren",  key="pdf_m_alle_an",  use_container_width=True):
+            for _, _k, _hd, _ in _MODULE_CFG:
+                if _hd:
+                    st.session_state[_k] = True
+        if _qa2.button("⬜ Alle deaktivieren", key="pdf_m_alle_aus", use_container_width=True):
+            for _, _k, _hd, _ in _MODULE_CFG:
+                if _hd:
+                    st.session_state[_k] = False
+        if _qa3.button("🔬 Nur Testergebnisse", key="pdf_m_nur_tests", use_container_width=True):
+            _test_keys = {"pdf_m_anthro","pdf_m_fms","pdf_m_ybal","pdf_m_sprint",
+                          "pdf_m_sprung","pdf_m_agil","pdf_m_ausdauer","pdf_m_kraft","pdf_m_spiro"}
+            for _, _k, _hd, _ in _MODULE_CFG:
+                if _hd:
+                    st.session_state[_k] = _k in _test_keys
+
+        st.markdown("")
+        _mc1, _mc2, _mc3 = st.columns(3)
+        _col_cycle = [_mc1, _mc2, _mc3]
+        _selection = {}
+
+        for _i, (_lbl, _key, _hat_daten, _daten) in enumerate(_MODULE_CFG):
+            _col = _col_cycle[_i % 3]
+            with _col:
+                if _hat_daten:
+                    _selection[_key] = st.checkbox(
+                        _lbl,
+                        value=st.session_state.get(_key, True),
+                        key=_key,
+                    )
+                else:
+                    st.checkbox(
+                        _lbl,
+                        value=False,
+                        disabled=True,
+                        key=f"{_key}_dis",
+                        help="Noch keine Daten vorhanden",
+                    )
+                    _selection[_key] = False
+
+        _n_aktiv = sum(1 for v in _selection.values() if v)
+
+        st.markdown("---")
+
+        # Vorschau-Banner
+        _vorh_labels = [_lbl for (_lbl, _key, _hat, _) in _MODULE_CFG if _selection.get(_key)]
+        if _vorh_labels:
+            st.markdown(
+                f'<div style="background:#0d1117;border:1px solid #238636;'
+                f'border-radius:8px;padding:10px 14px;margin-bottom:12px">'
+                f'<div style="font-size:10px;color:#3fb950;letter-spacing:1px;margin-bottom:6px">'
+                f'PDF ENTHÄLT — {_n_aktiv} MODULE</div>'
+                f'<div style="color:#c9d1d9;font-size:12px">'
+                + "  ·  ".join(_vorh_labels)
+                + '</div></div>',
+                unsafe_allow_html=True,
+            )
+        else:
+            st.warning("⚠️ Kein Modul ausgewählt — bitte mindestens eines aktivieren.")
+
+        if _n_aktiv > 0 and st.button(
+            f"📥 PDF Report generieren  ({_n_aktiv} Module)",
+            key="pdf_gen", type="primary", use_container_width=True,
+        ):
+            def _m(key, daten):
+                return daten if _selection.get(key) else None
+
             pdf_bytes = generate_report(
                 spieler=auswahl,
-                fms_row=fms,
-                y_row=y,
-                anthro_row=anthro_row,
-                sprint_row=sprint_row,
-                sprung_row=sprung_row,
-                agil_row=agil_row,
-                aus_row=aus_row,
-                kraft_row=kraft_pdf,
-                spiro_row=spiro_pdf,
-                verletzungen=verletzungen_pdf,
+                fms_row=       _m("pdf_m_fms",      fms),
+                y_row=         _m("pdf_m_ybal",     y),
+                anthro_row=    _m("pdf_m_anthro",   anthro_row),
+                sprint_row=    _m("pdf_m_sprint",   sprint_row),
+                sprung_row=    _m("pdf_m_sprung",   sprung_row),
+                agil_row=      _m("pdf_m_agil",     agil_row),
+                aus_row=       _m("pdf_m_ausdauer", aus_row),
+                kraft_row=     _m("pdf_m_kraft",    kraft_pdf),
+                spiro_row=     _m("pdf_m_spiro",    spiro_pdf),
+                verletzungen=  _m("pdf_m_verletz",  verletzungen_pdf) or [],
                 athletik_score=ascore,
                 risiko_label=label,
-                defizite=defizite,
-                plan_rows=plan_rows,
-                beobachtungen=beob_pdf,
+                defizite=      _m("pdf_m_defizite", defizite) or [],
+                plan_rows=     _m("pdf_m_plan",     plan_rows) or [],
+                beobachtungen= _m("pdf_m_beob",     beob_pdf) or [],
                 vereinsname=st.session_state.get("cfg_vereinsname", ""),
                 saison=st.session_state.get("cfg_saison", ""),
             )
@@ -1869,6 +1943,7 @@ def page_spieler_profil():
                 mime="application/pdf",
                 key="pdf_dl",
             )
+            st.success(f"✅ PDF erstellt mit {_n_aktiv} Modulen.")
 
         st.markdown("---")
         st.markdown("### 📧 E-Mail vorbereiten")
