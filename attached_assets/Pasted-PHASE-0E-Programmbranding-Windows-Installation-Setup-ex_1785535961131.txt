@@ -1,0 +1,216 @@
+PHASE 0E – Programmbranding, Windows-Installation, Setup.exe, Urheberrecht und Veröffentlichung
+Projektziel
+Du arbeitest an der bestehenden Software Bruce Football Performance Diagnostics.
+Diese Teilphase dient der professionellen Vorbereitung der Software für die Veröffentlichung als Windows-Anwendung.
+Es sollen keine neuen Diagnostikmodule entwickelt werden.
+Der Schwerpunkt liegt auf:
+•	professionellem Erscheinungsbild 
+•	Windows-Installation 
+•	Setup.exe 
+•	Branding 
+•	Copyright 
+•	Kontaktinformationen 
+•	Veröffentlichungsvorbereitung 
+Die Plattform muss nach Abschluss dieser Phase vollständig lauffähig sein.
+
+Langfristiges Projektziel
+Die Plattform soll später sowohl als
+•	Windows-Software (.exe) 
+•	Web-Anwendung 
+•	Cloud-Plattform 
+betrieben werden können.
+Der Benutzer soll die Software wie jede normale Windows-Software installieren können.
+
+Arbeitsweise
+Analysiere zunächst:
+•	Programmname 
+•	Fenstername 
+•	Logo 
+•	Icons 
+•	Startbildschirm 
+•	PDF-Berichte 
+•	Menüstruktur 
+Erstelle anschließend einen kurzen Umsetzungsplan.
+Arbeite Schritt für Schritt.
+Nach jeder Änderung:
+•	testen 
+•	dokumentieren 
+•	Fehler beheben 
+
+Wichtige Regeln
+Es dürfen keine bestehenden Funktionen beschädigt werden.
+Die Plattform muss weiterhin vollständig offline funktionieren.
+Alle Änderungen müssen professionell umgesetzt werden.
+
+Aufgabe 1 – Programmname
+Der offizielle Programmname lautet:
+Bruce Football Performance Diagnostics
+Dieser Name soll zukünftig überall verwendet werden.
+Unter anderem:
+•	Programmfenster 
+•	Dashboard 
+•	PDF-Berichte 
+•	Startbildschirm 
+•	Setup 
+•	Info-Seite 
+•	Titelleiste 
+
+Aufgabe 2 – Programm-Icon
+Bereite die Software auf ein eigenes Icon vor.
+Das Icon soll erscheinen:
+•	Programmfenster 
+•	Desktop-Verknüpfung 
+•	Windows-Startmenü 
+•	Taskleiste 
+•	Setup.exe 
+Das endgültige Icon wird später von mir bereitgestellt.
+
+Aufgabe 3 – Splash Screen
+Beim Start der Software soll automatisch ein professioneller Startbildschirm erscheinen.
+Der Splash Screen soll enthalten:
+•	Programmlogo 
+•	Bruce Football Performance Diagnostics 
+•	Versionsnummer 
+•	Copyright 
+Nach wenigen Sekunden startet automatisch die Software.
+Das endgültige Logo wird später von mir bereitgestellt.
+
+Aufgabe 4 – Copyright
+Der folgende Hinweis soll vorbereitet und später überall verwendet werden:
+© 2026 Broska Daroish. Alle Rechte vorbehalten.
+Der Hinweis soll erscheinen:
+•	Splash Screen 
+•	Programm 
+•	PDF-Berichte 
+•	Info-Seite 
+•	Fußzeile 
+
+Aufgabe 5 – Über die Software
+Erstelle einen Menüpunkt:
+Über die Software
+Dort sollen angezeigt werden:
+Software
+Bruce Football Performance Diagnostics
+
+Entwickler
+Broska Daroish
+
+Kontakt
+E-Mail:
+Broska_daroish@hotmail.de
+Telefon:
+01741682671
+
+Copyright
+© 2026 Broska Daroish
+Alle Rechte vorbehalten.
+
+Hinweis
+Diese Software befindet sich in kontinuierlicher Weiterentwicklung.
+
+Aufgabe 6 – Entwickler kontaktieren
+Im Menü "Über die Software" soll zusätzlich ein Button vorhanden sein:
+📧 Entwickler kontaktieren
+Beim Anklicken soll automatisch das Standard-E-Mail-Programm geöffnet werden.
+Empfänger:
+Broska_daroish@hotmail.de
+Dadurch können Benutzer direkt Supportanfragen oder Verbesserungsvorschläge senden.
+
+Aufgabe 7 – Urheberrecht
+Bereite folgenden rechtlichen Hinweis vor:
+Diese Software ist urheberrechtlich geschützt. Das Kopieren, Vervielfältigen, Verändern, Verbreiten oder die Weitergabe der Software oder von Teilen der Software ohne ausdrückliche schriftliche Genehmigung des Entwicklers ist untersagt. Zuwiderhandlungen können rechtliche Konsequenzen nach den geltenden gesetzlichen Bestimmungen nach sich ziehen.
+Dieser Hinweis soll im Bereich "Über die Software" sowie später in den Lizenzbedingungen angezeigt werden.
+
+Aufgabe 8 – Windows-Installation
+Nach erfolgreichem Abschluss von Phase 0 soll zusätzlich eine installierbare Windows-Version erstellt werden.
+Erstelle ein professionelles Windows-Installationsprogramm (Setup.exe) für Bruce Football Performance Diagnostics.
+Die Installation soll:
+•	einen Installationsassistenten besitzen, 
+•	das Programm in den Standard-Programmordner installieren, 
+•	eine Desktop-Verknüpfung erstellen, 
+•	einen Eintrag im Windows-Startmenü erstellen, 
+•	das von mir bereitgestellte Programm-Icon verwenden, 
+•	den Programmnamen Bruce Football Performance Diagnostics anzeigen, 
+•	vollständig offline funktionieren, 
+•	alle benötigten Dateien automatisch mitinstallieren, 
+•	die lokale Datenbank korrekt einrichten, 
+•	alle erforderlichen Bibliotheken und Abhängigkeiten automatisch installieren. 
+Der Benutzer soll keine zusätzliche Software (z. B. Python) installieren müssen.
+Verwende hierfür geeignete Werkzeuge, beispielsweise:
+•	PyInstaller (für die ausführbare Datei) 
+•	Inno Setup oder NSIS (für das Installationsprogramm) 
+
+Aufgabe 9 – Installation testen
+Teste die fertige Installation vollständig.
+Prüfe insbesondere:
+•	Installation erfolgreich 
+•	Programm startet fehlerfrei 
+•	Desktop-Verknüpfung funktioniert 
+•	Startmenü-Eintrag funktioniert 
+•	Programm-Icon wird korrekt angezeigt 
+•	lokale Datenbank funktioniert 
+•	alle Module funktionieren offline 
+•	PDF-Berichte funktionieren 
+•	Speichern und Laden funktioniert 
+•	Deinstallation funktioniert fehlerfrei 
+Dokumentiere sämtliche Testergebnisse.
+
+Aufgabe 10 – Release-Ordner
+Erstelle nach erfolgreicher Erstellung der Setup-Version eine saubere Release-Struktur.
+Beispiel:
+Bruce Football Performance Diagnostics
+│
+├── Release
+│   ├── BruceFootballPerformanceDiagnostics.exe
+│
+├── Setup
+│   ├── BruceFootballPerformanceDiagnostics_Setup_v1.0.exe
+│
+├── Dokumentation
+│   ├── Installationsanleitung.pdf
+│   ├── Änderungsprotokoll.pdf
+│
+├── Icons
+│
+└── Backup
+Diese Struktur soll zukünftige Releases vereinfachen.
+
+Qualitätskontrolle
+Prüfe abschließend:
+•	Programmname überall korrekt 
+•	Copyright überall korrekt 
+•	Kontaktinformationen korrekt 
+•	Info-Seite funktioniert 
+•	Entwickler kontaktieren funktioniert 
+•	Splash Screen funktioniert 
+•	Icon funktioniert 
+•	Setup.exe funktioniert 
+•	Installation funktioniert 
+•	Offlinebetrieb funktioniert 
+
+Dokumentation
+Dokumentiere:
+•	alle Änderungen 
+•	alle verwendeten Werkzeuge 
+•	Installationsschritte 
+•	Testergebnisse 
+
+Abschlussbericht
+Nach Abschluss dieser Teilphase erstelle einen vollständigen Abschlussbericht mit:
+•	allen geänderten Dateien 
+•	allen umgesetzten Verbesserungen 
+•	allen Testergebnissen 
+•	allen bekannten Restpunkten 
+•	Empfehlungen für Phase 1 
+
+Abschlussregel
+Arbeite professionell und strukturiert.
+Teste jede Änderung.
+Dokumentiere jede Änderung.
+Erst wenn:
+•	die Software vollständig funktioniert, 
+•	die Setup.exe erfolgreich erstellt wurde, 
+•	die Installation getestet wurde, 
+•	alle Module offline funktionieren, 
+gilt Phase 0E als abgeschlossen.
+

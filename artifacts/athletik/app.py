@@ -1,9 +1,17 @@
 """
-Football Athletik Diagnostik System
-────────────────────────────────────
+Bruce Football Performance Diagnostics
+────────────────────────────────────────
 Main Streamlit entry point.  All pages live in this single file to keep
 imports simple; shared logic is delegated to the module layer.
 """
+
+# ─── Branding & Version ───────────────────────────────────────────────────────
+APP_NAME      = "Bruce Football Performance Diagnostics"
+APP_VERSION   = "1.0.0"
+APP_DEVELOPER = "Broska Daroish"
+APP_EMAIL     = "Broska_daroish@hotmail.de"
+APP_PHONE     = "01741682671"
+APP_COPYRIGHT = "\u00a9 2026 Broska Daroish. Alle Rechte vorbehalten."
 
 import os
 import streamlit as st
@@ -168,7 +176,7 @@ def _zweck_bestaetigt() -> bool:
 
 # ─── Page config ──────────────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="Bruce Athletik Diagnostik",
+    page_title="Bruce Football Performance Diagnostics",
     page_icon="⚽",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -216,6 +224,28 @@ if not _zweck_bestaetigt():
         st.rerun()
     st.stop()
 
+# ─── Splash Screen (einmal pro Sitzung) ──────────────────────────────────────
+if "splash_done" not in st.session_state:
+    st.session_state["splash_done"] = True
+    import time as _time
+    _sc1, _sc2, _sc3 = st.columns([1, 2, 1])
+    with _sc2:
+        st.markdown(
+            f'<div style="text-align:center;padding:80px 0 24px">'
+            f'<div style="font-size:80px;line-height:1">⚽</div>'
+            f'<h1 style="color:#e6edf3;font-size:26px;font-weight:800;'
+            f'letter-spacing:1px;margin:20px 0 6px;line-height:1.3">'
+            f'Bruce Football<br>Performance Diagnostics</h1>'
+            f'<div style="color:#58a6ff;font-size:13px;font-weight:600;'
+            f'letter-spacing:2px;margin-bottom:12px">VERSION {APP_VERSION}</div>'
+            f'<div style="color:#8b949e;font-size:11px">{APP_COPYRIGHT}</div>'
+            f'<div style="color:#30363d;font-size:11px;margin-top:40px">'
+            f'Startet automatisch …</div>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+    _time.sleep(2.5)
+    st.rerun()
 
 # ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -6456,6 +6486,92 @@ def page_testprotokoll():
 # ══════════════════════════════════════════════════════════════════════════════
 
 # ── Sub-page maps per section ─────────────────────────────────────────────────
+def page_ueber_software():
+    """Über die Software — Branding, Kontakt, Urheberrecht."""
+    st.markdown(
+        f'<div style="max-width:700px;margin:0 auto">'
+        f'<div style="text-align:center;padding:40px 0 24px">'
+        f'<div style="font-size:64px">⚽</div>'
+        f'<h1 style="color:#e6edf3;font-size:22px;font-weight:800;'
+        f'letter-spacing:0.5px;margin:16px 0 4px">{APP_NAME}</h1>'
+        f'<div style="color:#58a6ff;font-size:12px;font-weight:600;'
+        f'letter-spacing:2px">VERSION {APP_VERSION}</div>'
+        f'</div></div>',
+        unsafe_allow_html=True,
+    )
+
+    col_l, col_r = st.columns(2)
+
+    with col_l:
+        st.markdown(
+            f'<div style="background:#161b22;border:1px solid #30363d;'
+            f'border-radius:10px;padding:20px 22px;margin-bottom:12px">'
+            f'<div style="font-size:10px;color:#8b949e;letter-spacing:1px;'
+            f'margin-bottom:10px">SOFTWARE</div>'
+            f'<div style="color:#e6edf3;font-weight:700;font-size:14px;margin-bottom:4px">'
+            f'{APP_NAME}</div>'
+            f'<div style="color:#8b949e;font-size:12px">Version {APP_VERSION}</div>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+        st.markdown(
+            f'<div style="background:#161b22;border:1px solid #30363d;'
+            f'border-radius:10px;padding:20px 22px;margin-bottom:12px">'
+            f'<div style="font-size:10px;color:#8b949e;letter-spacing:1px;'
+            f'margin-bottom:10px">ENTWICKLER</div>'
+            f'<div style="color:#e6edf3;font-weight:700;font-size:14px;margin-bottom:8px">'
+            f'{APP_DEVELOPER}</div>'
+            f'<div style="font-size:10px;color:#8b949e;letter-spacing:1px;'
+            f'margin-bottom:6px">KONTAKT</div>'
+            f'<div style="color:#58a6ff;font-size:12px;margin-bottom:2px">'
+            f'✉ {APP_EMAIL}</div>'
+            f'<div style="color:#8b949e;font-size:12px">☎ {APP_PHONE}</div>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+
+    with col_r:
+        st.markdown(
+            f'<div style="background:#161b22;border:1px solid #30363d;'
+            f'border-radius:10px;padding:20px 22px;margin-bottom:12px">'
+            f'<div style="font-size:10px;color:#8b949e;letter-spacing:1px;'
+            f'margin-bottom:10px">COPYRIGHT</div>'
+            f'<div style="color:#e6edf3;font-weight:700;font-size:13px;margin-bottom:4px">'
+            f'{APP_COPYRIGHT}</div>'
+            f'<div style="color:#8b949e;font-size:11px;margin-top:8px">'
+            f'Diese Software befindet sich in kontinuierlicher Weiterentwicklung.</div>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+        mailto_link = (
+            f"mailto:{APP_EMAIL}?subject=Bruce Football Performance Diagnostics — Supportanfrage"
+            f"&body=Hallo Herr Daroish,%0D%0A%0D%0A"
+        )
+        st.link_button(
+            "📧 Entwickler kontaktieren",
+            mailto_link,
+            use_container_width=True,
+        )
+
+    st.markdown("---")
+    st.markdown("### ⚖️ Urheberrecht")
+    st.markdown(
+        f'<div style="background:#0d1117;border-left:4px solid #d29922;'
+        f'border-radius:6px;padding:16px 18px;color:#8b949e;font-size:12px;'
+        f'line-height:1.7">'
+        f'Diese Software ist urheberrechtlich geschützt. Das Kopieren, Vervielfältigen, '
+        f'Verändern, Verbreiten oder die Weitergabe der Software oder von Teilen der '
+        f'Software ohne ausdrückliche schriftliche Genehmigung des Entwicklers ist untersagt. '
+        f'Zuwiderhandlungen können rechtliche Konsequenzen nach den geltenden gesetzlichen '
+        f'Bestimmungen nach sich ziehen.'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
+
+    st.markdown("---")
+    st.caption(APP_COPYRIGHT)
+
+
 _SUB_SPIELER = {
     "👥 Verwaltung":        page_spieler,
     "🏃 Profil & Diagnostik": page_spieler_profil,
@@ -6487,6 +6603,7 @@ _MAIN_SECTIONS = [
     "🖨️  Protokoll",
     "📄  Anleitungen",
     "⚙️  Einstellungen",
+    "ℹ️  Über",
 ]
 
 with st.sidebar:
@@ -6494,8 +6611,9 @@ with st.sidebar:
     st.markdown(
         f'<div style="padding:18px 0 10px;text-align:center">'
         f'<div style="font-size:38px">⚽</div>'
-        f'<div style="font-weight:800;font-size:14px;color:{C["text"]};letter-spacing:1px;margin-top:4px">BRUCE ATHLETIK DIAGNOSTIK</div>'
-        f'<div style="font-size:10px;color:{C["muted"]};margin-top:2px">Football Performance System</div>'
+        f'<div style="font-weight:800;font-size:13px;color:{C["text"]};letter-spacing:0.5px;margin-top:4px">BRUCE FOOTBALL</div>'
+        f'<div style="font-weight:700;font-size:11px;color:{C["text"]};letter-spacing:0.5px">PERFORMANCE DIAGNOSTICS</div>'
+        f'<div style="font-size:9px;color:{C["muted"]};margin-top:2px">v{APP_VERSION}</div>'
         f'</div>',
         unsafe_allow_html=True,
     )
@@ -6584,6 +6702,18 @@ with st.sidebar:
         unsafe_allow_html=True,
     )
 
+    # ── Copyright-Footer ──────────────────────────────────────────────────────
+    st.markdown(
+        f'<div style="position:fixed;bottom:0;left:0;width:240px;padding:8px 12px;'
+        f'background:{C["bg"]};border-top:1px solid {C["border"]};z-index:100">'
+        f'<div style="font-size:9px;color:{C["muted"]};text-align:center;line-height:1.5">'
+        f'{APP_COPYRIGHT}<br>'
+        f'<a href="ℹ️  Über" style="color:{C["muted"]};text-decoration:none">'
+        f'v{APP_VERSION}</a>'
+        f'</div></div>',
+        unsafe_allow_html=True,
+    )
+
 # ── Route ─────────────────────────────────────────────────────────────────────
 _check_save_ok()
 if section == "🏠  Startseite":
@@ -6606,12 +6736,5 @@ elif section == "📄  Anleitungen":
     page_export_pdf()
 elif section == "⚙️  Einstellungen":
     page_einstellungen()
-    st.markdown(
-        '<div style="text-align:center;padding:16px 0 8px">'
-        '<div style="font-size:36px">⚽</div>'
-        '<div style="font-weight:700;font-size:15px;color:#e6edf3;letter-spacing:0.5px">BRUCE ATHLETIK DIAGNOSTIK</div>'
-        '<div style="font-size:11px;color:#8b949e;margin-top:2px">Football Performance System</div>'
-        '</div>',
-        unsafe_allow_html=True,
-    )
-    st.markdown('<hr style="border-color:#30363d;margin:12px 0">', unsafe_allow_html=True)
+elif section == "ℹ️  Über":
+    page_ueber_software()

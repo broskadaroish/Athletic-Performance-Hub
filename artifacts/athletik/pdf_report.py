@@ -88,10 +88,10 @@ class AthletikReport(FPDF):
         self.set_fill_color(*self.BRAND)
         self.rect(0, 0, 210, 18, "F")
         self.set_y(4)
-        self.set_font("Helvetica", "B", 12)
+        self.set_font("Helvetica", "B", 10)
         self.set_text_color(*self.WHITE)
-        self.cell(0, 10, "  FOOTBALL ATHLETIK DIAGNOSTIK", align="L")
-        self.set_font("Helvetica", "", 8)
+        self.cell(0, 10, "  BRUCE FOOTBALL PERFORMANCE DIAGNOSTICS", align="L")
+        self.set_font("Helvetica", "", 7)
         self.set_xy(0, 6)
         self.cell(0, 8, f"Erstellt am {date.today().strftime('%d.%m.%Y')}  ", align="R")
         self.set_text_color(*self.DARK)
@@ -104,7 +104,9 @@ class AthletikReport(FPDF):
         self.line(10, self.get_y(), 200, self.get_y())
         self.set_font("Helvetica", "I", 7)
         self.set_text_color(*self.MID)
-        footer_text = "Seite %d  |  %s" % (self.page_no(), _safe(PDF_FUSSZEILE))
+        copyright_note = "(c) 2026 Broska Daroish. Alle Rechte vorbehalten."
+        footer_text = "Seite %d  |  %s  |  %s" % (
+            self.page_no(), copyright_note, _safe(PDF_FUSSZEILE))
         self.cell(0, 8, footer_text, align="C")
 
     def section_title(self, title: str):
