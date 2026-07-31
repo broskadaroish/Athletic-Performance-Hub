@@ -1498,3 +1498,292 @@ def generate_vergleich_pdf(
     pdf.ampel_legend()
 
     return bytes(pdf.output())
+
+
+# ─── Trainingsplan-PDF (Standalone) ──────────────────────────────────────────
+
+_WARMUP_ROWS = [
+    ("Aktivierungslauf",          "5 min",       "Leichtes Joggen, Seitwarts-, Ruckwartslaufe"),
+    ("Huftkreisen beidbeinig",    "2x10",        "Kontrolliert, langsam"),
+    ("World's Greatest Stretch",  "2x5/Seite",   "Tief und kontrolliert"),
+    ("Leg Swings vor/ruck",       "2x10/Seite",  "Freies Pendeln, zunehmende Amplitude"),
+    ("Leg Swings seitlich",       "2x10/Seite",  "Lateral, gestreckt"),
+    ("Glute Bridge",              "2x10",        "Langsam, Becken oben halten 2 s"),
+    ("Mini-Band Walk",            "2x10 m",      "Lateral, Knie leicht gebeugt"),
+]
+
+_TAG_NAMEN = {1: "Tag 1 - Montag", 2: "Tag 2 - Mittwoch", 3: "Tag 3 - Freitag",
+              4: "Tag 4 - Samstag", 0: "Alle Tage"}
+
+_QUELLEN = (
+    "Quellen: Faigenbaum & Myer (2010) Youth Resistance Training — Pediatric Exercise Science; "
+    "Lloyd et al. (2014) Position Statement on Youth Resistance Training — BJSM; "
+    "NSCA Youth Resistance Training Position Statement (2009)."
+)
+
+
+def generate_trainingsplan_pdf(
+    spieler: dict,
+    plan_rows: list,
+    plangruppe: str,
+    plangruppen_config: dict,
+    alters_ersatz: dict | None = None,
+    vereinsname: str = "",
+) -> bytes:
+    """
+    Druckbarer Trainingsplan-PDF fuer einen Spieler.
+    Zeigt Altersgruppe, vollstaendigen Wochenplan, Warm-Up, Substitutionshinweise
+    und wissenschaftliche Quellen. Gleicher Stil wie AthletikReport.
+    """
+    alters_ersatz = alters_ersatz or {}
+
+    pdf = AthletikReport()
+    pdf.set_auto_page_break(auto=True, margin=18)
+    pdf.add_page()
+
+    # ── Kopf ─────────────────────────────────────────────────────────────────
+    vorname  = spieler.get("vorname") or ""
+    nachname = spieler.get("nachname") or spieler.get("name") or "-"
+    fullname = ("%s %s" % (vorname, nachname)).strip()
+    team     = spieler.get("mannschaft") or "-"
+    pos      = spieler.get("hauptposition") or spieler.get("position") or "-"
+    geb      = spieler.get("geburtsdatum") or "-"
+
+    # Blauer Cover-Block (kompakter als Vollbericht)
+    pdf.set_fill_color(*pdf.BRAND)
+    pdf.rect(0, 0, 210, 48, "F")
+
+    pdf.set_xy(15, 8)
+    pdf.set_font("Helvetica", "B", 9)
+    pdf.set_text_color(*pdf.WHITE)
+    pdf.cell(0, 6, _safe(vereinsname or "FOOTBALL ATHLETIK"))
+
+    pdf.set_xy(15, 15)
+    pdf.set_font("Helvetica", "B", 22)
+    pdf.cell(180, 11, _safe(fullname)[:36])
+
+    pdf.set_xy(15, 28)
+    pdf.set_font("Helvetica", "", 9)
+    pdf.set_text_color(200, 215, 240)
+    pdf.cell(0, 5, "%s  |  %s  |  Geb.: %s" % (_safe(pos), _safe(team), _safe(geb)))
+
+    pdf.set_xy(0, 38)
+    pdf.set_font("Helvetica", "I", 7)
+    pdf.set_text_color(180, 200, 230)
+    pdf.cell(0, 5, "Erstellt am %s  " % date.today().strftime("%d.%m.%Y"), align="R")
+
+    pdf.set_text_color(*pdf.DARK)
+    pdf.set_y(55)
+
+    # ── Trainingsplan-Titel ──────────────────────────────────────────────────
+    pdf.set_font("Helvetica", "B", 13)
+    pdf.set_text_color(*pdf.BRAND)
+    pdf.cell(0, 7, "INDIVIDUELLER TRAININGSPLAN", new_x="LMARGIN", new_y="NEXT")
+    pdf.set_text_color(*pdf.DARK)
+    pdf.ln(1)
+
+    # ── Altersgruppen-Badge ──────────────────────────────────────────────────
+    pg_label = plangruppen_config.get("label", plangruppe)
+    pdf.check_page_break(22)
+    bx, by = pdf.get_x(), pdf.get_y()
+    pdf.set_fill_color(230, 240, 255)
+    pdf.rect(bx, by, 190, 18, "F")
+    pdf.set_fill_color(*pdf.BRAND)
+    pdf.rect(bx, by, 4, 18, "F")
+    pdf.set_xy(bx + 8, by + 2)
+    pdf.set_font("Helvetica", "B", 9)
+    pdf.set_text_color(*pdf.BRAND)
+    pdf.cell(60, 5, "ALTERSGRUPPE: %s" % _safe(plangruppe), new_x="LMARGIN", new_y="NEXT")
+    pdf.set_x(bx + 8)
+    pdf.set_font("Helvetica", "", 8)
+    pdf.set_text_color(*pdf.DARK)
+    pdf.cell(0, 5, _safe(pg_label), new_x="LMARGIN", new_y="NEXT")
+    # Config-Details
+    pdf.set_x(bx + 8)
+    pdf.set_font("Helvetica", "I", 7)
+    pdf.set_text_color(*pdf.MID)
+    max_saetze_str = str(plangruppen_config.get("max_saetze", "-"))
+    if plangruppen_config.get("max_saetze", 99) >= 99:
+        max_saetze_str = "ohne Begrenzung"
+    freq_cap = plangruppen_config.get("haeuf_cap") or "ohne Begrenzung"
+    pause_off = plangruppen_config.get("pause_offset", 0)
+    details = "Max. Saetze: %s  |  Frequenz: %s  |  Pausenzuschlag: +%d s" % (
+        _safe(max_saetze_str), _safe(str(freq_cap)), pause_off)
+    pdf.cell(0, 4, _safe(details), new_x="LMARGIN", new_y="NEXT")
+    pdf.set_text_color(*pdf.DARK)
+    pdf.ln(3)
+
+    # ── Disclaimer ───────────────────────────────────────────────────────────
+    pdf.disclaimer_box(_safe(TRAININGSPLAN_HINWEIS), border_color=(80, 100, 160))
+
+    # ── Substitutionshinweise ────────────────────────────────────────────────
+    # Zeige, welche Ubungen im Plan altersangepasste Ersetzungen sind
+    plan_uebungen = {str(r.get("uebung", "")).strip() for r in plan_rows if r.get("uebung")}
+    substitutionen = []
+    for original_uebung, gruppen_map in alters_ersatz.items():
+        if plangruppe in gruppen_map:
+            ersatz = gruppen_map[plangruppe]
+            if ersatz is None:
+                # Ubung wird weggelassen
+                substitutionen.append((original_uebung, None))
+            else:
+                ersatz_name = ersatz[0] if isinstance(ersatz, (tuple, list)) else str(ersatz)
+                if ersatz_name.strip() in plan_uebungen:
+                    substitutionen.append((original_uebung, ersatz_name))
+
+    if substitutionen:
+        pdf.check_page_break(20)
+        pdf.section_title("ALTERSANPASSUNGEN (ERSATZ-UBUNGEN)")
+        pdf.set_font("Helvetica", "", 8)
+        pdf.set_text_color(*pdf.DARK)
+        pdf.cell(0, 5,
+                 "Folgende Ubungen wurden fuer die Altersgruppe %s automatisch angepasst:" % _safe(plangruppe),
+                 new_x="LMARGIN", new_y="NEXT")
+        pdf.ln(1)
+        cols_sub = [("Original-Ubung", 80), ("Ersatz-Ubung (altersangepasst)", 90), ("Hinweis", 20)]
+        pdf.table_header(cols_sub)
+        fill = False
+        for original, ersatz_name in substitutionen:
+            if ersatz_name is None:
+                hint = "entfernt"
+                ersatz_str = "- entfernt -"
+            else:
+                hint = "ersetzt"
+                ersatz_str = ersatz_name
+            pdf.table_row(
+                [_safe(original), _safe(ersatz_str), _safe(hint)],
+                [c[1] for c in cols_sub],
+                fill,
+            )
+            fill = not fill
+        pdf.ln(2)
+        pdf.set_font("Helvetica", "I", 7)
+        pdf.set_text_color(*pdf.MID)
+        pdf.cell(0, 4, _safe(_QUELLEN), new_x="LMARGIN", new_y="NEXT")
+        pdf.set_text_color(*pdf.DARK)
+        pdf.ln(3)
+
+    # ── Plan-Ubersicht ───────────────────────────────────────────────────────
+    if not plan_rows:
+        pdf.section_title("KEIN TRAININGSPLAN VORHANDEN")
+        return bytes(pdf.output())
+
+    # Strukturiere nach Woche > Tag
+    from collections import defaultdict
+    wochen: dict = defaultdict(lambda: defaultdict(list))
+    for row in plan_rows:
+        woche_nr = int(row.get("woche") or 1)
+        tag_nr   = int(row.get("tag") or 1)
+        wochen[woche_nr][tag_nr].append(row)
+
+    for woche_nr in sorted(wochen.keys()):
+        is_deload = (woche_nr % 4 == 0)
+        woche_label = "WOCHE %d%s" % (woche_nr, " - DELOAD" if is_deload else "")
+
+        pdf.check_page_break(30)
+        pdf.add_page() if pdf.get_y() > 200 else None
+        pdf.section_title(woche_label)
+
+        if is_deload:
+            pdf.set_font("Helvetica", "I", 8)
+            pdf.set_text_color(*pdf.MID)
+            pdf.cell(0, 5,
+                     "Deload-Woche: Reduziertes Volumen und Intensitat zur Regeneration. Technikfokus.",
+                     new_x="LMARGIN", new_y="NEXT")
+            pdf.set_text_color(*pdf.DARK)
+            pdf.ln(1)
+
+        tags_in_woche = sorted(wochen[woche_nr].keys())
+        for tag_nr in tags_in_woche:
+            tag_label = _NAMEN_SICHER.get(tag_nr, "Tag %d" % tag_nr)
+
+            pdf.check_page_break(30)
+
+            # Tag-Header
+            pdf.set_fill_color(220, 232, 248)
+            tx, ty = pdf.get_x(), pdf.get_y()
+            pdf.rect(tx, ty, 190, 7, "F")
+            pdf.set_fill_color(*pdf.BRAND)
+            pdf.rect(tx, ty, 3, 7, "F")
+            pdf.set_xy(tx + 6, ty + 0.5)
+            pdf.set_font("Helvetica", "B", 9)
+            pdf.set_text_color(*pdf.BRAND)
+            pdf.cell(0, 6, _safe(tag_label))
+            pdf.set_text_color(*pdf.DARK)
+            pdf.ln(8)
+
+            # Warm-Up (kompakt)
+            pdf.set_font("Helvetica", "B", 7)
+            pdf.set_text_color(*pdf.MID)
+            pdf.cell(0, 5, "WARM-UP (8-10 min, fussballspezifisch):", new_x="LMARGIN", new_y="NEXT")
+            wu_cols = [("Ubung", 65), ("Volumen", 25), ("Hinweis", 100)]
+            pdf.table_header(wu_cols)
+            wu_fill = False
+            for wu_name, wu_vol, wu_hint in _WARMUP_ROWS:
+                pdf.table_row([_safe(wu_name), _safe(wu_vol), _safe(wu_hint)],
+                               [c[1] for c in wu_cols], wu_fill)
+                wu_fill = not wu_fill
+            pdf.ln(2)
+
+            # Hauptteil-Ubungen
+            pdf.set_font("Helvetica", "B", 7)
+            pdf.set_text_color(*pdf.MID)
+            pdf.cell(0, 5, "HAUPTTEIL:", new_x="LMARGIN", new_y="NEXT")
+            cols_ueb = [("Bereich", 28), ("Ubung", 68), ("Satze", 14), ("Wdh./Dauer", 28),
+                        ("Pause (s)", 20), ("Ausfuhrung", 32)]
+            pdf.table_header(cols_ueb)
+            ueb_fill = False
+            tag_rows = wochen[woche_nr][tag_nr]
+            # Sort by Bereich
+            for row in sorted(tag_rows, key=lambda r: str(r.get("bereich", ""))):
+                bereich    = str(row.get("bereich", "-"))
+                uebung     = str(row.get("uebung", "-"))
+                saetze     = str(row.get("saetze", "-"))
+                wdh        = str(row.get("wiederholungen", row.get("haeufigkeit", "-")))
+                pause      = str(row.get("pause_sekunden", "-"))
+                ausfuehr   = str(row.get("ausfuehrung", "-"))
+                # Trim Ausfuhrungsprefix for PDF (keep to max 30 chars)
+                if len(ausfuehr) > 30:
+                    ausfuehr = ausfuehr[:28] + ".."
+                pdf.table_row(
+                    [_safe(bereich), _safe(uebung), _safe(saetze),
+                     _safe(wdh), _safe(pause), _safe(ausfuehr)],
+                    [c[1] for c in cols_ueb],
+                    ueb_fill,
+                )
+                ueb_fill = not ueb_fill
+
+            # Cool-Down-Hinweis
+            pdf.ln(1)
+            pdf.set_font("Helvetica", "I", 7)
+            pdf.set_text_color(*pdf.MID)
+            pdf.cell(0, 5,
+                     "Cool-Down: 5-10 min Stretching der trainierten Muskelgruppen "
+                     "(Huftbeuger, Oberschenkel, Rumpf).",
+                     new_x="LMARGIN", new_y="NEXT")
+            pdf.set_text_color(*pdf.DARK)
+            pdf.ln(3)
+
+    # ── Quellen ──────────────────────────────────────────────────────────────
+    pdf.check_page_break(20)
+    pdf.ln(3)
+    pdf.set_draw_color(*pdf.BRAND)
+    pdf.set_line_width(0.3)
+    pdf.line(pdf.get_x(), pdf.get_y(), pdf.get_x() + 190, pdf.get_y())
+    pdf.ln(2)
+    pdf.set_font("Helvetica", "I", 7)
+    pdf.set_text_color(*pdf.MID)
+    pdf.multi_cell(0, 4, _safe(_QUELLEN))
+    pdf.set_text_color(*pdf.DARK)
+
+    return bytes(pdf.output())
+
+
+# Sicherere Tag-Namen ohne Umlaute fuer PDF
+_NAMEN_SICHER = {
+    1: "Tag 1 - Montag",
+    2: "Tag 2 - Mittwoch",
+    3: "Tag 3 - Freitag",
+    4: "Tag 4 - Samstag",
+    0: "Alle Tage",
+}

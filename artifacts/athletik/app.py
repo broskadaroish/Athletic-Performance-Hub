@@ -117,8 +117,9 @@ from analytics import (
     defizite_ermitteln, schwerpunkt_sammeln,
 )
 from periodisierung import (zyklus_erstellen, zyklus_laden, trainingsplan_multi_erstellen,
-                             defizit_tabelle, _alter_zu_plangruppe, _PLANGRUPPEN_CONFIG, _POOL)
-from pdf_report import generate_report, generate_vergleich_pdf
+                             defizit_tabelle, _alter_zu_plangruppe, _PLANGRUPPEN_CONFIG, _POOL,
+                             _ALTERS_ERSATZ)
+from pdf_report import generate_report, generate_vergleich_pdf, generate_trainingsplan_pdf
 from pdf_anleitung import generate_anleitung_pdf, ALL_TEST_IDS, TEST_LABELS
 from export import kader_excel_bytes, spieler_excel_bytes
 from field_eval import alter_zu_altersgruppe, asymmetrie_badge_html, fms_asymmetrie_badge_html
@@ -2055,6 +2056,60 @@ def page_trainingsplan():
         _ci2.metric("Übungen (einzigartig)", _total_uebungen)
         _ci3.metric("Bereiche", df["Bereich"].nunique())
         _ci4.metric("Trainingstage/Woche", _total_einheiten)
+
+        # ── PDF-Druck-Button ──────────────────────────────────────────────────
+        _tv_alter   = berechne_alter(auswahl.get("geburtsdatum"))
+        _tv_pg      = _alter_zu_plangruppe(_tv_alter)
+        _tv_cfg     = _PLANGRUPPEN_CONFIG[_tv_pg]
+        _tv_pg_farben = {
+            "U10": "#3fb950", "U14": "#3fb950", "U18": "#d29922",
+            "Senior": "#58a6ff", "Ü40": "#d29922", "Ü55": "#f85149",
+        }
+        _tv_pg_clr = _tv_pg_farben.get(_tv_pg, "#8b949e")
+        st.markdown(
+            f'<div style="background:#161b22;border:2px solid {_tv_pg_clr};border-radius:8px;'
+            f'padding:10px 16px;margin-bottom:12px;display:flex;align-items:center;gap:12px">'
+            f'<span style="font-size:13px;color:{_tv_pg_clr};font-weight:700">🎯 Altersgruppe: {_tv_pg}</span>'
+            f'<span style="color:#8b949e;font-size:12px">— {_tv_cfg["label"]}</span>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+
+        if st.button("📄 PDF drucken", key="tp_pdf_btn", use_container_width=False):
+            with st.spinner("Trainingsplan-PDF wird erstellt …"):
+                try:
+                    _tv_vereinsname = st.session_state.get("cfg_vereinsname", "")
+                    _tv_plan_raw = trainingsplan_laden(sid)
+                    # Normalisiere zu dict-Liste mit einheitlichen Spaltennamen
+                    _tv_plan_dicts = []
+                    for _row in (_tv_plan_raw or []):
+                        if isinstance(_row, (list, tuple)):
+                            _keys = ["bereich","uebung","saetze","wiederholungen",
+                                     "haeufigkeit","woche","tag","pause_sekunden","ausfuehrung"]
+                            _tv_plan_dicts.append(dict(zip(_keys, list(_row) + [""]*9)))
+                        else:
+                            _tv_plan_dicts.append(_row)
+                    _tv_pdf_bytes = generate_trainingsplan_pdf(
+                        spieler         = auswahl,
+                        plan_rows       = _tv_plan_dicts,
+                        plangruppe      = _tv_pg,
+                        plangruppen_config = _tv_cfg,
+                        alters_ersatz   = _ALTERS_ERSATZ,
+                        vereinsname     = _tv_vereinsname,
+                    )
+                    _tv_vorname  = (auswahl.get("vorname") or "").strip()
+                    _tv_nachname = (auswahl.get("nachname") or auswahl.get("name") or "Spieler").strip()
+                    _tv_filename = f"Trainingsplan_{_tv_vorname}_{_tv_nachname}_{_tv_pg}.pdf".replace(" ","_")
+                    st.download_button(
+                        label     = "⬇️ PDF herunterladen",
+                        data      = _tv_pdf_bytes,
+                        file_name = _tv_filename,
+                        mime      = "application/pdf",
+                        key       = "tp_pdf_download",
+                    )
+                    st.success(f"✅ PDF fertig — {len(_tv_pdf_bytes) // 1024} KB · Altersgruppe: {_tv_pg}")
+                except Exception as _tv_exc:
+                    st.error(f"Fehler beim Erstellen des PDFs: {_tv_exc}")
 
         st.markdown("---")
 
