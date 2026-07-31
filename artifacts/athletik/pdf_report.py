@@ -1008,7 +1008,7 @@ def generate_report(
     # ════════════════════════════════════════════════════════════════════════════
     if plan_rows:
         pdf.add_page()
-        pdf.section_title("PERIODISIERUNGSPLAN (AUSZUG — ERSTE 4 WOCHEN)")
+        pdf.section_title("PERIODISIERUNGSPLAN (AUSZUG - ERSTE 4 WOCHEN)")
         pdf.disclaimer_box(_safe(TRAININGSPLAN_HINWEIS), border_color=(80, 100, 160))
         pdf.ln(1)
         cols = [("Wo.",10),("Phase",38),("Bereich",28),("Uebung",68),("Volumen",26),("Hz.",20)]
@@ -1037,7 +1037,7 @@ def generate_report(
             pdf.ln(1)
             pdf.set_font("Helvetica", "I", 7)
             pdf.set_text_color(*pdf.MID)
-            pdf.cell(0, 5, "Vollstaendiger Plan: %d Eintraege — in der App unter 'Periodisierung' einsehbar." % len(plan_rows),
+            pdf.cell(0, 5, _safe("Vollstaendiger Plan: %d Eintraege - in der App unter 'Periodisierung' einsehbar." % len(plan_rows)),
                      new_x="LMARGIN", new_y="NEXT")
             pdf.set_text_color(*pdf.DARK)
 

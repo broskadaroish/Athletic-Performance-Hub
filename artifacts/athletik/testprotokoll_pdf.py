@@ -160,7 +160,7 @@ class TestprotokollPDF(FPDF):
         self.set_y(3)
         self.set_font("Helvetica", "B", 11)
         self.set_text_color(*self.WHITE)
-        self.cell(0, 10, "  ATHLETIK DIAGNOSTIK  -  TESTPROTOKOLL", align="L")
+        self.cell(0, 10, "  BRUCE FOOTBALL PERFORMANCE DIAGNOSTICS  -  TESTPROTOKOLL", align="L")
         self.set_font("Helvetica", "", 8)
         self.cell(0, 10, f"Druckdatum: {date.today().strftime('%d.%m.%Y')}  ", align="R")
         self.set_text_color(*self.GR_DARK)
@@ -311,11 +311,11 @@ class TestprotokollPDF(FPDF):
             self.set_font("Helvetica", "B", 10)
             self.cell(0, 6, f"  {_s(spieler.get('name', '—'))}", new_x="LMARGIN", new_y="NEXT")
             self.set_font("Helvetica", "", 8)
-            geb    = spieler.get("geburtsdatum") or "—"
-            team   = spieler.get("mannschaft")   or "—"
-            pos    = spieler.get("hauptposition") or spieler.get("position") or "—"
-            bein   = spieler.get("spielbein")     or "—"
-            pid    = spieler.get("id", "—")
+            geb    = spieler.get("geburtsdatum") or "-"
+            team   = spieler.get("mannschaft")   or "-"
+            pos    = spieler.get("hauptposition") or spieler.get("position") or "-"
+            bein   = spieler.get("spielbein")     or "-"
+            pid    = spieler.get("id", "-")
             zeile2 = f"  Geb.: {_s(geb)}   |   Mannschaft: {_s(team)}   |   Position: {_s(pos)}   |   Spielbein: {_s(bein)}   |   ID: {pid}"
             self.cell(0, 5, zeile2, new_x="LMARGIN", new_y="NEXT")
             self.set_y(y0 + 22)

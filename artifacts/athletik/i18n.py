@@ -14,6 +14,7 @@ SPRACHEN = {
     "fr": "🇫🇷 Français",
     "pt": "🇵🇹 Português",
     "ru": "🇷🇺 Русский",
+    "ar": "🇸🇦 العربية",
 }
 
 _TRANSLATIONS: dict[str, dict[str, str]] = {
@@ -31,55 +32,55 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
     "nav_ueber":         {"de": "ℹ️  Über",           "en": "ℹ️  About",       "tr": "ℹ️  Hakkında",   "es": "ℹ️  Acerca de",   "fr": "ℹ️  À propos",     "pt": "ℹ️  Sobre",        "ru": "ℹ️  О программе"},
 
     # ── Spieler-Sub-Navigation ────────────────────────────────────────────────
-    "sub_verwaltung":    {"de": "👥 Verwaltung",          "en": "👥 Management",        "tr": "👥 Yönetim",         "es": "👥 Gestión",          "fr": "👥 Gestion",           "pt": "👥 Gestão",           "ru": "👥 Управление"},
-    "sub_profil":        {"de": "🏃 Profil & Diagnostik", "en": "🏃 Profile & Diagnostics","tr": "🏃 Profil & Tanı", "es": "🏃 Perfil & Diagnóstico","fr": "🏃 Profil & Diagnostic","pt": "🏃 Perfil & Diagnóstico","ru": "🏃 Профиль & Диагностика"},
-    "sub_anthropometrie":{"de": "📐 Anthropometrie",      "en": "📐 Anthropometry",      "tr": "📐 Antropometri",    "es": "📐 Antropometría",     "fr": "📐 Anthropométrie",    "pt": "📐 Antropometria",    "ru": "📐 Антропометрия"},
+    "sub_verwaltung":    {"de": "👥 Verwaltung",          "en": "👥 Management",           "tr": "👥 Yönetim",         "es": "👥 Gestión",          "fr": "👥 Gestion",           "pt": "👥 Gestão",           "ru": "👥 Управление",          "ar": "👥 الإدارة"},
+    "sub_profil":        {"de": "🏃 Profil & Diagnostik", "en": "🏃 Profile & Diagnostics","tr": "🏃 Profil & Tanı",  "es": "🏃 Perfil & Diagnóstico","fr": "🏃 Profil & Diagnostic","pt": "🏃 Perfil & Diagnóstico","ru": "🏃 Профиль & Диагностика","ar": "🏃 الملف الشخصي"},
+    "sub_anthropometrie":{"de": "📐 Anthropometrie",      "en": "📐 Anthropometry",         "tr": "📐 Antropometri",    "es": "📐 Antropometría",     "fr": "📐 Anthropométrie",    "pt": "📐 Antropometria",    "ru": "📐 Антропометрия",       "ar": "📐 القياسات"},
 
     # ── Diagnostik-Sub-Navigation ─────────────────────────────────────────────
-    "sub_diag_overview": {"de": "🏠 Übersicht",  "en": "🏠 Overview",  "tr": "🏠 Genel Bakış","es": "🏠 Resumen",    "fr": "🏠 Aperçu",    "pt": "🏠 Visão Geral","ru": "🏠 Обзор"},
-    "sub_fms":           {"de": "📝 FMS",         "en": "📝 FMS",       "tr": "📝 FMS",        "es": "📝 FMS",        "fr": "📝 FMS",        "pt": "📝 FMS",        "ru": "📝 FMS"},
-    "sub_ybalance":      {"de": "📏 Y-Balance",   "en": "📏 Y-Balance", "tr": "📏 Y-Denge",    "es": "📏 Y-Balance",  "fr": "📏 Y-Balance",  "pt": "📏 Y-Balance",  "ru": "📏 Y-Баланс"},
-    "sub_sprint":        {"de": "⚡ Sprint",       "en": "⚡ Sprint",    "tr": "⚡ Sprint",     "es": "⚡ Sprint",     "fr": "⚡ Sprint",     "pt": "⚡ Sprint",     "ru": "⚡ Спринт"},
-    "sub_sprung":        {"de": "🦘 Sprung",       "en": "🦘 Jump",      "tr": "🦘 Zıplama",    "es": "🦘 Salto",      "fr": "🦘 Saut",       "pt": "🦘 Salto",      "ru": "🦘 Прыжок"},
-    "sub_agilitaet":     {"de": "🔀 Agilität",    "en": "🔀 Agility",   "tr": "🔀 Çeviklik",   "es": "🔀 Agilidad",   "fr": "🔀 Agilité",    "pt": "🔀 Agilidade",  "ru": "🔀 Ловкость"},
-    "sub_ausdauer":      {"de": "🫁 Ausdauer",    "en": "🫁 Endurance", "tr": "🫁 Dayanıklılık","es": "🫁 Resistencia","fr": "🫁 Endurance",  "pt": "🫁 Resistência","ru": "🫁 Выносливость"},
-    "sub_kraft":         {"de": "💪 Kraft",        "en": "💪 Strength",  "tr": "💪 Güç",        "es": "💪 Fuerza",     "fr": "💪 Force",      "pt": "💪 Força",      "ru": "💪 Сила"},
+    "sub_diag_overview": {"de": "🏠 Übersicht",  "en": "🏠 Overview",   "tr": "🏠 Genel Bakış","es": "🏠 Resumen",    "fr": "🏠 Aperçu",    "pt": "🏠 Visão Geral","ru": "🏠 Обзор",    "ar": "🏠 نظرة عامة"},
+    "sub_fms":           {"de": "📝 FMS",         "en": "📝 FMS",        "tr": "📝 FMS",        "es": "📝 FMS",        "fr": "📝 FMS",        "pt": "📝 FMS",        "ru": "📝 FMS",      "ar": "📝 FMS"},
+    "sub_ybalance":      {"de": "📏 Y-Balance",   "en": "📏 Y-Balance",  "tr": "📏 Y-Denge",    "es": "📏 Y-Balance",  "fr": "📏 Y-Balance",  "pt": "📏 Y-Balance",  "ru": "📏 Y-Баланс", "ar": "📏 Y-Balance"},
+    "sub_sprint":        {"de": "⚡ Sprint",       "en": "⚡ Sprint",     "tr": "⚡ Sprint",     "es": "⚡ Sprint",     "fr": "⚡ Sprint",     "pt": "⚡ Sprint",     "ru": "⚡ Спринт",    "ar": "⚡ سباق السرعة"},
+    "sub_sprung":        {"de": "🦘 Sprung",       "en": "🦘 Jump",       "tr": "🦘 Zıplama",    "es": "🦘 Salto",      "fr": "🦘 Saut",       "pt": "🦘 Salto",      "ru": "🦘 Прыжок",   "ar": "🦘 القفز"},
+    "sub_agilitaet":     {"de": "🔀 Agilität",    "en": "🔀 Agility",    "tr": "🔀 Çeviklik",   "es": "🔀 Agilidad",   "fr": "🔀 Agilité",    "pt": "🔀 Agilidade",  "ru": "🔀 Ловкость",  "ar": "🔀 الرشاقة"},
+    "sub_ausdauer":      {"de": "🫁 Ausdauer",    "en": "🫁 Endurance",  "tr": "🫁 Dayanıklılık","es": "🫁 Resistencia","fr": "🫁 Endurance",  "pt": "🫁 Resistência","ru": "🫁 Выносливость","ar": "🫁 التحمل"},
+    "sub_kraft":         {"de": "💪 Kraft",        "en": "💪 Strength",   "tr": "💪 Güç",        "es": "💪 Fuerza",     "fr": "💪 Force",      "pt": "💪 Força",      "ru": "💪 Сила",      "ar": "💪 القوة"},
 
     # ── Training-Sub-Navigation ───────────────────────────────────────────────
-    "sub_trainingsplan": {"de": "📅 Trainingsplan",   "en": "📅 Training Plan",    "tr": "📅 Antrenman Planı","es": "📅 Plan de Entreno","fr": "📅 Plan d'entraînement","pt": "📅 Plano de Treino","ru": "📅 План тренировок"},
-    "sub_periodisierung":{"de": "🔄 Periodisierung",  "en": "🔄 Periodisation",    "tr": "🔄 Periyodizasyon", "es": "🔄 Periodización",  "fr": "🔄 Périodisation",     "pt": "🔄 Periodização",  "ru": "🔄 Периодизация"},
+    "sub_trainingsplan": {"de": "📅 Trainingsplan",  "en": "📅 Training Plan",     "tr": "📅 Antrenman Planı","es": "📅 Plan de Entreno","fr": "📅 Plan d'entraînement","pt": "📅 Plano de Treino","ru": "📅 План тренировок","ar": "📅 خطة التدريب"},
+    "sub_periodisierung":{"de": "🔄 Periodisierung", "en": "🔄 Periodisation",     "tr": "🔄 Periyodizasyon", "es": "🔄 Periodización",  "fr": "🔄 Périodisation",     "pt": "🔄 Periodização",  "ru": "🔄 Периодизация",  "ar": "🔄 الدورات التدريبية"},
 
     # ── Allgemeine Buttons ────────────────────────────────────────────────────
-    "speichern":         {"de": "💾 Speichern",     "en": "💾 Save",      "tr": "💾 Kaydet",      "es": "💾 Guardar",    "fr": "💾 Enregistrer", "pt": "💾 Guardar",    "ru": "💾 Сохранить"},
-    "loeschen":          {"de": "🗑️ Löschen",       "en": "🗑️ Delete",    "tr": "🗑️ Sil",         "es": "🗑️ Eliminar",   "fr": "🗑️ Supprimer",   "pt": "🗑️ Apagar",     "ru": "🗑️ Удалить"},
-    "abbrechen":         {"de": "Abbrechen",         "en": "Cancel",       "tr": "İptal",          "es": "Cancelar",      "fr": "Annuler",        "pt": "Cancelar",      "ru": "Отмена"},
-    "zurueck":           {"de": "← Zurück",          "en": "← Back",       "tr": "← Geri",         "es": "← Atrás",       "fr": "← Retour",       "pt": "← Voltar",      "ru": "← Назад"},
-    "generieren":        {"de": "⚡ Generieren",     "en": "⚡ Generate",  "tr": "⚡ Oluştur",     "es": "⚡ Generar",    "fr": "⚡ Générer",     "pt": "⚡ Gerar",      "ru": "⚡ Создать"},
-    "herunterladen":     {"de": "⬇ Herunterladen",  "en": "⬇ Download",  "tr": "⬇ İndir",        "es": "⬇ Descargar",  "fr": "⬇ Télécharger",  "pt": "⬇ Descarregar","ru": "⬇ Скачать"},
-    "exportieren":       {"de": "📤 Exportieren",    "en": "📤 Export",    "tr": "📤 Dışa Aktar",  "es": "📤 Exportar",   "fr": "📤 Exporter",    "pt": "📤 Exportar",   "ru": "📤 Экспорт"},
-    "aktualisieren":     {"de": "🔄 Aktualisieren",  "en": "🔄 Refresh",   "tr": "🔄 Yenile",      "es": "🔄 Actualizar", "fr": "🔄 Actualiser",  "pt": "🔄 Atualizar",  "ru": "🔄 Обновить"},
-    "hinzufuegen":       {"de": "➕ Hinzufügen",     "en": "➕ Add",       "tr": "➕ Ekle",         "es": "➕ Añadir",     "fr": "➕ Ajouter",     "pt": "➕ Adicionar",  "ru": "➕ Добавить"},
-    "bearbeiten":        {"de": "✏️ Bearbeiten",     "en": "✏️ Edit",      "tr": "✏️ Düzenle",     "es": "✏️ Editar",     "fr": "✏️ Modifier",    "pt": "✏️ Editar",     "ru": "✏️ Изменить"},
-    "bestaetigen":       {"de": "✅ Bestätigen",     "en": "✅ Confirm",   "tr": "✅ Onayla",      "es": "✅ Confirmar",  "fr": "✅ Confirmer",   "pt": "✅ Confirmar",  "ru": "✅ Подтвердить"},
+    "speichern":         {"de": "💾 Speichern",     "en": "💾 Save",      "tr": "💾 Kaydet",      "es": "💾 Guardar",    "fr": "💾 Enregistrer", "pt": "💾 Guardar",    "ru": "💾 Сохранить",    "ar": "💾 حفظ"},
+    "loeschen":          {"de": "🗑️ Löschen",       "en": "🗑️ Delete",    "tr": "🗑️ Sil",         "es": "🗑️ Eliminar",   "fr": "🗑️ Supprimer",   "pt": "🗑️ Apagar",     "ru": "🗑️ Удалить",     "ar": "🗑️ حذف"},
+    "abbrechen":         {"de": "Abbrechen",         "en": "Cancel",       "tr": "İptal",          "es": "Cancelar",      "fr": "Annuler",        "pt": "Cancelar",      "ru": "Отмена",          "ar": "إلغاء"},
+    "zurueck":           {"de": "← Zurück",          "en": "← Back",       "tr": "← Geri",         "es": "← Atrás",       "fr": "← Retour",       "pt": "← Voltar",      "ru": "← Назад",         "ar": "→ رجوع"},
+    "generieren":        {"de": "⚡ Generieren",     "en": "⚡ Generate",  "tr": "⚡ Oluştur",     "es": "⚡ Generar",    "fr": "⚡ Générer",     "pt": "⚡ Gerar",      "ru": "⚡ Создать",      "ar": "⚡ إنشاء"},
+    "herunterladen":     {"de": "⬇ Herunterladen",  "en": "⬇ Download",  "tr": "⬇ İndir",        "es": "⬇ Descargar",  "fr": "⬇ Télécharger",  "pt": "⬇ Descarregar","ru": "⬇ Скачать",       "ar": "⬇ تحميل"},
+    "exportieren":       {"de": "📤 Exportieren",    "en": "📤 Export",    "tr": "📤 Dışa Aktar",  "es": "📤 Exportar",   "fr": "📤 Exporter",    "pt": "📤 Exportar",   "ru": "📤 Экспорт",      "ar": "📤 تصدير"},
+    "aktualisieren":     {"de": "🔄 Aktualisieren",  "en": "🔄 Refresh",   "tr": "🔄 Yenile",      "es": "🔄 Actualizar", "fr": "🔄 Actualiser",  "pt": "🔄 Atualizar",  "ru": "🔄 Обновить",     "ar": "🔄 تحديث"},
+    "hinzufuegen":       {"de": "➕ Hinzufügen",     "en": "➕ Add",       "tr": "➕ Ekle",         "es": "➕ Añadir",     "fr": "➕ Ajouter",     "pt": "➕ Adicionar",  "ru": "➕ Добавить",     "ar": "➕ إضافة"},
+    "bearbeiten":        {"de": "✏️ Bearbeiten",     "en": "✏️ Edit",      "tr": "✏️ Düzenle",     "es": "✏️ Editar",     "fr": "✏️ Modifier",    "pt": "✏️ Editar",     "ru": "✏️ Изменить",     "ar": "✏️ تعديل"},
+    "bestaetigen":       {"de": "✅ Bestätigen",     "en": "✅ Confirm",   "tr": "✅ Onayla",      "es": "✅ Confirmar",  "fr": "✅ Confirmer",   "pt": "✅ Confirmar",  "ru": "✅ Подтвердить",  "ar": "✅ تأكيد"},
 
     # ── Spielerverwaltung ─────────────────────────────────────────────────────
-    "spieler_neu":       {"de": "➕ Neu anlegen",    "en": "➕ New Player", "tr": "➕ Yeni Oyuncu", "es": "➕ Nuevo Jugador","fr": "➕ Nouveau Joueur","pt": "➕ Novo Jogador","ru": "➕ Новый игрок"},
-    "spieler_bearbeiten":{"de": "✏️ Bearbeiten",     "en": "✏️ Edit",      "tr": "✏️ Düzenle",     "es": "✏️ Editar",     "fr": "✏️ Modifier",    "pt": "✏️ Editar",     "ru": "✏️ Изменить"},
-    "spieler_alle":      {"de": "📋 Alle Spieler",   "en": "📋 All Players","tr": "📋 Tüm Oyuncular","es": "📋 Todos los Jugadores","fr": "📋 Tous les Joueurs","pt": "📋 Todos os Jogadores","ru": "📋 Все игроки"},
-    "vorname":           {"de": "Vorname",            "en": "First Name",   "tr": "Ad",             "es": "Nombre",        "fr": "Prénom",         "pt": "Nome",          "ru": "Имя"},
-    "nachname":          {"de": "Nachname",           "en": "Last Name",    "tr": "Soyad",          "es": "Apellido",      "fr": "Nom de famille", "pt": "Apelido",       "ru": "Фамилия"},
-    "geburtsdatum":      {"de": "Geburtsdatum (TT.MM.JJJJ)", "en": "Date of Birth (DD.MM.YYYY)", "tr": "Doğum Tarihi (GG.AA.YYYY)", "es": "Fecha de Nacimiento (DD.MM.AAAA)", "fr": "Date de Naissance (JJ.MM.AAAA)", "pt": "Data de Nascimento (DD.MM.AAAA)", "ru": "Дата рождения (ДД.ММ.ГГГГ)"},
-    "geschlecht":        {"de": "Geschlecht",         "en": "Gender",       "tr": "Cinsiyet",       "es": "Sexo",          "fr": "Genre",          "pt": "Género",        "ru": "Пол"},
-    "maennlich":         {"de": "Männlich",           "en": "Male",         "tr": "Erkek",          "es": "Masculino",     "fr": "Masculin",       "pt": "Masculino",     "ru": "Мужской"},
-    "weiblich":          {"de": "Weiblich",           "en": "Female",       "tr": "Kadın",          "es": "Femenino",      "fr": "Féminin",        "pt": "Feminino",      "ru": "Женский"},
-    "divers":            {"de": "Divers",             "en": "Other",        "tr": "Diğer",          "es": "Otro",          "fr": "Autre",          "pt": "Outro",         "ru": "Другое"},
-    "altersklasse":      {"de": "Altersklasse",       "en": "Age Group",    "tr": "Yaş Grubu",      "es": "Categoría",     "fr": "Catégorie d'âge","pt": "Escalão",       "ru": "Возрастная группа"},
-    "hauptposition":     {"de": "Hauptposition",      "en": "Main Position","tr": "Ana Pozisyon",   "es": "Posición Principal","fr": "Position Principale","pt": "Posição Principal","ru": "Основная позиция"},
-    "nebenposition":     {"de": "Nebenposition",      "en": "Secondary Position","tr": "Yan Pozisyon","es": "Posición Secundaria","fr": "Position Secondaire","pt": "Posição Secundária","ru": "Дополнительная позиция"},
-    "spielbein":         {"de": "Spielbein",          "en": "Preferred Foot","tr": "Tercih Edilen Ayak","es": "Pie Dominante","fr": "Pied Préféré",  "pt": "Pé Dominante",  "ru": "Рабочая нога"},
-    "leistungsniveau":   {"de": "Leistungsniveau",    "en": "Performance Level","tr": "Performans Seviyesi","es": "Nivel de Rendimiento","fr": "Niveau de Performance","pt": "Nível de Desempenho","ru": "Уровень мастерства"},
-    "mannschaft":        {"de": "Mannschaft / Verein","en": "Team / Club",  "tr": "Takım / Kulüp", "es": "Equipo / Club", "fr": "Équipe / Club",  "pt": "Equipa / Clube","ru": "Команда / Клуб"},
-    "trainingsstatus":   {"de": "Trainingsstatus",    "en": "Training Status","tr": "Antrenman Durumu","es": "Estado de Entrenamiento","fr": "Statut d'Entraînement","pt": "Estado de Treino","ru": "Статус тренировки"},
+    "spieler_neu":       {"de": "➕ Neu anlegen",    "en": "➕ New Player",  "tr": "➕ Yeni Oyuncu",  "es": "➕ Nuevo Jugador", "fr": "➕ Nouveau Joueur","pt": "➕ Novo Jogador", "ru": "➕ Новый игрок",   "ar": "➕ لاعب جديد"},
+    "spieler_bearbeiten":{"de": "✏️ Bearbeiten",     "en": "✏️ Edit",        "tr": "✏️ Düzenle",      "es": "✏️ Editar",       "fr": "✏️ Modifier",     "pt": "✏️ Editar",      "ru": "✏️ Изменить",      "ar": "✏️ تعديل"},
+    "spieler_alle":      {"de": "📋 Alle Spieler",   "en": "📋 All Players", "tr": "📋 Tüm Oyuncular","es": "📋 Todos los Jug.","fr": "📋 Tous les Joueurs","pt": "📋 Todos os Jog.","ru": "📋 Все игроки",   "ar": "📋 جميع اللاعبين"},
+    "vorname":           {"de": "Vorname",            "en": "First Name",     "tr": "Ad",              "es": "Nombre",          "fr": "Prénom",          "pt": "Nome",           "ru": "Имя",              "ar": "الاسم الأول"},
+    "nachname":          {"de": "Nachname",           "en": "Last Name",      "tr": "Soyad",           "es": "Apellido",        "fr": "Nom de famille",  "pt": "Apelido",        "ru": "Фамилия",          "ar": "اسم العائلة"},
+    "geburtsdatum":      {"de": "Geburtsdatum (TT.MM.JJJJ)", "en": "Date of Birth (DD.MM.YYYY)", "tr": "Doğum Tarihi (GG.AA.YYYY)", "es": "Fecha Nacimiento (DD.MM.AAAA)", "fr": "Date Naissance (JJ.MM.AAAA)", "pt": "Data Nascimento (DD.MM.AAAA)", "ru": "Дата рождения (ДД.ММ.ГГГГ)", "ar": "تاريخ الميلاد"},
+    "geschlecht":        {"de": "Geschlecht",         "en": "Gender",         "tr": "Cinsiyet",        "es": "Sexo",            "fr": "Genre",           "pt": "Género",         "ru": "Пол",              "ar": "الجنس"},
+    "maennlich":         {"de": "Männlich",           "en": "Male",           "tr": "Erkek",           "es": "Masculino",       "fr": "Masculin",        "pt": "Masculino",      "ru": "Мужской",          "ar": "ذكر"},
+    "weiblich":          {"de": "Weiblich",           "en": "Female",         "tr": "Kadın",           "es": "Femenino",        "fr": "Féminin",         "pt": "Feminino",       "ru": "Женский",          "ar": "أنثى"},
+    "divers":            {"de": "Divers",             "en": "Other",          "tr": "Diğer",           "es": "Otro",            "fr": "Autre",           "pt": "Outro",          "ru": "Другое",           "ar": "آخر"},
+    "altersklasse":      {"de": "Altersklasse",       "en": "Age Group",      "tr": "Yaş Grubu",       "es": "Categoría",       "fr": "Catégorie d'âge", "pt": "Escalão",        "ru": "Возрастная группа","ar": "الفئة العمرية"},
+    "hauptposition":     {"de": "Hauptposition",      "en": "Main Position",  "tr": "Ana Pozisyon",    "es": "Posición Princ.", "fr": "Position Princ.", "pt": "Posição Princ.", "ru": "Основная позиция", "ar": "المركز الأساسي"},
+    "nebenposition":     {"de": "Nebenposition",      "en": "Sec. Position",  "tr": "Yan Pozisyon",    "es": "Pos. Secundaria", "fr": "Position Sec.",   "pt": "Posição Sec.",   "ru": "Доп. позиция",     "ar": "المركز الثانوي"},
+    "spielbein":         {"de": "Spielbein",          "en": "Preferred Foot", "tr": "Tercih Edilen Ayak","es": "Pie Dominante",  "fr": "Pied Préféré",   "pt": "Pé Dominante",   "ru": "Рабочая нога",     "ar": "القدم المفضلة"},
+    "leistungsniveau":   {"de": "Leistungsniveau",    "en": "Performance Level","tr": "Performans Sev.","es": "Nivel Rendimiento","fr": "Niveau Perf.",  "pt": "Nível Desemp.",  "ru": "Уровень мастерства","ar": "مستوى الأداء"},
+    "mannschaft":        {"de": "Mannschaft / Verein","en": "Team / Club",    "tr": "Takım / Kulüp",   "es": "Equipo / Club",   "fr": "Équipe / Club",   "pt": "Equipa / Clube", "ru": "Команда / Клуб",   "ar": "الفريق / النادي"},
+    "trainingsstatus":   {"de": "Trainingsstatus",    "en": "Training Status","tr": "Antrenman Durumu", "es": "Estado Entreno",  "fr": "Statut Entr.",    "pt": "Estado Treino",  "ru": "Статус тренировки","ar": "حالة التدريب"},
 
     # ── Einstellungen ─────────────────────────────────────────────────────────
     "einst_allgemein":   {"de": "⚙️ Allgemein",        "en": "⚙️ General",     "tr": "⚙️ Genel",         "es": "⚙️ General",       "fr": "⚙️ Général",       "pt": "⚙️ Geral",         "ru": "⚙️ Общее"},
@@ -114,12 +115,12 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
     "chk_abbruch_erklaert": {"de": "Abbruchsignal erklärt",          "en": "Stop signal explained",    "tr": "Durdurma sinyali açıklandı", "es": "Señal de parada explicada", "fr": "Signal d'arrêt expliqué",   "pt": "Sinal de paragem explicado","ru": "Сигнал остановки объяснён"},
 
     # ── Status / Ampel ────────────────────────────────────────────────────────
-    "sehr_gut":          {"de": "Sehr gut",            "en": "Excellent",     "tr": "Çok iyi",        "es": "Excelente",     "fr": "Excellent",      "pt": "Excelente",     "ru": "Отлично"},
-    "gut":               {"de": "Gut",                 "en": "Good",          "tr": "İyi",            "es": "Bueno",         "fr": "Bon",            "pt": "Bom",           "ru": "Хорошо"},
-    "mittel":            {"de": "Mittel",              "en": "Average",       "tr": "Orta",           "es": "Promedio",      "fr": "Moyen",          "pt": "Médio",         "ru": "Средне"},
-    "verbesserung":      {"de": "Verbesserungsbedarf", "en": "Needs improvement","tr": "Geliştirilmeli","es": "Mejorable",   "fr": "À améliorer",    "pt": "A melhorar",    "ru": "Требует улучшения"},
-    "handlungsbedarf":   {"de": "Handlungsbedarf",     "en": "Action required","tr": "Önlem gerekli", "es": "Acción requerida","fr": "Action requise","pt": "Ação necessária","ru": "Требуются меры"},
-    "kein_test":         {"de": "Kein Test",           "en": "Not tested",    "tr": "Test yok",       "es": "Sin test",      "fr": "Non testé",      "pt": "Sem teste",     "ru": "Не тестировался"},
+    "sehr_gut":          {"de": "Sehr gut",            "en": "Excellent",        "tr": "Çok iyi",         "es": "Excelente",      "fr": "Excellent",      "pt": "Excelente",     "ru": "Отлично",           "ar": "ممتاز"},
+    "gut":               {"de": "Gut",                 "en": "Good",             "tr": "İyi",             "es": "Bueno",          "fr": "Bon",            "pt": "Bom",           "ru": "Хорошо",            "ar": "جيد"},
+    "mittel":            {"de": "Mittel",              "en": "Average",          "tr": "Orta",            "es": "Promedio",       "fr": "Moyen",          "pt": "Médio",         "ru": "Средне",            "ar": "متوسط"},
+    "verbesserung":      {"de": "Verbesserungsbedarf", "en": "Needs improvement","tr": "Geliştirilmeli",  "es": "Mejorable",      "fr": "À améliorer",    "pt": "A melhorar",    "ru": "Требует улучшения", "ar": "يحتاج تحسين"},
+    "handlungsbedarf":   {"de": "Handlungsbedarf",     "en": "Action required",  "tr": "Önlem gerekli",  "es": "Acción requerida","fr": "Action requise", "pt": "Ação necessária","ru": "Требуются меры",    "ar": "يحتاج تدخل"},
+    "kein_test":         {"de": "Kein Test",           "en": "Not tested",       "tr": "Test yok",        "es": "Sin test",       "fr": "Non testé",      "pt": "Sem teste",     "ru": "Не тестировался",   "ar": "لم يُختبر"},
 
     # ── Trainingsplan ─────────────────────────────────────────────────────────
     "plan_erstellen":    {"de": "⚡ Trainingsplan erstellen","en": "⚡ Generate Training Plan","tr": "⚡ Plan Oluştur","es": "⚡ Crear Plan","fr": "⚡ Créer le Plan","pt": "⚡ Criar Plano","ru": "⚡ Создать план"},
@@ -138,10 +139,10 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
     "version":           {"de": "Version",       "en": "Version",       "tr": "Sürüm",          "es": "Versión",       "fr": "Version",        "pt": "Versão",        "ru": "Версия"},
 
     # ── Fehler / Hinweise ─────────────────────────────────────────────────────
-    "kein_spieler":      {"de": "Kein Spieler ausgewählt.",    "en": "No player selected.",    "tr": "Oyuncu seçilmedi.",     "es": "Ningún jugador seleccionado.","fr": "Aucun joueur sélectionné.","pt": "Nenhum jogador selecionado.","ru": "Игрок не выбран."},
-    "keine_daten":       {"de": "Noch keine Daten vorhanden.", "en": "No data available yet.", "tr": "Henüz veri yok.",       "es": "Sin datos disponibles.",      "fr": "Pas encore de données.",    "pt": "Sem dados disponíveis.",     "ru": "Данных пока нет."},
-    "gespeichert":       {"de": "✅ Gespeichert.",             "en": "✅ Saved.",               "tr": "✅ Kaydedildi.",        "es": "✅ Guardado.",                "fr": "✅ Enregistré.",             "pt": "✅ Guardado.",                "ru": "✅ Сохранено."},
-    "fehler":            {"de": "❌ Fehler:",                  "en": "❌ Error:",               "tr": "❌ Hata:",              "es": "❌ Error:",                   "fr": "❌ Erreur :",                "pt": "❌ Erro:",                    "ru": "❌ Ошибка:"},
+    "kein_spieler":      {"de": "Kein Spieler ausgewählt.",    "en": "No player selected.",    "tr": "Oyuncu seçilmedi.",     "es": "Ningún jugador seleccionado.","fr": "Aucun joueur sélectionné.","pt": "Nenhum jogador selecionado.","ru": "Игрок не выбран.",    "ar": "لم يتم اختيار لاعب."},
+    "keine_daten":       {"de": "Noch keine Daten vorhanden.", "en": "No data available yet.", "tr": "Henüz veri yok.",       "es": "Sin datos disponibles.",      "fr": "Pas encore de données.",    "pt": "Sem dados disponíveis.",     "ru": "Данных пока нет.", "ar": "لا توجد بيانات بعد."},
+    "gespeichert":       {"de": "✅ Gespeichert.",             "en": "✅ Saved.",               "tr": "✅ Kaydedildi.",        "es": "✅ Guardado.",                "fr": "✅ Enregistré.",             "pt": "✅ Guardado.",                "ru": "✅ Сохранено.",    "ar": "✅ تم الحفظ."},
+    "fehler":            {"de": "❌ Fehler:",                  "en": "❌ Error:",               "tr": "❌ Hata:",              "es": "❌ Error:",                   "fr": "❌ Erreur :",                "pt": "❌ Erro:",                    "ru": "❌ Ошибка:",       "ar": "❌ خطأ:"},
 }
 
 

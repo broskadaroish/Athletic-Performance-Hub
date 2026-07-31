@@ -5555,6 +5555,33 @@ def page_export_pdf():
             )
             selected_ids = [id_by_label[lbl] for lbl in selected_labels]
 
+    # ── Einzeltest-Schnelldownload ────────────────────────────────────────────
+    st.markdown("---")
+    st.markdown("### ⚡ Einzeltest-Schnelldownload")
+    st.caption("Ein Test direkt als PDF — kein weiterer Klick nötig.")
+    _qt_cols = st.columns(4)
+    for _qi, _tid in enumerate(ALL_TEST_IDS):
+        _ql = TEST_LABELS[_tid]
+        if _qt_cols[_qi % 4].button(f"📄 {_ql}", key=f"qt_{_tid}", use_container_width=True):
+            with st.spinner(f"{_ql} wird erstellt …"):
+                try:
+                    _qb = generate_anleitung_pdf(
+                        [_tid],
+                        mit_deckblatt=False,
+                        vereinsname=st.session_state.get("cfg_vereinsname", ""),
+                        saison=st.session_state.get("cfg_saison", ""),
+                        logo_bytes=None,
+                    )
+                    st.download_button(
+                        f"⬇️ {_ql} herunterladen",
+                        data=_qb,
+                        file_name=f"Anleitung_{_ql.replace(' ', '_')}.pdf",
+                        mime="application/pdf",
+                        key=f"qt_dl_{_tid}",
+                    )
+                except Exception as _qe:
+                    st.error(f"Fehler: {_qe}")
+
     # ── Vorschau der Inhalte ─────────────────────────────────────────────────
     if selected_ids:
         st.markdown("---")
@@ -6566,7 +6593,7 @@ def page_diagnostik_overview() -> None:
 def page_testprotokoll():
     st.markdown(
         section_header("🖨️ Testprotokoll drucken",
-                       "Leere Druckbogen fuer die papierbasierte Erfassung — keine Auswertung"),
+                       "Leere Druckbogen fuer die papierbasierte Erfassung"),
         unsafe_allow_html=True,
     )
 
@@ -6585,6 +6612,22 @@ def page_testprotokoll():
 
     # ── Schritt 2: Tests auswählen ─────────────────────────────────────────────
     st.markdown("### Schritt 2 — Tests auswählen")
+
+    # Schnellauswahl nach Bereich
+    _BEREICH_FILTER = {
+        "Alle Tests": list(TEST_REIHENFOLGE),
+        "Beweglichkeit & Stabilität": ["fms", "y_balance"],
+        "Schnelligkeit & Kraft":       ["sprint", "jump", "agility", "kraft"],
+        "Ausdauer & Körper":           ["yoyo", "anthropometrie"],
+    }
+    bereich_wahl = st.selectbox(
+        "Schnellauswahl nach Bereich",
+        list(_BEREICH_FILTER.keys()),
+        key="proto_bereich_filter",
+        label_visibility="visible",
+    )
+    vorauswahl = _BEREICH_FILTER[bereich_wahl]
+
     col_all, col_none = st.columns([2, 8])
     if col_all.button("Alle auswählen", key="proto_all"):
         for tid in TEST_REIHENFOLGE:
@@ -6596,22 +6639,57 @@ def page_testprotokoll():
     cols = st.columns(4)
     selected_tests = []
     for i, tid in enumerate(TEST_REIHENFOLGE):
+        default_val = tid in vorauswahl if bereich_wahl != "Alle Tests" else True
         checked = cols[i % 4].checkbox(
             TEST_NAMEN[tid],
-            value=st.session_state.get(f"proto_test_{tid}", True),
+            value=st.session_state.get(f"proto_test_{tid}", default_val),
             key=f"proto_test_{tid}",
         )
         if checked:
             selected_tests.append(tid)
 
-    # ── Schritt 3: Spieler (nur bei "mit Spieler") ────────────────────────────
+    # ── Schritt 3: Kopfdaten vorausfüllen (optional) ───────────────────────────
+    st.markdown("### Schritt 3 — Kopfdaten (optional)")
+    st.caption("Diese Angaben werden in den Protokoll-Header gedruckt.")
+    _h1, _h2, _h3 = st.columns(3)
+    proto_datum    = _h1.text_input("Testdatum",    value="", placeholder="TT.MM.JJJJ", key="proto_datum")
+    proto_trainer  = _h2.text_input("Trainer",      value=st.session_state.get("cfg_trainer_name", ""), placeholder="Name des Trainers", key="proto_trainer")
+    proto_ort      = _h3.text_input("Testort",      value="", placeholder="z. B. Sportplatz", key="proto_ort")
+
+    # Trainer-Name für spätere Sessions merken
+    if proto_trainer:
+        st.session_state["cfg_trainer_name"] = proto_trainer
+
+    # ── Schritt 4: Spieler (nur bei "mit Spieler") ────────────────────────────
     selected_spieler = []
     if not leer:
-        st.markdown("### Schritt 3 — Spieler auswählen")
-        if not alle_spieler:
-            st.warning("Keine Spieler in der Datenbank. Bitte zuerst Spieler anlegen.")
+        st.markdown("### Schritt 4 — Spieler auswählen")
+
+        # Mannschaft-Filter
+        mannschaften = sorted({p.get("mannschaft") or "Ohne Mannschaft" for p in alle_spieler}) if alle_spieler else []
+        if mannschaften:
+            mann_filter = st.selectbox(
+                "Nach Mannschaft filtern",
+                ["Alle Mannschaften"] + mannschaften,
+                key="proto_mann_filter",
+            )
+            if mann_filter == "Alle Mannschaften":
+                spieler_fuer_auswahl = alle_spieler
+            else:
+                spieler_fuer_auswahl = [
+                    p for p in alle_spieler
+                    if (p.get("mannschaft") or "Ohne Mannschaft") == mann_filter
+                ]
         else:
-            opts = {p["name"]: p for p in alle_spieler}
+            spieler_fuer_auswahl = alle_spieler
+
+        if not spieler_fuer_auswahl:
+            st.warning("Keine Spieler gefunden. Bitte zuerst Spieler anlegen.")
+        else:
+            opts = {p["name"]: p for p in spieler_fuer_auswahl}
+            # Schnell: ganze Mannschaft auswählen
+            if st.button("✅ Alle angezeigten Spieler auswählen", key="proto_all_sp"):
+                st.session_state["proto_spieler_sel"] = list(opts.keys())
             auswahl = st.multiselect(
                 "Spieler (Mehrfachauswahl möglich)",
                 list(opts.keys()),
@@ -6627,29 +6705,40 @@ def page_testprotokoll():
         return
 
     n_spieler = max(len(selected_spieler), 1)
-    n_seiten   = n_spieler  # vereinfachte Schätzung: 1-3 Seiten pro Spieler
-
-    info_cols = st.columns(3)
+    info_cols = st.columns(4)
     info_cols[0].metric("Ausgewählte Tests", len(selected_tests))
     info_cols[1].metric("Spieler / Bögen", n_spieler)
-    info_cols[2].metric("Geschätzte Seiten", f"ca. {n_seiten}–{n_seiten * 3}")
+    info_cols[2].metric("Geschätzte Seiten", f"ca. {n_spieler}–{n_spieler * 3}")
+    info_cols[3].metric("Testdatum", proto_datum or "handschriftlich")
 
-    st.markdown("**Ausgewählte Tests:**")
-    st.markdown("  ".join([f"`{TEST_NAMEN[t]}`" for t in selected_tests]))
-
+    st.markdown("**Tests:**  " + "  ·  ".join([f"`{TEST_NAMEN[t]}`" for t in selected_tests]))
     if not leer and selected_spieler:
-        st.markdown("**Spieler:**")
-        st.markdown("  ".join([f"`{p['name']}`" for p in selected_spieler]))
+        st.markdown("**Spieler:**  " + "  ·  ".join([f"`{p['name']}`" for p in selected_spieler]))
+    if proto_trainer:
+        st.markdown(f"**Trainer:**  `{proto_trainer}`")
+    if proto_ort:
+        st.markdown(f"**Ort:**  `{proto_ort}`")
 
-    if leer and not selected_spieler:
+    if leer:
         st.info("📄 Leeres Protokoll — Spielerdaten werden handschriftlich eingetragen.")
-    elif not leer and not selected_spieler:
+    elif not selected_spieler:
         st.warning("Bitte mindestens einen Spieler auswählen, oder zur Variante 'Leeres Protokoll' wechseln.")
         return
 
+    # ── Druck-Tipps ───────────────────────────────────────────────────────────
+    with st.expander("🖨️ Druck-Tipps", expanded=False):
+        st.markdown(
+            "- **Papierformat:** DIN A4, Hochformat\n"
+            "- **Ränder:** min. 10 mm (Systemstandard)\n"
+            "- **Druckskalierung:** 100 % (nicht 'Auf Seitengröße anpassen')\n"
+            "- **Farbe:** Schwarz/Weiß reicht aus\n"
+            "- **Empfehlung:** Nach dem Druck laminieren für Outdoor-Einsatz"
+        )
+
     # ── PDF generieren ─────────────────────────────────────────────────────────
     st.markdown("---")
-    if st.button("📥 Testprotokoll PDF erstellen", use_container_width=True, key="proto_gen"):
+    if st.button("📥 Testprotokoll PDF erstellen", use_container_width=True,
+                 type="primary", key="proto_gen"):
         with st.spinner("PDF wird erstellt …"):
             pdf_bytes = generate_testprotokoll(
                 test_ids=selected_tests,
@@ -6851,17 +6940,17 @@ with st.sidebar:
 
     # ── Main navigation (mit Übersetzung) ────────────────────────────────────
     _NAV_TRANS = {
-        "🏠  Startseite":    {"de": "🏠  Startseite",    "en": "🏠  Dashboard",    "tr": "🏠  Ana Sayfa",    "es": "🏠  Inicio",        "fr": "🏠  Accueil",       "pt": "🏠  Início",        "ru": "🏠  Главная"},
-        "👤  Spieler":       {"de": "👤  Spieler",        "en": "👤  Players",      "tr": "👤  Oyuncular",    "es": "👤  Jugadores",     "fr": "👤  Joueurs",       "pt": "👤  Jogadores",     "ru": "👤  Игроки"},
-        "🔬  Diagnostik":    {"de": "🔬  Diagnostik",     "en": "🔬  Diagnostics",  "tr": "🔬  Tanı",         "es": "🔬  Diagnóstico",   "fr": "🔬  Diagnostic",    "pt": "🔬  Diagnóstico",   "ru": "🔬  Диагностика"},
-        "📅  Training":      {"de": "📅  Training",       "en": "📅  Training",     "tr": "📅  Antrenman",    "es": "📅  Entrenamiento", "fr": "📅  Entraînement",  "pt": "📅  Treino",        "ru": "📅  Тренировка"},
-        "📈  Entwicklung":   {"de": "📈  Entwicklung",    "en": "📈  Development",  "tr": "📈  Gelişim",      "es": "📈  Desarrollo",    "fr": "📈  Développement", "pt": "📈  Desenvolvimento","ru": "📈  Развитие"},
-        "⚖️  Vergleich":     {"de": "⚖️  Vergleich",     "en": "⚖️  Comparison",   "tr": "⚖️  Karşılaştır", "es": "⚖️  Comparación",  "fr": "⚖️  Comparaison",   "pt": "⚖️  Comparação",    "ru": "⚖️  Сравнение"},
-        "👥  Mannschaft":    {"de": "👥  Mannschaft",     "en": "👥  Team",         "tr": "👥  Takım",        "es": "👥  Equipo",        "fr": "👥  Équipe",        "pt": "👥  Equipa",        "ru": "👥  Команда"},
-        "🖨️  Protokoll":     {"de": "🖨️  Protokoll",     "en": "🖨️  Protocol",     "tr": "🖨️  Protokol",    "es": "🖨️  Protocolo",    "fr": "🖨️  Protocole",     "pt": "🖨️  Protocolo",     "ru": "🖨️  Протокол"},
-        "📄  Anleitungen":   {"de": "📄  Anleitungen",    "en": "📄  Instructions", "tr": "📄  Talimatlar",   "es": "📄  Instrucciones", "fr": "📄  Instructions",   "pt": "📄  Instruções",    "ru": "📄  Инструкции"},
-        "⚙️  Einstellungen": {"de": "⚙️  Einstellungen", "en": "⚙️  Settings",     "tr": "⚙️  Ayarlar",     "es": "⚙️  Ajustes",      "fr": "⚙️  Paramètres",    "pt": "⚙️  Definições",    "ru": "⚙️  Настройки"},
-        "ℹ️  Über":          {"de": "ℹ️  Über",           "en": "ℹ️  About",        "tr": "ℹ️  Hakkında",    "es": "ℹ️  Acerca de",    "fr": "ℹ️  À propos",      "pt": "ℹ️  Sobre",         "ru": "ℹ️  О программе"},
+        "🏠  Startseite":    {"de": "🏠  Startseite",    "en": "🏠  Dashboard",    "tr": "🏠  Ana Sayfa",    "es": "🏠  Inicio",        "fr": "🏠  Accueil",       "pt": "🏠  Início",        "ru": "🏠  Главная",       "ar": "🏠  الرئيسية"},
+        "👤  Spieler":       {"de": "👤  Spieler",        "en": "👤  Players",      "tr": "👤  Oyuncular",    "es": "👤  Jugadores",     "fr": "👤  Joueurs",       "pt": "👤  Jogadores",     "ru": "👤  Игроки",        "ar": "👤  اللاعبون"},
+        "🔬  Diagnostik":    {"de": "🔬  Diagnostik",     "en": "🔬  Diagnostics",  "tr": "🔬  Tanı",         "es": "🔬  Diagnóstico",   "fr": "🔬  Diagnostic",    "pt": "🔬  Diagnóstico",   "ru": "🔬  Диагностика",   "ar": "🔬  التشخيص"},
+        "📅  Training":      {"de": "📅  Training",       "en": "📅  Training",     "tr": "📅  Antrenman",    "es": "📅  Entrenamiento", "fr": "📅  Entraînement",  "pt": "📅  Treino",        "ru": "📅  Тренировка",    "ar": "📅  التدريب"},
+        "📈  Entwicklung":   {"de": "📈  Entwicklung",    "en": "📈  Development",  "tr": "📈  Gelişim",      "es": "📈  Desarrollo",    "fr": "📈  Développement", "pt": "📈  Desenvolvimento","ru": "📈  Развитие",       "ar": "📈  التطور"},
+        "⚖️  Vergleich":     {"de": "⚖️  Vergleich",     "en": "⚖️  Comparison",   "tr": "⚖️  Karşılaştır", "es": "⚖️  Comparación",  "fr": "⚖️  Comparaison",   "pt": "⚖️  Comparação",    "ru": "⚖️  Сравнение",     "ar": "⚖️  المقارنة"},
+        "👥  Mannschaft":    {"de": "👥  Mannschaft",     "en": "👥  Team",         "tr": "👥  Takım",        "es": "👥  Equipo",        "fr": "👥  Équipe",        "pt": "👥  Equipa",        "ru": "👥  Команда",        "ar": "👥  الفريق"},
+        "🖨️  Protokoll":     {"de": "🖨️  Protokoll",     "en": "🖨️  Protocol",     "tr": "🖨️  Protokol",    "es": "🖨️  Protocolo",    "fr": "🖨️  Protocole",     "pt": "🖨️  Protocolo",     "ru": "🖨️  Протокол",      "ar": "🖨️  البروتوكول"},
+        "📄  Anleitungen":   {"de": "📄  Anleitungen",    "en": "📄  Instructions", "tr": "📄  Talimatlar",   "es": "📄  Instrucciones", "fr": "📄  Instructions",   "pt": "📄  Instruções",    "ru": "📄  Инструкции",    "ar": "📄  التعليمات"},
+        "⚙️  Einstellungen": {"de": "⚙️  Einstellungen", "en": "⚙️  Settings",     "tr": "⚙️  Ayarlar",     "es": "⚙️  Ajustes",      "fr": "⚙️  Paramètres",    "pt": "⚙️  Definições",    "ru": "⚙️  Настройки",     "ar": "⚙️  الإعدادات"},
+        "ℹ️  Über":          {"de": "ℹ️  Über",           "en": "ℹ️  About",        "tr": "ℹ️  Hakkında",    "es": "ℹ️  Acerca de",    "fr": "ℹ️  À propos",      "pt": "ℹ️  Sobre",         "ru": "ℹ️  О программе",   "ar": "ℹ️  حول"},
     }
     _cur_lang = get_lang()
     section = st.radio(
