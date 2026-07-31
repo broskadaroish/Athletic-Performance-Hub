@@ -181,8 +181,10 @@ def _zweck_bestaetigt() -> bool:
 
 # ─── Page config ──────────────────────────────────────────────────────────────
 from PIL import Image as _PILImage
-_APP_ICON_PATH = os.path.join(os.path.dirname(__file__), "assets", "icon.png")
-_app_icon_img  = _PILImage.open(_APP_ICON_PATH) if os.path.exists(_APP_ICON_PATH) else "⚽"
+_APP_ICON_PATH = os.path.join(os.path.dirname(__file__), "assets", "app_icon.ico")
+if not os.path.exists(_APP_ICON_PATH):
+    _APP_ICON_PATH = os.path.join(os.path.dirname(__file__), "assets", "icon.png")
+_app_icon_img = _PILImage.open(_APP_ICON_PATH) if os.path.exists(_APP_ICON_PATH) else "⚽"
 
 st.set_page_config(
     page_title="Bruce Football Performance Diagnostics",
@@ -7119,7 +7121,15 @@ def page_ueber_software():
                 st.image(_uio.BytesIO(_ueber_logo), use_container_width=True)
         except Exception:
             pass
-    _header_icon = "" if _ueber_logo else '<div style="font-size:64px">⚽</div>'
+    _icon_path = os.path.join(os.path.dirname(__file__), "assets", "app_icon.ico")
+    if not _ueber_logo and os.path.exists(_icon_path):
+        try:
+            _ulcol2, _umcol2, _urcol2 = st.columns([2, 1, 2])
+            with _umcol2:
+                st.image(_icon_path, width=96)
+        except Exception:
+            pass
+    _header_icon = "" if (_ueber_logo or os.path.exists(_icon_path)) else '<div style="font-size:64px">⚽</div>'
     _header_pad  = "16px" if _ueber_logo else "40px"
     st.markdown(
         f'<div style="max-width:700px;margin:0 auto">'
