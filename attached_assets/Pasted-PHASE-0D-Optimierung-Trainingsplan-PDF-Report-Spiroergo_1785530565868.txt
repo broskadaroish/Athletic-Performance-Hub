@@ -1,0 +1,206 @@
+PHASE 0D – Optimierung Trainingsplan, PDF-Report, Spiroergometrie und Offlinebetrieb
+Projektziel
+Du arbeitest an der bestehenden Software Bruce Football Performance Diagnostics.
+Diese Teilphase dient ausschließlich der Optimierung der bereits vorhandenen Module:
+•	Trainingsplan 
+•	PDF-Report 
+•	Spiroergometrie 
+•	Offlinebetrieb 
+Es dürfen keine neuen Hauptmodule entwickelt werden.
+Die Plattform muss jederzeit vollständig lauffähig bleiben.
+
+Langfristiges Projektziel
+Die Plattform soll später sowohl als
+•	Windows-Software (.exe) 
+•	Web-Anwendung 
+•	Cloud-Plattform 
+genutzt werden können.
+Alle Änderungen müssen modular entwickelt werden.
+Die Plattform muss vollständig offline funktionieren
+Arbeitsweise
+Analysiere zunächst:
+•	Trainingsplan 
+•	PDF-Berichte 
+•	Spiroergometrie 
+•	Offlinebetrieb 
+Erstelle anschließend einen kurzen Umsetzungsplan.
+Arbeite danach Schritt für Schritt.
+Nach jeder Änderung:
+•	testen 
+•	dokumentieren 
+•	Fehler sofort beheben 
+
+Wichtige Regeln
+Nicht verändern:
+•	Diagnostikalgorithmen 
+•	wissenschaftliche Grundlagen 
+•	Athletik-Score 
+•	Berechnungslogik 
+Nicht löschen:
+•	Datenbank 
+•	Spielerdaten 
+•	vorhandene Funktionen 
+Bestehende Funktionen dürfen ausschließlich verbessert werden.
+
+Aufgabe 1 – Trainingsplan
+Analyse
+Analysiere zunächst die aktuelle Trainingsplanlogik.
+Momentan erstellt die Software einen Trainingsplan, bei dem jede Woche lediglich ein einzelner Schwerpunkt trainiert wird.
+Beispiel:
+•	Woche 1 → Sprunggelenk 
+•	Woche 2 → Knie 
+•	Woche 3 → Hüfte 
+•	Woche 4 → Core 
+Diese Vorgehensweise entspricht nicht einer sportwissenschaftlich sinnvollen Trainingsplanung.
+Dokumentiere zunächst die Ursache dieser Logik.
+
+Neue Trainingslogik
+Es soll keine künstliche Intelligenz verwendet werden.
+Entwickle stattdessen eine regelbasierte Expertenlogik.
+Die Trainingsplanung soll:
+•	sämtliche Testergebnisse gemeinsam auswerten 
+•	Hauptdefizite erkennen 
+•	Nebendefizite erkennen 
+•	Defizite priorisieren 
+•	mehrere Trainingsschwerpunkte sinnvoll kombinieren 
+•	Belastung berücksichtigen 
+•	Regeneration berücksichtigen 
+•	Übungen logisch über mehrere Wochen verteilen 
+•	Wiederholungen sinnvoll einplanen 
+•	4-, 6-, 8- oder 12-Wochen-Pläne erstellen 
+Der Trainingsplan soll sportwissenschaftlich sinnvoll aufgebaut sein.
+Jede Trainingswoche darf mehrere Trainingsschwerpunkte enthalten.
+Die Planung soll so erfolgen, wie sie ein erfahrener Athletiktrainer im Fußball erstellen würde.
+Die Berechnungen der Diagnostik dürfen dabei nicht verändert werden.
+
+Aufgabe 2 – PDF-Report
+Überarbeite den kompletten PDF-Bericht.
+Der Bericht soll professionell aufgebaut sein.
+
+Layout
+Verbessere:
+•	Seitenlayout 
+•	Seitenumbrüche 
+•	Textbreite 
+•	Tabellen 
+•	Diagramme 
+•	Schriftgrößen 
+•	Abstände 
+Es dürfen keine Texte oder Grafiken außerhalb der Seitenränder dargestellt werden.
+
+Inhalt
+Der PDF-Bericht soll enthalten:
+•	Deckblatt 
+•	Spielerprofil 
+•	Anthropometrie 
+•	FMS 
+•	Y-Balance 
+•	Kraft 
+•	Sprint 
+•	Agility 
+•	Spiroergometrie 
+•	Athletik-Score 
+•	Diagramme 
+•	Trainingsplan 
+•	Trainerbewertung 
+•	Zusammenfassung 
+•	Empfehlungen 
+
+Diagramme
+Alle Diagramme überprüfen.
+Darstellung:
+•	sauber 
+•	übersichtlich 
+•	korrekt skaliert 
+
+PDF-Qualität
+Der Bericht soll aussehen wie ein professioneller Leistungsdiagnostik-Bericht eines Nachwuchsleistungszentrums.
+
+Aufgabe 3 – Spiroergometrie
+Überarbeite das komplette Modul.
+
+Speichern
+Nach erfolgreichem Speichern:
+•	Erfolgsmeldung 
+•	Formular zurücksetzen 
+Datum und Spieler bleiben erhalten.
+
+Schwellenwerte
+Schwellenwerte automatisch berechnen.
+Zusätzlich:
+Trainer darf Werte manuell überschreiben.
+
+Verlauf
+Ergänze:
+•	Historie 
+•	Diagramme 
+•	Vergleich mehrerer Testtermine 
+
+Aufgabe 4 – Offlinebetrieb
+Überprüfe die komplette Plattform.
+Alle vorhandenen Module müssen vollständig offline funktionieren.
+Unter anderem:
+•	Spielerverwaltung 
+•	Anthropometrie 
+•	FMS 
+•	Y-Balance 
+•	Kraft 
+•	Sprint 
+•	Agility 
+•	Spiroergometrie 
+•	Trainingsplan 
+•	PDF 
+•	Diagramme 
+•	Datenbank 
+Es darf keine Internetverbindung notwendig sein.
+
+Aufgabe 5 – Qualitätskontrolle
+Überprüfe zusätzlich:
+•	Performance 
+•	Stabilität 
+•	Layout 
+•	Responsivität 
+•	Speicherfunktionen 
+•	Historien 
+•	Diagramme 
+•	PDF-Berichte 
+•	Trainingsplanung 
+•	Offlinebetrieb 
+Falls weitere Fehler entdeckt werden:
+•	dokumentieren 
+•	Lösung vorschlagen 
+Größere Änderungen nur nach meiner Freigabe durchführen.
+
+Testpflicht
+Nach jeder abgeschlossenen Aufgabe:
+•	Änderungen testen 
+•	Fehler beheben 
+•	erneut testen 
+Die Plattform muss jederzeit vollständig funktionieren.
+
+Dokumentation
+Dokumentiere jede Änderung.
+Beschreibe:
+•	welche Datei geändert wurde 
+•	was geändert wurde 
+•	warum geändert wurde 
+
+Abschlussbericht
+Nach Abschluss dieser Teilphase erstelle einen Bericht mit:
+•	allen geänderten Dateien 
+•	allen behobenen Fehlern 
+•	allen getesteten Funktionen 
+•	offenen Punkten 
+•	Verbesserungsvorschlägen 
+Anschließend die komplette Anwendung testen.
+Es dürfen keine bestehenden Funktionen beschädigt worden sein.
+
+Abschlussregel
+Arbeite strukturiert und professionell.
+Führe keine großen Änderungen gleichzeitig durch.
+Erst wenn alle Aufgaben erfolgreich abgeschlossen, getestet und dokumentiert wurden, gilt Phase 0D als abgeschlossen.
+
+Zusätzliche Vorgabe
+Falls während der Analyse weitere Fehler oder Verbesserungsmöglichkeiten in den Modulen Trainingsplan, PDF-Bericht, Spiroergometrie oder im Offlinebetrieb entdeckt werden, dokumentiere sie und schlage eine fachlich sinnvolle Lösung vor. Setze diese Verbesserungen jedoch nur um, wenn sie der Fehlerbehebung dienen oder von mir ausdrücklich freigegeben werden.
+
+
