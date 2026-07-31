@@ -261,8 +261,8 @@ def _validate_geburtsdatum(datum_str: str):
         return False, f"Monat {month} ist ungültig — erlaubt: 1–12."
     if not (1 <= day <= 31):
         return False, f"Tag {day} ist ungültig — erlaubt: 1–31."
-    if not (1900 <= year <= _d.today().year):
-        return False, f"Jahr {year} ist ungültig — erlaubt: 1900–{_d.today().year}."
+    if not (1900 <= year <= 2100):
+        return False, f"Jahr {year} ist ungültig — erlaubt: 1900–2100."
     try:
         _dt(year, month, day)
     except ValueError:
@@ -4874,18 +4874,27 @@ def page_startseite():
     # ── Test-Übersicht ────────────────────────────────────────────────────────
     st.markdown(f'<div style="font-size:13px;font-weight:600;letter-spacing:1px;color:{C["muted"]};margin-bottom:10px">TESTMODULE — AKTUELLER STATUS</div>', unsafe_allow_html=True)
     c1, c2, c3 = st.columns(3)
+    # Kraft-Beurteilungstext für Startseite-Karte
+    from kraft import beurteilung_relative_kraft as _bwrk_s
+    _rel_ks = (kraft.get("relative_kraft_direkt") or kraft.get("relative_kraft_geschaetzt")) if kraft else None
+    if _rel_ks:
+        _kraft_rating_s = _bwrk_s(_rel_ks)[0]           # z. B. "Gut", "Kritisch"
+    elif kraft and kraft.get("ventral_sekunden"):
+        _kraft_rating_s = "Ventral: %.0f s" % kraft["ventral_sekunden"]
+    else:
+        _kraft_rating_s = None
+
+    # Y-Balance: Asymmetrie-Text als Rating (Farblogik in test_status_card reagiert auf "auffällig" / "Asymmetrie")
+    _yb_rating_s = str(y["asymmetrie"]) if y and y.get("asymmetrie") else None
+
     cards = [
         ("FMS",       "📝", fms,    fms["bewertung"]        if fms    else None, fms["datum"]    if fms    else None),
-        ("Y-Balance", "📏", y,      "Asymmetrie: " + y["asymmetrie"][:12] if y else None, y["datum"] if y else None),
+        ("Y-Balance", "📏", y,      _yb_rating_s,           y["datum"] if y else None),
         ("Sprint",    "⚡", sprint, sprint["bewertung_10m"] if sprint else None, sprint["datum"] if sprint else None),
         ("Sprung",    "🦘", sprung, sprung["bewertung_cmj"] if sprung else None, sprung["datum"] if sprung else None),
         ("Agilität",  "🔀", agil,   agil["bew_t_test"]      if agil   else None, agil["datum"]   if agil   else None),
         ("Ausdauer",  "🫁", aus,    aus["bewertung"]        if aus    else None, aus["datum"]    if aus    else None),
-        ("Kraft",     "💪", kraft,
-         ("1RM: %.1f kg" % (kraft.get("direktes_1rm") or kraft.get("geschaetztes_1rm"))
-          if kraft and (kraft.get("direktes_1rm") or kraft.get("geschaetztes_1rm")) else
-          ("Ventral: %.0f s" % kraft["ventral_sekunden"] if kraft and kraft.get("ventral_sekunden") else None)),
-         kraft["datum"] if kraft else None),
+        ("Kraft",     "💪", kraft,  _kraft_rating_s,         kraft["datum"] if kraft else None),
     ]
     for i, (name, icon, row, rating, dt) in enumerate(cards):
         col = [c1, c2, c3][i % 3]
@@ -6015,12 +6024,13 @@ def page_diagnostik_overview() -> None:
         if not rating:
             return C["muted"]
         r = rating.lower()
-        if any(x in r for x in ["sehr gut", "gut", "unauffällig", "keine asym", "optimal"]):
+        if any(x in r for x in ["sehr gut", "gut", "unauffällig", "keine asym", "keine auffäl", "optimal", "symmetrisch"]):
             return C["green"]
         if any(x in r for x in ["mittel", "grenzwertig", "gering", "durchschnitt"]):
             return C["yellow"]
         if any(x in r for x in ["verbesserung", "risiko", "mangelhaft", "schlecht",
-                                  "asymmetrie", "hoch", "schwäche", "kritisch"]):
+                                  "asymmetrie", "auffällig", "hoch", "schwäche",
+                                  "kritisch", "unterdurchschnitt"]):
             return C["red"]
         return C["muted"]
 
@@ -6120,9 +6130,12 @@ def page_diagnostik_overview() -> None:
                       if kraft_d and kraft_d.get("rumpf_gesamt_sekunden") else None)
             ),
             "rating": (
-                ("Rel. Kraft: %.2f ×KGW" % (kraft_d.get("relative_kraft_direkt") or kraft_d.get("relative_kraft_geschaetzt")))
+                __import__("kraft").beurteilung_relative_kraft(
+                    kraft_d.get("relative_kraft_direkt") or kraft_d.get("relative_kraft_geschaetzt")
+                )[0]
                 if kraft_d and (kraft_d.get("relative_kraft_direkt") or kraft_d.get("relative_kraft_geschaetzt"))
-                else None
+                else ("Ventral: %.0f s" % kraft_d["ventral_sekunden"]
+                      if kraft_d and kraft_d.get("ventral_sekunden") else None)
             ),
             "date": kraft_d.get("datum") if kraft_d else None,
         },

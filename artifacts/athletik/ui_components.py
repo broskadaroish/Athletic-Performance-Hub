@@ -114,10 +114,11 @@ def strength_row(bereich: str, detail: str) -> str:
 
 def test_status_card(name: str, icon: str, last_date: str | None, rating: str | None) -> str:
     """Small card showing a test module's last result."""
+    _r = (rating or "").lower()
     rating_color = (
-        C["green"]  if rating and any(x in rating for x in ["Sehr gut", "Gut"])
-        else C["yellow"] if rating and "Mittel" in rating
-        else C["red"]    if rating and "Verbesserung" in rating
+        C["green"]  if _r and any(x in _r for x in ["sehr gut", "gut", "unauffällig", "keine asym", "keine auffäl", "symmetrisch"])
+        else C["yellow"] if _r and any(x in _r for x in ["mittel", "durchschnittlich", "grenzwertig"])
+        else C["red"]    if _r and any(x in _r for x in ["verbesserung", "kritisch", "unterdurchschnittlich", "auffällig", "risiko", "asymmetrie"])
         else C["muted"]
     )
     date_str   = last_date or "Kein Test"
