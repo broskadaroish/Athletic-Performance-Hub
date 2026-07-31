@@ -709,6 +709,25 @@ def spieler_loeschen(spieler_id):
         conn.execute("DELETE FROM spieler WHERE id=?", (spieler_id,))
 
 
+def spieler_aktualisieren(spieler_id, vorname, nachname, geburtsdatum, geschlecht,
+                          hauptposition, nebenposition, altersklasse,
+                          spielbein, leistungsniveau, mannschaft, trainingsstatus):
+    """Aktualisiert die Stammdaten eines bestehenden Spielers."""
+    name = f"{vorname} {nachname}".strip()
+    with get_conn() as conn:
+        conn.execute(
+            """UPDATE spieler SET
+               name=?, vorname=?, nachname=?, geburtsdatum=?, geschlecht=?,
+               position=?, hauptposition=?, nebenposition=?, altersklasse=?,
+               spielbein=?, leistungsniveau=?, mannschaft=?, trainingsstatus=?
+               WHERE id=?""",
+            (name, vorname, nachname, geburtsdatum, geschlecht,
+             hauptposition, hauptposition, nebenposition, altersklasse,
+             spielbein, leistungsniveau, mannschaft, trainingsstatus,
+             spieler_id),
+        )
+
+
 def db_komplett_zuruecksetzen():
     """Löscht alle Bewegungsdaten — Spieler, Tests, Verletzungen, Einwilligungen.
     Die Datenbankstruktur bleibt erhalten; nur Datensätze werden entfernt."""

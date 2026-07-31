@@ -24,7 +24,7 @@ from ui_components import (
 
 from database import (
     init_db,
-    spieler_speichern, spieler_laden, spieler_by_id, spieler_loeschen,
+    spieler_speichern, spieler_laden, spieler_by_id, spieler_loeschen, spieler_aktualisieren,
     berechne_alter, altersklasse_vorschlag,
     verletzung_speichern, verletzungen_laden, verletzung_loeschen,
     anthropometrie_speichern, anthropometrie_letzter, anthropometrie_history, anthropometrie_loeschen_letzten,
@@ -701,45 +701,47 @@ def page_dashboard():
 
 def page_spieler():
     st.markdown("# 👤 Spielerverwaltung")
-    tab_add, tab_list = st.tabs(["➕ Neuen Spieler anlegen", "📋 Alle Spieler"])
+    tab_add, tab_edit, tab_list = st.tabs(["➕ Neu anlegen", "✏️ Bearbeiten", "📋 Alle Spieler"])
 
+    # ── Tab 1: Neuen Spieler anlegen ──────────────────────────────────────────
     with tab_add:
         st.markdown("### Spieler hinzufügen")
 
-        # ── Persönliche Daten ──────────────────────────────────────────────
         st.markdown("#### 👤 Persönliche Daten")
         c1, c2 = st.columns(2)
-        vorname      = c1.text_input("Vorname *")
-        nachname     = c2.text_input("Nachname *")
-        geburtsdatum = c1.text_input("Geburtsdatum (TT.MM.JJJJ) *", placeholder="15.03.2008")
-        geschlecht   = c2.selectbox("Geschlecht", ["Männlich", "Weiblich", "Divers"])
+        vorname      = c1.text_input("Vorname *",                              key="neu_vn")
+        nachname     = c2.text_input("Nachname *",                             key="neu_nn")
+        geburtsdatum = c1.text_input("Geburtsdatum (TT.MM.JJJJ) *",
+                                     placeholder="15.03.2008",                 key="neu_geb")
+        geschlecht   = c2.selectbox("Geschlecht", ["Männlich", "Weiblich", "Divers"], key="neu_gesch")
 
-        # Alter + Altersklasse automatisch
-        alter = berechne_alter(geburtsdatum)
+        alter        = berechne_alter(geburtsdatum)
         ak_vorschlag = altersklasse_vorschlag(geburtsdatum)
         if alter:
-            c1.markdown(f"<small style='color:#3fb950'>Alter: **{alter} Jahre** — Vorschlag: {ak_vorschlag}</small>", unsafe_allow_html=True)
+            c1.markdown(f"<small style='color:#3fb950'>Alter: **{alter} Jahre** — Vorschlag: {ak_vorschlag}</small>",
+                        unsafe_allow_html=True)
         altersklasse = c2.selectbox("Altersklasse", ALTERSKLASSEN,
-                                    index=ALTERSKLASSEN.index(ak_vorschlag) if ak_vorschlag in ALTERSKLASSEN else 7)
+                                    index=ALTERSKLASSEN.index(ak_vorschlag) if ak_vorschlag in ALTERSKLASSEN else 7,
+                                    key="neu_ak")
 
         st.markdown("#### 🏟️ Sportliche Daten")
         p1, p2 = st.columns(2)
-        hauptposition = p1.selectbox("Hauptposition *", POSITIONEN)
-        nebenposition = p2.selectbox("Nebenposition",   ["—"] + POSITIONEN)
-        spielbein     = p1.selectbox("Spielbein",       ["Rechts", "Links", "Beidfüßig"])
-        leistungsniveau = p2.selectbox("Leistungsniveau", LEISTUNGSNIVEAUS)
+        hauptposition   = p1.selectbox("Hauptposition *", POSITIONEN,              key="neu_hpos")
+        nebenposition   = p2.selectbox("Nebenposition",   ["—"] + POSITIONEN,      key="neu_npos")
+        spielbein       = p1.selectbox("Spielbein",       ["Rechts", "Links", "Beidfüßig"], key="neu_sb")
+        leistungsniveau = p2.selectbox("Leistungsniveau", LEISTUNGSNIVEAUS,        key="neu_lvl")
 
         st.markdown("#### 🏃 Teamdaten")
         t1, t2 = st.columns(2)
-        mannschaft     = t1.text_input("Mannschaft / Verein")
-        trainingsstatus = t2.selectbox("Trainingsstatus", TRAININGSSTATUS)
+        mannschaft      = t1.text_input("Mannschaft / Verein", key="neu_mann")
+        trainingsstatus = t2.selectbox("Trainingsstatus", TRAININGSSTATUS,         key="neu_ts")
 
         st.markdown("---")
-        if st.button("💾 Spieler speichern", use_container_width=False):
+        if st.button("💾 Spieler speichern", key="neu_save"):
             if not vorname.strip() or not nachname.strip():
-                st.error("Bitte Vor- und Nachnamen eingeben.")
+                st.error("❌ Bitte Vor- und Nachnamen eingeben.")
             elif not geburtsdatum.strip():
-                st.error("Bitte ein Geburtsdatum eingeben.")
+                st.error("❌ Bitte ein Geburtsdatum eingeben.")
             else:
                 spieler_speichern(
                     vorname.strip(), nachname.strip(), geburtsdatum.strip(),
@@ -751,35 +753,158 @@ def page_spieler():
                 st.success(f"✅ Spieler **{vorname} {nachname}** wurde gespeichert.")
                 st.rerun()
 
+    # ── Tab 2: Spieler bearbeiten ─────────────────────────────────────────────
+    with tab_edit:
+        _sp_alle = spieler_laden()
+        if not _sp_alle:
+            st.info("Noch keine Spieler vorhanden. Bitte zuerst einen Spieler anlegen.")
+        else:
+            sel = st.selectbox("Spieler auswählen", _sp_alle,
+                               format_func=lambda x: x["name"], key="edit_sel")
+            if sel:
+                sp = sel
+                st.markdown("---")
+                st.markdown("#### 👤 Persönliche Daten")
+                ce1, ce2 = st.columns(2)
+                _vn_def  = sp.get("vorname") or (sp["name"].split()[0] if " " in sp["name"] else sp["name"])
+                _nn_def  = sp.get("nachname") or (" ".join(sp["name"].split()[1:]) if " " in sp["name"] else "")
+                e_vn     = ce1.text_input("Vorname *",                      value=_vn_def,                     key="e_vn")
+                e_nn     = ce2.text_input("Nachname *",                     value=_nn_def,                     key="e_nn")
+                e_geb    = ce1.text_input("Geburtsdatum (TT.MM.JJJJ) *",   value=sp.get("geburtsdatum") or "", key="e_geb")
+                _gi = ["Männlich", "Weiblich", "Divers"].index(sp.get("geschlecht", "Männlich")) \
+                      if sp.get("geschlecht") in ["Männlich", "Weiblich", "Divers"] else 0
+                e_gesch  = ce2.selectbox("Geschlecht", ["Männlich", "Weiblich", "Divers"],
+                                         index=_gi, key="e_gesch")
+
+                _e_alter = berechne_alter(e_geb)
+                _e_ak_vs = altersklasse_vorschlag(e_geb)
+                if _e_alter:
+                    ce1.markdown(f"<small style='color:#3fb950'>Alter: **{_e_alter} Jahre** — Vorschlag: {_e_ak_vs}</small>",
+                                 unsafe_allow_html=True)
+                _aki = ALTERSKLASSEN.index(sp.get("altersklasse")) \
+                       if sp.get("altersklasse") in ALTERSKLASSEN else 7
+                e_ak = ce2.selectbox("Altersklasse", ALTERSKLASSEN, index=_aki, key="e_ak")
+
+                st.markdown("#### 🏟️ Sportliche Daten")
+                ep1, ep2 = st.columns(2)
+                _cur_hpos = sp.get("hauptposition") or sp.get("position") or POSITIONEN[0]
+                _hpi = POSITIONEN.index(_cur_hpos) if _cur_hpos in POSITIONEN else 0
+                e_hpos = ep1.selectbox("Hauptposition *", POSITIONEN, index=_hpi, key="e_hpos")
+                _npl   = ["—"] + POSITIONEN
+                _cur_npos = sp.get("nebenposition") or "—"
+                _npi   = _npl.index(_cur_npos) if _cur_npos in _npl else 0
+                e_npos = ep2.selectbox("Nebenposition", _npl, index=_npi, key="e_npos")
+                _sbi   = ["Rechts", "Links", "Beidfüßig"].index(sp.get("spielbein", "Rechts")) \
+                         if sp.get("spielbein") in ["Rechts", "Links", "Beidfüßig"] else 0
+                e_sb   = ep1.selectbox("Spielbein", ["Rechts", "Links", "Beidfüßig"], index=_sbi, key="e_sb")
+                _lvi   = LEISTUNGSNIVEAUS.index(sp.get("leistungsniveau", LEISTUNGSNIVEAUS[0])) \
+                         if sp.get("leistungsniveau") in LEISTUNGSNIVEAUS else 0
+                e_lvl  = ep2.selectbox("Leistungsniveau", LEISTUNGSNIVEAUS, index=_lvi, key="e_lvl")
+
+                st.markdown("#### 🏃 Teamdaten")
+                et1, et2 = st.columns(2)
+                e_mann = et1.text_input("Mannschaft / Verein", value=sp.get("mannschaft") or "", key="e_mann")
+                _tsi   = TRAININGSSTATUS.index(sp.get("trainingsstatus", TRAININGSSTATUS[0])) \
+                         if sp.get("trainingsstatus") in TRAININGSSTATUS else 0
+                e_ts   = et2.selectbox("Trainingsstatus", TRAININGSSTATUS, index=_tsi, key="e_ts")
+
+                st.markdown("---")
+                if st.button("💾 Änderungen speichern", key="edit_save"):
+                    if not e_vn.strip() or not e_nn.strip():
+                        st.error("❌ Bitte Vor- und Nachnamen eingeben.")
+                    elif not e_geb.strip():
+                        st.error("❌ Bitte ein Geburtsdatum eingeben.")
+                    else:
+                        spieler_aktualisieren(
+                            sp["id"],
+                            e_vn.strip(), e_nn.strip(), e_geb.strip(),
+                            e_gesch, e_hpos,
+                            e_npos if e_npos != "—" else "",
+                            e_ak, e_sb, e_lvl,
+                            e_mann.strip(), e_ts,
+                        )
+                        st.success(f"✅ Spieler **{e_vn} {e_nn}** wurde aktualisiert.")
+                        st.rerun()
+
+    # ── Tab 3: Alle Spieler — Suche, Filter, Multi-Löschen ───────────────────
     with tab_list:
-        spieler = spieler_laden()
-        if not spieler:
+        _sp_list = spieler_laden()
+        if not _sp_list:
             st.info("Noch keine Spieler vorhanden.")
             return
 
-        # Tabelle mit den relevanten Spalten
-        zeilen = []
-        for p in spieler:
-            alter = berechne_alter(p.get("geburtsdatum"))
-            zeilen.append({
-                "Name":            p["name"],
-                "Alter":           f"{alter} J." if alter else "—",
-                "Altersklasse":    p.get("altersklasse") or "—",
-                "Hauptposition":   p.get("hauptposition") or p.get("position") or "—",
-                "Spielbein":       p.get("spielbein") or "—",
-                "Mannschaft":      p.get("mannschaft") or "—",
-                "Leistungsniveau": p.get("leistungsniveau") or "—",
-                "Status":          p.get("trainingsstatus") or "Volltraining",
-            })
-        st.dataframe(pd.DataFrame(zeilen), use_container_width=True, hide_index=True)
+        # Suche & Filter
+        suche = st.text_input("🔍 Spieler suchen",
+                              placeholder="Name, Mannschaft oder Position ...", key="spieler_suche")
+        fc1, fc2, fc3 = st.columns(3)
+        _alle_mann = ["Alle"] + sorted({p.get("mannschaft") or "" for p in _sp_list if p.get("mannschaft")})
+        _alle_ak   = ["Alle"] + sorted({p.get("altersklasse") or "" for p in _sp_list if p.get("altersklasse")})
+        _alle_pos  = ["Alle"] + sorted({
+            p.get("hauptposition") or p.get("position") or ""
+            for p in _sp_list if p.get("hauptposition") or p.get("position")
+        })
+        f_mann = fc1.selectbox("Mannschaft",   _alle_mann, key="f_mann")
+        f_ak   = fc2.selectbox("Altersklasse", _alle_ak,   key="f_ak")
+        f_pos  = fc3.selectbox("Position",     _alle_pos,  key="f_pos")
 
+        gefiltert = _sp_list
+        if suche.strip():
+            s = suche.lower()
+            gefiltert = [p for p in gefiltert if
+                         s in p["name"].lower() or
+                         s in (p.get("mannschaft") or "").lower() or
+                         s in (p.get("hauptposition") or p.get("position") or "").lower()]
+        if f_mann != "Alle":
+            gefiltert = [p for p in gefiltert if p.get("mannschaft") == f_mann]
+        if f_ak != "Alle":
+            gefiltert = [p for p in gefiltert if p.get("altersklasse") == f_ak]
+        if f_pos != "Alle":
+            gefiltert = [p for p in gefiltert if
+                         p.get("hauptposition") == f_pos or p.get("position") == f_pos]
+
+        if gefiltert:
+            zeilen = []
+            for p in gefiltert:
+                _al = berechne_alter(p.get("geburtsdatum"))
+                zeilen.append({
+                    "Name":            p["name"],
+                    "Alter":           f"{_al} J." if _al else "—",
+                    "Altersklasse":    p.get("altersklasse") or "—",
+                    "Hauptposition":   p.get("hauptposition") or p.get("position") or "—",
+                    "Spielbein":       p.get("spielbein") or "—",
+                    "Mannschaft":      p.get("mannschaft") or "—",
+                    "Leistungsniveau": p.get("leistungsniveau") or "—",
+                    "Status":          p.get("trainingsstatus") or "Volltraining",
+                })
+            st.dataframe(pd.DataFrame(zeilen), use_container_width=True, hide_index=True)
+            st.caption(f"{len(zeilen)} von {len(_sp_list)} Spielern angezeigt.")
+        else:
+            st.info("Keine Spieler gefunden.")
+
+        st.markdown("---")
         with st.expander("🗑️ Spieler löschen"):
-            del_auswahl = st.selectbox("Spieler wählen", spieler, format_func=lambda x: x["name"], key="del_sel")
-            st.warning("⚠️ Alle Testdaten dieses Spielers werden ebenfalls gelöscht.")
-            if st.button("Spieler endgültig löschen", type="primary"):
-                spieler_loeschen(del_auswahl["id"])
-                st.success("Spieler gelöscht.")
-                st.rerun()
+            namen_lst = [p["name"] for p in gefiltert]
+            loeschen_auswahl = st.multiselect(
+                "Spieler auswählen (Mehrfachauswahl möglich)",
+                namen_lst, key="multi_del",
+            )
+            if loeschen_auswahl:
+                n_del = len(loeschen_auswahl)
+                st.warning(
+                    f"⚠️ {'Dieser Spieler wird' if n_del == 1 else f'Diese {n_del} Spieler werden'} "
+                    "zusammen mit allen Testdaten unwiderruflich gelöscht."
+                )
+                _btn_label = (f"🗑️ {loeschen_auswahl[0]} endgültig löschen"
+                              if n_del == 1 else f"🗑️ {n_del} Spieler endgültig löschen")
+                if st.button(_btn_label, type="primary", key="multi_del_btn"):
+                    ids_loeschen = [p["id"] for p in gefiltert if p["name"] in loeschen_auswahl]
+                    for pid in ids_loeschen:
+                        spieler_loeschen(pid)
+                    if n_del == 1:
+                        st.success(f"✅ **{loeschen_auswahl[0]}** wurde gelöscht.")
+                    else:
+                        st.success(f"✅ {n_del} Spieler wurden gelöscht.")
+                    st.rerun()
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -991,6 +1116,24 @@ def page_ybalance():
     st.markdown("---")
     obs_yb = render_observation_selector("y_balance", spieler_id, date.today().strftime("%d.%m.%Y"), "yb", standalone=False)
     _dup_yb = _duplikat_check("yb", str(date.today()), y_balance_history(spieler_id))
+
+    # ── Plausibilitätsprüfung ──────────────────────────────────────────────
+    _yb_warns = []
+    if bein_r > 0:
+        for _val, _lbl in [(ant_r, "Anterior R"), (pm_r, "Posteromedial R"), (pl_r, "Posterolateral R")]:
+            if _val > bein_r * 1.3:
+                _yb_warns.append(f"{_lbl} ({_val:.1f} cm > 130 % Beinlänge R)")
+    if bein_l > 0:
+        for _val, _lbl in [(ant_l, "Anterior L"), (pm_l, "Posteromedial L"), (pl_l, "Posterolateral L")]:
+            if _val > bein_l * 1.3:
+                _yb_warns.append(f"{_lbl} ({_val:.1f} cm > 130 % Beinlänge L)")
+    if bein_r > 0 and bein_l > 0 and abs(bein_r - bein_l) > 5:
+        _yb_warns.append(f"Beinlängendifferenz R/L: {abs(bein_r - bein_l):.1f} cm — bitte prüfen")
+    if _yb_warns:
+        st.warning(
+            "⚠️ Ungewöhnliche Werte — bitte Eingaben prüfen (Speichern trotzdem möglich):\n"
+            + "\n".join(f"• {w}" for w in _yb_warns)
+        )
 
     if st.button("💾 Y-Balance berechnen & speichern"):
         if _dup_yb == "abbrechen":
@@ -1343,7 +1486,7 @@ def page_spieler_profil():
                 )
                 if st.button("Eintrag löschen", key="del_v_btn"):
                     verletzung_loeschen(del_v["id"])
-                    st.success("Gelöscht.")
+                    st.success("✅ Verletzungseintrag gelöscht.")
                     st.rerun()
 
     with tab_pdf:
@@ -1501,7 +1644,7 @@ def page_trainingsplan():
         woche     = mc2.number_input("Woche",          1, 12, 1)
         if st.button("➕ Übung speichern"):
             trainingsplan_eintrag_speichern(sid, str(date.today()), woche, bereich, uebung, saetze, wdh, haeufigkeit)
-            st.success("Übung gespeichert!")
+            st.success("✅ Übung gespeichert.")
             st.rerun()
 
     with tab_view:
@@ -2060,7 +2203,7 @@ def page_anthropometrie():
         with col_del:
             if letzter and st.button("🗑️ Letzte löschen", use_container_width=True, key="anthro_del"):
                 anthropometrie_loeschen_letzten(sid)
-                st.warning("Letzte Messung gelöscht.")
+                st.success("✅ Letzte Messung gelöscht.")
                 st.rerun()
 
     with tab_verlauf:
@@ -2413,6 +2556,22 @@ def page_sprung():
             if res.defizite:
                 st.markdown("**🔴 Identifizierte Defizite:**")
                 for d in res.defizite: st.markdown(f"- {d}")
+
+        # ── Plausibilitätsprüfung ──────────────────────────────────────────
+        _sprung_warns = []
+        if b_cmj_beid and b_cmj_beid > 80:
+            _sprung_warns.append(f"CMJ beidbeinig {b_cmj_beid:.1f} cm (> 80 cm = absoluter Weltklasse-Wert)")
+        if b_cmj_r and b_cmj_r > 70:
+            _sprung_warns.append(f"CMJ rechts {b_cmj_r:.1f} cm (> 70 cm — bitte prüfen)")
+        if b_cmj_l and b_cmj_l > 70:
+            _sprung_warns.append(f"CMJ links {b_cmj_l:.1f} cm (> 70 cm — bitte prüfen)")
+        if b_swj and b_swj > 330:
+            _sprung_warns.append(f"Standweitsprung {b_swj:.0f} cm (> 330 cm = außergewöhnlich)")
+        if _sprung_warns:
+            st.warning(
+                "⚠️ Ungewöhnliche Werte — bitte Eingaben prüfen (Speichern trotzdem möglich):\n"
+                + "\n".join(f"• {w}" for w in _sprung_warns)
+            )
 
         st.markdown("---")
         obs_sprung = render_observation_selector("sprung", sid, datum.strftime("%d.%m.%Y"), "sprung", standalone=False)
@@ -2802,7 +2961,7 @@ def page_agilitaet():
             with cols_std[i]:
                 st.markdown(f"**{name}**")
                 try:
-                    st.image(svg, use_container_width=True)
+                    st.image(svg, width="stretch")
                 except Exception:
                     st.caption("(Skizze nicht verfügbar)")
                 st.caption(desc)
@@ -2826,7 +2985,7 @@ def page_agilitaet():
             with cols_neu[i]:
                 st.markdown(f"**{name}**")
                 try:
-                    st.image(svg, use_container_width=True)
+                    st.image(svg, width="stretch")
                 except Exception:
                     st.caption("(Skizze nicht verfügbar)")
                 st.caption(desc)
@@ -3343,7 +3502,7 @@ def _page_spiro():
             st.markdown("---")
             if st.button("🗑️ Diesen Test löschen", key="spiro_del", type="secondary"):
                 spiro_test_loeschen(test_a["id"])
-                st.success("Test gelöscht.")
+                st.success("✅ Stufentest gelöscht.")
                 st.rerun()
 
     # ═══════════════════════════════════════════════════════════════════════════
@@ -3764,6 +3923,8 @@ def page_kraft():
                 "Direktes 1RM (kg)", 0.0, 300.0, 0.0, step=2.5, key="kraft_d1rm",
                 disabled=(not sicherheit_ok)
             ) or None
+            if direktes_1rm and direktes_1rm > 200:
+                st.warning(f"⚠️ {direktes_1rm:.0f} kg ist ein außergewöhnlicher 1RM-Wert — bitte Eingabe prüfen.")
         else:
             st.caption("Eingabe: Gewicht und Wiederholungsanzahl aus dem Submaximaltest (empfohlen 2–10 WH).")
             c1, c2 = st.columns(2)
@@ -4251,7 +4412,7 @@ def page_einstellungen():
                 if col_save.button("💾 Speichern", key=f"chk_save_{tid}",
                                    use_container_width=True):
                     checkliste_custom_speichern(tid, neuer_text)
-                    st.success("✅ Gespeichert.", icon="✅")
+                    st.success("✅ Checklisten-Text gespeichert.")
                 if col_reset.button("🗑️ Löschen", key=f"chk_del_{tid}",
                                     use_container_width=True):
                     checkliste_custom_speichern(tid, "")
