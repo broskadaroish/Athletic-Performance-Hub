@@ -119,6 +119,7 @@ from analytics import (
 from periodisierung import (zyklus_erstellen, zyklus_laden, trainingsplan_multi_erstellen,
                              defizit_tabelle, _alter_zu_plangruppe, _PLANGRUPPEN_CONFIG, _POOL,
                              _ALTERS_ERSATZ)
+from i18n import t, SPRACHEN, get_lang, set_lang
 from pdf_report import generate_report, generate_vergleich_pdf, generate_trainingsplan_pdf
 from pdf_anleitung import generate_anleitung_pdf, ALL_TEST_IDS, TEST_LABELS
 from export import kader_excel_bytes, spieler_excel_bytes
