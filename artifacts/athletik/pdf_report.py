@@ -491,7 +491,9 @@ def generate_report(
                  "BMI",         "%.1f (%s)" % (anthro_row.get("bmi", 0), bmi_kat),
                  color_r=ampel(bmi_kat))
         if anthro_row.get("koerperfett"):
-            pdf.row2("Koerperfett", "%s %%" % anthro_row.get("koerperfett"),
+            kf_meth = anthro_row.get("koerperfett_methode") or ""
+            kf_label = "Koerperfett%s" % ((" (%s)" % kf_meth) if kf_meth else "")
+            pdf.row2(kf_label, "%s %%" % anthro_row.get("koerperfett"),
                      "Muskelmasse", "%s kg" % anthro_row.get("muskelmasse", "-"))
         if anthro_row.get("reifestatus"):
             pdf.kv("Reifestatus (Schaetzung)", anthro_row.get("reifestatus", "-"))

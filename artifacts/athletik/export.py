@@ -94,7 +94,7 @@ _KADER_HEADERS = [
     "Altersklasse", "Hauptposition", "Nebenposition", "Spielbein",
     "Mannschaft", "Leistungsniveau", "Trainingsstatus",
     # Anthropometrie
-    "Größe (cm)", "Gewicht (kg)", "BMI", "Körperfett (%)", "Muskelmasse (kg)",
+    "Größe (cm)", "Gewicht (kg)", "BMI", "Körperfett (%)", "KF-Methode", "Muskelmasse (kg)",
     "Reifestatus",
     # Athletik Score & Risiko
     "Athletik Score", "Risiko",
@@ -170,6 +170,7 @@ def _build_kader_sheet(ws):
             _val(anthr, "gewicht"),
             _val(anthr, "bmi"),
             _val(anthr, "koerperfett"),
+            _val(anthr, "koerperfett_methode"),
             _val(anthr, "muskelmasse"),
             _val(anthr, "reifestatus"),
             # Scores
@@ -222,7 +223,7 @@ def _build_kader_sheet(ws):
         for col_idx, value in enumerate(row_data, start=1):
             cell = ws.cell(row=row_idx, column=col_idx, value=value)
             # Risiko-Spalte farbig hervorheben (Spalte 21)
-            if col_idx == 21:  # Risiko
+            if col_idx == 22:  # Risiko
                 if level == "hoch":
                     _data_style(cell, bg=_DANGER, fg="FFFFFF", bold=True)
                 elif level == "mittel":
@@ -439,6 +440,7 @@ def spieler_excel_bytes(spieler_id: int) -> bytes:
             ("BMI",             "bmi"),
             ("BMI-Kategorie",   "bmi_kategorie"),
             ("Körperfett (%)",  "koerperfett"),
+            ("KF-Methode",      "koerperfett_methode"),
             ("Muskelmasse (kg)","muskelmasse"),
             ("Reifestatus",     "reifestatus"),
         ]:
@@ -548,9 +550,9 @@ def spieler_excel_bytes(spieler_id: int) -> bytes:
         ["datum","score","bewertung","asymmetrie","schwerpunkt"],
     )
     r2 = _mod_history(ws2, r2, "ANTHROPOMETRIE",
-        ["Datum","Größe","Gewicht","KF %","Muskel kg","BMI","BMI-Kat.","Reifestatus"],
+        ["Datum","Größe","Gewicht","KF %","KF-Methode","Muskel kg","BMI","BMI-Kat.","Reifestatus"],
         h_anthr,
-        ["datum","groesse","gewicht","koerperfett","muskelmasse","bmi","bmi_kategorie","reifestatus"],
+        ["datum","groesse","gewicht","koerperfett","koerperfett_methode","muskelmasse","bmi","bmi_kategorie","reifestatus"],
         hdr_bg="1D4A3A",
     )
     r2 = _mod_history(ws2, r2, "Y-BALANCE",
