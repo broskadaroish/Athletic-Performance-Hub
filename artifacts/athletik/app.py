@@ -1742,12 +1742,12 @@ def page_spieler_profil():
         kraft_pdf = kraft_letzter(sid)
         beob_pdf  = beobachtungen_alle_fuer_spieler(sid)
 
-        # Anzahl vorhandener Module anzeigen
+        spiro_pdf = spiro_test_letzter(sid)
         module = {
             "FMS": fms, "Y-Balance": y, "Anthropometrie": anthro_row,
             "Sprint": sprint_row, "Sprung": sprung_row,
             "Agilität": agil_row, "Ausdauer": aus_row,
-            "Kraftdiagnostik": kraft_pdf,
+            "Kraftdiagnostik": kraft_pdf, "Spiroergometrie": spiro_pdf,
         }
         vorh = [k for k, v in module.items() if v]
         fehlt = [k for k, v in module.items() if not v]
@@ -1767,12 +1767,15 @@ def page_spieler_profil():
                 agil_row=agil_row,
                 aus_row=aus_row,
                 kraft_row=kraft_pdf,
+                spiro_row=spiro_pdf,
                 verletzungen=verletzungen_pdf,
                 athletik_score=ascore,
                 risiko_label=label,
                 defizite=defizite,
                 plan_rows=plan_rows,
                 beobachtungen=beob_pdf,
+                vereinsname=st.session_state.get("cfg_vereinsname", ""),
+                saison=st.session_state.get("cfg_saison", ""),
             )
             st.session_state["pdf_bytes_cache"] = pdf_bytes
             st.download_button(
@@ -3544,6 +3547,11 @@ def _page_spiro():
         # ── Testmetadaten ─────────────────────────────────────────────────────
         st.markdown("### Testdaten")
         d1, d2 = st.columns(2)
+        # Datum nach erfolgreichem Speichern erhalten (spiro_saved_datum wird beim Speichern gesetzt)
+        if "spiro_saved_datum" in st.session_state and "spiro_datum" not in st.session_state:
+            st.session_state["spiro_datum"] = st.session_state.pop("spiro_saved_datum")
+        elif "spiro_saved_datum" in st.session_state:
+            st.session_state.pop("spiro_saved_datum", None)
         datum_spiro = d1.date_input("Testdatum *", value=date.today(), key="spiro_datum")
         if datum_spiro > date.today():
             d1.warning("⚠️ Datum in der Zukunft.")
@@ -3715,12 +3723,52 @@ def _page_spiro():
         rpe_max_s   = mv2.number_input("RPE max (0–10)", 0, 10, 10, 1, key="spiro_rpe_max")
         abbruch_s   = st.text_input("Abbruchgrund (falls nicht vollständig absolviert)", key="spiro_abbruch")
 
-        with st.expander("Schwellenwert eintragen (optional)"):
+        # ── Auto-Schwellenberechnung (aus Laktat-Kurve) ──────────────────────
+        if mit_laktat_cb and not edited_stufen.empty:
+            _auto_stufen = []
+            for _, _row in edited_stufen.dropna(subset=["Stufe"]).iterrows():
+                _auto_stufen.append({
+                    "geschwindigkeit_kmh": _row.get("Geschw. (km/h)"),
+                    "laktat_mmol_l":       _row.get("Laktat (mmol/l)"),
+                    "herzfrequenz_bpm":    _row.get("HF Ende (bpm)"),
+                    "blutprobe_gueltig":   _row.get("Probe ✓", True),
+                })
+            _hat_laktat = any(
+                s["laktat_mmol_l"] is not None and not (isinstance(s["laktat_mmol_l"], float) and pd.isna(s["laktat_mmol_l"]))
+                for s in _auto_stufen
+            )
+            if _hat_laktat:
+                ac1, ac2 = st.columns([3, 1])
+                ac1.caption("💡 Laktat-Daten vorhanden — Schwellenwerte können automatisch berechnet werden (2 mmol/l oder 4 mmol/l Interpolation).")
+                _calc_ziel = ac2.selectbox("Ziel-Laktat", ["2 mmol/l", "4 mmol/l"], key="spiro_calc_ziel")
+                if st.button("🔢 Schwellen automatisch berechnen", key="spiro_auto_calc"):
+                    _lak_ziel = 2.0 if "2" in _calc_ziel else 4.0
+                    _res_v = _ibl(_auto_stufen, _lak_ziel)
+                    if _res_v:
+                        st.session_state["spiro_schw_v"]    = float(_res_v["x_wert"])
+                        st.session_state["spiro_schwmeth"]  = f"Fixer Wert {int(_lak_ziel)} mmol/l"
+                        # Schwellen-HF per linearer Interpolation auf geschw ermitteln
+                        _res_hf = _ibl(
+                            [{"geschwindigkeit_kmh": s["geschwindigkeit_kmh"],
+                              "laktat_mmol_l": s["herzfrequenz_bpm"],
+                              "blutprobe_gueltig": True}
+                             for s in _auto_stufen if s.get("herzfrequenz_bpm") and s.get("geschwindigkeit_kmh")],
+                            _res_v["x_wert"],
+                        )
+                        if _res_hf:
+                            st.session_state["spiro_schw_hf"] = float(_res_hf["x_wert"])
+                        st.session_state["spiro_schw_lak"] = _lak_ziel
+                        st.success(f"✅ Schwelle bei {_lak_ziel} mmol/l → {_res_v['x_wert']:.1f} km/h berechnet. Werte in Expander übernommen.")
+                    else:
+                        st.warning(f"⚠️ Interpolation bei {_lak_ziel} mmol/l nicht möglich — Laktat-Wert liegt außerhalb des gemessenen Bereichs.")
+
+        with st.expander("Schwellenwert eintragen / überschreiben"):
             schw_meth = st.selectbox("Schwellenmethode", ["—"] + SCHWELLENMETHODEN, key="spiro_schwmeth")
             sw1, sw2, sw3 = st.columns(3)
-            schw_v   = sw1.number_input("Schwelle Geschwindigkeit (km/h)", 0.0, 30.0, 0.0, 0.1, key="spiro_schw_v")
-            schw_hf  = sw2.number_input("Schwelle Herzfrequenz (bpm)",     0, 250, 0, 1, key="spiro_schw_hf")
-            schw_lak = sw3.number_input("Schwelle Laktat (mmol/l)",        0.0, 20.0, 0.0, 0.1, key="spiro_schw_lak")
+            schw_v   = sw1.number_input("Schwelle Geschwindigkeit (km/h)", 0.0, 30.0, step=0.1, format="%.1f", key="spiro_schw_v")
+            schw_hf  = sw2.number_input("Schwelle Herzfrequenz (bpm)",     0, 250, step=1, key="spiro_schw_hf")
+            schw_lak = sw3.number_input("Schwelle Laktat (mmol/l)",        0.0, 20.0, step=0.1, format="%.1f", key="spiro_schw_lak")
+            st.caption("✏️ Berechnete Werte können hier manuell angepasst oder überschrieben werden.")
 
         bemerkung_s = st.text_area("Bemerkungen", key="spiro_bemerkung", height=65)
 
@@ -3811,7 +3859,23 @@ def _page_spiro():
                             "bemerkung":        nb_row.get("Bemerkung") or None,
                         })
                     spiro_nachbelastung_speichern(test_id, nb_liste)
-                st.session_state.pop(f"spiro_editor_{sid}_data", None)
+                # Datum und Tester erhalten, alles andere zurücksetzen
+                _saved_date = datum_spiro
+                _clear_keys = [
+                    "spiro_mit_spiro", "spiro_mit_laktat",
+                    "spiro_vo2peak", "spiro_vo2max", "spiro_hf_max",
+                    "spiro_vt1_v", "spiro_vt1_hf", "spiro_vt2_v", "spiro_vt2_hf",
+                    "spiro_schw_v", "spiro_schw_hf", "spiro_schw_lak", "spiro_schwmeth",
+                    "spiro_v_max", "spiro_rpe_max", "spiro_abbruch", "spiro_bemerkung",
+                    "spiro_ruhelaktat", "spiro_mahlzeit", "spiro_letzte_einheit",
+                    "spiro_beschw", "spiro_temp", "spiro_kgew",
+                    f"spiro_editor_{sid}_data", f"spiro_stufen_editor_{sid}",
+                    f"spiro_nb_{sid}",
+                ]
+                for _k in _clear_keys:
+                    st.session_state.pop(_k, None)
+                # Datum für nächsten Test vorbelegen
+                st.session_state["spiro_saved_datum"] = _saved_date
                 _save_ok(f"Stufentest vom {datum_spiro.strftime('%d.%m.%Y')} gespeichert!")
                 st.rerun()
 

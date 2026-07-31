@@ -70,7 +70,8 @@ def ampel(bewertung: str):
     if any(x in b for x in ["mittel", "breitensport", "im wachstum", "vor dem wachstum"]):
         return YELLOW
     if any(x in b for x in ["hoch", "kritisch", "verbesserung", "untergewicht",
-                              "uebergewicht", "bergewicht", "adipositas"]):
+                              "uebergewicht", "bergewicht", "adipositas",
+                              "handlungsbedarf", "schlecht", "mangelhaft"]):
         return RED
     return GREY
 
@@ -206,6 +207,127 @@ class AthletikReport(FPDF):
         if self.get_y() > 270 - needed_mm:
             self.add_page()
 
+    def cover_page(self, spieler: dict, vereinsname: str = "", saison: str = "",
+                   athletik_score: int = 0, module_vorhanden: list = None):
+        """Erstes Blatt — professionelles Deckblatt mit Spieler-Stammdaten."""
+        module_vorhanden = module_vorhanden or []
+
+        # ── Blauer Header-Block ──────────────────────────────────────────────
+        self.set_fill_color(*self.BRAND)
+        self.rect(0, 0, 210, 60, "F")
+
+        # Verein / Organisation
+        self.set_xy(15, 10)
+        self.set_font("Helvetica", "B", 10)
+        self.set_text_color(*self.WHITE)
+        self.cell(0, 7, _safe(vereinsname or "FOOTBALL ATHLETIK DIAGNOSTIK"))
+
+        # Saison
+        if saison:
+            self.set_xy(15, 17)
+            self.set_font("Helvetica", "", 8)
+            self.set_text_color(200, 215, 240)
+            self.cell(0, 5, "Saison " + _safe(saison))
+
+        # Spielername gross
+        vorname  = spieler.get("vorname") or ""
+        nachname = spieler.get("nachname") or spieler.get("name") or "-"
+        fullname = ("%s %s" % (vorname, nachname)).strip()
+        self.set_xy(15, 27)
+        self.set_font("Helvetica", "B", 24)
+        self.set_text_color(*self.WHITE)
+        self.cell(180, 12, _safe(fullname)[:36])
+
+        # Position / Mannschaft
+        pos = (spieler.get("hauptposition") or spieler.get("position") or "-")
+        team = spieler.get("mannschaft") or "-"
+        self.set_xy(15, 42)
+        self.set_font("Helvetica", "", 9)
+        self.set_text_color(200, 215, 240)
+        self.cell(0, 5, "%s  |  %s" % (_safe(pos), _safe(team)))
+
+        # Erstellt am
+        self.set_xy(0, 50)
+        self.set_font("Helvetica", "I", 7)
+        self.set_text_color(180, 200, 230)
+        self.cell(0, 5, "Erstellt am %s  " % date.today().strftime("%d.%m.%Y"), align="R")
+
+        self.set_text_color(*self.DARK)
+        self.set_y(68)
+
+        # ── Spieler-Stammdaten ────────────────────────────────────────────────
+        self.section_title("SPIELER-STAMMDATEN")
+        neben = spieler.get("nebenposition") or ""
+        pos_str = _safe(pos) + (" / " + _safe(neben) if neben else "")
+
+        col_l_w = 95
+        x0 = self.get_x()
+        y0 = self.get_y()
+
+        # Left column
+        for key, val in [
+            ("Name",            fullname),
+            ("Geburtsdatum",    spieler.get("geburtsdatum") or "-"),
+            ("Altersklasse",    spieler.get("altersklasse") or "-"),
+            ("Spielbein",       spieler.get("spielbein") or "-"),
+        ]:
+            self.set_font("Helvetica", "B", 9)
+            self.set_text_color(*self.MID)
+            self.cell(40, 6, _safe(key) + ":", new_x="RIGHT", new_y="TOP")
+            self.set_font("Helvetica", "", 9)
+            self.set_text_color(*self.DARK)
+            self.cell(col_l_w - 40, 6, _safe(val), new_x="LMARGIN", new_y="NEXT")
+
+        # Right column
+        y_right = y0
+        self.set_xy(x0 + col_l_w, y_right)
+        for key, val in [
+            ("Position",        pos_str),
+            ("Mannschaft",      team),
+            ("Leistungsniveau", spieler.get("leistungsniveau") or "-"),
+            ("Trainingsstatus", spieler.get("trainingsstatus") or "-"),
+        ]:
+            self.set_font("Helvetica", "B", 9)
+            self.set_text_color(*self.MID)
+            self.cell(38, 6, _safe(key) + ":", new_x="RIGHT", new_y="TOP")
+            self.set_font("Helvetica", "", 9)
+            self.set_text_color(*self.DARK)
+            self.cell(57, 6, _safe(val)[:30], new_x="LMARGIN", new_y="NEXT")
+            self.set_x(x0 + col_l_w)
+
+        self.set_x(x0)
+        self.ln(6)
+
+        # ── Athletik Score Banner ─────────────────────────────────────────────
+        self.check_page_break(28)
+        sc_col = GREEN if athletik_score >= 75 else YELLOW if athletik_score >= 50 else RED
+        sx, sy = self.get_x(), self.get_y()
+        self.set_fill_color(245, 247, 250)
+        self.rect(sx, sy, 190, 22, "F")
+        self.set_fill_color(*sc_col)
+        self.rect(sx, sy, 5, 22, "F")
+        self.set_xy(sx + 10, sy + 3)
+        self.set_font("Helvetica", "B", 9)
+        self.set_text_color(*self.MID)
+        self.cell(50, 5, "ATHLETIK-SCORE", new_x="RIGHT", new_y="TOP")
+        self.set_font("Helvetica", "B", 16)
+        self.set_text_color(*sc_col)
+        self.cell(40, 5, "%d / 100" % athletik_score)
+        self.set_xy(sx + 110, sy + 3)
+        self.set_font("Helvetica", "B", 8)
+        self.set_text_color(*self.MID)
+        self.cell(0, 5, "ENTHALTENE TESTMODULE", new_x="LMARGIN", new_y="NEXT")
+        self.set_x(sx + 110)
+        self.set_font("Helvetica", "", 8)
+        self.set_text_color(*self.DARK)
+        self.multi_cell(85, 4, _safe(", ".join(module_vorhanden) or "-"))
+        self.set_y(sy + 26)
+
+        # ── Pflicht-Disclaimer ────────────────────────────────────────────────
+        self.ln(4)
+        self.disclaimer_box(_safe(KURZ_HINWEIS))
+        self.add_page()
+
     def disclaimer_box(self, text: str, border_color=None):
         """Renders a highlighted notice box with optional coloured left border."""
         if border_color is None:
@@ -268,49 +390,46 @@ def generate_report(
     agil_row=None,
     aus_row=None,
     kraft_row=None,
+    spiro_row=None,
     verletzungen=None,
     athletik_score: int = 0,
     risiko_label: str = "-",
     defizite: list = None,
     plan_rows: list = None,
     beobachtungen: list = None,
+    vereinsname: str = "",
+    saison: str = "",
 ) -> bytes:
     """
     Vollstaendiger Athletik-Bericht fuer alle Testmodule.
     Alle Row-Parameter sind optional -- fehlende Module werden uebersprungen.
     """
-    defizite    = defizite   or []
-    plan_rows   = plan_rows  or []
+    defizite     = defizite    or []
+    plan_rows    = plan_rows   or []
     verletzungen = verletzungen or []
+
+    # Vorhandene Module ermitteln (fuer Deckblatt)
+    _module_map = [
+        ("Anthropometrie", anthro_row), ("FMS", fms_row), ("Y-Balance", y_row),
+        ("Sprint", sprint_row), ("Sprung", sprung_row), ("Agilitaet", agil_row),
+        ("Ausdauer", aus_row), ("Kraft", kraft_row), ("Spiroergometrie", spiro_row),
+    ]
+    _module_vorhanden = [n for n, v in _module_map if v]
 
     pdf = AthletikReport()
     pdf.set_auto_page_break(auto=True, margin=18)
     pdf.add_page()
 
     # ════════════════════════════════════════════════════════════════════════════
-    # DECKBLATT
+    # DECKBLATT (eigene Seite)
     # ════════════════════════════════════════════════════════════════════════════
-
-    pdf.section_title("SPIELERINFORMATIONEN")
-    vorname  = spieler.get("vorname") or ""
-    nachname = spieler.get("nachname") or spieler.get("name") or "-"
-    fullname = ("%s %s" % (vorname, nachname)).strip()
-    haupt    = spieler.get("hauptposition") or spieler.get("position") or "-"
-    neben    = spieler.get("nebenposition") or ""
-    pos_str  = haupt + (" / " + neben if neben else "")
-
-    pdf.kv("Name",            fullname)
-    pdf.kv("Position",        pos_str)
-    pdf.kv("Spielbein",       spieler.get("spielbein") or "-")
-    pdf.kv("Mannschaft",      spieler.get("mannschaft") or "-")
-    pdf.kv("Geburtsdatum",    spieler.get("geburtsdatum") or "-")
-    pdf.kv("Altersklasse",    spieler.get("altersklasse") or "-")
-    pdf.kv("Leistungsniveau", spieler.get("leistungsniveau") or "-")
-    pdf.kv("Trainingsstatus", spieler.get("trainingsstatus") or "-")
-    pdf.ln(3)
-
-    # ── Pflicht-Disclaimer ───────────────────────────────────────────────────
-    pdf.disclaimer_box(_safe(KURZ_HINWEIS))
+    pdf.cover_page(
+        spieler=spieler,
+        vereinsname=vereinsname,
+        saison=saison,
+        athletik_score=athletik_score,
+        module_vorhanden=_module_vorhanden,
+    )
 
     # ── Athletik-Kennzahlen ──────────────────────────────────────────────────
     pdf.section_title("ATHLETIK-KENNZAHLEN")
@@ -529,6 +648,95 @@ def generate_report(
         pdf.ln(2)
 
     # ════════════════════════════════════════════════════════════════════════════
+    # SPIROERGOMETRIE / STUFENTEST
+    # ════════════════════════════════════════════════════════════════════════════
+    if spiro_row:
+        pdf.check_page_break(55)
+        pdf.section_title("SPIROERGOMETRIE / STUFENTEST")
+
+        _testtyp_labels = {
+            "spiro_laufband":  "Laufband (Spiro)",
+            "spiro_fahrrad":   "Fahrradergometer (Spiro)",
+            "laktat_laufband": "Laufband (Laktat)",
+            "laktat_fahrrad":  "Fahrradergometer (Laktat)",
+        }
+        testtyp_label = _testtyp_labels.get(spiro_row.get("testtyp", ""), spiro_row.get("testtyp", "-"))
+        protokoll     = spiro_row.get("protokoll_name") or "-"
+        tester        = spiro_row.get("tester") or "-"
+
+        pdf.row2("Testdatum", spiro_row.get("datum", "-"), "Testtyp", testtyp_label)
+        pdf.row2("Protokoll", protokoll, "Tester", tester)
+
+        # VO2-Werte
+        vo2_peak = spiro_row.get("vo2_peak")
+        vo2_max  = spiro_row.get("vo2_max")
+        vo2_sch  = spiro_row.get("geschaetzte_vo2max")
+        if vo2_peak:
+            v_col = GREEN if vo2_peak >= 55 else YELLOW if vo2_peak >= 45 else RED
+            pdf.kv_color("VO2peak", "%.1f ml/kg/min" % vo2_peak, v_col)
+        if vo2_max:
+            v_col2 = GREEN if vo2_max >= 55 else YELLOW if vo2_max >= 45 else RED
+            pdf.kv_color("VO2max (gemessen)", "%.1f ml/kg/min" % vo2_max, v_col2)
+        if vo2_sch and not vo2_peak and not vo2_max:
+            pdf.kv("VO2max (Schaetzung)", "%.1f ml/kg/min" % vo2_sch)
+
+        # Maximale Leistung
+        v_max = spiro_row.get("maximale_geschwindigkeit")
+        hf_max = spiro_row.get("maximale_herzfrequenz")
+        if v_max or hf_max:
+            pdf.row2(
+                "V max", "%.1f km/h" % v_max if v_max else "-",
+                "HF max", "%d bpm" % int(hf_max) if hf_max else "-",
+            )
+
+        # Schwellenwerte
+        pdf.ln(1)
+        vt1_v  = spiro_row.get("vt1_geschwindigkeit")
+        vt1_hf = spiro_row.get("vt1_herzfrequenz")
+        vt2_v  = spiro_row.get("vt2_geschwindigkeit")
+        vt2_hf = spiro_row.get("vt2_herzfrequenz")
+        sw_v   = spiro_row.get("schwelle_geschwindigkeit")
+        sw_hf  = spiro_row.get("schwelle_herzfrequenz")
+        sw_lak = spiro_row.get("schwelle_laktat")
+
+        if vt1_v or vt1_hf:
+            pdf.row2(
+                "VT1 (aerobe Schwelle)", "%.1f km/h" % vt1_v if vt1_v else "-",
+                "VT1 Herzfrequenz",     "%d bpm" % int(vt1_hf) if vt1_hf else "-",
+            )
+        if vt2_v or vt2_hf:
+            pdf.row2(
+                "VT2 (anaerobe Schwelle)", "%.1f km/h" % vt2_v if vt2_v else "-",
+                "VT2 Herzfrequenz",       "%d bpm" % int(vt2_hf) if vt2_hf else "-",
+            )
+        if sw_v or sw_hf:
+            methode = spiro_row.get("laktatschwelle_methode") or "Laktatschwelle"
+            pdf.row2(
+                _safe(methode)[:30], "%.1f km/h" % sw_v if sw_v else "-",
+                "Schwellen-HF",      "%d bpm" % int(sw_hf) if sw_hf else "-",
+            )
+            if sw_lak:
+                pdf.kv("Schwellen-Laktat", "%.2f mmol/l" % sw_lak)
+
+        # Ruhelaktat / RPE
+        rul = spiro_row.get("ruhelaktat")
+        rpe = spiro_row.get("rpe_max")
+        if rul or rpe:
+            pdf.row2(
+                "Ruhelaktat", "%.2f mmol/l" % rul if rul else "-",
+                "RPE max",    str(rpe) if rpe else "-",
+            )
+
+        # Bemerkung
+        bem = spiro_row.get("bemerkung")
+        if bem:
+            pdf.set_font("Helvetica", "I", 8)
+            pdf.set_text_color(*pdf.MID)
+            pdf.multi_cell(0, 5, "Bemerkung: " + _safe(str(bem)[:200]))
+            pdf.set_text_color(*pdf.DARK)
+        pdf.ln(2)
+
+    # ════════════════════════════════════════════════════════════════════════════
     # KRAFTDIAGNOSTIK
     # ════════════════════════════════════════════════════════════════════════════
     if kraft_row:
@@ -668,17 +876,24 @@ def generate_report(
     # ════════════════════════════════════════════════════════════════════════════
     if plan_rows:
         pdf.add_page()
-        pdf.section_title("12-WOCHEN-PERIODISIERUNGSPLAN (AUSZUG)")
+        pdf.section_title("PERIODISIERUNGSPLAN (AUSZUG — ERSTE 4 WOCHEN)")
         pdf.disclaimer_box(_safe(TRAININGSPLAN_HINWEIS), border_color=(80, 100, 160))
         pdf.ln(1)
-        cols = [("Wo.",12),("Phase",42),("Bereich",32),("Uebung",62),("Vol.",22),("Hz.",20)]
+        cols = [("Wo.",10),("Phase",38),("Bereich",28),("Uebung",68),("Volumen",26),("Hz.",20)]
         pdf.table_header(cols)
         widths = [c[1] for c in cols]
         fill = False
-        for row in plan_rows[:30]:
+        # Nur Woche 1–4 anzeigen (kompakter, besser lesbar)
+        plan_display = [r for r in plan_rows if (r.get("woche") or 99) <= 4][:40]
+        if not plan_display:
+            plan_display = plan_rows[:30]
+        for row in plan_display:
+            # Phase-Text kuerzen (Klammer-Zusatz entfernen fuer Platz)
+            raw_phase = row.get("phase", row[1] if isinstance(row, (list, tuple)) else "-")
+            phase_short = str(raw_phase).split("(")[0].strip()[:22]
             vals = [
-                row.get("woche", row[0] if isinstance(row, (list, tuple)) else "-"),
-                row.get("phase",      row[1] if isinstance(row, (list, tuple)) else "-"),
+                str(row.get("woche", row[0] if isinstance(row, (list, tuple)) else "-")),
+                phase_short,
                 row.get("bereich",    row[3] if isinstance(row, (list, tuple)) else "-"),
                 row.get("uebung",     row[4] if isinstance(row, (list, tuple)) else "-"),
                 row.get("volumen",    row[6] if isinstance(row, (list, tuple)) else "-"),
@@ -686,6 +901,122 @@ def generate_report(
             ]
             pdf.table_row(vals, widths, fill)
             fill = not fill
+        if len(plan_rows) > len(plan_display):
+            pdf.ln(1)
+            pdf.set_font("Helvetica", "I", 7)
+            pdf.set_text_color(*pdf.MID)
+            pdf.cell(0, 5, "Vollstaendiger Plan: %d Eintraege — in der App unter 'Periodisierung' einsehbar." % len(plan_rows),
+                     new_x="LMARGIN", new_y="NEXT")
+            pdf.set_text_color(*pdf.DARK)
+
+    # ════════════════════════════════════════════════════════════════════════════
+    # ZUSAMMENFASSUNG & EMPFEHLUNGEN
+    # ════════════════════════════════════════════════════════════════════════════
+    pdf.add_page()
+    pdf.section_title("ZUSAMMENFASSUNG")
+
+    # Modul-Uebersicht als Tabelle
+    _modul_status = [
+        ("Anthropometrie",  anthro_row,  lambda r: "%s kg / %.0f cm — BMI %.1f" % (r.get("gewicht","-"), r.get("groesse",0), r.get("bmi",0)) if r.get("groesse") else "-",
+         lambda r: ampel(r.get("bmi_kategorie",""))),
+        ("FMS",             fms_row,     lambda r: "Score %d/21" % r.get("score",0),
+         lambda r: GREEN if r.get("score",0) >= 15 else YELLOW if r.get("score",0) >= 13 else RED),
+        ("Y-Balance",       y_row,       lambda r: "Rechts %.1f%% / Links %.1f%%" % (r.get("composite_rechts",0), r.get("composite_links",0)),
+         lambda r: GREEN if (r.get("composite_rechts",0)+r.get("composite_links",0))/2 >= 89 else YELLOW),
+        ("Sprint",          sprint_row,  lambda r: "10m: %.2f s / 30m: %.2f s" % (r.get("beste_10m") or 0, r.get("beste_30m") or 0),
+         lambda r: ampel(r.get("bewertung_10m",""))),
+        ("Sprung",          sprung_row,  lambda r: "CMJ: %.1f cm" % r.get("cmj_beid",0) if r.get("cmj_beid") else "-",
+         lambda r: ampel(r.get("bewertung_cmj",""))),
+        ("Agilitaet",       agil_row,    lambda r: "T-Test: %.2f s" % r.get("t_test",0) if r.get("t_test") else ("505-Test: %.2f s" % r.get("t505_r",0) if r.get("t505_r") else "-"),
+         lambda r: ampel(r.get("bew_t_test","") or r.get("bew_505",""))),
+        ("Ausdauer",        aus_row,     lambda r: "Distanz: %d m / VO2max: %.1f" % (int(r.get("distanz_m",0)), r.get("vo2max") or 0),
+         lambda r: ampel(r.get("bewertung",""))),
+        ("Spiroergometrie", spiro_row,   lambda r: "VO2peak: %.1f ml/kg/min" % r.get("vo2_peak",0) if r.get("vo2_peak") else ("V max: %.1f km/h" % r.get("maximale_geschwindigkeit",0) if r.get("maximale_geschwindigkeit") else "-"),
+         lambda r: GREEN if (r.get("vo2_peak") or 0) >= 55 else YELLOW if (r.get("vo2_peak") or 0) >= 45 else (GREY if not r.get("vo2_peak") else RED)),
+        ("Kraftdiagnostik", kraft_row,   lambda r: "1RM: %.1f kg" % (r.get("direktes_1rm") or r.get("geschaetztes_1rm") or 0),
+         lambda r: GREEN if (r.get("relative_kraft_direkt") or r.get("relative_kraft_geschaetzt") or 0) >= 1.5 else YELLOW),
+    ]
+
+    cols_sum = [("Modul",45),("Ergebnis (aktuell)",105),("Bewertung",40)]
+    pdf.table_header(cols_sum)
+    _wsum = [c[1] for c in cols_sum]
+    fill = False
+    for modul_name, row, val_fn, col_fn in _modul_status:
+        if not row:
+            continue
+        try:
+            val_str = val_fn(row)
+            col     = col_fn(row)
+        except Exception:
+            val_str, col = "-", GREY
+        pdf.set_fill_color(*pdf.LIGHT) if fill else pdf.set_fill_color(*pdf.WHITE)
+        pdf.set_font("Helvetica", "B", 7)
+        pdf.set_text_color(*pdf.DARK)
+        pdf.cell(_wsum[0], 5, _safe(modul_name), fill=True)
+        pdf.set_font("Helvetica", "", 7)
+        pdf.cell(_wsum[1], 5, _safe(val_str)[:55], fill=True)
+        # Ampel-Klotz
+        x_amp, y_amp = pdf.get_x(), pdf.get_y()
+        pdf.set_fill_color(*col)
+        pdf.rect(x_amp, y_amp + 0.5, 5, 4, "F")
+        pdf.set_fill_color(*pdf.LIGHT) if fill else pdf.set_fill_color(*pdf.WHITE)
+        pdf.cell(_wsum[2], 5, "", fill=True, new_x="LMARGIN", new_y="NEXT")
+        fill = not fill
+
+    # ── Defizite hervorheben ──────────────────────────────────────────────────
+    if defizite:
+        pdf.ln(3)
+        pdf.set_font("Helvetica", "B", 9)
+        pdf.set_text_color(*pdf.BRAND)
+        pdf.cell(0, 6, "VORRANGIGE TRAININGSMASSNAHMEN:", new_x="LMARGIN", new_y="NEXT")
+        for i, d in enumerate(defizite[:5], 1):
+            is_krit = d.get("level") == "kritisch"
+            c_txt   = RED if is_krit else YELLOW
+            pdf.set_font("Helvetica", "B", 8)
+            pdf.set_text_color(*c_txt)
+            pdf.cell(8, 5, "%d." % i)
+            pdf.cell(55, 5, _safe(str(d.get("bereich",""))[:28]) + ":")
+            pdf.set_font("Helvetica", "", 8)
+            pdf.set_text_color(*pdf.DARK)
+            pdf.cell(0, 5, _safe(str(d.get("text",""))[:90]), new_x="LMARGIN", new_y="NEXT")
+        pdf.set_text_color(*pdf.DARK)
+
+    # ── Gesamtempfehlung ──────────────────────────────────────────────────────
+    pdf.ln(3)
+    pdf.section_title("EMPFEHLUNGEN")
+    if athletik_score >= 75:
+        empf = ("Sehr gutes Athletik-Profil. Gezielte Optimierung der verbleibenden Defizite empfohlen. "
+                "Fokus auf Erhalt der Staerken und spezifische Leistungssteigerung in Schluesselbereichen.")
+        empf_col = GREEN
+    elif athletik_score >= 50:
+        empf = ("Solides Athletik-Profil mit klaren Entwicklungsfeldern. Gezieltes Athletiktraining "
+                "entlang der identifizierten Defizite empfohlen. Prioritaet auf Stabilitaet und "
+                "Verletzungspraevention. Trainingsplan basiert auf individueller Befundanalyse.")
+        empf_col = YELLOW
+    else:
+        empf = ("Deutlicher Handlungsbedarf festgestellt. Systematisches Athletiktraining mit hoher "
+                "Prioritaet auf Verletzungspraevention und Bewegungsqualitaet empfohlen. "
+                "Engmaschige Begleitung durch Atletiktrainer notwendig.")
+        empf_col = RED
+
+    x_e, y_e = pdf.get_x(), pdf.get_y()
+    pdf.set_fill_color(245, 247, 250)
+    pdf.set_draw_color(*empf_col)
+    pdf.set_line_width(0.5)
+    pdf.rect(x_e, y_e, 190, 20, "FD")
+    pdf.set_fill_color(*empf_col)
+    pdf.rect(x_e, y_e, 5, 20, "F")
+    pdf.set_xy(x_e + 8, y_e + 3)
+    pdf.set_font("Helvetica", "B", 8)
+    pdf.set_text_color(*pdf.DARK)
+    pdf.cell(182, 5, "Athletik-Score: %d/100" % athletik_score, new_x="LMARGIN", new_y="NEXT")
+    pdf.set_x(x_e + 8)
+    pdf.set_font("Helvetica", "", 7.5)
+    pdf.multi_cell(182, 4, _safe(empf))
+    pdf.set_y(y_e + 24)
+
+    pdf.ln(3)
+    pdf.disclaimer_box(_safe(ZWECKBESTIMMUNG_TEXT))
 
     return bytes(pdf.output())
 
