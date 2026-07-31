@@ -1008,17 +1008,14 @@ def generate_report(
     # ════════════════════════════════════════════════════════════════════════════
     if plan_rows:
         pdf.add_page()
-        pdf.section_title("PERIODISIERUNGSPLAN (AUSZUG - ERSTE 4 WOCHEN)")
+        pdf.section_title("PERIODISIERUNGSPLAN (VOLLSTAENDIG)")
         pdf.disclaimer_box(_safe(TRAININGSPLAN_HINWEIS), border_color=(80, 100, 160))
         pdf.ln(1)
         cols = [("Wo.",10),("Phase",38),("Bereich",28),("Uebung",68),("Volumen",26),("Hz.",20)]
         pdf.table_header(cols)
         widths = [c[1] for c in cols]
         fill = False
-        # Nur Woche 1–4 anzeigen (kompakter, besser lesbar)
-        plan_display = [r for r in plan_rows if (r.get("woche") or 99) <= 4][:40]
-        if not plan_display:
-            plan_display = plan_rows[:30]
+        plan_display = sorted(plan_rows, key=lambda r: (int(r.get("woche") or 0), str(r.get("uebung") or "")))
         for row in plan_display:
             # Phase-Text kuerzen (Klammer-Zusatz entfernen fuer Platz)
             raw_phase = row.get("phase", row[1] if isinstance(row, (list, tuple)) else "-")
@@ -1033,13 +1030,6 @@ def generate_report(
             ]
             pdf.table_row(vals, widths, fill)
             fill = not fill
-        if len(plan_rows) > len(plan_display):
-            pdf.ln(1)
-            pdf.set_font("Helvetica", "I", 7)
-            pdf.set_text_color(*pdf.MID)
-            pdf.cell(0, 5, _safe("Vollstaendiger Plan: %d Eintraege - in der App unter 'Periodisierung' einsehbar." % len(plan_rows)),
-                     new_x="LMARGIN", new_y="NEXT")
-            pdf.set_text_color(*pdf.DARK)
 
     # ════════════════════════════════════════════════════════════════════════════
     # ZUSAMMENFASSUNG & EMPFEHLUNGEN

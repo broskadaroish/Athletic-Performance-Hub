@@ -1392,38 +1392,8 @@ def page_ybalance():
                     obs_yb["seite"], obs_yb["auspraegung"],
                     obs_yb["freitext"], obs_yb["text_generiert"],
                 )
-            st.success("✅ Y-Balance Test gespeichert!")
-            st.markdown("---")
-            st.markdown("### Ergebnis")
-            m1, m2, m3 = st.columns(3)
-            m1.metric("Composite Rechts", f"{res.composite_r} %")
-            m2.metric("Composite Links",  f"{res.composite_l} %")
-            m3.metric("Risikostufe", res.risiko_level.capitalize())
-            from age_norms import normgruppe_label as _ngl, yb_schwellenwert as _ybs
-            st.caption(f"📊 {_ngl(_yb_alter)} — Composite-Grenzwert: {_ybs(_yb_alter, _yb_geschl):.0f} %")
-            fig = go.Figure()
-            categories = ["Anterior", "Posteromedial", "Posterolateral"]
-            fig.add_trace(go.Scatterpolar(
-                r=[ant_r / bein_r * 100, pm_r / bein_r * 100, pl_r / bein_r * 100],
-                theta=categories, fill="toself", name="Rechts", line_color="#3b82f6",
-            ))
-            fig.add_trace(go.Scatterpolar(
-                r=[ant_l / bein_l * 100, pm_l / bein_l * 100, pl_l / bein_l * 100],
-                theta=categories, fill="toself", name="Links", line_color="#f85149",
-            ))
-            fig.update_layout(
-                polar=dict(
-                    bgcolor="#161b22",
-                    radialaxis=dict(visible=True, range=[0, 120], color="#8b949e", gridcolor="#30363d"),
-                    angularaxis=dict(color="#8b949e", gridcolor="#30363d"),
-                ),
-                **{k: v for k, v in PLOTLY_LAYOUT.items() if k not in ("xaxis", "yaxis")},
-                height=340, showlegend=True,
-            )
-            st.plotly_chart(fig, use_container_width=True)
-            st.info(f"**Trainingsschwerpunkt:** {res.schwerpunkt}")
-            if res.asymmetrien:
-                st.warning(f"⚠️ Asymmetrien erkannt: {', '.join(res.asymmetrien)}")
+            _save_ok(f"Y-Balance Test gespeichert! — Composite R: {res.composite_r} % | L: {res.composite_l} %")
+            st.rerun()
 
     # ── Tab 2: Letzter Test — alle Einzelwerte ───────────────────────────────
     with tab_letzter:
