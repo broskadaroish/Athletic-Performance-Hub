@@ -5543,6 +5543,75 @@ def page_einstellungen():
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+# HELPER: Eigene Dokumente hochladen / verwalten
+# ══════════════════════════════════════════════════════════════════════════════
+
+def _custom_docs_section(kategorie: str, titel: str = "Eigene Dokumente"):
+    """Upload, Anzeige und Verwaltung eigener PDF-Dokumente.
+    kategorie: 'anleitungen' oder 'protokolle'.
+    """
+    import pathlib
+
+    ordner = pathlib.Path(__file__).parent / "assets" / "custom_docs" / kategorie
+    ordner.mkdir(parents=True, exist_ok=True)
+
+    st.markdown(f"---\n### 📂 {titel}")
+    st.caption(
+        "Eigene PDFs hochladen — z. B. externe Anleitungen, Vereinsformulare "
+        "oder angepasste Protokolle. Die Dateien bleiben dauerhaft gespeichert."
+    )
+
+    # ── Upload ────────────────────────────────────────────────────────────────
+    uploaded = st.file_uploader(
+        "PDF hochladen (Mehrfachauswahl möglich)",
+        type=["pdf"],
+        accept_multiple_files=True,
+        key=f"custom_upload_{kategorie}",
+    )
+    if uploaded:
+        neu = 0
+        for f in uploaded:
+            ziel = ordner / f.name
+            with open(ziel, "wb") as fh:
+                fh.write(f.getvalue())
+            neu += 1
+        _save_ok(f"{neu} Datei(en) gespeichert.")
+        st.rerun()
+
+    # ── Gespeicherte Dateien ──────────────────────────────────────────────────
+    dateien = sorted(ordner.glob("*.pdf"))
+    if not dateien:
+        st.info("Noch keine eigenen Dokumente hochgeladen.")
+        return
+
+    st.markdown(f"**{len(dateien)} gespeicherte{'s' if len(dateien) == 1 else ''} "
+                f"Dokument{'' if len(dateien) == 1 else 'e'}:**")
+    for pdf_path in dateien:
+        c_name, c_dl, c_del = st.columns([5, 2, 1])
+        size_kb = pdf_path.stat().st_size // 1024
+        c_name.markdown(
+            f'<div style="padding:5px 0;color:#e6edf3;font-size:13px">'
+            f'📄 {pdf_path.name}'
+            f'<span style="color:#8b949e;font-size:11px;margin-left:8px">{size_kb} KB</span>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+        with open(pdf_path, "rb") as fh:
+            c_dl.download_button(
+                "⬇️ Download",
+                data=fh.read(),
+                file_name=pdf_path.name,
+                mime="application/pdf",
+                key=f"dl_{kategorie}_{pdf_path.stem}",
+                use_container_width=True,
+            )
+        if c_del.button("🗑️", key=f"del_{kategorie}_{pdf_path.stem}",
+                        help=f"{pdf_path.name} löschen", use_container_width=True):
+            pdf_path.unlink(missing_ok=True)
+            st.rerun()
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # PAGE: TESTANLEITUNGEN EXPORT
 # ══════════════════════════════════════════════════════════════════════════════
 
@@ -5728,6 +5797,8 @@ def page_export_pdf():
                 )
     else:
         st.warning("Bitte mindestens einen Test auswählen.")
+
+    _custom_docs_section("anleitungen", "Eigene Anleitungen")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -6800,6 +6871,8 @@ def page_testprotokoll():
             key="proto_dl",
         )
         st.success(f"✅ PDF erstellt — {len(selected_tests)} Test(s), {n_spieler} Bogen/Bögen.")
+
+    _custom_docs_section("protokolle", "Eigene Protokolle")
 
 
 # ══════════════════════════════════════════════════════════════════════════════

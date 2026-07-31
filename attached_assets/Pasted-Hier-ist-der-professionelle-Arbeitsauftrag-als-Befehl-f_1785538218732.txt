@@ -1,0 +1,380 @@
+Hier ist der **professionelle Arbeitsauftrag als Befehl für den Replit Agent**:
+
+---
+
+# PHASE 0 – Abschlussprüfung und vollständige Fehlerbehebung
+
+## Arbeitsauftrag
+
+Bevor mit Phase 1 begonnen wird, soll eine vollständige Abschlussprüfung der gesamten Phase 0 durchgeführt werden.
+
+Analysiere die komplette Software **Bruce Football Performance Diagnostics** und überprüfe alle unten aufgeführten Punkte.
+
+Für jeden Punkt gilt:
+
+* Prüfen, ob die Funktion bereits vollständig umgesetzt wurde.
+* Falls sie fehlt oder nur teilweise funktioniert, vollständig umsetzen.
+* Nach jeder Änderung die Funktion testen.
+* Dokumentieren, welche Dateien geändert wurden.
+* Erst danach mit dem nächsten Punkt fortfahren.
+
+Die Plattform muss während der gesamten Arbeiten jederzeit vollständig lauffähig bleiben.
+
+---
+
+## 1. Spieler anlegen
+
+Prüfe, ob nach dem Erstellen eines neuen Spielers eine eindeutige Erfolgsmeldung erscheint.
+
+Beispiel:
+
+**„✅ Spieler erfolgreich gespeichert.“**
+
+Falls dies fehlt, ergänzen.
+
+---
+
+## 2. Anthropometrie – Körperfett
+
+Prüfen und vollständig umsetzen:
+
+Es sollen folgende Möglichkeiten vorhanden sein:
+
+* Manuelle Eingabe
+* Automatische Berechnung über 7 Hautfalten
+* Automatische Berechnung über 11 Hautfalten
+* Eingabe über Körperanalysewaage
+
+Der Trainer entscheidet selbst, welche Methode verwendet wird.
+
+---
+
+## 3. Anthropometrie – Beinlänge
+
+Ergänzen:
+
+* Beinlänge links
+* Beinlänge rechts
+
+Bei deutlicher Differenz automatisch folgenden Hinweis anzeigen:
+
+**„Mögliche Beinlängendifferenz erkannt. Eine ärztliche Untersuchung wird empfohlen.“**
+
+Der Hinweis darf das Speichern nicht verhindern.
+
+---
+
+## 4. Plausibilitätsprüfung Geburtsdatum
+
+Beim Anlegen eines neuen Spielers sämtliche Datumsangaben prüfen.
+
+Unplausible Werte (z. B. Monat 13, Tag 35 usw.) erkennen.
+
+Es soll eine Warnmeldung erscheinen.
+
+Der Trainer kann anschließend:
+
+* Eingabe korrigieren
+* Trotzdem speichern
+
+Nur technisch ungültige Datumsformate dürfen das Speichern verhindern.
+
+---
+
+## 5. Anthropometrie speichern
+
+Nach erfolgreichem Speichern:
+
+* Erfolgsmeldung anzeigen
+* Alle Eingabefelder zurücksetzen
+
+Beibehalten:
+
+* heutiges Datum
+* ausgewählter Spieler
+
+---
+
+## 6. Trainingsplan speichern
+
+Nach:
+
+**Automatisch generieren**
+
+und anschließend
+
+**Trainingsplan erstellen**
+
+muss eine Erfolgsmeldung erscheinen.
+
+Beispiel:
+
+**„✅ Trainingsplan erfolgreich erstellt.“**
+
+---
+
+## 7. Trainingsplanlogik
+
+Analysiere die bestehende Trainingslogik.
+
+Momentan wird jede Woche nur ein einzelner Schwerpunkt trainiert.
+
+Diese Logik soll ersetzt werden.
+
+Der Trainingsplan muss:
+
+* Hauptdefizite priorisieren
+* Nebendefizite berücksichtigen
+* mehrere Trainingsschwerpunkte pro Woche enthalten
+* sportwissenschaftlich sinnvoll aufgebaut sein
+* Belastung und Regeneration berücksichtigen
+
+Es wird **keine KI** verwendet.
+
+Die Planung erfolgt ausschließlich regelbasiert.
+
+---
+
+## 8. FMS
+
+Beim zuletzt gespeicherten Test sollen sämtliche Einzelübungen angezeigt werden.
+
+Unter anderem:
+
+* Deep Squat
+* Hurdle Step
+* Inline Lunge
+* Shoulder Mobility
+* Active Straight Leg Raise
+* Trunk Stability Push-up
+* Rotary Stability
+
+Zusätzlich Gesamtpunktzahl anzeigen.
+
+Nicht nur den Gesamtwert.
+
+---
+
+## 9. FMS Verlauf
+
+Neben „Neuer Test“ einen Button:
+
+**📈 Verlauf**
+
+Ergänzen.
+
+Dort sollen sämtliche bisherigen Tests angezeigt werden.
+
+Vergleich mehrerer Testtermine ermöglichen.
+
+---
+
+## 10. Spielerverwaltung
+
+Die Spielertabelle erweitern.
+
+Folgende Funktionen ergänzen:
+
+* Spieler direkt bearbeiten
+* Spieler markieren
+* Mehrfachauswahl
+* Spieler löschen
+
+---
+
+## 11. Y-Balance
+
+Nach dem Speichern:
+
+Auch
+
+* Beinlänge links
+* Beinlänge rechts
+
+automatisch zurücksetzen.
+
+---
+
+## 12. Y-Balance letzter Test
+
+Beim letzten gespeicherten Test anzeigen:
+
+* sämtliche Einzelrichtungen
+* Composite Score
+* Asymmetrien
+* Bewertung
+
+Nicht nur das Gesamtergebnis.
+
+---
+
+## 13. Y-Balance Verlauf
+
+Neben „Neuer Test“ einen Button:
+
+**📈 Verlauf**
+
+ergänzen.
+
+Historie aller Tests anzeigen.
+
+Vergleich mehrerer Testtermine ermöglichen.
+
+---
+
+## 14. Krafttest
+
+Nach erfolgreichem Speichern:
+
+Erfolgsmeldung anzeigen.
+
+---
+
+## 15. Krafttest Verlauf
+
+Button:
+
+**📈 Verlauf**
+
+ergänzen.
+
+Anzeige:
+
+* alle Testübungen
+* Ergebnisse
+* Diagramme
+* Historie
+
+---
+
+## 16. Sprinttest Verlauf
+
+Button:
+
+**📈 Verlauf**
+
+ergänzen.
+
+Anzeige:
+
+* sämtliche Sprintdistanzen
+* Historie
+* Diagramme
+
+---
+
+## 17. Agility
+
+Der Trainer soll selbst auswählen können, welche Agility-Tests verwendet werden.
+
+Jeder Test kann aktiviert oder deaktiviert werden.
+
+Zu jedem Test anzeigen:
+
+* Bild
+* Maße
+* Hütchenpositionen
+
+Keine langen Informationsseiten.
+
+---
+
+## 18. PDF-Bericht
+
+Analysiere den gesamten PDF-Bericht.
+
+Alle Texte müssen innerhalb der Seitenränder dargestellt werden.
+
+Keine abgeschnittenen Texte.
+
+Keine überstehenden Elemente.
+
+---
+
+## 19. PDF-Bericht erweitern
+
+Der komplette Trainingsplan soll automatisch mit in den PDF-Bericht übernommen werden.
+
+---
+
+## 20. Spiroergometrie – Testprotokoll
+
+Nach dem Speichern eines Testprotokolls:
+
+Erfolgsmeldung anzeigen.
+
+---
+
+## 21. Spiroergometrie – Gesamter Test
+
+Nach dem Speichern:
+
+* Erfolgsmeldung anzeigen
+* Formular vollständig zurücksetzen
+
+Beibehalten:
+
+* heutiges Datum
+* ausgewählter Spieler
+
+---
+
+## 22. Schwellenwerte
+
+Die Schwellenwerte sollen automatisch übernommen werden.
+
+Der Trainer muss diese Werte anschließend manuell ändern können.
+
+---
+
+## 23. PDF-Bericht komplett überarbeiten
+
+Überarbeite den gesamten PDF-Bericht.
+
+Der Bericht soll professionell aufgebaut sein.
+
+Enthalten sein müssen:
+
+* Deckblatt
+* Spielerprofil
+* Anthropometrie
+* FMS
+* Y-Balance
+* Sprint
+* Kraft
+* Agility
+* Spiroergometrie
+* Athletik-Score
+* Diagramme
+* Trainingsplan
+* Trainerbewertung
+* Zusammenfassung
+* Empfehlungen
+
+Das Layout soll professionell wirken.
+
+Keine Texte außerhalb der Seitenränder.
+
+---
+
+# Abschlussprüfung
+
+Nach Abschluss aller Arbeiten:
+
+Erstelle einen vollständigen Abnahmebericht.
+
+Für jeden einzelnen Punkt angeben:
+
+* ✅ Erledigt
+* ⚠️ Teilweise erledigt
+* ❌ Nicht erledigt
+
+Zusätzlich dokumentieren:
+
+* Welche Dateien wurden geändert?
+* Welche Tests wurden durchgeführt?
+* Welche Fehler wurden behoben?
+* Welche offenen Punkte gibt es noch?
+* Welche Empfehlungen bestehen für zukünftige Verbesserungen?
+
+**Erst wenn alle Punkte vollständig umgesetzt, getestet und dokumentiert wurden, gilt Phase 0 als erfolgreich abgeschlossen und Phase 1 darf begonnen werden.**
