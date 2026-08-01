@@ -427,7 +427,8 @@ def page_dashboard():
         rs     = risiko_score(fms, y, verlet)
         _, level = risiko_label(rs)
         sc     = athletik_score(fms, y, sprint, sprung, agil, aus)
-        defizite = defizite_ermitteln(fms, y, sprint, sprung, agil, aus, anthro)
+        defizite = defizite_ermitteln(fms, y, sprint, sprung, agil, aus, anthro,
+                                      spiro_row=spiro_test_letzter(pid))
         # last test date across all modules
         dates = [d["datum"] for d in [fms, y, sprint, sprung, agil, aus]
                  if d and d.get("datum")]
@@ -1692,8 +1693,10 @@ def page_spieler_profil():
     rs     = risiko_score(fms, y, verlet)
     label, level = risiko_label(rs)
     ascore   = athletik_score(fms, y, sprint, sprung, agil, aus)
-    defizite = defizite_ermitteln(fms, y, sprint, sprung, agil, aus, anthro)
-    schwerpunkt = schwerpunkt_sammeln(fms, y, sprint, sprung, agil, aus, kraft_row=kraft_letzter(sid))
+    _spiro_p = spiro_test_letzter(sid)
+    defizite = defizite_ermitteln(fms, y, sprint, sprung, agil, aus, anthro, spiro_row=_spiro_p)
+    schwerpunkt = schwerpunkt_sammeln(fms, y, sprint, sprung, agil, aus,
+                                      kraft_row=kraft_letzter(sid), spiro_row=_spiro_p)
     alter = berechne_alter(auswahl.get("geburtsdatum"))
 
     # ── Header ────────────────────────────────────────────────────────────
@@ -2146,7 +2149,9 @@ def page_trainingsplan():
     sprung  = sprung_letzter(sid)
     agil    = agilitaet_letzter(sid)
     aus     = ausdauer_letzter(sid)
-    schwerpunkt = schwerpunkt_sammeln(fms, y, sprint, sprung, agil, aus, kraft_row=kraft_letzter(sid))
+    spiro   = spiro_test_letzter(sid)
+    schwerpunkt = schwerpunkt_sammeln(fms, y, sprint, sprung, agil, aus,
+                                      kraft_row=kraft_letzter(sid), spiro_row=spiro)
 
     tab_auto, tab_manual, tab_view = st.tabs(["🤖 Automatisch generieren", "✍️ Manuell hinzufügen", "📋 Plan anzeigen"])
 
@@ -2426,7 +2431,9 @@ def page_periodisierung():
     sprung = sprung_letzter(sid)
     agil   = agilitaet_letzter(sid)
     aus    = ausdauer_letzter(sid)
-    schwerpunkt = schwerpunkt_sammeln(fms, y, sprint, sprung, agil, aus, kraft_row=kraft_letzter(sid))
+    schwerpunkt = schwerpunkt_sammeln(fms, y, sprint, sprung, agil, aus,
+                                      kraft_row=kraft_letzter(sid),
+                                      spiro_row=spiro_test_letzter(sid))
 
     # ── Deficit summary ───────────────────────────────────────────────────────
     defizite = defizit_tabelle(schwerpunkt)
@@ -5267,8 +5274,9 @@ def page_startseite():
     rs              = risiko_score(fms, y, verlet)
     _, level        = risiko_label(rs)
     ascore          = athletik_score(fms, y, sprint, sprung, agil, aus)
-    defizite        = defizite_ermitteln(fms, y, sprint, sprung, agil, aus, anthro)
-    alter           = berechne_alter(auswahl.get("geburtsdatum"))
+    _spiro_s = spiro_test_letzter(sid)
+    defizite = defizite_ermitteln(fms, y, sprint, sprung, agil, aus, anthro, spiro_row=_spiro_s)
+    alter    = berechne_alter(auswahl.get("geburtsdatum"))
 
     # ── Greeting ──────────────────────────────────────────────────────────────
     hour = datetime.now().hour
@@ -6898,6 +6906,26 @@ def page_diagnostik_overview() -> None:
 
     yb_metric, yb_rating     = _yb_metric()
     agil_metric, agil_rating = _agil_metric()
+    def _spiro_beurteilung(spiro):
+        if not spiro:
+            return None
+        vo2 = spiro.get("vo2_peak") or spiro.get("vo2_max") or spiro.get("geschaetzte_vo2max")
+        schw = spiro.get("schwelle_geschwindigkeit")
+        # Beurteilungstext mit Ampel-Keywords
+        if vo2:
+            v = float(vo2)
+            if v >= 55:
+                beurt = f"Gut — VO₂peak {v:.1f} ml·kg⁻¹·min⁻¹"
+            elif v >= 48:
+                beurt = f"Durchschnittlich — VO₂peak {v:.1f} ml·kg⁻¹·min⁻¹"
+            else:
+                beurt = f"Verbesserungsbedarf — VO₂peak {v:.1f} ml·kg⁻¹·min⁻¹"
+        elif schw:
+            beurt = f"Schwelle: {float(schw):.1f} km/h"
+        else:
+            return None
+        return beurt
+
     anthro_metric, anthro_rating = _anthro_metric_rating()
 
     tiles = [
@@ -6994,13 +7022,8 @@ def page_diagnostik_overview() -> None:
                 (f"Schwelle: {spiro_d['schwelle_geschwindigkeit']:.1f} km/h"
                  if spiro_d and spiro_d.get("schwelle_geschwindigkeit") else None)
             ),
-            "rating": (
-                f"VO₂peak: {spiro_d['vo2_peak']:.1f}"
-                if spiro_d and spiro_d.get("vo2_peak") else
-                (f"VO₂max: {spiro_d['vo2_max']:.1f}"
-                 if spiro_d and spiro_d.get("vo2_max") else None)
-            ),
-            "date": spiro_d.get("datum") if spiro_d else None,
+            "rating": _spiro_beurteilung(spiro_d),
+            "date":   spiro_d.get("datum") if spiro_d else None,
         },
     ]
 

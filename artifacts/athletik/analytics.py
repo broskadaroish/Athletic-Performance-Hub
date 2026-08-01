@@ -262,6 +262,7 @@ def defizite_ermitteln(
     agil_row=None,
     aus_row=None,
     anthro_row=None,
+    spiro_row=None,
 ) -> list[dict]:
     """
     Returns a list of deficit dicts with keys:
@@ -407,6 +408,22 @@ def defizite_ermitteln(
             add("warnung", "Wachstum / Belastungssteuerung",
                 "Spieler befindet sich im oder vor dem Wachstumsschub — Belastung anpassen.", "Anthropometrie")
 
+    # ── Spiroergometrie / Stufentest ──────────────────────────────────────────
+    if spiro_row:
+        vo2 = spiro_row.get("vo2_peak") or spiro_row.get("vo2_max") or spiro_row.get("geschaetzte_vo2max")
+        schw_v = spiro_row.get("schwelle_geschwindigkeit")
+        if vo2:
+            v = float(vo2)
+            if v < 45:
+                add("kritisch", "Aerobe Kapazität (Spiro)",
+                    f"VO₂peak {v:.1f} ml·kg⁻¹·min⁻¹ — aerobe Basis dringend stärken (Spiroergometrie).", "Stufentest")
+            elif v < 50:
+                add("warnung", "Aerobe Kapazität (Spiro)",
+                    f"VO₂peak {v:.1f} ml·kg⁻¹·min⁻¹ — Ausdauertraining intensivieren.", "Stufentest")
+        if schw_v and float(schw_v) < 12:
+            add("warnung", "Laktatschwelle",
+                f"Schwellengeschwindigkeit {float(schw_v):.1f} km/h — Schwellentraining empfohlen.", "Stufentest")
+
     return defizite
 
 
@@ -420,6 +437,7 @@ def schwerpunkt_sammeln(
     agil_row=None,
     aus_row=None,
     kraft_row=None,
+    spiro_row=None,
 ) -> str:
     """Combine schwerpunkt/deficit texts from all modules for training recommendations."""
     parts = []
@@ -464,4 +482,11 @@ def schwerpunkt_sammeln(
         lateral_asym = kraft_row.get("lateral_asymmetrie_pct") or 0
         if lateral_asym and float(lateral_asym) > 10:
             parts.append("hüfte seitenasymmetrie rumpf")
+    if spiro_row:
+        vo2 = spiro_row.get("vo2_peak") or spiro_row.get("vo2_max") or spiro_row.get("geschaetzte_vo2max")
+        if vo2 and float(vo2) < 50:
+            parts.append("ausdauer aerob grundlage")
+        schw = spiro_row.get("schwelle_geschwindigkeit")
+        if schw and float(schw) < 12:
+            parts.append("ausdauer schwellentraining")
     return " ".join(parts)
