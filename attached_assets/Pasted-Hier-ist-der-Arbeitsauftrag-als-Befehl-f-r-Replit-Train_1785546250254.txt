@@ -1,0 +1,152 @@
+Hier ist der Arbeitsauftrag als **Befehl für Replit**:
+
+---
+
+# Trainingsplan – Sportwissenschaftliche Progression vollständig überarbeiten
+
+## Arbeitsauftrag
+
+Analysiere den aktuellen Algorithmus zur automatischen Trainingsplanerstellung.
+
+Momentan werden über mehrere Wochen hinweg häufig dieselben oder sehr ähnliche Übungen mit nahezu identischem Umfang wiederholt.
+
+Diese Trainingslogik entspricht nicht einer sinnvollen sportwissenschaftlichen Periodisierung und soll vollständig überarbeitet werden.
+
+Die Trainingsplanung soll künftig eine klare Progression aufweisen und sich an den Prinzipien der Trainingslehre orientieren.
+
+Es wird **keine künstliche Intelligenz** verwendet. Die Trainingsplanung erfolgt ausschließlich regelbasiert.
+
+---
+
+## Neue Trainingslogik
+
+Der Trainingsplan soll sich automatisch an den diagnostizierten Defiziten orientieren und gleichzeitig einer sinnvollen Progression folgen.
+
+### Woche 1–2: Grundlagen schaffen
+
+Schwerpunkte:
+
+* Mobilität
+* Bewegungsqualität
+* Technik
+* Aktivierung
+* Grundlagen der Stabilität
+
+Ziel:
+
+Bewegungsqualität verbessern und den Körper auf die folgenden Trainingsphasen vorbereiten.
+
+---
+
+### Woche 3–5: Stabilität und Kraftaufbau
+
+Schwerpunkte:
+
+* Core-Stabilität
+* Gelenkstabilität
+* Hüftstabilität
+* Kniekontrolle
+* Kraftaufbau
+* Bewegungskontrolle
+
+Ziel:
+
+Eine stabile Grundlage schaffen und funktionelle Kraft entwickeln.
+
+---
+
+### Woche 6–8: Leistungsentwicklung
+
+Schwerpunkte:
+
+* Schnellkraft
+* Sprint
+* Beschleunigung
+* Richtungswechsel
+* Explosivität
+* Koordination
+
+Ziel:
+
+Die neu aufgebaute Stabilität in leistungsorientierte Bewegungen übertragen.
+
+---
+
+### Woche 9–12: Fußballspezifische Leistungsphase
+
+Schwerpunkte:
+
+* Fußballspezifische Bewegungen
+* Kombination mehrerer Fähigkeiten
+* Reaktivkraft
+* Richtungswechsel unter Belastung
+* Prävention
+* Belastungssteuerung
+
+Ziel:
+
+Übertragung der entwickelten Fähigkeiten auf fußballspezifische Anforderungen.
+
+---
+
+## Wichtige Vorgaben
+
+Der Trainingsplan darf **nicht** jede Woche dieselben Übungen enthalten.
+
+Die Übungen sollen regelmäßig variieren.
+
+Es sollen unterschiedliche Übungen mit demselben Trainingsziel verwendet werden, um:
+
+* Motivation zu erhöhen
+* Monotonie zu vermeiden
+* unterschiedliche Bewegungsreize zu setzen
+* eine langfristige Leistungsentwicklung zu fördern
+
+---
+
+## Progression
+
+Die Belastung soll sich im Verlauf des Trainingsplans schrittweise steigern.
+
+Dabei sollen – je nach Übung – angepasst werden:
+
+* Übungsauswahl
+* Schwierigkeitsgrad
+* Wiederholungen
+* Sätze
+* Trainingsdauer
+* Intensität
+* Komplexität
+
+Die Progression muss nachvollziehbar und sportwissenschaftlich sinnvoll sein.
+
+---
+
+## Individualisierung
+
+Die Reihenfolge der Trainingsschwerpunkte soll sich an den Ergebnissen der Diagnostik orientieren.
+
+Beispiel:
+
+Ein Spieler mit deutlichen Defiziten in der Hüftstabilität erhält innerhalb aller Trainingsphasen regelmäßig passende Übungen.
+
+Ein Spieler mit Sprintdefiziten erhält zusätzlich mehr sprint- und beschleunigungsorientierte Übungen.
+
+Die Hauptdefizite werden priorisiert, Nebendefizite werden kontinuierlich mittrainiert.
+
+---
+
+## Qualitätskontrolle
+
+Überprüfe den neuen Trainingsalgorithmus.
+
+Stelle sicher, dass:
+
+* keine identischen Trainingswochen entstehen,
+* eine sinnvolle Progression vorhanden ist,
+* Belastung und Regeneration berücksichtigt werden,
+* die Übungsauswahl abwechslungsreich ist,
+* die Trainingsplanung sportwissenschaftlich nachvollziehbar aufgebaut ist,
+* die Empfehlungen auf den Diagnostikergebnissen basieren.
+
+Erstelle nach Abschluss einen Bericht, in dem erklärt wird, welche Änderungen vorgenommen wurden und wie die neue Progressionslogik funktioniert.
