@@ -6822,6 +6822,9 @@ def page_diagnostik_overview() -> None:
         return
 
     # ── Last results ──────────────────────────────────────────────────────────
+    sp_ov    = spieler_by_id(sid)
+    _alter_ov   = berechne_alter(sp_ov.get("geburtsdatum")) if sp_ov else None
+    _geschl_ov  = (sp_ov.get("geschlecht") or "Männlich") if sp_ov else "Männlich"
     anthro_d = anthropometrie_letzter(sid)
     fms_d    = fms_letzter(sid)
     yb_d     = y_balance_letzter(sid)
@@ -6911,22 +6914,24 @@ def page_diagnostik_overview() -> None:
     def _spiro_beurteilung(spiro):
         if not spiro:
             return None
+        from age_norms import vo2_bewertung_alter as _v2bw
         vo2 = spiro.get("vo2_peak") or spiro.get("vo2_max") or spiro.get("geschaetzte_vo2max")
         schw = spiro.get("schwelle_geschwindigkeit")
-        # Beurteilungstext mit Ampel-Keywords
         if vo2:
-            v = float(vo2)
-            if v >= 55:
-                beurt = f"Gut — VO₂peak {v:.1f} ml·kg⁻¹·min⁻¹"
-            elif v >= 48:
-                beurt = f"Durchschnittlich — VO₂peak {v:.1f} ml·kg⁻¹·min⁻¹"
-            else:
-                beurt = f"Verbesserungsbedarf — VO₂peak {v:.1f} ml·kg⁻¹·min⁻¹"
+            stufe, _ = _v2bw(float(vo2), _alter_ov, _geschl_ov)
+            return f"{stufe} — VO₂peak {float(vo2):.1f} ml·kg⁻¹·min⁻¹"
         elif schw:
-            beurt = f"Schwelle: {float(schw):.1f} km/h"
+            v = float(schw)
+            # Schwellen-Beurteilung als Fallback (grob, geschlechtsneutral)
+            if v >= 14:
+                stufe = "Gut"
+            elif v >= 12:
+                stufe = "Durchschnittlich"
+            else:
+                stufe = "Verbesserungsbedarf"
+            return f"{stufe} — Schwelle {v:.1f} km/h"
         else:
             return None
-        return beurt
 
     anthro_metric, anthro_rating = _anthro_metric_rating()
 
@@ -7006,11 +7011,14 @@ def page_diagnostik_overview() -> None:
             ),
             "rating": (
                 __import__("kraft").beurteilung_relative_kraft(
-                    kraft_d.get("relative_kraft_direkt") or kraft_d.get("relative_kraft_geschaetzt")
-                )[0]  # alter nicht verfügbar im Vergleichs-Kontext
+                    kraft_d.get("relative_kraft_direkt") or kraft_d.get("relative_kraft_geschaetzt"),
+                    alter=_alter_ov, geschlecht=_geschl_ov
+                )[0]
                 if kraft_d and (kraft_d.get("relative_kraft_direkt") or kraft_d.get("relative_kraft_geschaetzt"))
-                else ("Ventral: %.0f s" % kraft_d["ventral_sekunden"]
-                      if kraft_d and kraft_d.get("ventral_sekunden") else None)
+                else (
+                    __import__("kraft").beurteilung_ventral_plank(kraft_d.get("ventral_sekunden"))[0]
+                    if kraft_d and kraft_d.get("ventral_sekunden") else None
+                )
             ),
             "date": kraft_d.get("datum") if kraft_d else None,
         },

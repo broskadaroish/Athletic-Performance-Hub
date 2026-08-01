@@ -278,6 +278,53 @@ _KRAFT_W = {g: {k: round(v * 0.70, 2) for k, v in d.items()} for g, d in _KRAFT_
 KRAFT_NORMEN: dict[str, dict] = {"Männlich": _KRAFT_M, "Weiblich": _KRAFT_W}
 
 
+# ─── Spiroergometrie / VO₂ ──────────────────────────────────────────────────
+# VO₂peak-Normen für Fußball (ml·kg⁻¹·min⁻¹)
+# Quellen: Helgerud et al. (2001) Med Sci Sports Exerc; Stølen et al. (2005) Sports Med;
+#          Bangsbo (1993) Science Football; DFB-Leistungsdiagnostik (2019)
+_VO2_NORMEN_M: dict[str, dict] = {
+    "U8":       {"Sehr gut": 40, "Gut": 35, "Durchschnittlich": 30},
+    "U10":      {"Sehr gut": 44, "Gut": 38, "Durchschnittlich": 32},
+    "U12":      {"Sehr gut": 48, "Gut": 42, "Durchschnittlich": 36},
+    "U14":      {"Sehr gut": 52, "Gut": 46, "Durchschnittlich": 40},
+    "U16":      {"Sehr gut": 56, "Gut": 49, "Durchschnittlich": 43},
+    "U18":      {"Sehr gut": 59, "Gut": 52, "Durchschnittlich": 46},
+    "U21":      {"Sehr gut": 62, "Gut": 55, "Durchschnittlich": 48},
+    "Senioren": {"Sehr gut": 60, "Gut": 53, "Durchschnittlich": 46},
+    "Ü35":      {"Sehr gut": 55, "Gut": 48, "Durchschnittlich": 42},
+    "Ü50":      {"Sehr gut": 48, "Gut": 42, "Durchschnittlich": 36},
+}
+_VO2_NORMEN_W: dict[str, dict] = {
+    "U8":       {"Sehr gut": 34, "Gut": 29, "Durchschnittlich": 24},
+    "U10":      {"Sehr gut": 38, "Gut": 32, "Durchschnittlich": 26},
+    "U12":      {"Sehr gut": 42, "Gut": 36, "Durchschnittlich": 30},
+    "U14":      {"Sehr gut": 46, "Gut": 40, "Durchschnittlich": 34},
+    "U16":      {"Sehr gut": 50, "Gut": 43, "Durchschnittlich": 37},
+    "U18":      {"Sehr gut": 53, "Gut": 46, "Durchschnittlich": 40},
+    "U21":      {"Sehr gut": 55, "Gut": 48, "Durchschnittlich": 41},
+    "Senioren": {"Sehr gut": 53, "Gut": 46, "Durchschnittlich": 40},
+    "Ü35":      {"Sehr gut": 48, "Gut": 42, "Durchschnittlich": 36},
+    "Ü50":      {"Sehr gut": 42, "Gut": 36, "Durchschnittlich": 30},
+}
+
+
+def vo2_bewertung_alter(vo2: float, alter: float | None,
+                        geschlecht: str = "Männlich") -> tuple[str, str]:
+    """Altersbasierte VO₂peak-Beurteilung für Fußball (ml·kg⁻¹·min⁻¹)."""
+    g   = alter_zu_normgruppe(alter)
+    tab = _VO2_NORMEN_W if "w" in geschlecht.lower() or "f" in geschlecht.lower() else _VO2_NORMEN_M
+    n   = tab.get(g, tab["Senioren"])
+    if vo2 >= n["Sehr gut"]:
+        return "Sehr gut", f"Hervorragende aerobe Kapazität für {g} — VO₂peak {vo2:.1f} ml·kg⁻¹·min⁻¹"
+    if vo2 >= n["Gut"]:
+        return "Gut", f"Gute aerobe Kapazität für {g} — VO₂peak {vo2:.1f} ml·kg⁻¹·min⁻¹"
+    if vo2 >= n["Durchschnittlich"]:
+        return "Durchschnittlich", f"Durchschnittliche Ausdauer für {g} — VO₂peak {vo2:.1f} ml·kg⁻¹·min⁻¹"
+    if vo2 >= n["Durchschnittlich"] * 0.85:
+        return "Verbesserungsbedarf", f"Unter Norm für {g} — VO₂peak {vo2:.1f} ml·kg⁻¹·min⁻¹, Ausdauer aufbauen"
+    return "Kritisch", f"Deutlich unter Norm für {g} — VO₂peak {vo2:.1f} ml·kg⁻¹·min⁻¹, sofort handeln"
+
+
 def kraft_bewertung_alter(rel_kraft: float, alter: float | None,
                           geschlecht: str = "Männlich") -> tuple[str, str]:
     """Altersbasierte Beurteilung der relativen Bankdrück-Kraft."""
