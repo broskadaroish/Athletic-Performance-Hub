@@ -281,15 +281,15 @@ def _save_ok(msg: str) -> None:
     st.session_state["__save_ok__"] = msg
 
 def _check_save_ok() -> None:
-    """Zeigt eine gespeicherte Erfolgsmeldung dauerhaft und löscht sie danach."""
+    """Zeigt gespeicherte Erfolgsmeldung als auto-verschwindenden Toast."""
     msg = st.session_state.pop("__save_ok__", None)
     if msg:
-        st.markdown(
-            f'<div style="background:#1a4a2e;border:1px solid #3fb950;border-radius:8px;'
-            f'padding:10px 16px;margin:8px 0;font-size:0.97em;color:#e6edf3">'
-            f'✅ {msg}</div>',
-            unsafe_allow_html=True,
-        )
+        st.toast(f"✅ {msg}", icon=None)
+
+def _reset_keys(*keys: str) -> None:
+    """Löscht Formularfelder aus dem Session-State → werden beim nächsten Render auf Default zurückgesetzt."""
+    for k in keys:
+        st.session_state.pop(k, None)
 
 def _validate_geburtsdatum(datum_str: str):
     """Prüft Datum TT.MM.JJJJ — gibt (True, None) oder (False, Fehlermeldung) zurück."""
@@ -1279,7 +1279,8 @@ def page_fms():
                     obs_fms["seite"], obs_fms["auspraegung"],
                     obs_fms["freitext"], obs_fms["text_generiert"],
                 )
-            st.success("✅ FMS Test gespeichert!")
+            st.toast("✅ FMS Test gespeichert!", icon=None)
+            _reset_keys("ds", "ts", "hl", "hr", "il", "ir", "shl", "shr", "al", "ar", "rl", "rr")
             st.markdown("---")
             st.markdown("### Ergebnis")
             m1, m2, m3 = st.columns(3)
@@ -1551,6 +1552,7 @@ def page_ybalance():
                     obs_yb["freitext"], obs_yb["text_generiert"],
                 )
             _save_ok(f"Y-Balance Test gespeichert! — Composite R: {res.composite_r} % | L: {res.composite_l} %")
+            _reset_keys("antr", "antl", "pmr", "pml", "plr", "pll")
             st.rerun()
 
     # ── Tab 2: Letzter Test — alle Einzelwerte ───────────────────────────────
@@ -3169,6 +3171,10 @@ def page_anthropometrie():
                         obs_anthro["freitext"], obs_anthro["text_generiert"],
                     )
                 _save_ok("Messung gespeichert!")
+                _reset_keys(
+                    "anthro_groesse", "anthro_gewicht", "anthro_mm", "anthro_sh",
+                    "anthro_bl_r", "anthro_bl_l", "anthro_arm", "anthro_kf_man", "anthro_kf_methode",
+                )
                 st.rerun()
         with col_del:
             if letzter and st.button("🗑️ Letzte löschen", use_container_width=True, key="anthro_del"):
@@ -3381,6 +3387,8 @@ def page_sprint():
                         obs_sprint["freitext"], obs_sprint["text_generiert"],
                     )
                 _save_ok("Sprint-Test gespeichert!")
+                _reset_keys(*[f"{p}_{v}" for p in ["s5", "s10", "s20", "s30", "s40"]
+                               for v in ["v1", "v2", "v3"]])
                 st.rerun()
 
     with tab_verlauf:
@@ -3593,6 +3601,9 @@ def page_sprung():
                         obs_sprung["freitext"], obs_sprung["text_generiert"],
                     )
                 _save_ok("Sprung-Test gespeichert!")
+                _reset_keys(*[f"{p}_v{n}" for p in [
+                    "cmj_beid_", "cmj_r_", "cmj_l_", "squat_", "dj_h_", "dj_kz_", "swj_",
+                ] for n in [1, 2, 3]])
                 st.rerun()
 
     with tab_verlauf:
@@ -3837,6 +3848,10 @@ def page_agilitaet():
                         obs_agil["freitext"], obs_agil["text_generiert"],
                     )
                 _save_ok("Agilität-Test gespeichert!")
+                _reset_keys(*[f"{p}_v{n}" for p in [
+                    "a505r_", "a505l_", "a5105_", "att_", "aill_",
+                    "amtt_", "apa_", "aarrr_", "adarrl_", "azz_", "abal_",
+                ] for n in [1, 2, 3]])
                 st.rerun()
 
     with tab_verlauf:
@@ -4849,6 +4864,7 @@ def page_ausdauer():
                         obs_aus["freitext"], obs_aus["text_generiert"],
                     )
                 _save_ok("Ausdauer-Test gespeichert!")
+                _reset_keys("aus_dist", "aus_hf", "aus_rpe")
                 st.rerun()
 
     with tab_verlauf:
@@ -5133,6 +5149,12 @@ def page_kraft():
                         obs_kraft["freitext"], obs_kraft["text_generiert"],
                     )
                 _save_ok("Kraft-Test gespeichert!")
+                _reset_keys(
+                    "kraft_kgew", "kraft_bd_methode", "kraft_sek1", "kraft_sek2", "kraft_sek3",
+                    "kraft_d1rm", "kraft_e_gew", "kraft_e_wdh",
+                    "kraft_vent_v1", "kraft_vent_v2", "kraft_lat_r", "kraft_lat_l",
+                    "kraft_dors", "kraft_bemerkung",
+                )
                 st.rerun()
 
     with tab_verlauf:
@@ -5470,7 +5492,7 @@ def page_einstellungen():
         if st.button("💾 Speichern", key="cfg_save", type="primary"):
             st.session_state["cfg_vereinsname"] = vereinsname
             st.session_state["cfg_saison"]      = saison
-            st.success("✅ Einstellungen gespeichert (Session).")
+            st.toast("✅ Einstellungen gespeichert (Session).", icon=None)
 
         st.markdown("---")
         st.markdown("### 🏷️ Vereinslogo")

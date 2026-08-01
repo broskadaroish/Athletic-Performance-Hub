@@ -1,0 +1,77 @@
+Das würde ich als allgemeine Regel formulieren, damit Replit es überall einheitlich umsetzt:
+
+---
+
+# Allgemeine Vorgabe – Speichern von Daten
+
+Überprüfe sämtliche Module der Software, in denen Daten gespeichert werden.
+
+Nach jedem erfolgreichen Speichervorgang soll rechts neben dem **„Speichern“-Button** eine gut sichtbare Erfolgsmeldung erscheinen.
+
+Beispiel:
+
+**✅ Daten erfolgreich gespeichert**
+
+Die Erfolgsmeldung soll automatisch nach wenigen Sekunden wieder verschwinden.
+
+---
+
+## Formular zurücksetzen
+
+Nach einem erfolgreichen Speichervorgang sollen **alle Eingabefelder automatisch geleert bzw. auf ihren Standardwert zurückgesetzt** werden, **aber nur dort, wo dies fachlich sinnvoll ist**.
+
+Dadurch kann direkt ein neuer Datensatz erfasst werden.
+
+Beispiele, bei denen das Zurücksetzen sinnvoll ist:
+
+* Anthropometrie
+* FMS
+* Y-Balance
+* Krafttest
+* Sprinttest
+* Agility-Test
+* Spiroergometrie
+* Testprotokolle
+* Neue Testerfassung allgemein
+
+---
+
+## Felder, die erhalten bleiben sollen
+
+Folgende Informationen sollen **nicht automatisch gelöscht werden**, sofern sie für die nächste Eingabe weiterhin benötigt werden:
+
+* ausgewählter Spieler
+* heutiges Datum (standardmäßig aktuelles Datum)
+* ausgewählte Mannschaft (falls relevant)
+* ausgewählte Testart (falls mehrere Tests nacheinander durchgeführt werden)
+
+---
+
+## Ausnahmen
+
+Bei Formularen, bei denen ein automatisches Zurücksetzen den Arbeitsablauf stören würde, dürfen die Eingaben **nicht** gelöscht werden.
+
+Beispiele:
+
+* Einstellungen
+* Filter
+* Suchfelder
+* Bearbeitungsdialoge
+* Spielerverwaltung (Bearbeiten)
+* Vereinsverwaltung
+* Benutzerverwaltung
+* Lizenzverwaltung
+
+Hier soll lediglich die Erfolgsmeldung angezeigt werden.
+
+---
+
+## Qualitätskontrolle
+
+Überprüfe alle Module der Software und entscheide für jedes Formular, ob ein automatisches Zurücksetzen sinnvoll ist.
+
+Falls Unsicherheiten bestehen, bevorzuge die benutzerfreundlichste Lösung und dokumentiere deine Entscheidung im Abschlussbericht.
+
+---
+
+So wird das Verhalten der gesamten Software einheitlich, professionell und benutzerfreundlich.
