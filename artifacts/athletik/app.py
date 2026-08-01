@@ -1855,6 +1855,31 @@ def page_spieler_profil():
         ))
         st.plotly_chart(fig_ah, use_container_width=True)
 
+    # ── Stufentest-Kachel (Ampelfarbe) ────────────────────────────────────
+    _spiro_vo2_p = (_spiro_p.get("vo2_peak") or _spiro_p.get("vo2_max")) if _spiro_p else None
+    if _spiro_vo2_p:
+        _svp = float(_spiro_vo2_p)
+        _spiro_rating_p = (
+            f"Gut — VO₂peak {_svp:.1f} ml·kg⁻¹·min⁻¹"               if _svp >= 55 else
+            f"Durchschnittlich — VO₂peak {_svp:.1f} ml·kg⁻¹·min⁻¹"  if _svp >= 48 else
+            f"Verbesserungsbedarf — VO₂peak {_svp:.1f} ml·kg⁻¹·min⁻¹"
+        )
+    elif _spiro_p and _spiro_p.get("schwelle_geschwindigkeit"):
+        _spiro_rating_p = f"Schwelle: {float(_spiro_p['schwelle_geschwindigkeit']):.1f} km/h"
+    else:
+        _spiro_rating_p = None
+
+    _sp_col, _ = st.columns([2, 1])
+    with _sp_col:
+        st.markdown(
+            test_status_card(
+                "Stufentest", "🔬",
+                _spiro_p["datum"] if _spiro_p else None,
+                _spiro_rating_p,
+            ),
+            unsafe_allow_html=True,
+        )
+
     st.markdown("---")
 
     # ── Tabs: Defizite / Verletzungshistorie / PDF ─────────────────────────
@@ -5400,6 +5425,20 @@ def page_startseite():
     else:
         _anthro_rating_s = None
 
+    # Stufentest-Beurteilung für Startseite (Ampelfarben: ≥55 grün, 48–55 gelb, <48 rot)
+    _spiro_vo2_s = (_spiro_s.get("vo2_peak") or _spiro_s.get("vo2_max")) if _spiro_s else None
+    if _spiro_vo2_s:
+        _sv = float(_spiro_vo2_s)
+        _spiro_rating_s = (
+            f"Gut — VO₂peak {_sv:.1f} ml·kg⁻¹·min⁻¹"               if _sv >= 55 else
+            f"Durchschnittlich — VO₂peak {_sv:.1f} ml·kg⁻¹·min⁻¹"  if _sv >= 48 else
+            f"Verbesserungsbedarf — VO₂peak {_sv:.1f} ml·kg⁻¹·min⁻¹"
+        )
+    elif _spiro_s and _spiro_s.get("schwelle_geschwindigkeit"):
+        _spiro_rating_s = f"Schwelle: {float(_spiro_s['schwelle_geschwindigkeit']):.1f} km/h"
+    else:
+        _spiro_rating_s = None
+
     cards = [
         ("Anthropometrie", "📐", anthro, _anthro_rating_s,    anthro["datum"] if anthro else None),
         ("FMS", "📝", fms,
@@ -5412,6 +5451,7 @@ def page_startseite():
         ("Agilität",  "🔀", agil,   agil["bew_t_test"]      if agil   else None, agil["datum"]   if agil   else None),
         ("Ausdauer",  "🫁", aus,    aus["bewertung"]        if aus    else None, aus["datum"]    if aus    else None),
         ("Kraft",     "💪", kraft,  _kraft_rating_s,         kraft["datum"] if kraft else None),
+        ("Stufentest","🔬", _spiro_s, _spiro_rating_s,      _spiro_s["datum"] if _spiro_s else None),
     ]
     for i, (name, icon, row, rating, dt) in enumerate(cards):
         col = [c1, c2, c3][i % 3]
