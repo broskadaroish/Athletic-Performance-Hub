@@ -1811,8 +1811,8 @@ def page_spieler_profil():
     with ak_btn_col:
         st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
         if st.button("📐 Messen →", key="profil_goto_anthro", use_container_width=True):
-            st.session_state["_nav_goto"]              = "👤  Spieler"
-            st.session_state["_nav_sub_spieler_goto"]  = "📐 Anthropometrie"
+            st.session_state["_nav_goto"]                  = "🔬  Diagnostik"
+            st.session_state["_nav_sub_diagnostik_goto"]   = "📐 Anthropometrie"
             st.rerun()
 
     # ── Anthropometrie-Verlauf (nur bei ≥ 2 Messungen) ────────────────────
@@ -5374,7 +5374,24 @@ def page_startseite():
     # Y-Balance: Asymmetrie-Text als Rating (Farblogik in test_status_card reagiert auf "auffällig" / "Asymmetrie")
     _yb_rating_s = str(y["asymmetrie"]) if y and y.get("asymmetrie") else None
 
+    # Anthropometrie-Beurteilung für Startseite (Ampelfarben)
+    _anthro_kat = (anthro.get("bmi_kategorie") or "").strip() if anthro else ""
+    _anthro_kat_l = _anthro_kat.lower()
+    if "normalgewicht" in _anthro_kat_l:
+        _anthro_rating_s = f"Unauffällig — {_anthro_kat}"
+    elif "untergewicht" in _anthro_kat_l:
+        _anthro_rating_s = f"Beobachten — {_anthro_kat}"
+    elif "übergewicht" in _anthro_kat_l or "ubergewicht" in _anthro_kat_l:
+        _anthro_rating_s = f"Handlungsbedarf — {_anthro_kat}"
+    elif "adipositas" in _anthro_kat_l:
+        _anthro_rating_s = f"Aktionsbedarf — {_anthro_kat}"
+    elif anthro and anthro.get("bmi"):
+        _anthro_rating_s = f"BMI {anthro['bmi']:.1f}"
+    else:
+        _anthro_rating_s = None
+
     cards = [
+        ("Anthropometrie", "📐", anthro, _anthro_rating_s,    anthro["datum"] if anthro else None),
         ("FMS", "📝", fms,
          (fms["bewertung"] + " — " + __import__("fms").fms_bewertung_kurz(fms["score"])[:55] + "…")
           if fms else None,
@@ -6795,14 +6812,15 @@ def page_diagnostik_overview() -> None:
         return
 
     # ── Last results ──────────────────────────────────────────────────────────
-    fms_d   = fms_letzter(sid)
-    yb_d    = y_balance_letzter(sid)
-    spr_d   = sprint_letzter(sid)
-    sprg_d  = sprung_letzter(sid)
-    agil_d  = agilitaet_letzter(sid)
-    aus_d   = ausdauer_letzter(sid)
-    kraft_d = kraft_letzter(sid)
-    spiro_d = spiro_test_letzter(sid)
+    anthro_d = anthropometrie_letzter(sid)
+    fms_d    = fms_letzter(sid)
+    yb_d     = y_balance_letzter(sid)
+    spr_d    = sprint_letzter(sid)
+    sprg_d   = sprung_letzter(sid)
+    agil_d   = agilitaet_letzter(sid)
+    aus_d    = ausdauer_letzter(sid)
+    kraft_d  = kraft_letzter(sid)
+    spiro_d  = spiro_test_letzter(sid)
 
     def _rating_color(rating: str | None) -> str:
         if not rating:
@@ -6849,10 +6867,48 @@ def page_diagnostik_overview() -> None:
             return f"505: R {agil_d['t505_r']:.2f} s", agil_d.get("bew_505")
         return None, None
 
-    yb_metric, yb_rating   = _yb_metric()
+    def _anthro_metric_rating():
+        if not anthro_d:
+            return None, None
+        bmi  = anthro_d.get("bmi")
+        kf   = anthro_d.get("koerperfett")
+        kat  = (anthro_d.get("bmi_kategorie") or "").strip()
+        # Metric string
+        parts = []
+        if bmi:
+            parts.append(f"BMI {bmi:.1f}")
+        if kf:
+            parts.append(f"KF {kf:.0f} %")
+        metric = " · ".join(parts) if parts else None
+        # Rating string — keywords must match _rating_color() logic
+        kat_l = kat.lower()
+        if "normalgewicht" in kat_l:
+            rating = f"Unauffällig — {kat}"
+        elif "untergewicht" in kat_l:
+            rating = f"Beobachten — {kat}"
+        elif "übergewicht" in kat_l or "ubergewicht" in kat_l:
+            rating = f"Handlungsbedarf — {kat}"
+        elif "adipositas" in kat_l:
+            rating = f"Aktionsbedarf — {kat}"
+        elif kat:
+            rating = kat
+        else:
+            rating = None
+        return metric, rating
+
+    yb_metric, yb_rating     = _yb_metric()
     agil_metric, agil_rating = _agil_metric()
+    anthro_metric, anthro_rating = _anthro_metric_rating()
 
     tiles = [
+        {
+            "icon": "📐", "name": "Anthropometrie",
+            "desc": "Körpermessung & Körperzusammensetzung",
+            "sub":  "📐 Anthropometrie",
+            "metric": anthro_metric,
+            "rating": anthro_rating,
+            "date":   anthro_d.get("datum") if anthro_d else None,
+        },
         {
             "icon": "📝", "name": "FMS",
             "desc": "Functional Movement Screen",
@@ -6948,62 +7004,54 @@ def page_diagnostik_overview() -> None:
         },
     ]
 
-    # ── Render grid: Zeile 1 = 4 Kacheln, Zeile 2 = 4 Kacheln ───────────────
-    cols_top = st.columns(4, gap="medium")
-    cols_bot = st.columns(4, gap="medium")
-    all_cols = cols_top + cols_bot
-
-    for i, tile in enumerate(tiles):
-        with all_cols[i]:
-            has_data     = tile["metric"] is not None
-            rc           = _rating_color(tile["rating"]) if has_data else C["border"]
-            dot          = (
-                f'<span style="display:inline-block;width:7px;height:7px;border-radius:50%;'
-                f'background:{rc};margin-right:5px;vertical-align:middle"></span>'
-            )
-
-            metric_html  = (
-                f'<div style="font-size:22px;font-weight:800;color:{C["text"]};'
-                f'margin:10px 0 2px;letter-spacing:-0.5px">{tile["metric"]}</div>'
-                if has_data else
-                f'<div style="font-size:12px;color:{C["muted"]};margin:10px 0 2px;'
-                f'font-style:italic">Noch kein Test vorhanden</div>'
-            )
-            rating_html  = (
-                f'<div style="font-size:11px;color:{rc};font-weight:600;margin-bottom:6px">'
-                f'{dot}{tile["rating"]}</div>'
-                if has_data and tile["rating"] else
-                f'<div style="font-size:11px;color:{C["muted"]};margin-bottom:6px">—</div>'
-            )
-
-            st.markdown(
-                f'<div style="background:{C["surface"]};border:1px solid {C["border"]};'
-                f'border-top:3px solid {rc};border-radius:12px;padding:16px 18px 10px;'
-                f'margin-bottom:2px;min-height:140px">'
-                f'<div style="display:flex;align-items:center;gap:9px">'
-                f'<span style="font-size:24px;line-height:1">{tile["icon"]}</span>'
-                f'<div>'
-                f'<div style="font-size:15px;font-weight:700;color:{C["text"]}">{tile["name"]}</div>'
-                f'<div style="font-size:10px;color:{C["muted"]};letter-spacing:0.5px">'
-                f'{tile["desc"].upper()}</div>'
-                f'</div></div>'
-                f'{metric_html}'
-                f'{rating_html}'
-                f'<div style="font-size:10px;color:{C["muted"]}">🗓 {_fmt_date(tile["date"])}</div>'
-                f'</div>',
-                unsafe_allow_html=True,
-            )
-            if st.button(
-                "Test starten →",
-                key=f"tile_btn_{i}",
-                use_container_width=True,
-            ):
-                st.session_state["_nav_sub_diagnostik_goto"] = tile["sub"]
-                st.rerun()
-
-        # small vertical gap between rows
-        if i == 3:
-            st.write("")
+    # ── Render grid: 3 × 3 Kacheln (9 Module) ────────────────────────────────
+    rows = [tiles[0:3], tiles[3:6], tiles[6:9]]
+    for row_idx, row_tiles in enumerate(rows):
+        cols = st.columns(3, gap="medium")
+        for j, tile in enumerate(row_tiles):
+            i = row_idx * 3 + j
+            with cols[j]:
+                has_data    = tile["metric"] is not None
+                rc          = _rating_color(tile["rating"]) if has_data else C["border"]
+                dot         = (
+                    f'<span style="display:inline-block;width:7px;height:7px;border-radius:50%;'
+                    f'background:{rc};margin-right:5px;vertical-align:middle"></span>'
+                )
+                metric_html = (
+                    f'<div style="font-size:20px;font-weight:800;color:{C["text"]};'
+                    f'margin:10px 0 2px;letter-spacing:-0.5px">{tile["metric"]}</div>'
+                    if has_data else
+                    f'<div style="font-size:12px;color:{C["muted"]};margin:10px 0 2px;'
+                    f'font-style:italic">Noch keine Daten vorhanden</div>'
+                )
+                rating_html = (
+                    f'<div style="font-size:11px;color:{rc};font-weight:600;margin-bottom:6px">'
+                    f'{dot}{tile["rating"]}</div>'
+                    if has_data and tile["rating"] else
+                    f'<div style="font-size:11px;color:{C["muted"]};margin-bottom:6px">—</div>'
+                )
+                st.markdown(
+                    f'<div style="background:{C["surface"]};border:1px solid {C["border"]};'
+                    f'border-top:3px solid {rc};border-radius:12px;padding:16px 18px 10px;'
+                    f'margin-bottom:2px;min-height:140px">'
+                    f'<div style="display:flex;align-items:center;gap:9px">'
+                    f'<span style="font-size:24px;line-height:1">{tile["icon"]}</span>'
+                    f'<div>'
+                    f'<div style="font-size:15px;font-weight:700;color:{C["text"]}">{tile["name"]}</div>'
+                    f'<div style="font-size:10px;color:{C["muted"]};letter-spacing:0.5px">'
+                    f'{tile["desc"].upper()}</div>'
+                    f'</div></div>'
+                    f'{metric_html}'
+                    f'{rating_html}'
+                    f'<div style="font-size:10px;color:{C["muted"]}">🗓 {_fmt_date(tile["date"])}</div>'
+                    f'</div>',
+                    unsafe_allow_html=True,
+                )
+                btn_label = "Messen →" if tile["sub"] == "📐 Anthropometrie" else "Test starten →"
+                if st.button(btn_label, key=f"tile_btn_{i}", use_container_width=True):
+                    st.session_state["_nav_sub_diagnostik_goto"] = tile["sub"]
+                    st.rerun()
+        st.write("")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -7291,19 +7339,19 @@ def page_ueber_software():
 
 
 _SUB_SPIELER = {
-    "👥 Verwaltung":        page_spieler,
+    "👥 Verwaltung":          page_spieler,
     "🏃 Profil & Diagnostik": page_spieler_profil,
-    "📐 Anthropometrie":    page_anthropometrie,
 }
 _SUB_DIAGNOSTIK = {
-    "🏠 Übersicht":         page_diagnostik_overview,
-    "📝 FMS":               page_fms,
-    "📏 Y-Balance":         page_ybalance,
-    "⚡ Sprint":             page_sprint,
-    "🦘 Sprung":             page_sprung,
-    "🔀 Agilität":          page_agilitaet,
-    "🫁 Ausdauer":  page_ausdauer,
-    "💪 Kraft":              page_kraft,
+    "🏠 Übersicht":           page_diagnostik_overview,
+    "📐 Anthropometrie":      page_anthropometrie,
+    "📝 FMS":                 page_fms,
+    "📏 Y-Balance":           page_ybalance,
+    "⚡ Sprint":               page_sprint,
+    "🦘 Sprung":               page_sprung,
+    "🔀 Agilität":            page_agilitaet,
+    "🫁 Ausdauer":            page_ausdauer,
+    "💪 Kraft":                page_kraft,
 }
 _SUB_TRAINING = {
     "📅 Trainingsplan":     page_trainingsplan,
