@@ -7331,15 +7331,113 @@ with st.sidebar:
             key="sidebar_player_sel",
         )
         st.session_state["global_player_id"] = sel_player["id"]
-        # Show player pill
-        pos  = sel_player.get("hauptposition") or sel_player.get("position") or "—"
-        team = sel_player.get("mannschaft") or "—"
+
+        # ── Kompakte Pill (immer sichtbar) ───────────────────────────────────
+        _sb_pos  = sel_player.get("hauptposition") or sel_player.get("position") or "—"
+        _sb_team = sel_player.get("mannschaft") or "—"
         st.markdown(
             f'<div class="player-pill">'
-            f'<div class="player-pill-sub">{pos} · {team}</div>'
+            f'<div class="player-pill-sub">{_sb_pos} · {_sb_team}</div>'
             f'</div>',
             unsafe_allow_html=True,
         )
+
+        # ── Vollständiges Spielerprofil (Expander) ───────────────────────────
+        _sb_pid = sel_player["id"]
+        with st.expander("📋 Spielerprofil", expanded=False):
+            # Stammdaten
+            _sb_alter = berechne_alter(sel_player.get("geburtsdatum"))
+            _sb_geb   = sel_player.get("geburtsdatum") or "—"
+            _sb_rows_stamm = [
+                ("Alter",          f"{_sb_alter} Jahre ({_sb_geb})" if _sb_alter else _sb_geb),
+                ("Geschlecht",     sel_player.get("geschlecht") or "—"),
+                ("Altersklasse",   sel_player.get("altersklasse") or "—"),
+                ("Nebenposition",  sel_player.get("nebenposition") or "—"),
+                ("Spielbein",      sel_player.get("spielbein") or "—"),
+                ("Leistungsniveau",sel_player.get("leistungsniveau") or "—"),
+                ("Status",         sel_player.get("trainingsstatus") or "—"),
+            ]
+            st.markdown(
+                "<div style='font-size:10px;font-weight:700;color:#58a6ff;"
+                "letter-spacing:1px;margin:4px 0 4px'>👤 STAMMDATEN</div>",
+                unsafe_allow_html=True,
+            )
+            for _lbl, _val in _sb_rows_stamm:
+                st.markdown(
+                    f"<div style='display:flex;justify-content:space-between;"
+                    f"font-size:11px;padding:2px 0;border-bottom:1px solid #21262d'>"
+                    f"<span style='color:#8b949e'>{_lbl}</span>"
+                    f"<span style='color:#e6edf3;text-align:right;max-width:60%'>{_val}</span>"
+                    f"</div>",
+                    unsafe_allow_html=True,
+                )
+
+            # Anthropometrie
+            _sb_anthro = anthropometrie_letzter(_sb_pid)
+            st.markdown(
+                "<div style='font-size:10px;font-weight:700;color:#58a6ff;"
+                "letter-spacing:1px;margin:10px 0 4px'>📏 ANTHROPOMETRIE</div>",
+                unsafe_allow_html=True,
+            )
+            if _sb_anthro:
+                _sb_rows_anthro = [
+                    ("Datum",         _sb_anthro.get("datum") or "—"),
+                    ("Größe",         f"{_sb_anthro.get('groesse')} cm" if _sb_anthro.get("groesse") else "—"),
+                    ("Gewicht",       f"{_sb_anthro.get('gewicht')} kg" if _sb_anthro.get("gewicht") else "—"),
+                    ("BMI",           f"{_sb_anthro.get('bmi'):.1f} ({_sb_anthro.get('bmi_kategorie') or '—'})" if _sb_anthro.get("bmi") else "—"),
+                    ("Körperfett",    f"{_sb_anthro.get('koerperfett'):.1f} %" if _sb_anthro.get("koerperfett") else "—"),
+                    ("Muskelmasse",   f"{_sb_anthro.get('muskelmasse'):.1f} kg" if _sb_anthro.get("muskelmasse") else "—"),
+                    ("Sitzhöhe",      f"{_sb_anthro.get('sitzhoehe')} cm" if _sb_anthro.get("sitzhoehe") else "—"),
+                    ("Beinlänge",     f"{_sb_anthro.get('beinlaenge')} cm" if _sb_anthro.get("beinlaenge") else "—"),
+                    ("Armspannweite", f"{_sb_anthro.get('armspannweite')} cm" if _sb_anthro.get("armspannweite") else "—"),
+                    ("PHV-Offset",    f"{_sb_anthro.get('phv_offset'):+.2f}" if _sb_anthro.get("phv_offset") is not None else "—"),
+                    ("Reifestatus",   _sb_anthro.get("reifestatus") or "—"),
+                    ("KF-Methode",    _sb_anthro.get("koerperfett_methode") or "—"),
+                ]
+                for _lbl, _val in _sb_rows_anthro:
+                    st.markdown(
+                        f"<div style='display:flex;justify-content:space-between;"
+                        f"font-size:11px;padding:2px 0;border-bottom:1px solid #21262d'>"
+                        f"<span style='color:#8b949e'>{_lbl}</span>"
+                        f"<span style='color:#e6edf3;text-align:right;max-width:60%'>{_val}</span>"
+                        f"</div>",
+                        unsafe_allow_html=True,
+                    )
+            else:
+                st.caption("Noch keine Anthropometrie-Daten.")
+
+            # Letzte Testergebnisse
+            st.markdown(
+                "<div style='font-size:10px;font-weight:700;color:#58a6ff;"
+                "letter-spacing:1px;margin:10px 0 4px'>🔬 LETZTE TESTS</div>",
+                unsafe_allow_html=True,
+            )
+            _sb_tests = [
+                ("FMS",       fms_letzter(_sb_pid),       lambda r: f"Score {r.get('score')} ({r.get('datum','')})"),
+                ("Y-Balance", y_balance_letzter(_sb_pid), lambda r: f"R {r.get('composite_rechts','—')} / L {r.get('composite_links','—')} ({r.get('datum','')})"),
+                ("Sprint",    sprint_letzter(_sb_pid),    lambda r: f"10m {r.get('beste_10m','—')}s / 30m {r.get('beste_30m','—')}s ({r.get('datum','')})"),
+                ("Sprung",    sprung_letzter(_sb_pid),    lambda r: f"CMJ {r.get('cmj_beid','—')} cm ({r.get('datum','')})"),
+                ("Agilität",  agilitaet_letzter(_sb_pid), lambda r: f"T-Test {r.get('t_test','—')}s ({r.get('datum','')})"),
+                ("Ausdauer",  ausdauer_letzter(_sb_pid),  lambda r: f"VO₂max {r.get('vo2max','—')} ({r.get('datum','')})"),
+                ("Kraft",     kraft_letzter(_sb_pid),     lambda r: f"1RM {r.get('direktes_1rm','—')} kg ({r.get('datum','')})"),
+            ]
+            _sb_has_test = False
+            for _tname, _trow, _tfmt in _sb_tests:
+                if _trow:
+                    _sb_has_test = True
+                    try:
+                        _tval = _tfmt(_trow)
+                    except Exception:
+                        _tval = _trow.get("datum") or "—"
+                    st.markdown(
+                        f"<div style='font-size:11px;padding:3px 0;border-bottom:1px solid #21262d'>"
+                        f"<span style='color:#8b949e;font-weight:600'>{_tname}: </span>"
+                        f"<span style='color:#e6edf3'>{_tval}</span>"
+                        f"</div>",
+                        unsafe_allow_html=True,
+                    )
+            if not _sb_has_test:
+                st.caption("Noch keine Testdaten vorhanden.")
     else:
         st.markdown(
             f'<div style="padding:8px 0;color:{C["muted"]};font-size:12px">Kein Spieler angelegt.</div>',
