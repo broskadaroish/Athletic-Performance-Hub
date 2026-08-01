@@ -5481,17 +5481,21 @@ def page_startseite():
     else:
         _anthro_rating_s = None
 
-    # Stufentest-Beurteilung für Startseite (Ampelfarben: ≥55 grün, 48–55 gelb, <48 rot)
-    _spiro_vo2_s = (_spiro_s.get("vo2_peak") or _spiro_s.get("vo2_max")) if _spiro_s else None
+    # Stufentest-Beurteilung für Startseite — altersbasiert via vo2_bewertung_alter()
+    from age_norms import vo2_bewertung_alter as _vo2bew_s
+    _geschl_s = auswahl.get("geschlecht", "Männlich")
+    _spiro_vo2_s = (
+        _spiro_s.get("vo2_peak") or _spiro_s.get("vo2_max") or _spiro_s.get("geschaetzte_vo2max")
+    ) if _spiro_s else None
     if _spiro_vo2_s:
-        _sv = float(_spiro_vo2_s)
-        _spiro_rating_s = (
-            f"Gut — VO₂peak {_sv:.1f} ml·kg⁻¹·min⁻¹"               if _sv >= 55 else
-            f"Durchschnittlich — VO₂peak {_sv:.1f} ml·kg⁻¹·min⁻¹"  if _sv >= 48 else
-            f"Verbesserungsbedarf — VO₂peak {_sv:.1f} ml·kg⁻¹·min⁻¹"
-        )
+        _, _spiro_rating_s = _vo2bew_s(float(_spiro_vo2_s), alter, _geschl_s)
     elif _spiro_s and _spiro_s.get("schwelle_geschwindigkeit"):
-        _spiro_rating_s = f"Schwelle: {float(_spiro_s['schwelle_geschwindigkeit']):.1f} km/h"
+        _sw = float(_spiro_s["schwelle_geschwindigkeit"])
+        _spiro_rating_s = (
+            f"Gut — Schwelle {_sw:.1f} km/h"               if _sw >= 14 else
+            f"Durchschnittlich — Schwelle {_sw:.1f} km/h"  if _sw >= 12 else
+            f"Verbesserungsbedarf — Schwelle {_sw:.1f} km/h"
+        )
     else:
         _spiro_rating_s = None
 
