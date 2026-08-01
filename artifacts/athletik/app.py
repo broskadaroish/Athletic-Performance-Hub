@@ -427,7 +427,8 @@ def page_dashboard():
         verlet = verletzungen_laden(pid)
         rs     = risiko_score(fms, y, verlet)
         _, level = risiko_label(rs)
-        sc     = athletik_score(fms, y, sprint, sprung, agil, aus)
+        spiro  = spiro_test_letzter(pid)
+        sc     = athletik_score(fms, y, sprint, sprung, agil, aus, spiro_row=spiro)
         defizite = defizite_ermitteln(fms, y, sprint, sprung, agil, aus, anthro,
                                       spiro_row=spiro)
         # last test date across all modules
@@ -1742,8 +1743,8 @@ def page_spieler_profil():
     verlet = verletzungen_laden(sid)
     rs     = risiko_score(fms, y, verlet)
     label, level = risiko_label(rs)
-    ascore   = athletik_score(fms, y, sprint, sprung, agil, aus)
     _spiro_p = spiro_test_letzter(sid)
+    ascore   = athletik_score(fms, y, sprint, sprung, agil, aus, spiro_row=_spiro_p)
     defizite = defizite_ermitteln(fms, y, sprint, sprung, agil, aus, anthro, spiro_row=_spiro_p)
     schwerpunkt = schwerpunkt_sammeln(fms, y, sprint, sprung, agil, aus,
                                       kraft_row=kraft_letzter(sid), spiro_row=_spiro_p)
@@ -1807,11 +1808,13 @@ def page_spieler_profil():
         )
 
     # ── Radar-Chart im Header (wenn ≥ 3 Module vorhanden) ─────────────────
-    sub_scores_header = athletik_sub_scores(fms, y, sprint, sprung, agil, aus)
+    sub_scores_header = athletik_sub_scores(fms, y, sprint, sprung, agil, aus,
+                                            spiro_row=_spiro_p)
     if len(sub_scores_header) >= 3:
         label_map_h = {
             "FMS": "FMS", "Y-Balance": "Y-Balance", "Sprint": "Sprint",
             "Sprungkraft": "Sprungkraft", "Agilitaet": "Agilität", "Ausdauer": "Ausdauer",
+            "Spiro": "Spiro",
         }
         cats_h  = [label_map_h.get(k, k) for k in sub_scores_header.keys()]
         vals_h  = list(sub_scores_header.values())
@@ -2692,7 +2695,9 @@ def page_fortschritt():
         sprung_now = sprung_letzter(sid)
         agil_now   = agilitaet_letzter(sid)
         aus_now    = ausdauer_letzter(sid)
-        sub = athletik_sub_scores(fms_now, y_now, sprint_now, sprung_now, agil_now, aus_now)
+        spiro_now  = spiro_test_letzter(sid)
+        sub = athletik_sub_scores(fms_now, y_now, sprint_now, sprung_now, agil_now, aus_now,
+                                   spiro_row=spiro_now)
 
         if len(sub) < 2:
             st.info("Mindestens 2 Testmodule müssen vorliegen, um das Radar-Chart zu zeichnen.")
@@ -2705,6 +2710,7 @@ def page_fortschritt():
                 "Sprungkraft": "Sprungkraft",
                 "Agilitaet": "Agilität",
                 "Ausdauer": "Ausdauer",
+                "Spiro": "Spiro",
             }
             cats   = [label_map.get(k, k) for k in sub.keys()]
             vals   = list(sub.values())
@@ -5350,8 +5356,8 @@ def page_startseite():
 
     rs              = risiko_score(fms, y, verlet)
     _, level        = risiko_label(rs)
-    ascore          = athletik_score(fms, y, sprint, sprung, agil, aus)
     _spiro_s = spiro_test_letzter(sid)
+    ascore          = athletik_score(fms, y, sprint, sprung, agil, aus, spiro_row=_spiro_s)
     defizite = defizite_ermitteln(fms, y, sprint, sprung, agil, aus, anthro, spiro_row=_spiro_s)
     alter    = berechne_alter(auswahl.get("geburtsdatum"))
 
@@ -5896,7 +5902,8 @@ def page_einstellungen():
                 sprint = sprint_letzter(p["id"])
                 aus    = ausdauer_letzter(p["id"])
                 verlet = verletzungen_laden(p["id"])
-                ascore = athletik_score(fms, y, sprint, None, None, aus)
+                ascore = athletik_score(fms, y, sprint, None, None, aus,
+                                        spiro_row=spiro_test_letzter(p["id"]))
                 rs     = risiko_score(fms, y, verlet)
                 _, rlv = risiko_label(rs)
                 rows.append({
@@ -6286,12 +6293,13 @@ def page_spieler_vergleich():
     spg1  = sprung_letzter(pid1);     spg2  = sprung_letzter(pid2)
     agil1 = agilitaet_letzter(pid1);  agil2 = agilitaet_letzter(pid2)
     aus1  = ausdauer_letzter(pid1);   aus2  = ausdauer_letzter(pid2)
+    spiro1 = spiro_test_letzter(pid1); spiro2 = spiro_test_letzter(pid2)
 
     # ── Composite scores ──────────────────────────────────────────────────────
-    sc1 = athletik_score(fms1, y1, spr1, spg1, agil1, aus1)
-    sc2 = athletik_score(fms2, y2, spr2, spg2, agil2, aus2)
-    sub1 = athletik_sub_scores(fms1, y1, spr1, spg1, agil1, aus1)
-    sub2 = athletik_sub_scores(fms2, y2, spr2, spg2, agil2, aus2)
+    sc1 = athletik_score(fms1, y1, spr1, spg1, agil1, aus1, spiro_row=spiro1)
+    sc2 = athletik_score(fms2, y2, spr2, spg2, agil2, aus2, spiro_row=spiro2)
+    sub1 = athletik_sub_scores(fms1, y1, spr1, spg1, agil1, aus1, spiro_row=spiro1)
+    sub2 = athletik_sub_scores(fms2, y2, spr2, spg2, agil2, aus2, spiro_row=spiro2)
 
     # ── Score banner ──────────────────────────────────────────────────────────
     def _score_color(s: int) -> str:
@@ -6722,10 +6730,14 @@ def page_spieler_vergleich():
     h_spg1   = _filter(sprung_history(pid1));       h_spg2   = _filter(sprung_history(pid2))
     h_agil1  = _filter(agilitaet_history(pid1));    h_agil2  = _filter(agilitaet_history(pid2))
     h_aus1   = _filter(ausdauer_history(pid1));     h_aus2   = _filter(ausdauer_history(pid2))
+    h_spiro1 = _filter(spiro_test_alle(pid1));      h_spiro2 = _filter(spiro_test_alle(pid2))
 
-    def _score_timeline(fh, yh, sprh, spgh, agilh, aush):
+    def _score_timeline(fh, yh, sprh, spgh, agilh, aush, spiroh):
         """Berechnet Athletik-Score für jeden Testtermin (kumulativer Zustand)."""
-        state = {"fms": None, "y": None, "sprint": None, "sprung": None, "agil": None, "aus": None}
+        state = {
+            "fms": None, "y": None, "sprint": None, "sprung": None,
+            "agil": None, "aus": None, "spiro": None,
+        }
         events = (
             [(r["datum"], "fms",    r) for r in fh]
             + [(r["datum"], "y",      r) for r in yh]
@@ -6733,19 +6745,21 @@ def page_spieler_vergleich():
             + [(r["datum"], "sprung", r) for r in spgh]
             + [(r["datum"], "agil",   r) for r in agilh]
             + [(r["datum"], "aus",    r) for r in aush]
+            + [(r["datum"], "spiro",  r) for r in spiroh if r.get("datum")]
         )
         events.sort(key=lambda x: x[0])
         out = []
         for datum, mod, row in events:
             state[mod] = row
             sc = athletik_score(state["fms"], state["y"], state["sprint"],
-                                state["sprung"], state["agil"], state["aus"])
+                                state["sprung"], state["agil"], state["aus"],
+                                spiro_row=state["spiro"])
             if sc > 0:
                 out.append((datum, sc))
         return out
 
-    tl1 = _score_timeline(h_fms1, h_y1, h_spr1, h_spg1, h_agil1, h_aus1)
-    tl2 = _score_timeline(h_fms2, h_y2, h_spr2, h_spg2, h_agil2, h_aus2)
+    tl1 = _score_timeline(h_fms1, h_y1, h_spr1, h_spg1, h_agil1, h_aus1, h_spiro1)
+    tl2 = _score_timeline(h_fms2, h_y2, h_spr2, h_spg2, h_agil2, h_aus2, h_spiro2)
 
     # ── Gesamtscore-Chart ─────────────────────────────────────────────────────
     if tl1 or tl2:

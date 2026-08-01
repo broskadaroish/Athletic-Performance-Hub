@@ -36,6 +36,7 @@ from database import (
     kraft_letzter,
     kraft_history,
     berechne_alter,
+    spiro_test_letzter,
 )
 from analytics import risiko_score, risiko_label, athletik_score
 
@@ -145,7 +146,8 @@ def _build_kader_sheet(ws):
         verlet = _vl(pid)
         rs     = risiko_score(fms, y, verlet)
         _, level = risiko_label(rs)
-        sc     = athletik_score(fms, y, sprint, sprung, agil, aus)
+        sc     = athletik_score(fms, y, sprint, sprung, agil, aus,
+                               spiro_row=spiro_test_letzter(pid))
         alter  = berechne_alter(p.get("geburtsdatum")) or "—"
 
         risiko_de = {"hoch": "Hoch ⚠", "mittel": "Mittel", "gering": "Gering"}.get(level, level)
@@ -342,7 +344,8 @@ def spieler_excel_bytes(spieler_id: int) -> bytes:
     alter  = berechne_alter(sp.get("geburtsdatum")) or "—"
     rs     = risiko_score(fms, y, verlet)
     _, level = risiko_label(rs)
-    sc     = athletik_score(fms, y, sprint, sprung, agil, aus)
+    spiro  = spiro_test_letzter(spieler_id)
+    sc     = athletik_score(fms, y, sprint, sprung, agil, aus, spiro_row=spiro)
 
     # History
     h_anthr  = anthropometrie_history(spieler_id)

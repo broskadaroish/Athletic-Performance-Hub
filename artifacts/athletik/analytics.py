@@ -93,26 +93,33 @@ def athletik_score(
     sprung_row=None,
     agil_row=None,
     aus_row=None,
+    spiro_row=None,
 ) -> int:
     """
     Composite athleticism score 0–100.
 
     Weights (only available modules are counted; missing modules are skipped
     and the remaining weight is redistributed):
-        FMS         20 %
-        Y-Balance   20 %
-        Sprint      15 %
-        Sprung      15 %
-        Agilität    15 %
-        Ausdauer    15 %
+        FMS             18 %
+        Y-Balance       18 %
+        Sprint          13 %
+        Sprung          13 %
+        Agilität        13 %
+        Ausdauer        13 %
+        Spiro (VO₂peak) 12 %
+    All seven weights sum to 100, so each module contributes exactly its
+    stated percentage when all data is present.
     """
+    # Weights sum to 100 when all 7 modules are present,
+    # so each module contributes exactly its stated percentage.
     weights = {
-        "fms":    20,
-        "y":      20,
-        "sprint": 15,
-        "sprung": 15,
-        "agil":   15,
-        "aus":    15,
+        "fms":    18,
+        "y":      18,
+        "sprint": 13,
+        "sprung": 13,
+        "agil":   13,
+        "aus":    13,
+        "spiro":  12,
     }
 
     sub_scores: dict[str, int] = {}
@@ -172,6 +179,13 @@ def athletik_score(
                 s = min(100, s + 5)
             sub_scores["aus"] = s
 
+    # ── Spiroergometrie (VO₂peak) ─────────────────────────────────────────────
+    if spiro_row:
+        vo2 = spiro_row.get("vo2_peak") or spiro_row.get("vo2_max")
+        if vo2:
+            # Linear map: 35 ml/kg/min → 0, 65 ml/kg/min → 100
+            sub_scores["spiro"] = round(min(100, max(0, (float(vo2) - 35) / 30 * 100)))
+
     if not sub_scores:
         return 0  # no data at all
 
@@ -193,12 +207,13 @@ def athletik_sub_scores(
     sprung_row=None,
     agil_row=None,
     aus_row=None,
+    spiro_row=None,
 ) -> dict[str, int]:
     """
     Gibt normierte Einzelwerte (0–100) pro Modul zurück — Grundlage für
     den Radar-Chart 'Athletisches Profil'.
 
-    Schlüssel: 'FMS', 'Y-Balance', 'Sprint', 'Sprungkraft', 'Agilität', 'Ausdauer'
+    Schlüssel: 'FMS', 'Y-Balance', 'Sprint', 'Sprungkraft', 'Agilität', 'Ausdauer', 'Spiro'
     Nur Module mit Daten sind enthalten.
     """
     scores: dict[str, int] = {}
@@ -248,6 +263,11 @@ def athletik_sub_scores(
             if vo2 and float(vo2) >= 55:
                 s = min(100, s + 5)
             scores["Ausdauer"] = s
+
+    if spiro_row:
+        vo2 = spiro_row.get("vo2_peak") or spiro_row.get("vo2_max")
+        if vo2:
+            scores["Spiro"] = round(min(100, max(0, (float(vo2) - 35) / 30 * 100)))
 
     return scores
 
