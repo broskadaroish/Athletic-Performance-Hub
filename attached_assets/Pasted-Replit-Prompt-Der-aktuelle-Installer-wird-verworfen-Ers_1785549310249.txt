@@ -1,0 +1,118 @@
+Replit Prompt
+
+Der aktuelle Installer wird verworfen.
+
+Erstelle einen komplett neuen und deutlich einfacheren Windows-Installer.
+
+Die Anwendung soll ausschließlich für Windows entwickelt werden.
+
+Der Benutzer soll lediglich die Setup.exe starten und die Software wie jedes andere Windows-Programm installieren können.
+
+Anforderungen
+1. PyInstaller
+
+Verwende PyInstaller.
+
+Erstelle eine lauffähige Windows-Anwendung.
+
+Die fertige Anwendung soll ohne installierte Python-Version funktionieren.
+
+Alle benötigten Bibliotheken müssen automatisch eingebunden werden.
+
+Die Anwendung muss vollständig offline funktionieren.
+
+2. Inno Setup
+
+Erstelle anschließend mit Inno Setup eine professionelle Setup.exe.
+
+Der Installer soll enthalten:
+
+Desktop-Verknüpfung
+Startmenü-Eintrag
+eigenes Programmsymbol
+Deinstallation
+Installationsassistent
+modernes Design
+3. Installation
+
+Standardpfad:
+
+C:\Program Files\Bruce Football Performance Diagnostics
+
+Benutzerdaten:
+
+%APPDATA%\BruceFootballDiagnostics
+
+Dort werden gespeichert:
+
+SQLite-Datenbank
+PDF-Berichte
+Einstellungen
+Trainingspläne
+Backups
+Logs
+
+Diese Daten dürfen bei Updates oder einer Deinstallation nicht automatisch gelöscht werden.
+
+4. Programmsymbol
+
+Verwende mein eigenes Icon.
+
+Dieses soll erscheinen bei:
+
+Setup
+Desktop
+Startmenü
+Taskleiste
+Programmfenster
+5. Setup
+
+Der Installer soll automatisch:
+
+Programm installieren
+Desktop-Verknüpfung erstellen
+Startmenü-Eintrag erstellen
+Anwendung direkt starten (optional)
+6. Updates
+
+Der Installer soll später problemlos neue Versionen installieren können.
+
+Vorhandene Benutzerdaten dürfen dabei erhalten bleiben.
+
+7. Keine Downloads
+
+Während der Installation dürfen keine Dateien aus dem Internet heruntergeladen werden.
+
+Python darf nicht separat installiert werden.
+
+Alle Komponenten müssen bereits in der Setup.exe enthalten sein.
+
+8. Build
+
+Erstelle eine einzige Datei:
+
+build.bat
+
+Nach einem Doppelklick soll automatisch:
+
+PyInstaller ausgeführt werden.
+Alle benötigten Dateien kopiert werden.
+Inno Setup gestartet werden.
+Die fertige Setup.exe erstellt werden.
+
+Es dürfen keine weiteren manuellen Schritte notwendig sein.
+
+9. Ergebnis
+
+Nach erfolgreichem Build soll automatisch folgender Ordner geöffnet werden:
+
+dist\
+
+Dort liegt:
+
+BruceFootball_Setup_v1.0.0.exe
+10. Qualität
+
+Der Installer soll professionell, einfach wartbar und stabil aufgebaut sein.
+
+Komplexe Batch-Skripte, automatische Downloads und unnötige Zwischenschritte sollen vermieden werden
