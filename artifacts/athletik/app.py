@@ -423,21 +423,22 @@ def page_dashboard():
         agil   = agilitaet_letzter(pid)
         aus    = ausdauer_letzter(pid)
         anthro = anthropometrie_letzter(pid)
+        spiro  = spiro_test_letzter(pid)
         verlet = verletzungen_laden(pid)
         rs     = risiko_score(fms, y, verlet)
         _, level = risiko_label(rs)
         sc     = athletik_score(fms, y, sprint, sprung, agil, aus)
         defizite = defizite_ermitteln(fms, y, sprint, sprung, agil, aus, anthro,
-                                      spiro_row=spiro_test_letzter(pid))
+                                      spiro_row=spiro)
         # last test date across all modules
         dates = [d["datum"] for d in [fms, y, sprint, sprung, agil, aus]
                  if d and d.get("datum")]
         last_test_date = max(dates) if dates else None
         player_data.append({
             "p": p, "fms": fms, "y": y, "sprint": sprint, "sprung": sprung,
-            "agil": agil, "aus": aus, "anthro": anthro, "verlet": verlet,
-            "rs": rs, "level": level, "sc": sc, "defizite": defizite,
-            "last_test_date": last_test_date,
+            "agil": agil, "aus": aus, "anthro": anthro, "spiro": spiro,
+            "verlet": verlet, "rs": rs, "level": level, "sc": sc,
+            "defizite": defizite, "last_test_date": last_test_date,
         })
 
     total     = len(player_data)
@@ -665,11 +666,15 @@ def page_dashboard():
     with tab_warn:
         RETEST_TAGE = 56  # 8 Wochen
 
+        from age_norms import vo2_bewertung_alter as _v2bw_dash
+
         warns_risiko     = [d for d in player_data if d["level"] == "hoch"]
         warns_retest     = [d for d in player_data
                             if (_days_since(d["last_test_date"]) or 999) > RETEST_TAGE]
         warns_wachstum   = []
         warns_eingeschr  = []
+        warns_bmi        = []   # Anthropometrie: BMI auffällig
+        warns_vo2        = []   # Spiro: VO₂ unter altersbasierter Norm
 
         for d in player_data:
             # Growth spurt: PHV-related reifestatus
@@ -683,6 +688,23 @@ def page_dashboard():
             ts = str(d["p"].get("trainingsstatus") or "")
             if "Pause" in ts or "Abklärung" in ts or "Eingeschränkt" in ts or "Angepasst" in ts:
                 warns_eingeschr.append(d)
+            # BMI-Auffälligkeit
+            if d["anthro"]:
+                bmi = d["anthro"].get("bmi")
+                if bmi:
+                    bmi_f = float(bmi)
+                    if bmi_f >= 25 or (0 < bmi_f < 18.5):
+                        warns_bmi.append(d)
+            # Spiro-VO₂ unter Norm
+            if d["spiro"]:
+                _sp = d["spiro"]
+                _vo2 = _sp.get("vo2_peak") or _sp.get("vo2_max") or _sp.get("geschaetzte_vo2max")
+                if _vo2:
+                    _alter_p  = berechne_alter(d["p"].get("geburtsdatum"))
+                    _gesch_p  = d["p"].get("geschlecht", "Männlich")
+                    _stufe, _ = _v2bw_dash(float(_vo2), _alter_p, _gesch_p)
+                    if _stufe in ("Verbesserungsbedarf", "Kritisch"):
+                        warns_vo2.append(d)
 
         def _warn_block(title: str, icon: str, color: str, items: list,
                         detail_fn) -> None:
@@ -726,6 +748,23 @@ def page_dashboard():
             "📅", C["yellow"], warns_retest,
             lambda d: (f"Letzter Test: {_fmt_date(d['last_test_date'])} "
                        f"({_days_since(d['last_test_date']) or '?'} Tage)")
+        )
+        _warn_block(
+            "Körperzusammensetzung auffällig (BMI)",
+            "⚖️", C["yellow"], warns_bmi,
+            lambda d: (
+                f"BMI {float(d['anthro']['bmi']):.1f} — "
+                + ("Übergewicht" if float(d['anthro']['bmi']) >= 25 else "Untergewicht")
+                + (f" · {d['anthro'].get('bmi_kategorie') or ''}")
+            )
+        )
+        _warn_block(
+            "Aerobe Kapazität unter Norm (Spiro)",
+            "🫁", C["red"], warns_vo2,
+            lambda d: (
+                f"VO₂peak {float(d['spiro'].get('vo2_peak') or d['spiro'].get('vo2_max') or d['spiro'].get('geschaetzte_vo2max')):.1f} ml·kg⁻¹·min⁻¹ "
+                f"— unter altersbasierter Norm · Datum: {_fmt_date(d['spiro'].get('datum'))}"
+            )
         )
         _warn_block(
             "Wachstumsschub-Fenster",
@@ -807,7 +846,16 @@ def page_dashboard():
                                   if y else None,
                 "Sprint 10m (s)": sprint["beste_10m"] if sprint and sprint.get("beste_10m") else None,
                 "CMJ (cm)":       sprung["cmj_beid"] if sprung and sprung.get("cmj_beid") else None,
-                "VO₂max":         aus["vo2max"] if aus and aus.get("vo2max") else None,
+                "VO₂max (Yo-Yo)": aus["vo2max"] if aus and aus.get("vo2max") else None,
+                "VO₂peak (Spiro)": (
+                    d["spiro"].get("vo2_peak") or d["spiro"].get("vo2_max")
+                    or d["spiro"].get("geschaetzte_vo2max")
+                    if d.get("spiro") else None
+                ),
+                "BMI":            (
+                    float(d["anthro"]["bmi"]) if d.get("anthro") and d["anthro"].get("bmi")
+                    else None
+                ),
                 "Risiko":         f"{icon} {_rl.capitalize()}",
             })
         _df_kt = pd.DataFrame(rows)
@@ -819,11 +867,13 @@ def page_dashboard():
                 column_config={
                     "Athletik Score": st.column_config.ProgressColumn(
                         "Athletik Score", min_value=0, max_value=100, format="%d"),
-                    "FMS Score":      st.column_config.NumberColumn("FMS Score", format="%d / 21"),
-                    "Y-Balance Ø":    st.column_config.NumberColumn("Y-Balance Ø", format="%.1f %%"),
-                    "Sprint 10m (s)": st.column_config.NumberColumn("Sprint 10m (s)", format="%.2f s"),
-                    "CMJ (cm)":       st.column_config.NumberColumn("CMJ (cm)", format="%.0f cm"),
-                    "VO₂max":         st.column_config.NumberColumn("VO₂max", format="%.1f"),
+                    "FMS Score":        st.column_config.NumberColumn("FMS Score", format="%d / 21"),
+                    "Y-Balance Ø":      st.column_config.NumberColumn("Y-Balance Ø", format="%.1f %%"),
+                    "Sprint 10m (s)":   st.column_config.NumberColumn("Sprint 10m (s)", format="%.2f s"),
+                    "CMJ (cm)":         st.column_config.NumberColumn("CMJ (cm)", format="%.0f cm"),
+                    "VO₂max (Yo-Yo)":   st.column_config.NumberColumn("VO₂max Yo-Yo", format="%.1f"),
+                    "VO₂peak (Spiro)":  st.column_config.NumberColumn("VO₂peak Spiro", format="%.1f"),
+                    "BMI":              st.column_config.NumberColumn("BMI", format="%.1f"),
                 },
             )
             st.caption(f"{len(rows)} von {total} Spielern angezeigt.")
