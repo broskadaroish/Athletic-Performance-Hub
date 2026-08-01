@@ -4935,6 +4935,8 @@ def page_kraft():
 
     sid    = auswahl["id"]
     sp     = spieler_by_id(sid)
+    geschl = sp.get("geschlecht", "Männlich") if sp else "Männlich"
+    alter  = berechne_alter(sp.get("geburtsdatum")) if sp else None
     kgew   = anthropometrie_letzter(sid)
     hist   = kraft_history(sid)
 
