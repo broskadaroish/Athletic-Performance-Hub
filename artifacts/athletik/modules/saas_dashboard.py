@@ -213,7 +213,10 @@ def _aktivitaeten(logins: list, title: str = "🕐 Letzte Aktivitäten") -> None
 
 
 def _navigate(section: str) -> None:
-    st.session_state["nav_section"] = section
+    # Use deferred navigation: _nav_goto is translated to nav_section BEFORE
+    # the sidebar radio widget is instantiated on the next rerun, avoiding
+    # StreamlitAPIException from mutating a widget-backed key mid-run.
+    st.session_state["_nav_goto"] = section
     st.rerun()
 
 
@@ -440,11 +443,11 @@ def _dash_trainer(user: dict):
     verletz      = dashboard_trainer_neue_verletzungen(trainer_id) if trainer_id else 0
     diag_monat   = dashboard_trainer_diagnostiken_monat(trainer_id) if trainer_id else 0
 
-    # Athletikscore + Risiko für max. 12 Spieler berechnen
+    # Athletikscore (Stichprobe max. 12) + Risiko für alle Spieler berechnen
     avg_score  = 0
     high_risk  = 0
     if alle_spieler:
-        scores, risks = [], []
+        scores = []
         for p in alle_spieler[:12]:
             pid  = p["id"]
             fms  = fms_letzter(pid)
@@ -454,14 +457,19 @@ def _dash_trainer(user: dict):
             agi  = agilitaet_letzter(pid)
             aus  = ausdauer_letzter(pid)
             spi  = spiro_test_letzter(pid)
-            vl   = verletzungen_laden(pid)
             sc   = athletik_score(fms, y, spr, sprg, agi, aus, spiro_row=spi)
-            rs   = risiko_score(fms, y, vl)
             scores.append(sc)
-            if rs >= 2:
-                risks.append(pid)
         avg_score = round(sum(scores) / len(scores)) if scores else 0
-        high_risk = len(risks)
+
+        # Risiko über alle Spieler — stimmt mit dem Mannschafts-Filter überein
+        for p in alle_spieler:
+            pid = p["id"]
+            fms = fms_letzter(pid)
+            y   = y_balance_letzter(pid)
+            vl  = verletzungen_laden(pid)
+            rs  = risiko_score(fms, y, vl)
+            if rs >= 2:
+                high_risk += 1
 
     # ── KPI-Reihe 1 ───────────────────────────────────────────────────────────
     _kpi_row([
@@ -469,12 +477,35 @@ def _dash_trainer(user: dict):
         ("Fällige Tests",      faellig,     "📋",  _C["orange"],"ohne Test > 30 Tage", "", True),
         ("Neue Verletzungen",  verletz,     "🩺",  _C["red"],   "letzte 14 Tage",      "", True),
     ])
+    # Direktlink-Buttons unter KPI-Reihe 1
+    _b1, _b2, _b3 = st.columns(3)
+    with _b2:
+        if faellig > 0:
+            if st.button("📋 Fällige Tests anzeigen →", key="kpi_btn_faellig",
+                         use_container_width=True):
+                st.session_state["kpi_filter"] = "faellig"
+                _navigate("👥  Mannschaft")
+    with _b3:
+        if verletz > 0:
+            if st.button("🩺 Verletzungen anzeigen →", key="kpi_btn_verletz",
+                         use_container_width=True):
+                st.session_state["kpi_filter"] = "verletzt"
+                _navigate("👥  Mannschaft")
+
     # ── KPI-Reihe 2 ───────────────────────────────────────────────────────────
     _kpi_row([
         ("Diagnostiken",       diag_monat,  "🔬",  _C["purple"],"diesen Monat"),
         ("Ø Athletikscore",    f"{avg_score}/100","📊",_C["teal"],"basierend auf letzten Tests"),
         ("Erhöhtes Risiko",    high_risk,   "⚠",  _C["red"],   "Spieler mit Risiko mittel/hoch","","True"),
     ])
+    # Direktlink-Button unter KPI-Reihe 2
+    _c1, _c2, _c3 = st.columns(3)
+    with _c3:
+        if high_risk > 0:
+            if st.button("⚠ Risikospieler anzeigen →", key="kpi_btn_risiko",
+                         use_container_width=True):
+                st.session_state["kpi_filter"] = "risiko"
+                _navigate("👥  Mannschaft")
 
     # ── Meine letzten Spieler ─────────────────────────────────────────────────
     st.divider()

@@ -593,6 +593,44 @@ def page_dashboard():
     c3.metric("🟡 Handlungsbedarf", med_risk)
     c4.metric("Ø Athletik Score", f"{avg_score}/100")
 
+    # ── KPI-Filter aus dem Dashboard (Direktlinks) ───────────────────────────
+    _kpi_filter = st.session_state.get("kpi_filter")
+    if _kpi_filter:
+        _FILTER_LABELS = {
+            # Dieselben 5 Module wie dashboard_trainer_ohne_test():
+            # fms_test, sprint_test, y_balance_test, agilitaet_test, ausdauer_test
+            # Sprungtest wird bewusst NICHT berücksichtigt.
+            "faellig":  ("📋", "Spieler ohne Test > 30 Tage (FMS, Sprint, Y-Balance, Agilität, Ausdauer)",
+                         lambda d: all(
+                             (not x or not x.get("datum") or
+                              (date.today() - _dt.strptime(x["datum"], "%Y-%m-%d").date()).days > 30)
+                             for x in [d["fms"], d["sprint"], d["y"], d["agil"], d["aus"]]
+                         )),
+            "verletzt": ("🩺", "Spieler mit Verletzung in den letzten 14 Tagen",
+                         lambda d: any(
+                             (lambda s: s is not None and (date.today() - s).days <= 14)(
+                                 _dt.strptime(v["datum"], "%Y-%m-%d").date()
+                                 if v.get("datum") else None
+                             )
+                             for v in (d["verlet"] or [])
+                         )),
+            "risiko":   ("⚠", "Spieler mit erhöhtem Verletzungsrisiko (mittel/hoch)",
+                         lambda d: d["level"] in ("hoch", "mittel")),
+        }
+        if _kpi_filter in _FILTER_LABELS:
+            _fi, _fl, _ff = _FILTER_LABELS[_kpi_filter]
+            _banner_cols = st.columns([9, 1])
+            with _banner_cols[0]:
+                st.info(f"{_fi} **Aktiver Filter:** {_fl}")
+            with _banner_cols[1]:
+                if st.button("✕ Filter entfernen", key="kpi_filter_clear",
+                             use_container_width=True):
+                    del st.session_state["kpi_filter"]
+                    st.rerun()
+            player_data = [d for d in player_data if _ff(d)]
+            if not player_data:
+                st.warning("Keine Spieler für diesen Filter gefunden.")
+
     st.markdown("---")
 
     # ── Helper: render color ───────────────────────────────────────────────────
