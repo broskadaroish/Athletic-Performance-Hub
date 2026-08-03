@@ -14,9 +14,10 @@ import {
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { setBaseUrl } from '@workspace/api-client-react';
-import { AuthProvider } from '@/contexts/AuthContext';
+import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { useColorScheme } from 'react-native';
 import { SystemUI } from 'expo-system-ui';
+import { usePushNotificationRegistration } from '@/hooks/usePushNotifications';
 
 // Set base URL before any component renders (Expo bundles need absolute URLs)
 if (process.env.EXPO_PUBLIC_DOMAIN) {
@@ -34,6 +35,13 @@ const queryClient = new QueryClient({
     },
   },
 });
+
+/** Inner component — must live inside AuthProvider to access useAuth */
+function PushRegistrar() {
+  const { token } = useAuth();
+  usePushNotificationRegistration(token);
+  return null;
+}
 
 function RootLayoutNav() {
   return (
@@ -98,6 +106,7 @@ export default function RootLayout() {
       <ErrorBoundary>
         <QueryClientProvider client={queryClient}>
           <AuthProvider>
+            <PushRegistrar />
             <GestureHandlerRootView style={{ flex: 1 }}>
               <KeyboardProvider>
                 <RootLayoutNav />

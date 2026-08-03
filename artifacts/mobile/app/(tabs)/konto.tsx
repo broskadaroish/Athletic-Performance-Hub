@@ -1,5 +1,5 @@
-import React from 'react';
-import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { Platform, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -7,12 +7,64 @@ import { useColors } from '@/hooks/useColors';
 import { useAuth } from '@/contexts/AuthContext';
 import { useQueryClient } from '@tanstack/react-query';
 
+function getBaseUrl(): string {
+  const domain = process.env['EXPO_PUBLIC_DOMAIN'];
+  if (domain) return `https://${domain}`;
+  return '';
+}
+
 export default function KontoScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { user, logout } = useAuth();
+  const { user, token, logout } = useAuth();
   const queryClient = useQueryClient();
   const topPad = insets.top + (Platform.OS === 'web' ? 67 : 0);
+
+  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [loadingToggle, setLoadingToggle] = useState(false);
+
+  // Load current notification setting from server
+  useEffect(() => {
+    if (!token) return;
+    (async () => {
+      try {
+        const res = await fetch(`${getBaseUrl()}/api/mobile/notifications/settings`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.ok) {
+          const data = await res.json() as { enabled: boolean };
+          setNotificationsEnabled(data.enabled);
+        }
+      } catch {
+        // ignore — keep default true
+      }
+    })();
+  }, [token]);
+
+  const handleToggleNotifications = async (value: boolean) => {
+    if (!token || loadingToggle) return;
+    setLoadingToggle(true);
+    setNotificationsEnabled(value); // optimistic update
+    try {
+      const res = await fetch(`${getBaseUrl()}/api/mobile/notifications/settings`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ enabled: value }),
+      });
+      if (!res.ok) {
+        // Revert optimistic update on server error
+        setNotificationsEnabled(!value);
+      }
+    } catch {
+      // Revert on network failure
+      setNotificationsEnabled(!value);
+    } finally {
+      setLoadingToggle(false);
+    }
+  };
 
   const handleLogout = async () => {
     await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
@@ -58,6 +110,33 @@ export default function KontoScreen() {
         </View>
       </View>
 
+      {/* Notification setting */}
+      {Platform.OS !== 'web' && (
+        <View style={[s.section, { marginHorizontal: 16, marginTop: 12 }]}>
+          <View style={[s.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <View style={nr.row}>
+              <Feather name="bell" size={16} color={colors.mutedForeground} />
+              <Text style={[nr.label, { color: colors.mutedForeground }]}>Benachrichtigungen</Text>
+              <Switch
+                value={notificationsEnabled}
+                onValueChange={handleToggleNotifications}
+                disabled={loadingToggle}
+                trackColor={{ false: colors.border, true: colors.primary + '66' }}
+                thumbColor={notificationsEnabled ? colors.primary : colors.mutedForeground}
+              />
+            </View>
+            <View style={[s.divider, { backgroundColor: colors.border }]} />
+            <View style={nr.hint}>
+              <Text style={[nr.hintText, { color: colors.mutedForeground }]}>
+                {notificationsEnabled
+                  ? 'Du erhältst Push-Benachrichtigungen bei Spieler-Updates.'
+                  : 'Push-Benachrichtigungen sind deaktiviert.'}
+              </Text>
+            </View>
+          </View>
+        </View>
+      )}
+
       <View style={{ flex: 1 }} />
 
       {/* Logout */}
@@ -88,6 +167,13 @@ const ir = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 14, paddingHorizontal: 16 },
   label: { fontSize: 14, fontFamily: 'Inter_400Regular', flex: 0, minWidth: 60 },
   value: { fontSize: 14, fontFamily: 'Inter_500Medium', flex: 1, textAlign: 'right' },
+});
+
+const nr = StyleSheet.create({
+  row: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 14, paddingHorizontal: 16 },
+  label: { fontSize: 14, fontFamily: 'Inter_400Regular', flex: 1 },
+  hint: { paddingHorizontal: 16, paddingBottom: 12, paddingTop: 4 },
+  hintText: { fontSize: 12, fontFamily: 'Inter_400Regular', lineHeight: 18 },
 });
 
 const s = StyleSheet.create({

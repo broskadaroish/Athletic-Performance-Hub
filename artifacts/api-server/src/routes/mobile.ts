@@ -11,8 +11,31 @@ import {
   saveSprint,
   saveYbalance,
   computeAthletikScore,
+  savePushToken,
+  setNotificationsEnabled,
+  getNotificationsEnabled,
+  getTrainerPushTokens,
+  migratePushTokenColumns,
 } from "../lib/athletik-db.js";
 import { logger } from "../lib/logger.js";
+
+// Run idempotent migration on startup
+try { migratePushTokenColumns(); } catch (err) { logger.warn({ err }, "push token migration warning"); }
+
+// ─── Expo Push helper ─────────────────────────────────────────────────────────
+async function sendExpoPushNotifications(tokens: string[], title: string, body: string): Promise<void> {
+  if (tokens.length === 0) return;
+  const messages = tokens.map((to) => ({ to, title, body, sound: "default" }));
+  try {
+    await fetch("https://exp.host/--/api/v2/push/send", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify(messages),
+    });
+  } catch (err) {
+    logger.warn({ err }, "Expo push send failed (non-critical)");
+  }
+}
 
 const router = Router();
 
@@ -41,6 +64,52 @@ function requireAuth(req: any, res: any, next: any) {
     res.status(401).json({ error: "Token ungültig oder abgelaufen" });
   }
 }
+
+// ─── POST /api/mobile/push-token ─────────────────────────────────────────────
+router.post("/mobile/push-token", requireAuth, (req, res) => {
+  const { userId } = (req as any).jwtUser as JwtPayload;
+  const { token } = req.body ?? {};
+  if (!token || typeof token !== "string") {
+    res.status(400).json({ error: "token erforderlich" });
+    return;
+  }
+  try {
+    savePushToken(userId, token);
+    res.json({ ok: true });
+  } catch (err) {
+    logger.error({ err }, "savePushToken error");
+    res.status(500).json({ error: "Fehler beim Speichern des Push-Tokens" });
+  }
+});
+
+// ─── GET /api/mobile/notifications/settings ──────────────────────────────────
+router.get("/mobile/notifications/settings", requireAuth, (req, res) => {
+  const { userId } = (req as any).jwtUser as JwtPayload;
+  try {
+    const enabled = getNotificationsEnabled(userId);
+    res.json({ enabled });
+  } catch (err) {
+    logger.error({ err }, "getNotificationsEnabled error");
+    res.status(500).json({ error: "Fehler beim Laden der Einstellungen" });
+  }
+});
+
+// ─── PATCH /api/mobile/notifications/settings ────────────────────────────────
+router.patch("/mobile/notifications/settings", requireAuth, (req, res) => {
+  const { userId } = (req as any).jwtUser as JwtPayload;
+  const { enabled } = req.body ?? {};
+  if (typeof enabled !== "boolean") {
+    res.status(400).json({ error: "enabled (boolean) erforderlich" });
+    return;
+  }
+  try {
+    setNotificationsEnabled(userId, enabled);
+    res.json({ ok: true, enabled });
+  } catch (err) {
+    logger.error({ err }, "setNotificationsEnabled error");
+    res.status(500).json({ error: "Fehler beim Aktualisieren der Einstellungen" });
+  }
+});
 
 // ─── POST /api/mobile/auth/login ──────────────────────────────────────────────
 router.post("/mobile/auth/login", (req, res) => {
@@ -175,10 +244,36 @@ router.get("/mobile/players/:playerId", requireAuth, (req, res) => {
   }
 });
 
+// ─── Player access guard ──────────────────────────────────────────────────────
+/**
+ * Returns the player when the caller is allowed to write tests for them,
+ * or null when access is denied.
+ * - Superadmin: any player
+ * - Vereinsadmin: player must belong to caller's Verein
+ * - Trainer: player must be assigned to the caller
+ */
+function authorizedPlayer(
+  playerId: number,
+  jwt: JwtPayload,
+): ReturnType<typeof getPlayerById> | null {
+  const player = getPlayerById(playerId);
+  if (!player) return null;
+  if (jwt.rolle === "Superadmin") return player;
+  if (jwt.rolle === "Vereinsadmin") {
+    return player.verein_id === jwt.verein_id ? player : null;
+  }
+  // Trainer: must own the player
+  return player.trainer_id === jwt.userId ? player : null;
+}
+
 // ─── POST /api/mobile/players/:id/fms ────────────────────────────────────────
 router.post("/mobile/players/:playerId/fms", requireAuth, (req, res) => {
   const playerId = parseInt(req.params["playerId"] ?? "0", 10);
   if (!playerId) { res.status(400).json({ error: "Ungültige Spieler-ID" }); return; }
+
+  const jwt = (req as any).jwtUser as JwtPayload;
+  const player = authorizedPlayer(playerId, jwt);
+  if (!player) { res.status(403).json({ error: "Kein Zugriff auf diesen Spieler" }); return; }
 
   const b = req.body ?? {};
   try {
@@ -205,6 +300,13 @@ router.post("/mobile/players/:playerId/fms", requireAuth, (req, res) => {
     const score = computeAthletikScore(fms, y, sprint);
     const sub_score = result.score;
 
+    const playerName = `${player.vorname ?? ""} ${player.nachname ?? ""}`.trim() || player.name;
+    // Use the player's own verein_id to ensure recipients are in the correct club
+    if (player.verein_id) {
+      const tokens = getTrainerPushTokens(player.verein_id);
+      sendExpoPushNotifications(tokens, "FMS Test gespeichert", `${playerName}: ${result.score}/21 (${result.bewertung})`).catch(() => {});
+    }
+
     res.json({ score, sub_score, message: `FMS gespeichert: ${result.score}/21 (${result.bewertung})` });
   } catch (err) {
     logger.error({ err }, "Mobile submitFms error");
@@ -216,6 +318,10 @@ router.post("/mobile/players/:playerId/fms", requireAuth, (req, res) => {
 router.post("/mobile/players/:playerId/sprint", requireAuth, (req, res) => {
   const playerId = parseInt(req.params["playerId"] ?? "0", 10);
   if (!playerId) { res.status(400).json({ error: "Ungültige Spieler-ID" }); return; }
+
+  const jwt = (req as any).jwtUser as JwtPayload;
+  const player = authorizedPlayer(playerId, jwt);
+  if (!player) { res.status(403).json({ error: "Kein Zugriff auf diesen Spieler" }); return; }
 
   const b = req.body ?? {};
   try {
@@ -231,6 +337,12 @@ router.post("/mobile/players/:playerId/sprint", requireAuth, (req, res) => {
     const y = getYbalanceLast(playerId);
     const score = computeAthletikScore(fms, y, sprint);
 
+    const playerName = `${player.vorname ?? ""} ${player.nachname ?? ""}`.trim() || player.name;
+    if (player.verein_id) {
+      const tokens = getTrainerPushTokens(player.verein_id);
+      sendExpoPushNotifications(tokens, "Sprint Test gespeichert", `${playerName}: 10m ${b.best_10m}s (${result.bewertung_10m})`).catch(() => {});
+    }
+
     res.json({ score, message: `Sprint gespeichert: 10m ${b.best_10m}s (${result.bewertung_10m})` });
   } catch (err) {
     logger.error({ err }, "Mobile submitSprint error");
@@ -242,6 +354,10 @@ router.post("/mobile/players/:playerId/sprint", requireAuth, (req, res) => {
 router.post("/mobile/players/:playerId/ybalance", requireAuth, (req, res) => {
   const playerId = parseInt(req.params["playerId"] ?? "0", 10);
   if (!playerId) { res.status(400).json({ error: "Ungültige Spieler-ID" }); return; }
+
+  const jwt = (req as any).jwtUser as JwtPayload;
+  const player = authorizedPlayer(playerId, jwt);
+  if (!player) { res.status(403).json({ error: "Kein Zugriff auf diesen Spieler" }); return; }
 
   const b = req.body ?? {};
   try {
@@ -263,6 +379,12 @@ router.post("/mobile/players/:playerId/ybalance", requireAuth, (req, res) => {
     const y = getYbalanceLast(playerId);
     const score = computeAthletikScore(fms, y, sprint);
     const sub_score = Math.round((result.composite_rechts + result.composite_links) / 2);
+
+    const playerName = `${player.vorname ?? ""} ${player.nachname ?? ""}`.trim() || player.name;
+    if (player.verein_id) {
+      const tokens = getTrainerPushTokens(player.verein_id);
+      sendExpoPushNotifications(tokens, "Y-Balance Test gespeichert", `${playerName}: ${result.asymmetrie}`).catch(() => {});
+    }
 
     res.json({ score, sub_score, message: `Y-Balance gespeichert: ${result.asymmetrie}` });
   } catch (err) {

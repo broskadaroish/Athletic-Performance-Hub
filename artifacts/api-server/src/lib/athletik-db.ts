@@ -441,6 +441,77 @@ export function saveSprint(input: SprintInput): { bewertung_10m: string; bewertu
   return { bewertung_10m: bew10, bewertung_30m: bew30 };
 }
 
+// ─── Push Notifications ───────────────────────────────────────────────────────
+
+/** Ensure the push-token columns exist (idempotent migration). */
+export function migratePushTokenColumns(): void {
+  const conn = db();
+  try {
+    // Add push_token column if missing
+    const cols = conn.pragma(`table_info(benutzer)`) as Array<{ name: string }>;
+    const names = cols.map((c) => c.name);
+    if (!names.includes("push_token")) {
+      conn.exec(`ALTER TABLE benutzer ADD COLUMN push_token TEXT`);
+    }
+    if (!names.includes("push_notifications_enabled")) {
+      conn.exec(`ALTER TABLE benutzer ADD COLUMN push_notifications_enabled INTEGER NOT NULL DEFAULT 1`);
+    }
+  } finally {
+    conn.close();
+  }
+}
+
+export function savePushToken(userId: number, token: string): void {
+  const conn = db();
+  try {
+    conn
+      .prepare(`UPDATE benutzer SET push_token = ? WHERE id = ?`)
+      .run(token, userId);
+  } finally {
+    conn.close();
+  }
+}
+
+export function setNotificationsEnabled(userId: number, enabled: boolean): void {
+  const conn = db();
+  try {
+    conn
+      .prepare(`UPDATE benutzer SET push_notifications_enabled = ? WHERE id = ?`)
+      .run(enabled ? 1 : 0, userId);
+  } finally {
+    conn.close();
+  }
+}
+
+export function getNotificationsEnabled(userId: number): boolean {
+  const conn = db();
+  try {
+    const row = conn
+      .prepare(`SELECT push_notifications_enabled FROM benutzer WHERE id = ?`)
+      .get(userId) as { push_notifications_enabled: number } | undefined;
+    return (row?.push_notifications_enabled ?? 1) === 1;
+  } finally {
+    conn.close();
+  }
+}
+
+/** Returns all active push tokens for trainers (and admins) in a Verein. */
+export function getTrainerPushTokens(vereinId: number): string[] {
+  const conn = db();
+  try {
+    const rows = conn
+      .prepare(
+        `SELECT push_token FROM benutzer
+         WHERE verein_id = ? AND push_token IS NOT NULL
+           AND push_notifications_enabled = 1 AND aktiv = 1`,
+      )
+      .all(vereinId) as Array<{ push_token: string }>;
+    return rows.map((r) => r.push_token).filter(Boolean);
+  } finally {
+    conn.close();
+  }
+}
+
 // ─── Y-Balance save ───────────────────────────────────────────────────────────
 export interface YbalanceInput {
   spieler_id: number;
