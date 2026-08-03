@@ -2,6 +2,10 @@
 Authentifizierung — Login-Funktion für das Multi-Tenant-System.
 Passwörter werden mit PBKDF2-SHA256 + Salt gespeichert (260.000 Iterationen).
 Alte SHA-256-Hashes (kein Salt) werden beim ersten erfolgreichen Login automatisch upgegradet.
+
+Brute-Force-Schutz:
+  Nach MAX_LOGIN_VERSUCHE Fehlversuchen wird das Konto für LOGIN_SPERRE_MINUTEN gesperrt.
+  Konfigurierbar per Env-Var (siehe config.py).
 """
 import sqlite3
 from database import DB_PATH, _pw_hash, _pw_verify
@@ -14,8 +18,29 @@ def hash_password(passwort: str) -> str:
 
 def login(email: str, passwort: str) -> dict | None:
     """Prüft E-Mail + Passwort gegen die Datenbank.
-    Gibt den Benutzer-Dict zurück oder None bei Fehler.
-    Upgradet automatisch alte SHA-256-Hashes auf PBKDF2."""
+
+    Gibt zurück:
+      - dict mit Benutzer-Daten bei Erfolg
+      - None bei unbekannter E-Mail / falschem Passwort
+      - dict mit {'gesperrt': True, 'verbleibend_sek': N} bei gesperrtem Konto
+
+    Nach MAX_LOGIN_VERSUCHE Fehlern wird das Konto für LOGIN_SPERRE_MINUTEN gesperrt.
+    Bei Erfolg werden Fehlversuch-Zähler und Sperre automatisch zurückgesetzt.
+    """
+    from config import MAX_LOGIN_VERSUCHE, LOGIN_SPERRE_MINUTEN
+    from database import (
+        benutzer_sperre_pruefen,
+        benutzer_login_fehlversuch,
+        benutzer_login_zuruecksetzen,
+        benutzer_letzter_login_aktualisieren,
+    )
+
+    # 1. Sperr-Status prüfen (vor dem Passwort-Check)
+    sperre = benutzer_sperre_pruefen(email)
+    if sperre["gesperrt"]:
+        return {"gesperrt": True, "verbleibend_sek": sperre["verbleibend_sek"]}
+
+    # 2. Benutzer + Passwort-Hash aus DB laden
     try:
         conn = sqlite3.connect(DB_PATH, timeout=10)
         conn.row_factory = sqlite3.Row
@@ -33,11 +58,22 @@ def login(email: str, passwort: str) -> dict | None:
     if user is None:
         return None
 
+    # 3. Passwort prüfen
     stored = user["passwort_hash"]
     if not _pw_verify(passwort, stored):
+        # Fehlversuch zählen (benutzer_id aus sperre-Prüfung)
+        benutzer_id = sperre["benutzer_id"] or user["id"]
+        benutzer_login_fehlversuch(benutzer_id, MAX_LOGIN_VERSUCHE, LOGIN_SPERRE_MINUTEN)
+        # Sperr-Status erneut prüfen um aktuelle verbleibende Zeit zu liefern
+        neuer_status = benutzer_sperre_pruefen(email)
+        if neuer_status["gesperrt"]:
+            return {"gesperrt": True, "verbleibend_sek": neuer_status["verbleibend_sek"]}
         return None
 
-    # Automatisches Upgrade: altes SHA-256 → PBKDF2 beim ersten erfolgreichen Login
+    # 4. Erfolgreich — Fehlversuch-Zähler zurücksetzen
+    benutzer_login_zuruecksetzen(user["id"])
+
+    # 5. Automatisches Upgrade: altes SHA-256 → PBKDF2 beim ersten erfolgreichen Login
     if not stored.startswith("pbkdf2:"):
         try:
             conn2 = sqlite3.connect(DB_PATH, timeout=10)
@@ -50,9 +86,8 @@ def login(email: str, passwort: str) -> dict | None:
         except Exception:
             pass  # Upgrade schlägt still fehl — nächster Login versucht es erneut
 
-    # Letzten Login-Zeitstempel aktualisieren
+    # 6. Letzten Login-Zeitstempel aktualisieren
     try:
-        from database import benutzer_letzter_login_aktualisieren
         benutzer_letzter_login_aktualisieren(user["id"])
     except Exception:
         pass

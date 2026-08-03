@@ -57,6 +57,10 @@ S3_ENDPOINT_URL  = os.environ.get("S3_ENDPOINT_URL", "")
 # ── Session-Timeout ───────────────────────────────────────────────────────────
 SESSION_TIMEOUT_MINUTES = int(os.environ.get("SESSION_TIMEOUT_MINUTES", "60"))
 
+# ── Brute-Force-Schutz ────────────────────────────────────────────────────────
+MAX_LOGIN_VERSUCHE    = int(os.environ.get("MAX_LOGIN_VERSUCHE",    "5"))
+LOGIN_SPERRE_MINUTEN  = int(os.environ.get("LOGIN_SPERRE_MINUTEN", "15"))
+
 # ── Wartungsmodus ─────────────────────────────────────────────────────────────
 MAINTENANCE_MODE    = os.environ.get("MAINTENANCE_MODE", "0") == "1"
 MAINTENANCE_MESSAGE = os.environ.get("MAINTENANCE_MESSAGE", "")

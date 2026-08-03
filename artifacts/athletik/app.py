@@ -267,7 +267,13 @@ if "user" not in st.session_state:
                 if st.button("🔐 Anmelden", type="primary",
                              use_container_width=True, key="login_btn"):
                     _user_obj = login(_login_email.strip(), _login_passwort)
-                    if _user_obj:
+                    if isinstance(_user_obj, dict) and _user_obj.get("gesperrt"):
+                        _min_rest = max(1, round(_user_obj["verbleibend_sek"] / 60))
+                        st.error(
+                            f"🔒 Konto vorübergehend gesperrt — zu viele Fehlversuche. "
+                            f"Bitte in ca. **{_min_rest} Minute(n)** erneut versuchen."
+                        )
+                    elif _user_obj:
                         st.session_state["user"] = _user_obj
                         st.rerun()
                     else:

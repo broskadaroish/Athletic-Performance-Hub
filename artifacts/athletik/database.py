@@ -2078,10 +2078,13 @@ def _migrate_multitenant():
                 pass
         # benutzer: Trainerportal-Felder
         neue_benutzer_cols = [
-            ("foto_blob",     "BLOB"),
-            ("telefon",       "TEXT"),
-            ("lizenz",        "TEXT"),
-            ("letzter_login", "TEXT"),
+            ("foto_blob",       "BLOB"),
+            ("telefon",         "TEXT"),
+            ("lizenz",          "TEXT"),
+            ("letzter_login",   "TEXT"),
+            # ── Brute-Force-Schutz ─────────────────────────────────────────
+            ("login_versuche",  "INTEGER DEFAULT 0"),
+            ("gesperrt_bis",    "TEXT"),
         ]
         for col, typ in neue_benutzer_cols:
             try:
@@ -2596,6 +2599,130 @@ def benutzer_letzter_login_aktualisieren(benutzer_id: int) -> None:
             "UPDATE benutzer SET letzter_login=? WHERE id=?",
             (_dt2.now().strftime("%Y-%m-%d %H:%M"), benutzer_id),
         )
+
+
+# ─── Brute-Force-Schutz ────────────────────────────────────────────────────
+
+def benutzer_login_fehlversuch(benutzer_id: int, max_versuche: int, sperre_minuten: int) -> None:
+    """Zählt einen Fehlversuch atomar hoch; sperrt das Konto wenn max_versuche erreicht.
+
+    Das gesamte Inkrement + Sperr-Entscheid + Behandlung abgelaufener Sperren erfolgt
+    in einem einzigen SQL-UPDATE (kein vorheriger SELECT), sodass parallele Anfragen
+    keine Race Condition erzeugen können.
+
+    Logik in einem einzigen atomaren UPDATE:
+    - Ist gesperrt_bis abgelaufen → Zähler auf 1 setzen (Neustart), abgelaufene Sperre löschen.
+    - Sonst Zähler um 1 erhöhen; bei Erreichen von max_versuche neue Sperre setzen.
+    """
+    offset = f"+{sperre_minuten} minutes"
+    with get_conn() as conn:
+        conn.execute(
+            """UPDATE benutzer
+               SET login_versuche = CASE
+                       -- Abgelaufene Sperre: frisch von 1 zählen
+                       WHEN gesperrt_bis IS NOT NULL AND gesperrt_bis <= datetime('now')
+                       THEN 1
+                       -- Normale Erhöhung
+                       ELSE login_versuche + 1
+                   END,
+                   gesperrt_bis = CASE
+                       -- Abgelaufene Sperre: neu sperren nur wenn max=1, sonst zurücksetzen
+                       WHEN gesperrt_bis IS NOT NULL AND gesperrt_bis <= datetime('now')
+                       THEN CASE WHEN 1 >= :max THEN datetime('now', :offset) ELSE NULL END
+                       -- Limit erreicht: neue Sperre setzen
+                       WHEN login_versuche + 1 >= :max
+                       THEN datetime('now', :offset)
+                       -- Noch unter dem Limit: vorhandenen Wert behalten (normalerweise NULL)
+                       ELSE gesperrt_bis
+                   END
+               WHERE id = :id""",
+            {"max": max_versuche, "offset": offset, "id": benutzer_id},
+        )
+
+
+def benutzer_login_zuruecksetzen(benutzer_id: int) -> None:
+    """Setzt Fehlversuch-Zähler und Sperre nach erfolgreichem Login zurück."""
+    with get_conn() as conn:
+        conn.execute(
+            "UPDATE benutzer SET login_versuche=0, gesperrt_bis=NULL WHERE id=?",
+            (benutzer_id,),
+        )
+
+
+def benutzer_sperre_pruefen(email: str) -> dict:
+    """Gibt Sperr-Status für eine E-Mail zurück.
+
+    Alle Zeitvergleiche laufen in SQLite (UTC), sodass der Servertimezone keine Rolle spielt.
+
+    Rückgabe: {
+        'gesperrt': bool,
+        'verbleibend_sek': int,   # Sekunden bis Entsperrung (0 wenn nicht gesperrt)
+        'benutzer_id': int|None,
+        'login_versuche': int,
+    }
+    """
+    with get_conn() as conn:
+        row = conn.execute(
+            """SELECT id,
+                      login_versuche,
+                      gesperrt_bis,
+                      CASE
+                          WHEN gesperrt_bis IS NOT NULL
+                               AND datetime('now') < gesperrt_bis
+                          THEN CAST(
+                               (julianday(gesperrt_bis) - julianday('now')) * 86400
+                               AS INTEGER)
+                          ELSE 0
+                      END AS verbleibend_sek,
+                      CASE
+                          WHEN gesperrt_bis IS NOT NULL
+                               AND datetime('now') < gesperrt_bis
+                          THEN 1 ELSE 0
+                      END AS ist_gesperrt
+               FROM benutzer WHERE email = ? AND aktiv = 1""",
+            (email,),
+        ).fetchone()
+
+    if row is None:
+        return {"gesperrt": False, "verbleibend_sek": 0, "benutzer_id": None, "login_versuche": 0}
+
+    if row["ist_gesperrt"]:
+        return {
+            "gesperrt": True,
+            "verbleibend_sek": int(row["verbleibend_sek"]),
+            "benutzer_id": row["id"],
+            "login_versuche": row["login_versuche"] or 0,
+        }
+
+    # Sperre abgelaufen aber noch nicht gelöscht → bedingt zurücksetzen.
+    # Das WHERE schützt vor einer Race Condition: ein paralleler Fehlversuch kann
+    # zwischen unserem SELECT und diesem UPDATE eine neue Sperre setzen (gesperrt_bis
+    # in der Zukunft). Die Bedingung `gesperrt_bis <= datetime('now')` stellt sicher,
+    # dass nur wirklich abgelaufene Sperren gelöscht werden — eine frisch gesetzte
+    # Zukunfts-Sperre wird dabei nicht berührt.
+    if row["gesperrt_bis"] is not None:
+        with get_conn() as conn:
+            conn.execute(
+                """UPDATE benutzer
+                   SET login_versuche = 0, gesperrt_bis = NULL
+                   WHERE id = ?
+                     AND gesperrt_bis IS NOT NULL
+                     AND gesperrt_bis <= datetime('now')""",
+                (row["id"],),
+            )
+        return {
+            "gesperrt": False,
+            "verbleibend_sek": 0,
+            "benutzer_id": row["id"],
+            "login_versuche": 0,
+        }
+
+    return {
+        "gesperrt": False,
+        "verbleibend_sek": 0,
+        "benutzer_id": row["id"],
+        "login_versuche": row["login_versuche"] or 0,
+    }
 
 
 def benutzer_profil_aktualisieren(
