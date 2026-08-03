@@ -268,6 +268,10 @@ if "user" not in st.session_state:
                     st.error("❌ E-Mail oder Passwort falsch.")
     st.stop()
 
+# ─── Session-Timeout: inaktive Sitzungen automatisch abmelden ────────────────
+from session_timeout import check_session_timeout, touch_session
+check_session_timeout()
+
 # ─── Startup-Gate: Zweckbestimmung muss bestätigt werden ─────────────────────
 if not _zweck_bestaetigt():
     st.markdown(

@@ -1,22 +1,24 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Bruce Football Performance Diagnostics — API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: contact
+    description: Kontaktformular und Leads
+  - name: stripe
+    description: Stripe Webhooks und Preise
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +26,85 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /contact:
+    post:
+      operationId: submitContact
+      tags: [contact]
+      summary: Kontaktformular absenden
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ContactInput"
+      responses:
+        "201":
+          description: Nachricht eingegangen
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContactResult"
+        "400":
+          description: Ungültige Eingabe
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /leads:
+    post:
+      operationId: submitLead
+      tags: [contact]
+      summary: Demo-Anfrage / Interessent erfassen
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LeadInput"
+      responses:
+        "201":
+          description: Demo-Anfrage eingegangen
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContactResult"
+        "400":
+          description: Ungültige Eingabe
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /maintenance:
+    get:
+      operationId: getMaintenanceStatus
+      tags: [health]
+      summary: Gibt zurück ob die App im Wartungsmodus ist
+      responses:
+        "200":
+          description: Wartungsstatus
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MaintenanceStatus"
+
+  /stripe/webhook:
+    post:
+      operationId: stripeWebhook
+      tags: [stripe]
+      summary: Stripe Webhook Empfänger
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StripeEventPayload"
+      responses:
+        "200":
+          description: Webhook verarbeitet
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +115,84 @@ components:
       required:
         - status
 
+    MaintenanceStatus:
+      type: object
+      properties:
+        maintenance:
+          type: boolean
+        message:
+          type: ["string", "null"]
+      required:
+        - maintenance
+
+    ContactInput:
+      type: object
+      required: [name, email, message]
+      properties:
+        name:
+          type: string
+          minLength: 2
+        email:
+          type: string
+        subject:
+          type: ["string", "null"]
+        message:
+          type: string
+          minLength: 10
+        phone:
+          type: ["string", "null"]
+        datenschutz:
+          type: boolean
+
+    LeadInput:
+      type: object
+      required: [name, email, vereinsname]
+      properties:
+        name:
+          type: string
+          minLength: 2
+        email:
+          type: string
+        vereinsname:
+          type: string
+          minLength: 2
+        telefon:
+          type: ["string", "null"]
+        spieleranzahl:
+          type: ["string", "null"]
+        nachricht:
+          type: ["string", "null"]
+        plan:
+          type: ["string", "null"]
+          description: "starter | professional | enterprise"
+        datenschutz:
+          type: boolean
+
+    ContactResult:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+      required:
+        - success
+        - message
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+
+    StripeEventPayload:
+      type: object
+      properties:
+        type:
+          type: string
+        id:
+          type: string
+      required:
+        - type
