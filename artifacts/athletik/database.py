@@ -1788,6 +1788,13 @@ def _migrate_multitenant():
             ("lizenz_bis",      "TEXT"),
             ("max_trainer",     "INTEGER"),
             ("max_spieler",     "INTEGER"),
+            # ── Lizenzsystem (v2) ──────────────────────────────────────────
+            ("testphase_bis",          "TEXT"),
+            ("lizenz_status",          "TEXT DEFAULT 'trial'"),
+            ("gesperrt",               "INTEGER DEFAULT 0"),
+            ("stripe_customer_id",     "TEXT"),
+            ("stripe_subscription_id", "TEXT"),
+            ("zahlungsstatus",         "TEXT DEFAULT 'offen'"),
         ]
         for col, typ in neue_verein_cols:
             try:
@@ -1806,6 +1813,33 @@ def _migrate_multitenant():
                 conn.execute(f"ALTER TABLE benutzer ADD COLUMN {col} {typ}")
             except Exception:
                 pass
+
+        # ── Rechnungen-Tabelle ─────────────────────────────────────────────
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS rechnungen (
+                id               INTEGER PRIMARY KEY AUTOINCREMENT,
+                verein_id        INTEGER NOT NULL,
+                rechnungsnummer  TEXT    NOT NULL,
+                rechnungsdatum   TEXT    NOT NULL DEFAULT (date('now')),
+                betrag_eur       REAL    NOT NULL DEFAULT 0,
+                lizenz_typ       TEXT,
+                status           TEXT    NOT NULL DEFAULT 'offen',
+                lizenz_von       TEXT,
+                lizenz_bis_r     TEXT,
+                stripe_invoice_id TEXT,
+                erstellt_am      TEXT    NOT NULL DEFAULT (datetime('now')),
+                FOREIGN KEY (verein_id) REFERENCES vereine(id)
+            )
+        """)
+
+        # ── Testphase für bestehende Vereine initialisieren ────────────────
+        # Vereine ohne testphase_bis bekommen heute + 14 Tage gesetzt
+        conn.execute("""
+            UPDATE vereine
+               SET testphase_bis = date('now', '+14 days'),
+                   lizenz_status = COALESCE(lizenz_status, 'trial')
+             WHERE testphase_bis IS NULL
+        """)
 
     # Auto-Zuweisung: Falls bereits ein Verein existiert und ein Superadmin,
     # der zu genau diesem Verein gehört, NULL-Spieler sofort zuweisen
@@ -1893,11 +1927,53 @@ def vereine_laden() -> list[dict]:
 
 
 def verein_speichern(name: str) -> int:
+    import datetime as _dt
+    testphase_bis = (
+        _dt.date.today() + _dt.timedelta(days=14)
+    ).isoformat()
     with get_conn() as conn:
         cur = conn.execute(
-            "INSERT INTO vereine (name, aktiv) VALUES (?, 1)", (name,)
+            """INSERT INTO vereine (name, aktiv, lizenz_status, lizenztyp, testphase_bis)
+               VALUES (?, 1, 'trial', 'FREE', ?)""",
+            (name, testphase_bis),
         )
         return cur.lastrowid
+
+
+# ── Selbstregistrierung ────────────────────────────────────────────────────────
+
+def verein_registrieren(
+    vereinsname: str,
+    vorname: str,
+    nachname: str,
+    email: str,
+    passwort: str,
+) -> tuple[int, int]:
+    """Erstellt einen neuen Verein mit Vereinsadmin und startet 14-Tage-Testphase.
+    Gibt (verein_id, benutzer_id) zurück."""
+    import datetime as _dt
+    testphase_bis = (_dt.date.today() + _dt.timedelta(days=14)).isoformat()
+
+    # Prüfen ob E-Mail bereits vergeben
+    with get_conn() as conn:
+        existing = conn.execute(
+            "SELECT id FROM benutzer WHERE email=?", (email.strip().lower(),)
+        ).fetchone()
+        if existing:
+            raise ValueError("Diese E-Mail-Adresse ist bereits registriert.")
+
+    verein_id = verein_speichern(vereinsname)
+    # Testphase explizit setzen (verein_speichern setzt sie bereits)
+    with get_conn() as conn:
+        conn.execute(
+            "UPDATE vereine SET testphase_bis=?, lizenz_status='trial', lizenztyp='FREE' WHERE id=?",
+            (testphase_bis, verein_id),
+        )
+
+    benutzer_id = benutzer_speichern(
+        verein_id, vorname, nachname, email.strip().lower(), passwort, "Vereinsadmin"
+    )
+    return verein_id, benutzer_id
 
 
 def verein_by_id(verein_id: int) -> dict | None:
@@ -1959,6 +2035,145 @@ def verein_loeschen(verein_id: int) -> tuple[bool, str]:
             return False, f"Verein hat noch {benutzer_n} Benutzer. Bitte zuerst alle Benutzer entfernen oder verschieben."
         conn.execute("DELETE FROM vereine WHERE id=?", (verein_id,))
         return True, ""
+
+
+# ── Lizenzsystem — DB-Funktionen ──────────────────────────────────────────────
+
+def lizenz_info_laden(verein_id: int) -> dict | None:
+    """Lädt alle Lizenzdaten eines Vereins (für get_lizenz_info())."""
+    with get_conn() as conn:
+        return _row(conn.execute(
+            """SELECT id, name, aktiv, lizenztyp, lizenz_bis, lizenz_status,
+                      testphase_bis, gesperrt, stripe_customer_id,
+                      stripe_subscription_id, zahlungsstatus
+                 FROM vereine WHERE id=?""",
+            (verein_id,),
+        ).fetchone())
+
+
+def lizenz_setzen(
+    verein_id: int,
+    lizenz_typ: str,
+    lizenz_status: str,
+    lizenz_bis: str | None = None,
+    testphase_bis: str | None = None,
+) -> None:
+    """Setzt Lizenztyp, Status und Ablaufdaten für einen Verein."""
+    with get_conn() as conn:
+        conn.execute(
+            """UPDATE vereine
+                  SET lizenztyp=?,
+                      lizenz_status=?,
+                      lizenz_bis=COALESCE(?, lizenz_bis),
+                      testphase_bis=COALESCE(?, testphase_bis)
+                WHERE id=?""",
+            (lizenz_typ, lizenz_status, lizenz_bis, testphase_bis, verein_id),
+        )
+
+
+def verein_sperren(verein_id: int, gesperrt: bool) -> None:
+    """Sperrt oder entsperrt einen Verein (Superadmin)."""
+    with get_conn() as conn:
+        conn.execute(
+            "UPDATE vereine SET gesperrt=? WHERE id=?",
+            (1 if gesperrt else 0, verein_id),
+        )
+
+
+def testphase_verlaengern(verein_id: int, tage: int) -> None:
+    """Verlängert die Testphase um N Tage ab heute oder dem aktuellen Ablauf."""
+    import datetime as _dt
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT testphase_bis FROM vereine WHERE id=?", (verein_id,)
+        ).fetchone()
+        if row and row[0]:
+            try:
+                basis = _dt.date.fromisoformat(str(row[0])[:10])
+                neu = max(basis, _dt.date.today()) + _dt.timedelta(days=tage)
+            except ValueError:
+                neu = _dt.date.today() + _dt.timedelta(days=tage)
+        else:
+            neu = _dt.date.today() + _dt.timedelta(days=tage)
+        conn.execute(
+            "UPDATE vereine SET testphase_bis=?, lizenz_status='trial' WHERE id=?",
+            (neu.isoformat(), verein_id),
+        )
+
+
+def stripe_ids_setzen(
+    verein_id: int,
+    customer_id: str | None = None,
+    subscription_id: str | None = None,
+) -> None:
+    """Speichert Stripe-IDs nach erfolgreicher Checkout-Session."""
+    with get_conn() as conn:
+        conn.execute(
+            """UPDATE vereine
+                  SET stripe_customer_id=COALESCE(?, stripe_customer_id),
+                      stripe_subscription_id=COALESCE(?, stripe_subscription_id)
+                WHERE id=?""",
+            (customer_id, subscription_id, verein_id),
+        )
+
+
+def zahlungsstatus_setzen(verein_id: int, status: str) -> None:
+    """Setzt den Zahlungsstatus: offen | bezahlt | fehlgeschlagen | storniert."""
+    with get_conn() as conn:
+        conn.execute(
+            "UPDATE vereine SET zahlungsstatus=? WHERE id=?",
+            (status, verein_id),
+        )
+
+
+def rechnung_speichern(
+    verein_id: int,
+    rechnungsnummer: str,
+    betrag_eur: float,
+    lizenz_typ: str,
+    status: str = "bezahlt",
+    lizenz_von: str | None = None,
+    lizenz_bis_r: str | None = None,
+    stripe_invoice_id: str | None = None,
+) -> int:
+    """Speichert eine Rechnung und gibt die ID zurück."""
+    import datetime as _dt
+    with get_conn() as conn:
+        cur = conn.execute(
+            """INSERT INTO rechnungen
+               (verein_id, rechnungsnummer, rechnungsdatum, betrag_eur,
+                lizenz_typ, status, lizenz_von, lizenz_bis_r, stripe_invoice_id)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (verein_id, rechnungsnummer, _dt.date.today().isoformat(),
+             betrag_eur, lizenz_typ, status, lizenz_von, lizenz_bis_r,
+             stripe_invoice_id),
+        )
+        return cur.lastrowid
+
+
+def rechnungen_laden(verein_id: int) -> list[dict]:
+    """Lädt alle Rechnungen eines Vereins (neueste zuerst)."""
+    with get_conn() as conn:
+        return _rows(conn.execute(
+            """SELECT rechnungsnummer, rechnungsdatum, betrag_eur,
+                      lizenz_typ, status, lizenz_von, lizenz_bis_r
+                 FROM rechnungen
+                WHERE verein_id=?
+                ORDER BY rechnungsdatum DESC, id DESC""",
+            (verein_id,),
+        ).fetchall())
+
+
+def alle_vereine_lizenz() -> list[dict]:
+    """Alle Vereine mit Lizenzdaten für den Superadmin-Überblick."""
+    with get_conn() as conn:
+        return _rows(conn.execute(
+            """SELECT id, name, aktiv, lizenztyp, lizenz_bis, lizenz_status,
+                      testphase_bis, gesperrt, stripe_customer_id,
+                      stripe_subscription_id, zahlungsstatus
+                 FROM vereine
+                ORDER BY erstellt_am DESC""",
+        ).fetchall())
 
 
 def verein_logo_speichern(verein_id: int, logo_bytes: bytes | None) -> None:

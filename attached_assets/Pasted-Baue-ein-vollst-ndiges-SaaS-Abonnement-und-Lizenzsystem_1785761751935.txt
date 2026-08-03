@@ -1,0 +1,160 @@
+Baue ein vollständiges SaaS-Abonnement- und Lizenzsystem für Bruce Football Performance Diagnostics.
+
+Ziel:
+
+Ein Verein soll sich selbst registrieren, ein Abonnement abschließen und die Software sofort nutzen können.
+
+==========================================
+LIZENZSYSTEM
+==========================================
+
+Erstelle ein vollständiges Lizenzsystem.
+
+Jeder Verein besitzt:
+
+- Lizenzstatus
+- Lizenztyp
+- Ablaufdatum
+- Testphase
+- Aktiv/Inaktiv
+- Zahlungsstatus
+
+Lizenztypen:
+
+FREE
+BASIC
+PRO
+ENTERPRISE
+
+Jeder Lizenztyp besitzt:
+
+- maximale Trainer
+- maximale Spieler
+- verfügbare Funktionen
+
+Das Lizenzsystem muss später einfach erweiterbar sein.
+
+==========================================
+STRIPE
+==========================================
+
+Bereite die komplette Stripe-Integration vor.
+
+Erstelle:
+
+- Monatsabo
+- Jahresabo
+- kostenlose Testphase (14 Tage)
+- Upgrade
+- Downgrade
+- Kündigung
+- Reaktivierung
+
+Noch keine echten Stripe-Schlüssel eintragen.
+
+Nutze Environment Variablen.
+
+==========================================
+REGISTRIERUNG
+==========================================
+
+Ein neuer Verein soll sich selbst registrieren können.
+
+Ablauf:
+
+1. Verein registriert sich
+2. Vereinsadmin wird automatisch erstellt
+3. Testphase startet
+4. Verein kann sich sofort anmelden
+5. Nach Ablauf der Testphase wird eine Zahlung erforderlich
+
+==========================================
+ABRECHNUNG
+==========================================
+
+Speichere:
+
+- Zahlungsstatus
+- Rechnungsnummer
+- Rechnungsdatum
+- Lizenzbeginn
+- Lizenzende
+
+Bereite alles für spätere Rechnungen vor.
+
+==========================================
+SUPERADMIN
+==========================================
+
+Erstelle ein Lizenz-Dashboard.
+
+Superadmin sieht:
+
+- alle Vereine
+- Lizenztyp
+- Ablaufdatum
+- Testphase
+- Zahlungsstatus
+- gesperrte Vereine
+- aktive Vereine
+
+Superadmin kann:
+
+- Lizenz verlängern
+- Lizenz ändern
+- Testphase verlängern
+- Verein sperren
+- Verein entsperren
+
+==========================================
+VEREINSADMIN
+==========================================
+
+Eigene Seite:
+
+"Lizenz"
+
+Anzeige:
+
+- aktueller Tarif
+- verbleibende Testtage
+- Ablaufdatum
+- Rechnungsstatus
+- Upgrade Button
+- Kündigungsbutton
+
+==========================================
+SICHERHEIT
+==========================================
+
+Eine abgelaufene Lizenz darf keine Diagnostik mehr durchführen.
+
+Es soll nur noch das Lizenz-Menü erreichbar sein.
+
+Superadmin ist niemals eingeschränkt.
+
+==========================================
+TECHNIK
+==========================================
+
+Verwende Environment Variablen.
+
+Keine API-Keys im Quellcode speichern.
+
+Trenne Lizenzlogik sauber vom übrigen Code.
+
+==========================================
+ABSCHLUSS
+==========================================
+
+Erstelle anschließend einen Bericht.
+
+Welche Dateien wurden geändert?
+
+Welche Datenbanktabellen wurden ergänzt?
+
+Welche Stripe-Komponenten fehlen noch bis zum Livebetrieb?
+
+Welche Environment Variablen werden später benötigt?
+
+Erstelle außerdem eine Go-Live-Checkliste für die Aktivierung von Stripe.

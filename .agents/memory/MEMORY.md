@@ -9,3 +9,4 @@
 - [PDF dynamic brand color](pdf-brand-color.md) — generate_report accepts farbe_primaer (hex str) and trainer_name; sets AthletikReport.BRAND dynamically; call site loads verein_by_id at PDF generation time
 - [saas_dashboard colorscale fix](saas-dashboard-bar-fix.md) — Bar charts must not use colorscale with 8-char hex alpha; use solid color= on marker instead
 - [Mixed-type DataFrame Arrow bug](arrow-mixed-types.md) — columns with int/None must use None not "—" for missing values; "—" causes ArrowInvalid in st.dataframe
+- [License system architecture](license-system.md) — license.py + stripe_service.py + modules/lizenz_page.py; gate in app.py; DB: new vereine cols + rechnungen table

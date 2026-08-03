@@ -74,6 +74,7 @@ from modules.benutzerverwaltung import page_benutzerverwaltung
 from modules.vereine import page_vereine
 from modules.trainerportal import page_trainerportal, page_mein_profil
 from modules.saas_dashboard import page_saas_dashboard
+from modules.lizenz_page import page_lizenz_vereinsadmin, page_lizenz_superadmin
 from testprotokoll_pdf import (
     generate_testprotokoll, TEST_NAMEN, TEST_REIHENFOLGE,
 )
@@ -255,22 +256,76 @@ if "user" not in st.session_state:
                     st.success("✅ Superadmin angelegt — bitte jetzt anmelden.")
                     st.rerun()
         else:
-            _login_email    = st.text_input("E-Mail / Benutzername", key="login_email",
-                                            placeholder="trainer@verein.de")
-            _login_passwort = st.text_input("Passwort", key="login_pw", type="password")
-            if st.button("🔐 Anmelden", type="primary",
-                         use_container_width=True, key="login_btn"):
-                _user_obj = login(_login_email.strip(), _login_passwort)
-                if _user_obj:
-                    st.session_state["user"] = _user_obj
-                    st.rerun()
-                else:
-                    st.error("❌ E-Mail oder Passwort falsch.")
+            _login_tab, _reg_tab = st.tabs(["🔐 Anmelden", "🆕 Verein registrieren"])
+
+            with _login_tab:
+                _login_email    = st.text_input("E-Mail / Benutzername", key="login_email",
+                                                placeholder="trainer@verein.de")
+                _login_passwort = st.text_input("Passwort", key="login_pw", type="password")
+                if st.button("🔐 Anmelden", type="primary",
+                             use_container_width=True, key="login_btn"):
+                    _user_obj = login(_login_email.strip(), _login_passwort)
+                    if _user_obj:
+                        st.session_state["user"] = _user_obj
+                        st.rerun()
+                    else:
+                        st.error("❌ E-Mail oder Passwort falsch.")
+
+            with _reg_tab:
+                st.markdown(
+                    '<p style="color:#8b949e;font-size:12px;margin-bottom:12px">'
+                    "Erstelle deinen Verein und starte sofort — 14 Tage kostenlos testen.</p>",
+                    unsafe_allow_html=True,
+                )
+                _r_verein  = st.text_input("Vereinsname", key="reg_verein",
+                                           placeholder="FC Musterstadt")
+                _r_vor, _r_nach = st.columns(2)
+                with _r_vor:
+                    _r_vorname = st.text_input("Vorname", key="reg_vorname")
+                with _r_nach:
+                    _r_nachname = st.text_input("Nachname", key="reg_nachname")
+                _r_email = st.text_input("E-Mail", key="reg_email",
+                                         placeholder="admin@verein.de")
+                _r_pw1   = st.text_input("Passwort", key="reg_pw1", type="password")
+                _r_pw2   = st.text_input("Passwort bestätigen", key="reg_pw2", type="password")
+                if st.button("🚀 Jetzt registrieren", type="primary",
+                             use_container_width=True, key="reg_btn"):
+                    _reg_ok = True
+                    if not _r_verein.strip():
+                        st.error("Bitte gib den Vereinsnamen ein."); _reg_ok = False
+                    elif not _r_vorname.strip() or not _r_nachname.strip():
+                        st.error("Bitte gib Vor- und Nachname ein."); _reg_ok = False
+                    elif not _r_email.strip() or "@" not in _r_email:
+                        st.error("Bitte gib eine gültige E-Mail-Adresse ein."); _reg_ok = False
+                    elif len(_r_pw1) < 6:
+                        st.error("Das Passwort muss mindestens 6 Zeichen lang sein."); _reg_ok = False
+                    elif _r_pw1 != _r_pw2:
+                        st.error("Die Passwörter stimmen nicht überein."); _reg_ok = False
+                    if _reg_ok:
+                        try:
+                            from database import verein_registrieren
+                            _vid, _bid = verein_registrieren(
+                                _r_verein.strip(), _r_vorname.strip(),
+                                _r_nachname.strip(), _r_email.strip(), _r_pw1,
+                            )
+                            st.success(
+                                "✅ Verein erfolgreich registriert! "
+                                "Du kannst dich jetzt anmelden. "
+                                "Deine 14-Tage-Testphase beginnt sofort."
+                            )
+                        except ValueError as _ve:
+                            st.error(str(_ve))
+                        except Exception as _ex:
+                            st.error(f"Fehler bei der Registrierung: {_ex}")
     st.stop()
 
 # ─── Session-Timeout: inaktive Sitzungen automatisch abmelden ────────────────
 from session_timeout import check_session_timeout, touch_session
 check_session_timeout()
+
+# ─── Lizenz-Gate: Abgelaufene oder gesperrte Lizenzen blockieren ─────────────
+from license import enforce_license_gate
+enforce_license_gate()
 
 # ─── Startup-Gate: Zweckbestimmung muss bestätigt werden ─────────────────────
 if not _zweck_bestaetigt():
@@ -8059,8 +8114,10 @@ _MAIN_SECTIONS = [
 _user_rolle_nav = st.session_state.get("user", {}).get("rolle", "Trainer")
 if _user_rolle_nav in ("Superadmin", "Vereinsadmin"):
     _MAIN_SECTIONS = _MAIN_SECTIONS + ["🧑‍💼  Trainerportal", "🔑  Benutzerverwaltung"]
+if _user_rolle_nav == "Vereinsadmin":
+    _MAIN_SECTIONS = _MAIN_SECTIONS + ["💳  Lizenz"]
 if _user_rolle_nav == "Superadmin":
-    _MAIN_SECTIONS = _MAIN_SECTIONS + ["🏢  Vereinsverwaltung"]
+    _MAIN_SECTIONS = _MAIN_SECTIONS + ["🏢  Vereinsverwaltung", "💳  Lizenzverwaltung"]
 
 with st.sidebar:
     # ── Logo ──────────────────────────────────────────────────────────────────
@@ -8334,3 +8391,7 @@ elif section == "🔑  Benutzerverwaltung":
     page_benutzerverwaltung()
 elif section == "🏢  Vereinsverwaltung":
     page_vereine()
+elif section == "💳  Lizenz":
+    page_lizenz_vereinsadmin()
+elif section == "💳  Lizenzverwaltung":
+    page_lizenz_superadmin()
