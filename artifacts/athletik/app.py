@@ -258,7 +258,7 @@ if "user" not in st.session_state:
                     st.success("✅ Superadmin angelegt — bitte jetzt anmelden.")
                     st.rerun()
         else:
-            _login_tab, _reg_tab = st.tabs(["🔐 Anmelden", "🆕 Verein registrieren"])
+            _login_tab, _reg_tab, _trainer_tab = st.tabs(["🔐 Anmelden", "🆕 Verein registrieren", "👤 Trainer registrieren"])
 
             with _login_tab:
                 _login_email    = st.text_input("E-Mail / Benutzername", key="login_email",
@@ -282,7 +282,7 @@ if "user" not in st.session_state:
             with _reg_tab:
                 st.markdown(
                     '<p style="color:#8b949e;font-size:12px;margin-bottom:12px">'
-                    "Erstelle deinen Verein und starte sofort — 14 Tage kostenlos testen.</p>",
+                    "Erstelle deinen Verein und starte sofort — 30 Tage kostenlos testen.</p>",
                     unsafe_allow_html=True,
                 )
                 _r_verein  = st.text_input("Vereinsname", key="reg_verein",
@@ -319,7 +319,70 @@ if "user" not in st.session_state:
                             st.success(
                                 "✅ Verein erfolgreich registriert! "
                                 "Du kannst dich jetzt anmelden. "
-                                "Deine 14-Tage-Testphase beginnt sofort."
+                                "Deine 30-Tage-Testphase beginnt sofort."
+                            )
+                        except ValueError as _ve:
+                            st.error(str(_ve))
+                        except Exception as _ex:
+                            st.error(f"Fehler bei der Registrierung: {_ex}")
+
+            with _trainer_tab:
+                st.markdown(
+                    '<p style="color:#8b949e;font-size:12px;margin-bottom:12px">'
+                    "Bereits ein Verein bei Bruce Football? "
+                    "Trage den <strong style='color:#e6edf3'>Beitrittscode</strong> deines Vereins ein — "
+                    "dein Vereinsadmin findet ihn unter ⚙️ Einstellungen.</p>",
+                    unsafe_allow_html=True,
+                )
+                _t_code = st.text_input(
+                    "Vereins-Beitrittscode",
+                    key="trainer_code",
+                    placeholder="z. B. ABC123",
+                    help="Den Code bekommst du von deinem Vereinsadmin (⚙️ Einstellungen → Beitrittscode).",
+                )
+                _t_vor, _t_nach = st.columns(2)
+                with _t_vor:
+                    _t_vorname = st.text_input("Vorname", key="trainer_vorname")
+                with _t_nach:
+                    _t_nachname = st.text_input("Nachname", key="trainer_nachname")
+                _t_email = st.text_input(
+                    "E-Mail", key="trainer_email", placeholder="trainer@verein.de"
+                )
+                _t_pw1 = st.text_input("Passwort", key="trainer_pw1", type="password")
+                _t_pw2 = st.text_input(
+                    "Passwort bestätigen", key="trainer_pw2", type="password"
+                )
+                if st.button(
+                    "👤 Als Trainer registrieren",
+                    type="primary",
+                    use_container_width=True,
+                    key="trainer_reg_btn",
+                ):
+                    _t_ok = True
+                    if not _t_code.strip():
+                        st.error("Bitte gib den Beitrittscode deines Vereins ein."); _t_ok = False
+                    elif not _t_vorname.strip() or not _t_nachname.strip():
+                        st.error("Bitte gib Vor- und Nachname ein."); _t_ok = False
+                    elif not _t_email.strip() or "@" not in _t_email:
+                        st.error("Bitte gib eine gültige E-Mail-Adresse ein."); _t_ok = False
+                    elif len(_t_pw1) < 6:
+                        st.error("Das Passwort muss mindestens 6 Zeichen lang sein."); _t_ok = False
+                    elif _t_pw1 != _t_pw2:
+                        st.error("Die Passwörter stimmen nicht überein."); _t_ok = False
+                    if _t_ok:
+                        try:
+                            from database import trainer_registrieren
+                            trainer_registrieren(
+                                _t_code.strip(),
+                                _t_vorname.strip(),
+                                _t_nachname.strip(),
+                                _t_email.strip(),
+                                _t_pw1,
+                            )
+                            st.success(
+                                "✅ Registrierung erfolgreich! "
+                                "Dein Vereinsadmin muss dein Konto noch freischalten — "
+                                "danach kannst du dich anmelden."
                             )
                         except ValueError as _ve:
                             st.error(str(_ve))
@@ -6224,6 +6287,27 @@ def page_einstellungen():
                 st.info("Logo gespeichert (Vorschau nicht verfügbar).")
         else:
             st.info("Noch kein Vereinslogo gespeichert.")
+
+        # ── Trainer-Beitrittscode (nur für Vereinsadmin) ──────────────────────
+        if _akt_user().get("rolle") in ("Vereinsadmin", "Superadmin"):
+            st.markdown("---")
+            st.markdown("### 🔑 Trainer-Beitrittscode")
+            st.caption(
+                "Teile diesen Code mit Trainern, damit sie sich selbst registrieren können. "
+                "Nach der Registrierung musst du das Konto unter **Benutzerverwaltung** freischalten."
+            )
+            from database import registrier_code_laden, registrier_code_regenerieren
+            _aktueller_code = registrier_code_laden(_akt_user()["verein_id"])
+            _c_code, _c_btn = st.columns([3, 1])
+            with _c_code:
+                st.code(_aktueller_code or "—", language=None)
+            with _c_btn:
+                if st.button("🔄 Neu generieren", key="regen_code",
+                             use_container_width=True,
+                             help="Ungültig macht den alten Code — alle neuen Trainer brauchen den neuen Code."):
+                    _neuer = registrier_code_regenerieren(_akt_user()["verein_id"])
+                    st.success(f"Neuer Code: **{_neuer}**")
+                    st.rerun()
 
         st.markdown("---")
         st.markdown("### Kader-Übersicht")

@@ -34,10 +34,6 @@ STRIPE_PRICES: dict[str, dict[str, str]] = {
         "monat": os.environ.get("STRIPE_PRICE_PRO_MONAT", ""),
         "jahr":  os.environ.get("STRIPE_PRICE_PRO_JAHR",  ""),
     },
-    "ENTERPRISE": {
-        "monat": os.environ.get("STRIPE_PRICE_ENT_MONAT", ""),
-        "jahr":  os.environ.get("STRIPE_PRICE_ENT_JAHR",  ""),
-    },
 }
 
 APP_BASE_URL = os.environ.get("APP_BASE_URL", "http://localhost:8501")

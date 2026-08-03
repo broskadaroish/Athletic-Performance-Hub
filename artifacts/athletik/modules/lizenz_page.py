@@ -70,6 +70,70 @@ def _kpi(label: str, value: str, color: str = "#58a6ff", sub: str = "") -> None:
     )
 
 
+def _stripe_upgrade(typ_key: str, verein_id: int, info: dict) -> None:
+    """Leitet zum Stripe-Checkout weiter oder zeigt Fallback-Kontakt."""
+    from stripe_service import stripe_verfuegbar, customer_erstellen, checkout_session_erstellen
+    from database import stripe_ids_setzen
+    from license import LIZENZ_TYPEN
+
+    typ_def = LIZENZ_TYPEN.get(typ_key, {})
+
+    if not stripe_verfuegbar():
+        st.info(
+            f"Für einen Wechsel auf **{typ_def.get('label', typ_key)}** kontaktiere uns bitte: "
+            "**Broska_daroish@hotmail.de** · Tel. 01741682671"
+        )
+        return
+
+    # Periodenauswahl
+    col1, col2 = st.columns(2)
+    with col1:
+        periode = st.radio(
+            "Abrechnungszeitraum",
+            ["Monatlich", "Jährlich (2 Monate gratis)"],
+            key=f"periode_{typ_key}",
+            horizontal=True,
+        )
+    periode_key = "monat" if periode == "Monatlich" else "jahr"
+    price_id = typ_def.get(f"stripe_price_{periode_key}", "")
+
+    if not price_id:
+        st.warning("Stripe-Price-ID noch nicht konfiguriert. Bitte Env-Var setzen.")
+        return
+
+    if st.button(
+        f"💳 Jetzt auf {typ_def.get('label', typ_key)} upgraden",
+        key=f"checkout_{typ_key}_{periode_key}",
+        type="primary",
+        use_container_width=True,
+    ):
+        try:
+            # Stripe-Kunden anlegen oder vorhandene ID nutzen
+            customer_id = info.get("stripe_customer_id")
+            if not customer_id:
+                user = st.session_state.get("user", {})
+                customer_id = customer_erstellen(
+                    email=user.get("email", ""),
+                    name=user.get("name", ""),
+                    verein_id=verein_id,
+                )
+                stripe_ids_setzen(verein_id, customer_id=customer_id)
+
+            checkout_url = checkout_session_erstellen(
+                customer_id=customer_id,
+                price_id=price_id,
+                verein_id=verein_id,
+            )
+            st.markdown(
+                f'<meta http-equiv="refresh" content="0; url={checkout_url}">'
+                f'<p>Weiterleitung zu Stripe… '
+                f'<a href="{checkout_url}" target="_blank">Hier klicken</a></p>',
+                unsafe_allow_html=True,
+            )
+        except Exception as e:
+            st.error(f"Fehler beim Erstellen der Checkout-Session: {e}")
+
+
 def _tarif_karte(
     typ_key: str,
     typ_def: dict,
@@ -192,11 +256,8 @@ def page_lizenz_vereinsadmin() -> None:
         cols = st.columns(2)
         for i, (typ_key, typ_def_iter) in enumerate(LIZENZ_TYPEN.items()):
             with cols[i]:
-                def _on_upgrade(key=typ_key):
-                    st.info(
-                        f"Bitte kontaktiere uns für einen Wechsel auf **{LIZENZ_TYPEN[key]['label']}**: "
-                        "support@brucefootball.de"
-                    )
+                def _on_upgrade(key=typ_key, vid=verein_id, vinfo=info):
+                    _stripe_upgrade(key, vid, vinfo)
                 _tarif_karte(
                     typ_key,
                     typ_def_iter,

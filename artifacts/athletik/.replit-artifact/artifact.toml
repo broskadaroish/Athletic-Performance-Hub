@@ -10,4 +10,4 @@ kind = "web"
     paths = ["/app"]
 
     [services.development]
-    run = "cd /home/runner/workspace/artifacts/athletik && streamlit run app.py --server.port 8082"
+    run = "cd /home/runner/workspace/artifacts/athletik && bash start.sh"

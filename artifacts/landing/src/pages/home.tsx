@@ -17,7 +17,7 @@ export default function Home() {
           <div className="max-w-4xl">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-primary/20 bg-primary/5 text-primary text-xs font-mono mb-8 font-medium uppercase tracking-wider">
               <Activity className="w-3 h-3" />
-              <span>Die wissenschaftliche Performance-Plattform</span>
+              <span>Die Performance-Plattform für Fußballtrainer</span>
             </div>
             
             <h1 className="text-5xl md:text-7xl font-bold tracking-tight mb-6 leading-[1.1]">
@@ -26,8 +26,8 @@ export default function Home() {
             </h1>
             
             <p className="text-xl text-muted-foreground mb-10 max-w-2xl leading-relaxed">
-              Professionelle Trainer und Sportwissenschaftler in der Bundesliga nutzen Bruce, 
-              um Leistungsdaten zu erfassen, Verletzungsrisiken zu minimieren und Athleten weiterzuentwickeln.
+              Athletiktrainer in Fußballvereinen nutzen Bruce,
+              um Leistungsdaten zu erfassen, Stärken und Schwächen sichtbar zu machen und Spieler gezielt weiterzuentwickeln.
             </p>
             
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
@@ -41,7 +41,7 @@ export default function Home() {
             
             <div className="mt-16 flex items-center gap-6 text-sm text-muted-foreground font-mono uppercase tracking-widest">
               <div className="flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-primary" /> Medizinische Präzision
+                <CheckCircle2 className="w-4 h-4 text-primary" /> Sportliche Präzision
               </div>
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-primary" /> DSGVO Konform
@@ -82,8 +82,8 @@ export default function Home() {
               </div>
               <h3 className="text-xl font-bold mb-3">Asymmetrie-Tracking</h3>
               <p className="text-muted-foreground leading-relaxed">
-                Automatische Erkennung von Seitendifferenzen und potenziellen Verletzungsrisiken. 
-                Verfolgen Sie die Entwicklung über Zeit und greifen Sie proaktiv ein.
+                Automatische Erkennung von Seitendifferenzen und Leistungsauffälligkeiten.
+                Verfolgen Sie die Entwicklung über Zeit und passen Sie das Training gezielt an.
               </p>
             </div>
 
@@ -91,10 +91,10 @@ export default function Home() {
               <div className="w-12 h-12 bg-secondary rounded-lg flex items-center justify-center mb-6 text-primary">
                 <FileText className="w-6 h-6" />
               </div>
-              <h3 className="text-xl font-bold mb-3">Medizinische Reports</h3>
+              <h3 className="text-xl font-bold mb-3">Professionelle Reports</h3>
               <p className="text-muted-foreground leading-relaxed">
-                Generieren Sie mit einem Klick druckfertige PDF-Reports mit Ihrem Vereinslogo 
-                für Trainer, medizinischen Stab oder Elterngespräche.
+                Generieren Sie mit einem Klick druckfertige PDF-Reports mit Ihrem Vereinslogo —
+                für Trainer, Vereinsverantwortliche oder Elterngespräche.
               </p>
             </div>
           </div>

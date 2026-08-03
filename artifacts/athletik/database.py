@@ -2070,12 +2070,23 @@ def _migrate_multitenant():
             ("stripe_customer_id",     "TEXT"),
             ("stripe_subscription_id", "TEXT"),
             ("zahlungsstatus",         "TEXT DEFAULT 'offen'"),
+            ("registrier_code",        "TEXT"),
         ]
         for col, typ in neue_verein_cols:
             try:
                 conn.execute(f"ALTER TABLE vereine ADD COLUMN {col} {typ}")
             except Exception:
                 pass
+        # Bestehenden Vereinen ohne Code einen generieren
+        import secrets as _secrets
+        vereine_ohne_code = conn.execute(
+            "SELECT id FROM vereine WHERE registrier_code IS NULL"
+        ).fetchall()
+        for (_vid,) in vereine_ohne_code:
+            _code = _secrets.token_urlsafe(6).upper()
+            conn.execute(
+                "UPDATE vereine SET registrier_code=? WHERE id=?", (_code, _vid)
+            )
         # benutzer: Trainerportal-Felder
         neue_benutzer_cols = [
             ("foto_blob",       "BLOB"),
@@ -2544,6 +2555,62 @@ def benutzer_by_id(benutzer_id: int) -> dict | None:
         return _row(conn.execute(
             "SELECT * FROM benutzer WHERE id=?", (benutzer_id,)
         ).fetchone())
+
+
+def trainer_registrieren(
+    registrier_code: str,
+    vorname: str,
+    nachname: str,
+    email: str,
+    passwort: str,
+) -> int:
+    """Trainer-Selbstregistrierung via Vereins-Beitrittscode.
+    Gibt benutzer_id zurück. Wirft ValueError bei ungültigem Code / doppelter E-Mail.
+    Der Trainer startet als inaktiv=0 (muss vom Vereinsadmin freigeschaltet werden)."""
+    import secrets as _secrets
+    code = registrier_code.strip().upper()
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT id FROM vereine WHERE UPPER(registrier_code)=? AND aktiv=1",
+            (code,),
+        ).fetchone()
+        if not row:
+            raise ValueError(
+                "Ungültiger Beitrittscode. Bitte deinen Vereinsadmin um den richtigen Code."
+            )
+        verein_id = row[0]
+        existing = conn.execute(
+            "SELECT id FROM benutzer WHERE LOWER(email)=LOWER(?)", (email,)
+        ).fetchone()
+        if existing:
+            raise ValueError("Diese E-Mail-Adresse ist bereits registriert.")
+        cur = conn.execute(
+            """INSERT INTO benutzer
+                   (verein_id, vorname, nachname, email, passwort_hash, rolle, aktiv)
+               VALUES (?, ?, ?, ?, ?, 'Trainer', 0)""",
+            (verein_id, vorname, nachname, email, _pw_hash(passwort)),
+        )
+        return cur.lastrowid
+
+
+def registrier_code_laden(verein_id: int) -> str | None:
+    """Gibt den aktuellen Beitrittscode des Vereins zurück."""
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT registrier_code FROM vereine WHERE id=?", (verein_id,)
+        ).fetchone()
+        return row[0] if row else None
+
+
+def registrier_code_regenerieren(verein_id: int) -> str:
+    """Generiert einen neuen Beitrittscode (ungültig macht den alten)."""
+    import secrets as _secrets
+    neuer_code = _secrets.token_urlsafe(6).upper()
+    with get_conn() as conn:
+        conn.execute(
+            "UPDATE vereine SET registrier_code=? WHERE id=?", (neuer_code, verein_id)
+        )
+    return neuer_code
 
 
 def benutzer_speichern(verein_id, vorname, nachname, email, passwort, rolle) -> int:

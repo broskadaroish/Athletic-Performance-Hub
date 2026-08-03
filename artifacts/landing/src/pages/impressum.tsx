@@ -12,40 +12,23 @@ export default function Impressum() {
           <div className="bg-secondary/20 p-8 rounded-lg border border-white/5 mb-8">
             <h2 className="text-xl font-bold mb-4 font-mono uppercase tracking-widest text-white mt-0">Betreiber der Website</h2>
             <p>
-              Bruce Football UG (haftungsbeschränkt)<br />
-              Musterstraße 1<br />
-              10115 Berlin<br />
+              Bruce Football<br />
               Deutschland
             </p>
 
             <h3 className="text-lg font-bold mt-6 mb-2">Vertreten durch:</h3>
-            <p>Geschäftsführer: Max Mustermann</p>
+            <p>Broska Daroish</p>
           </div>
 
           <h2 className="text-2xl font-bold mt-12 mb-4">Kontakt</h2>
           <p>
-            Telefon: +49 (0) 30 12345678<br />
-            E-Mail: info@brucefootball.de
-          </p>
-
-          <h2 className="text-2xl font-bold mt-12 mb-4">Registereintrag</h2>
-          <p>
-            Eintragung im Handelsregister.<br />
-            Registergericht: Amtsgericht Charlottenburg (Berlin)<br />
-            Registernummer: HRB 123456 B
-          </p>
-
-          <h2 className="text-2xl font-bold mt-12 mb-4">Umsatzsteuer-ID</h2>
-          <p>
-            Umsatzsteuer-Identifikationsnummer gemäß § 27 a Umsatzsteuergesetz:<br />
-            DE 123 456 789
+            Telefon: 01741682671<br />
+            E-Mail: <a href="mailto:Broska_daroish@hotmail.de" className="text-primary hover:underline">Broska_daroish@hotmail.de</a>
           </p>
 
           <h2 className="text-2xl font-bold mt-12 mb-4">Verantwortlich für den Inhalt nach § 55 Abs. 2 RStV</h2>
           <p>
-            Max Mustermann<br />
-            Musterstraße 1<br />
-            10115 Berlin
+            Broska Daroish
           </p>
 
           {/* Haftungshinweis Software */}
