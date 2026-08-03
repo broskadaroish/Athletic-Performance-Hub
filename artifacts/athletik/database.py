@@ -2212,7 +2212,9 @@ def dashboard_monatlich_diagnostiken(verein_id=None, n: int = 12) -> list:
                     monthly[r[0]] = monthly.get(r[0], 0) + r[1]
             except Exception:
                 pass
-    return [{"monat": k, "n": v} for k, v in sorted(monthly.items())]
+    return [{"monat": k, "n": v} for k, v in sorted(
+        ((k, v) for k, v in monthly.items() if k is not None), key=lambda x: x[0]
+    )]
 
 
 def dashboard_spieler_altersklassen(verein_id=None) -> list:
