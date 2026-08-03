@@ -1,0 +1,252 @@
+Analysiere die komplette Diagnostik-Software und entwickle sie zu einer professionellen Fußball-Athletik-Diagnostikplattform weiter.
+
+WICHTIG:
+
+Erhalte alle bestehenden Funktionen.
+
+Keine bestehenden Berechnungen oder Auswertungen entfernen.
+
+Verbessere den Code nur dort, wo es technisch oder fachlich sinnvoll ist.
+
+==========================================
+ZU ÜBERPRÜFEN
+==========================================
+
+Prüfe sämtliche Diagnosemodule:
+
+- FMS
+- Y-Balance
+- Sprint
+- Sprung
+- Kraft
+- Ausdauer
+- Anthropometrie
+- Spiroergometrie
+- Verletzungen
+- Trainerbeobachtung
+
+Prüfe jede Seite vollständig.
+
+==========================================
+TECHNISCHE PRÜFUNG
+==========================================
+
+Prüfe:
+
+- Datenbankabfragen
+- Performance
+- Rollen und Rechte
+- Plausibilitätsprüfungen
+- Fehlerbehandlung
+- Datenvalidierung
+- Berechnungen
+- Diagramme
+- PDF-Ausgaben
+- Verlauf
+- Historien
+- Responsives Design
+- Mobile Darstellung
+- Wiederverwendbaren Code
+- Doppelte Funktionen
+- Nicht verwendeten Code
+- Inkonsistenzen
+
+Behebe alle technischen Fehler selbstständig.
+
+==========================================
+DIAGNOSTIK
+==========================================
+
+Verbessere alle Diagnosemodule.
+
+Erweitere jede Diagnostik um:
+
+- Testhistorie
+- Entwicklung zum letzten Test
+- Persönliche Bestleistung
+- Durchschnittswerte
+- Saisonvergleich
+- Auffälligkeiten
+- Zusammenfassung
+
+Prüfe sämtliche Diagramme.
+
+Verbessere:
+
+- Übersichtlichkeit
+- Darstellung
+- Lesbarkeit
+- Farben
+- Responsive Verhalten
+
+==========================================
+PDF
+==========================================
+
+Verbessere sämtliche PDF-Berichte.
+
+Professionelles Layout.
+
+Enthalten sein sollen:
+
+- Vereinslogo
+- Spielerfoto (falls vorhanden)
+- Trainer
+- Vereinsname
+- Datum
+- Diagramme
+- Entwicklung
+- Zusammenfassung
+- Trainingsschwerpunkte
+
+==========================================
+TRAININGSVORSCHLÄGE
+==========================================
+
+Überprüfe sämtliche Trainingsvorschläge.
+
+Falls Optimierungen möglich sind,
+notiere diese.
+
+Ändere Trainingsvorschläge jedoch nicht ohne Rückfrage.
+
+==========================================
+AMPELSYSTEM
+==========================================
+
+Prüfe:
+
+- Farben
+- Logik
+- Warnungen
+- Verletzungsrisiko
+- Grenzwerte
+
+Falls Verbesserungen sinnvoll sind,
+erstelle Vorschläge.
+
+==========================================
+BERECHNUNGEN
+==========================================
+
+Überprüfe alle mathematischen Formeln.
+
+Prüfe:
+
+- Sprint
+- Y-Balance
+- FMS
+- Anthropometrie
+- Kraft
+- Ausdauer
+- Spiroergometrie
+
+Berechnungsfehler dürfen selbstständig korrigiert werden.
+
+==========================================
+BENUTZERFREUNDLICHKEIT
+==========================================
+
+Verbessere:
+
+- Eingabemasken
+- Buttons
+- Navigation
+- Fehlermeldungen
+- Tooltips
+- Hilfetexte
+
+Falls Eingaben unplausibel sind,
+zeige verständliche Warnungen.
+
+==========================================
+DESIGN
+==========================================
+
+Das komplette System soll wie eine professionelle SaaS-Anwendung wirken.
+
+Modernes Design.
+
+Einheitliche Farben.
+
+Plotly-Diagramme.
+
+Responsive.
+
+Dark Mode.
+
+Keine leeren Bereiche.
+
+==========================================
+VERGLEICH MIT PROFESSIONELLEN SYSTEMEN
+==========================================
+
+Orientiere dich funktional an professionellen Athletiksystemen wie:
+
+- VALD
+- Catapult
+- Smartabase
+
+Nicht kopieren,
+sondern als Qualitätsmaßstab verwenden.
+
+==========================================
+WICHTIG
+==========================================
+
+Technische Fehler darfst du selbstständig beheben.
+
+Dazu gehören:
+
+- Codefehler
+- Datenbankfehler
+- SQL
+- Performance
+- UI
+- Diagramme
+- PDF-Layout
+- Rollen
+- Rechte
+- Migrationen
+- Darstellungsfehler
+
+==========================================
+VOR RÜCKFRAGE
+==========================================
+
+Bevor du fachliche Änderungen vornimmst,
+frage mich zuerst.
+
+Das betrifft insbesondere:
+
+- Grenzwerte
+- Normwerte
+- Ampelsystem
+- Verletzungsrisiko
+- Trainingsvorschläge
+- Bewertungskriterien
+- Testprotokolle
+- Sportwissenschaftliche Formeln
+- Empfehlungen
+
+Falls mehrere fachlich sinnvolle Lösungen existieren,
+triff keine eigene Entscheidung.
+
+Erstelle stattdessen eine Liste mit Verbesserungsvorschlägen und stelle sie mir zur Entscheidung vor.
+
+==========================================
+ABSCHLUSS
+==========================================
+
+Wenn alle technischen Verbesserungen abgeschlossen sind,
+erstelle einen Abschlussbericht.
+
+Der Bericht soll enthalten:
+
+- Welche Dateien geändert wurden
+- Welche Fehler behoben wurden
+- Welche Optimierungen durchgeführt wurden
+- Welche fachlichen Fragen offen sind
+- Welche Verbesserungsvorschläge noch möglich sind
+
+Die Software soll nach Abschluss stabil, professionell, fehlerfrei und bereit für den späteren Onlinebetrieb sowie den Verkauf als SaaS-Abonnement sein.
