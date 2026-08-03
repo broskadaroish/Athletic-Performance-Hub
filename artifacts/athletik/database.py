@@ -441,6 +441,13 @@ def init_db():
             gelesen     INTEGER NOT NULL DEFAULT 0,
             erstellt_am TEXT    NOT NULL DEFAULT (datetime('now'))
         );
+
+        -- ── Lizenz-Ablauf-Warnungen (Deduplizierung) ───────────────────────────
+        CREATE TABLE IF NOT EXISTS lizenz_warn_log (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            verein_id   INTEGER NOT NULL REFERENCES vereine(id) ON DELETE CASCADE,
+            gesendet_am TEXT    NOT NULL DEFAULT (date('now'))
+        );
         """)
     # Migrationen: neue Spalten und Indizes für bestehende Datenbanken nachträglich anlegen
     _migrate_spieler_columns()
@@ -3140,3 +3147,109 @@ def dashboard_trainer_diagnostiken_monat(trainer_id: int) -> int:
             except Exception:
                 pass
     return total
+
+
+# ─── Lizenz-Ablauf-Warnung ────────────────────────────────────────────────────
+
+def lizenz_ablauf_vereine(tage: int = 30) -> list[dict]:
+    """
+    Gibt alle aktiven Vereine zurück, deren Lizenz in ≤ `tage` Tagen abläuft.
+
+    Berücksichtigte Fälle:
+    - lizenz_status = 'active': Ablaufdatum ist lizenz_bis
+    - lizenz_status = 'trial':  Ablaufdatum ist testphase_bis
+
+    Ausgeschlossen: expired, suspended, cancelled (bereits inaktiv oder abgelaufen),
+    gesperrte und deaktivierte Vereine.
+
+    Felder: id, name, lizenz_bis (effektives Ablaufdatum), tage_bis_ablauf
+    """
+    heute = date.today().isoformat()
+    grenze = (date.today() + __import__("datetime").timedelta(days=tage)).isoformat()
+    try:
+        with get_conn() as conn:
+            rows = _rows(conn.execute(
+                """
+                -- Aktive Lizenzen (lizenz_bis)
+                SELECT id, name, lizenz_bis AS ablauf_datum
+                  FROM vereine
+                 WHERE lizenz_status = 'active'
+                   AND lizenz_bis IS NOT NULL
+                   AND lizenz_bis != ''
+                   AND lizenz_bis >= ?
+                   AND lizenz_bis <= ?
+                   AND COALESCE(aktiv, 1) = 1
+                   AND COALESCE(gesperrt, 0) = 0
+
+                UNION ALL
+
+                -- Trial-Lizenzen (testphase_bis)
+                SELECT id, name, testphase_bis AS ablauf_datum
+                  FROM vereine
+                 WHERE lizenz_status = 'trial'
+                   AND testphase_bis IS NOT NULL
+                   AND testphase_bis != ''
+                   AND testphase_bis >= ?
+                   AND testphase_bis <= ?
+                   AND COALESCE(aktiv, 1) = 1
+                   AND COALESCE(gesperrt, 0) = 0
+
+                ORDER BY ablauf_datum ASC
+                """,
+                (heute, grenze, heute, grenze),
+            ).fetchall())
+        today = date.today()
+        result = []
+        for r in rows:
+            try:
+                ablauf = date.fromisoformat(r["ablauf_datum"])
+                r["lizenz_bis"] = r["ablauf_datum"]
+                r["tage_bis_ablauf"] = (ablauf - today).days
+            except Exception:
+                r["lizenz_bis"] = r.get("ablauf_datum", "")
+                r["tage_bis_ablauf"] = 0
+            result.append(r)
+        return result
+    except Exception:
+        return []
+
+
+def superadmin_emails() -> list[str]:
+    """Gibt die E-Mail-Adressen aller aktiven Superadmins zurück."""
+    try:
+        with get_conn() as conn:
+            rows = conn.execute(
+                "SELECT email FROM benutzer "
+                "WHERE rolle='Superadmin' AND aktiv=1",
+            ).fetchall()
+        return [r[0] for r in rows if r[0]]
+    except Exception:
+        return []
+
+
+def lizenz_warn_bereits_gesendet(verein_id: int, tage_fenster: int = 7) -> bool:
+    """True wenn innerhalb der letzten `tage_fenster` Tage bereits eine Warnung gesendet wurde."""
+    try:
+        with get_conn() as conn:
+            row = conn.execute(
+                "SELECT 1 FROM lizenz_warn_log "
+                "WHERE verein_id=? "
+                "  AND gesendet_am >= date('now', ?)",
+                (verein_id, f"-{tage_fenster} days"),
+            ).fetchone()
+        return row is not None
+    except Exception:
+        return False
+
+
+def lizenz_warn_protokollieren(verein_id: int) -> None:
+    """Trägt den heutigen Tag als Warndatum für einen Verein ein."""
+    try:
+        with get_conn() as conn:
+            conn.execute(
+                "INSERT INTO lizenz_warn_log (verein_id, gesendet_am) "
+                "VALUES (?, date('now'))",
+                (verein_id,),
+            )
+    except Exception:
+        pass

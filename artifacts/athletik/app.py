@@ -189,6 +189,13 @@ def _anleitung_download_button(test_id: str) -> None:
 init_db()
 init_training_bibliothek()
 
+# ─── Hintergrund-Scheduler: tägliche Lizenz-Ablauf-Prüfung ───────────────────
+try:
+    from lizenz_scheduler import start_lizenz_scheduler
+    start_lizenz_scheduler()
+except Exception as _sched_err:
+    _log.warning("Lizenz-Scheduler konnte nicht gestartet werden: %s", _sched_err)
+
 # ─── Startup: Zweckbestimmung bestätigen ──────────────────────────────────────
 def _zweck_bestaetigt() -> bool:
     """True wenn die Zweckbestimmung dieser Version bereits bestätigt wurde."""
