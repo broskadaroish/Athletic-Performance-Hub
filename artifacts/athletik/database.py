@@ -9,6 +9,9 @@ from datetime import date, datetime
 
 DB_PATH = "athletik.db"
 
+# Sentinel für optionale Parameter (unterscheidet None von "nicht übergeben")
+_UNSET = object()
+
 
 def _row(r):
     """sqlite3.Row → dict (Streamlit kann Row-Objekte nicht pickling)."""
@@ -834,10 +837,61 @@ def spieler_loeschen(spieler_id):
         conn.execute("DELETE FROM spieler WHERE id=?", (spieler_id,))
 
 
+def spieler_trainer_zuweisen(spieler_id: int, trainer_id, verein_id,
+                             aufrufender_verein_id=None) -> None:
+    """Weist einem Spieler Trainer und Verein zu – mit serverseitiger Validierung.
+
+    Regeln:
+    - trainer_id darf None sein (Trainer entfernen).
+    - Ist trainer_id gesetzt, muss der Benutzer Rolle "Trainer" und aktiv=1 haben.
+    - Sind sowohl trainer_id als auch verein_id gesetzt, muss der Trainer zum
+      angegebenen Verein gehören.
+    - Ist aufrufender_verein_id gesetzt (Vereinsadmin-Kontext), wird verein_id
+      serverseitig auf aufrufender_verein_id erzwungen und darf nicht abweichen.
+
+    Raises:
+        ValueError: Bei ungültiger Kombination.
+    """
+    with get_conn() as conn:
+        # Vereinsadmin: Verein erzwingen
+        if aufrufender_verein_id is not None:
+            verein_id = aufrufender_verein_id
+
+        # Trainer validieren
+        if trainer_id is not None:
+            row = conn.execute(
+                "SELECT id, rolle, aktiv, verein_id FROM benutzer WHERE id=?",
+                (trainer_id,),
+            ).fetchone()
+            if row is None:
+                raise ValueError(f"Benutzer {trainer_id} existiert nicht.")
+            if row["rolle"] != "Trainer":
+                raise ValueError(
+                    f"Benutzer {trainer_id} hat Rolle '{row['rolle']}', nicht 'Trainer'."
+                )
+            if not row["aktiv"]:
+                raise ValueError(f"Trainer {trainer_id} ist deaktiviert.")
+            if verein_id is not None and row["verein_id"] != verein_id:
+                raise ValueError(
+                    f"Trainer {trainer_id} gehört zu Verein {row['verein_id']}, "
+                    f"nicht zu Verein {verein_id}."
+                )
+
+        conn.execute(
+            "UPDATE spieler SET trainer_id=?, verein_id=? WHERE id=?",
+            (trainer_id, verein_id, spieler_id),
+        )
+
+
 def spieler_aktualisieren(spieler_id, vorname, nachname, geburtsdatum, geschlecht,
                           hauptposition, nebenposition, altersklasse,
-                          spielbein, leistungsniveau, mannschaft, trainingsstatus):
-    """Aktualisiert die Stammdaten eines bestehenden Spielers."""
+                          spielbein, leistungsniveau, mannschaft, trainingsstatus,
+                          trainer_id=_UNSET, verein_id=_UNSET):
+    """Aktualisiert die Stammdaten eines bestehenden Spielers.
+
+    trainer_id und verein_id sind optional: wird der Parameter weggelassen (Sentinel),
+    bleibt der bisherige DB-Wert unverändert. Wird None übergeben, wird der Wert auf NULL gesetzt.
+    """
     name = f"{vorname} {nachname}".strip()
     with get_conn() as conn:
         conn.execute(
@@ -851,6 +905,10 @@ def spieler_aktualisieren(spieler_id, vorname, nachname, geburtsdatum, geschlech
              spielbein, leistungsniveau, mannschaft, trainingsstatus,
              spieler_id),
         )
+        if trainer_id is not _UNSET:
+            conn.execute("UPDATE spieler SET trainer_id=? WHERE id=?", (trainer_id, spieler_id))
+        if verein_id is not _UNSET:
+            conn.execute("UPDATE spieler SET verein_id=? WHERE id=?", (verein_id, spieler_id))
 
 
 def db_komplett_zuruecksetzen():

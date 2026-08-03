@@ -34,6 +34,7 @@ from ui_components import (
 from database import (
     init_db,
     spieler_speichern, spieler_laden, spieler_by_id, spieler_loeschen, spieler_aktualisieren,
+    spieler_trainer_zuweisen,
     berechne_alter, altersklasse_vorschlag,
     verletzung_speichern, verletzungen_laden, verletzung_loeschen,
     anthropometrie_speichern, anthropometrie_letzter, anthropometrie_history, anthropometrie_loeschen_letzten,
@@ -1086,6 +1087,50 @@ def _render_inline_edit_form(sp: dict) -> None:
               if sp.get("trainingsstatus") in TRAININGSSTATUS else 0
     _e_ts   = _t2.selectbox("Trainingsstatus", TRAININGSSTATUS, index=_tsi, key=f"il_ts_{_sid}")
 
+    # ── Trainer-Zuweisung (nur Superadmin und Vereinsadmin) ───────────────────
+    _rolle = _akt_user()["rolle"]
+    _new_trainer_id = None  # Sentinel: keine Änderung
+    _new_verein_id  = None
+    _zuweisung_changed = False
+
+    if _rolle in ("Superadmin", "Vereinsadmin"):
+        st.markdown("**🔗 Trainer-Zuweisung**")
+        _za1, _za2 = st.columns(2)
+
+        # Vereine laden
+        _alle_vereine = vereine_laden()
+        if _rolle == "Vereinsadmin":
+            # Vereinsadmin sieht nur seinen eigenen Verein
+            _va_vid = _akt_user()["verein_id"]
+            _alle_vereine = [v for v in _alle_vereine if v["id"] == _va_vid]
+
+        _verein_opts   = ["— kein Verein —"] + [v["name"] for v in _alle_vereine]
+        _verein_ids    = [None] + [v["id"] for v in _alle_vereine]
+        _cur_vid       = sp.get("verein_id")
+        _verein_idx    = _verein_ids.index(_cur_vid) if _cur_vid in _verein_ids else 0
+        _e_verein_name = _za1.selectbox("Verein", _verein_opts, index=_verein_idx, key=f"il_verein_{_sid}")
+        _e_verein_id   = _verein_ids[_verein_opts.index(_e_verein_name)]
+
+        # Trainer laden — gefiltert nach gewähltem Verein (oder alle bei Superadmin ohne Auswahl)
+        _alle_benutzer = benutzer_laden()
+        _trainer_pool  = [b for b in _alle_benutzer if b.get("rolle") == "Trainer"]
+        if _e_verein_id is not None:
+            _trainer_pool = [b for b in _trainer_pool if b.get("verein_id") == _e_verein_id]
+
+        _trainer_opts  = ["— kein Trainer —"] + [
+            f"{b['vorname']} {b['nachname']}".strip() for b in _trainer_pool
+        ]
+        _trainer_ids   = [None] + [b["id"] for b in _trainer_pool]
+        _cur_tid       = sp.get("trainer_id")
+        _trainer_idx   = _trainer_ids.index(_cur_tid) if _cur_tid in _trainer_ids else 0
+        _e_trainer_name = _za2.selectbox("Zuständiger Trainer", _trainer_opts,
+                                          index=_trainer_idx, key=f"il_trainer_{_sid}")
+        _e_trainer_id  = _trainer_ids[_trainer_opts.index(_e_trainer_name)]
+
+        _new_trainer_id    = _e_trainer_id
+        _new_verein_id     = _e_verein_id
+        _zuweisung_changed = True
+
     _ba, _bb = st.columns([3, 1])
     if _ba.button("💾 Speichern", key=f"il_save_{_sid}", type="primary", use_container_width=True):
         if not _e_vn.strip() or not _e_nn.strip():
@@ -1095,6 +1140,10 @@ def _render_inline_edit_form(sp: dict) -> None:
             if not _gok:
                 st.error(f"❌ Ungültiges Geburtsdatum: {_gerr}")
             else:
+                _kwargs = {}
+                if _zuweisung_changed:
+                    _kwargs["trainer_id"] = _new_trainer_id
+                    _kwargs["verein_id"]  = _new_verein_id
                 spieler_aktualisieren(
                     _sid,
                     _e_vn.strip(), _e_nn.strip(), _e_geb.strip(),
@@ -1102,6 +1151,7 @@ def _render_inline_edit_form(sp: dict) -> None:
                     _e_npos if _e_npos != "—" else "",
                     _e_ak, _e_sb, _e_lvl,
                     _e_mann.strip(), _e_ts,
+                    **_kwargs,
                 )
                 st.session_state.pop("inline_edit_id", None)
                 _save_ok(f"**{_e_vn} {_e_nn}** wurde aktualisiert.")
@@ -1307,6 +1357,94 @@ def page_spieler():
                 if _saved:
                     _save_ok(f"{_saved} Spieler aktualisiert.")
                     st.rerun()
+
+        # ── Trainer-Zuweisung (nur Superadmin / Vereinsadmin) ────────────────
+        _rolle = _akt_user()["rolle"]
+        if _rolle in ("Superadmin", "Vereinsadmin") and gefiltert:
+            st.markdown("---")
+            with st.expander("🔗 Trainer-Zuweisung ändern"):
+                st.caption(
+                    "Hier kann der zuständige Trainer und der Verein eines Spielers "
+                    "geändert werden, ohne den Spieler neu anlegen zu müssen."
+                )
+
+                # Spieler-Auswahl (über ID, nicht Name – eindeutig)
+                _za_opts = {f"{p['name']} (ID {p['id']})": p for p in gefiltert}
+                _za_key  = st.selectbox(
+                    "Spieler auswählen",
+                    list(_za_opts.keys()),
+                    key="za_spieler_select",
+                )
+                _za_sp = _za_opts[_za_key]
+
+                # Spieler-ID als Teil aller Widget-Keys → State-Reset bei Spielerwechsel
+                _za_sid = _za_sp["id"]
+                _va_vid = _akt_user()["verein_id"]
+
+                # Vereine laden
+                _za_alle_vereine = vereine_laden()
+                if _rolle == "Vereinsadmin":
+                    # Vereinsadmin ist auf seinen eigenen Verein beschränkt
+                    _za_alle_vereine = [v for v in _za_alle_vereine if v["id"] == _va_vid]
+
+                _za_v_opts = ["— kein Verein —"] + [v["name"] for v in _za_alle_vereine]
+                _za_v_ids  = [None] + [v["id"] for v in _za_alle_vereine]
+                _za_cur_vid = _za_sp.get("verein_id")
+                # Vereinsadmin: Verein auf eigene ID festsetzen (nicht änderbar)
+                if _rolle == "Vereinsadmin":
+                    _za_verein_idx = _za_v_ids.index(_va_vid) if _va_vid in _za_v_ids else 0
+                else:
+                    _za_verein_idx = _za_v_ids.index(_za_cur_vid) if _za_cur_vid in _za_v_ids else 0
+
+                _zac1, _zac2 = st.columns(2)
+                _za_verein_name = _zac1.selectbox(
+                    "Verein",
+                    _za_v_opts,
+                    index=_za_verein_idx,
+                    key=f"za_verein_sel_{_za_sid}",   # spieler-spezifisch!
+                    disabled=(_rolle == "Vereinsadmin"),
+                )
+                _za_sel_vid = _za_v_ids[_za_v_opts.index(_za_verein_name)]
+
+                # Trainer aus dem gewählten Verein
+                _za_alle_benutzer = benutzer_laden()
+                _za_trainer_pool  = [
+                    b for b in _za_alle_benutzer
+                    if b.get("rolle") == "Trainer"
+                    and b.get("aktiv", 1)
+                    and (_za_sel_vid is None or b.get("verein_id") == _za_sel_vid)
+                ]
+                _za_t_opts = ["— kein Trainer —"] + [
+                    f"{b['vorname']} {b['nachname']} (ID {b['id']})".strip()
+                    for b in _za_trainer_pool
+                ]
+                _za_t_ids  = [None] + [b["id"] for b in _za_trainer_pool]
+                _za_cur_tid = _za_sp.get("trainer_id")
+                _za_trainer_idx = _za_t_ids.index(_za_cur_tid) if _za_cur_tid in _za_t_ids else 0
+
+                _za_trainer_name = _zac2.selectbox(
+                    "Zuständiger Trainer",
+                    _za_t_opts,
+                    index=_za_trainer_idx,
+                    key=f"za_trainer_sel_{_za_sid}",  # spieler-spezifisch!
+                )
+                _za_sel_tid = _za_t_ids[_za_t_opts.index(_za_trainer_name)]
+
+                if st.button("💾 Zuweisung speichern", key="za_save_btn", type="primary"):
+                    try:
+                        # aufrufender_verein_id → serverseitige Erzwingung für Vereinsadmin
+                        spieler_trainer_zuweisen(
+                            _za_sid,
+                            trainer_id=_za_sel_tid,
+                            verein_id=_za_sel_vid,
+                            aufrufender_verein_id=_va_vid if _rolle == "Vereinsadmin" else None,
+                        )
+                        _save_ok(
+                            f"**{_za_sp['name']}**: Trainer-Zuweisung wurde aktualisiert."
+                        )
+                        st.rerun()
+                    except ValueError as _za_err:
+                        st.error(f"❌ Zuweisung nicht möglich: {_za_err}")
 
         # ── Spieler löschen ───────────────────────────────────────────────────
         st.markdown("---")
