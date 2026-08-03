@@ -13,7 +13,7 @@ from database import (
     dashboard_letzte_logins,
     dashboard_trainer_letzte_spieler, dashboard_trainer_ohne_test,
     dashboard_trainer_neue_verletzungen, dashboard_trainer_diagnostiken_monat,
-    spieler_laden, verein_by_id,
+    spieler_laden, verein_by_id, spieler_ohne_verein_zaehlen,
     fms_letzter, y_balance_letzter, sprint_letzter, sprung_letzter,
     agilitaet_letzter, ausdauer_letzter, spiro_test_letzter, verletzungen_laden,
 )
@@ -244,6 +244,32 @@ def _dash_superadmin(user: dict):
         unsafe_allow_html=True,
     )
     st.divider()
+
+    # ── Banner: Spieler ohne Vereinszuweisung ─────────────────────────────────
+    _n_ohne_verein = spieler_ohne_verein_zaehlen()
+    if _n_ohne_verein > 0:
+        _spieler_wort = "Spieler" if _n_ohne_verein == 1 else "Spieler"
+        _text = (
+            f"{'1 Spieler ist' if _n_ohne_verein == 1 else f'{_n_ohne_verein} Spieler sind'} "
+            f"noch keinem Verein zugewiesen."
+        )
+        st.markdown(
+            f'<div style="background:#856404;border:1px solid #ffc107;border-radius:8px;'
+            f'padding:12px 18px;margin-bottom:16px;display:flex;align-items:center;gap:12px">'
+            f'<span style="font-size:20px">⚠️</span>'
+            f'<div style="flex:1">'
+            f'<span style="color:#fff5d6;font-weight:600">{_text}</span>'
+            f'<span style="color:#ffeaa7;font-size:13px;margin-left:8px">'
+            f'→ Benutzerverwaltung öffnen und Verein zuweisen.</span>'
+            f'</div>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+        if st.button("🔗 Zur Benutzerverwaltung — Spieler zuweisen",
+                     key="btn_spieler_ohne_verein",
+                     type="secondary"):
+            st.session_state["_nav_goto"] = "🔑  Benutzerverwaltung"
+            st.rerun()
 
     kpis = dashboard_sa_kpis()
 
