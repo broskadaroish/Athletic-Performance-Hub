@@ -1,0 +1,154 @@
+# UPDATE – Trainingsphilosophie und automatische Empfehlung integrieren
+
+## Ziel
+
+Erweitere die Bruce Football Performance Platform um ein Modul "Trainingsphilosophie".
+
+Die Trainingsphilosophie beeinflusst automatisch:
+
+- Übungsauswahl
+- Belastungsnormative
+- Trainingsmethoden
+- Trainingsintensität
+- Trainingsumfang
+- Trainingshäufigkeit
+- Progression
+- Regeneration
+- Priorisierung der Trainingsziele
+
+Alle bisherigen Funktionen müssen vollständig erhalten bleiben.
+
+--------------------------------------------------
+
+## 1. Automatische Empfehlung
+
+Nach Abschluss der Diagnostik soll die Software automatisch eine geeignete Trainingsphilosophie empfehlen.
+
+Die Empfehlung basiert auf:
+
+- Alter
+- Leistungsniveau
+- Position
+- Trainingsalter
+- Verletzungshistorie
+- Athletik-Score
+- FMS
+- Y-Balance
+- Sprint
+- Ausdauer
+- Saisonphase
+- Trainingshäufigkeit
+- Trainingsziel
+
+Der Trainer kann die Empfehlung übernehmen oder manuell ändern.
+
+--------------------------------------------------
+
+## 2. Verfügbare Trainingsphilosophien
+
+Mindestens folgende Philosophien unterstützen:
+
+- Kinderfußball (U8–U11)
+- Grundlagenbereich (U12–U13)
+- Aufbaubereich (U14–U16)
+- Leistungsbereich (U17–U19)
+- Amateurfußball
+- Leistungszentrum (NLZ)
+- Profifußball
+- Return-to-Play
+- Prävention
+- Leistungserhaltung
+- Leistungssteigerung
+
+Die Architektur muss zukünftige Trainingsphilosophien ohne Programmänderungen unterstützen.
+
+--------------------------------------------------
+
+## 3. Automatische Anpassungen
+
+Je nach gewählter Trainingsphilosophie sollen automatisch angepasst werden:
+
+### Belastungsnormative
+
+- Intensität
+- Belastungsdauer
+- Belastungsumfang
+- Belastungsdichte
+- Belastungshäufigkeit
+- Satzanzahl
+- Wiederholungen
+- Pausen
+
+### Trainingsmethoden
+
+- Maximalkraft
+- Schnellkraft
+- Explosivkraft
+- Kraftausdauer
+- Mobilität
+- Stabilität
+- Koordination
+- Sprinttraining
+- Plyometrie
+- Ausdauertraining
+
+### Energiesysteme
+
+- ATP-KP-System
+- Anaerob-laktazid
+- Aerob
+
+### Progression
+
+- langsam
+- moderat
+- leistungsorientiert
+
+--------------------------------------------------
+
+## 4. Automatische Erklärung
+
+Die Software soll erklären, warum diese Trainingsphilosophie empfohlen wurde.
+
+Beispiel:
+
+"Empfohlen wurde 'Leistungsbereich U17–U19', da Alter, Leistungsstand, Diagnostik und Trainingsziel optimal zu dieser Trainingsphilosophie passen."
+
+--------------------------------------------------
+
+## 5. Trainerentscheidung
+
+Der Trainer kann:
+
+- Empfehlung übernehmen
+- Andere Trainingsphilosophie auswählen
+- Eigene Trainingsphilosophie erstellen (optional für spätere Version)
+
+Alle Änderungen werden dokumentiert.
+
+--------------------------------------------------
+
+## 6. Integration
+
+Die Trainingsphilosophie muss von folgenden Modulen automatisch berücksichtigt werden:
+
+- Regel-Engine
+- Trainingsgenerator
+- Belastungssteuerung
+- Übungsdatenbank
+- Progression
+- Trainingsplan
+- PDF-Berichte
+- KI-Analyse
+
+--------------------------------------------------
+
+## Abschlussbedingungen
+
+Die Erweiterung gilt als erfolgreich, wenn:
+
+- Die Software automatisch eine passende Trainingsphilosophie empfiehlt.
+- Der Trainer diese übernehmen oder ändern kann.
+- Alle Trainingspläne automatisch an die gewählte Trainingsphilosophie angepasst werden.
+- Die Empfehlung nachvollziehbar begründet wird.
+- Alle bisherigen Funktionen vollständig erhalten bleiben.
