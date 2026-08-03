@@ -17,6 +17,8 @@ import { useColors } from '@/hooks/useColors';
 import { useMobileSubmitFms } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { getMobileGetPlayerQueryKey, getMobileGetPlayersQueryKey } from '@workspace/api-client-react';
+import { useOfflineQueue, isNetworkError } from '@/contexts/OfflineQueueContext';
+import { OfflineBanner } from '@/components/OfflineBanner';
 
 type FmsValues = {
   deep_squat: number;
@@ -71,30 +73,45 @@ function computeScore(v: FmsValues): number {
     Math.min(v.rotary_l, v.rotary_r);
 }
 
+type SavedState = { score: number; athletikScore: number | null; isOffline: boolean };
+
 export default function FmsScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { playerId, playerName } = useLocalSearchParams<{ playerId: string; playerName: string }>();
   const id = parseInt(playerId ?? '0', 10);
   const queryClient = useQueryClient();
+  const { enqueue } = useOfflineQueue();
 
   const [values, setValues] = useState<FmsValues>({
     deep_squat: 0, hurdle_l: 0, hurdle_r: 0, inline_l: 0, inline_r: 0,
     shoulder_l: 0, shoulder_r: 0, aslr_l: 0, aslr_r: 0, trunk: 0, rotary_l: 0, rotary_r: 0,
   });
-  const [saved, setSaved] = useState<{ score: number; athletikScore: number | null } | null>(null);
+  const [saved, setSaved] = useState<SavedState | null>(null);
 
   const { mutate, isPending } = useMobileSubmitFms({
     mutation: {
       onSuccess: (data) => {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        setSaved({ score: data.sub_score ?? 0, athletikScore: data.score ?? null });
+        setSaved({ score: data.sub_score ?? 0, athletikScore: data.score ?? null, isOffline: false });
         queryClient.invalidateQueries({ queryKey: getMobileGetPlayersQueryKey() });
         if (id) queryClient.invalidateQueries({ queryKey: getMobileGetPlayerQueryKey(id) });
       },
-      onError: () => {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-        Alert.alert('Fehler', 'Test konnte nicht gespeichert werden.');
+      onError: (err, variables) => {
+        if (isNetworkError(err)) {
+          // Save locally and show offline success
+          enqueue({
+            type: 'fms',
+            playerId: variables.playerId,
+            playerName: playerName ?? '',
+            data: variables.data,
+          });
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          setSaved({ score: computeScore(values), athletikScore: null, isOffline: true });
+        } else {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+          Alert.alert('Fehler', 'Test konnte nicht gespeichert werden.');
+        }
       },
     },
   });
@@ -112,10 +129,21 @@ export default function FmsScreen() {
     return (
       <View style={[s.root, { backgroundColor: colors.background, paddingTop: topPad + 60 }]}>
         <View style={s.successWrap}>
-          <View style={[s.successIcon, { backgroundColor: colors.primary + '20' }]}>
-            <Feather name="check-circle" size={40} color={colors.primary} />
+          <View style={[s.successIcon, { backgroundColor: (saved.isOffline ? '#F59E0B' : colors.primary) + '20' }]}>
+            <Feather
+              name={saved.isOffline ? 'wifi-off' : 'check-circle'}
+              size={40}
+              color={saved.isOffline ? '#F59E0B' : colors.primary}
+            />
           </View>
-          <Text style={[s.successTitle, { color: colors.foreground }]}>FMS gespeichert!</Text>
+          <Text style={[s.successTitle, { color: colors.foreground }]}>
+            {saved.isOffline ? 'Offline gespeichert' : 'FMS gespeichert!'}
+          </Text>
+          {saved.isOffline && (
+            <Text style={[s.offlineHint, { color: colors.mutedForeground }]}>
+              Wird automatisch synchronisiert sobald Netz verfügbar ist.
+            </Text>
+          )}
           <View style={s.successScores}>
             <View style={[s.scorePill, { backgroundColor: scoreColor + '18' }]}>
               <Text style={[s.scorePillVal, { color: scoreColor }]}>{saved.score}</Text>
@@ -199,6 +227,7 @@ export default function FmsScreen() {
 
       {/* Save button */}
       <View style={[s.footer, { paddingBottom: insets.bottom + 16 + (Platform.OS === 'web' ? 34 : 0), backgroundColor: colors.background, borderTopColor: colors.border }]}>
+        <OfflineBanner />
         <Pressable
           style={({ pressed }) => [s.saveBtn, { backgroundColor: colors.primary, opacity: isPending || !id ? 0.6 : pressed ? 0.85 : 1 }]}
           disabled={isPending || !id}
@@ -227,12 +256,13 @@ const s = StyleSheet.create({
   side: { gap: 6 },
   sideLabel: { fontSize: 11, fontFamily: 'Inter_500Medium', letterSpacing: 0.5 },
   btnRow: { flexDirection: 'row', gap: 8 },
-  footer: { paddingHorizontal: 16, paddingTop: 12, borderTopWidth: 1 },
+  footer: { paddingHorizontal: 16, paddingTop: 12, borderTopWidth: 1, gap: 8 },
   saveBtn: { borderRadius: 12, paddingVertical: 16, alignItems: 'center' },
   saveBtnText: { fontSize: 16, fontFamily: 'Inter_600SemiBold' },
   successWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32, gap: 16 },
   successIcon: { width: 80, height: 80, borderRadius: 40, alignItems: 'center', justifyContent: 'center' },
   successTitle: { fontSize: 22, fontFamily: 'Inter_700Bold' },
+  offlineHint: { fontSize: 13, fontFamily: 'Inter_400Regular', textAlign: 'center', lineHeight: 20 },
   successScores: { flexDirection: 'row', gap: 12 },
   scorePill: { paddingHorizontal: 20, paddingVertical: 12, borderRadius: 12, alignItems: 'center' },
   scorePillVal: { fontSize: 28, fontFamily: 'Inter_700Bold' },

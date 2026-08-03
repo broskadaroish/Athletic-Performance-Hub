@@ -17,6 +17,8 @@ import { useColors } from '@/hooks/useColors';
 import { useMobileSubmitSprint, getMobileGetPlayerQueryKey, getMobileGetPlayersQueryKey } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { KeyboardAwareScrollViewCompat } from '@/components/KeyboardAwareScrollViewCompat';
+import { useOfflineQueue, isNetworkError } from '@/contexts/OfflineQueueContext';
+import { OfflineBanner } from '@/components/OfflineBanner';
 
 function RatingBadge({ time, threshold }: { time: number | null; threshold: [number, number, number, number] }) {
   const colors = useColors();
@@ -30,28 +32,42 @@ function RatingBadge({ time, threshold }: { time: number | null; threshold: [num
 }
 const rb = StyleSheet.create({ tag: { fontSize: 12, fontFamily: 'Inter_600SemiBold', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 } });
 
+type SavedState = { score: number | null; msg: string; isOffline: boolean };
+
 export default function SprintScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { playerId, playerName } = useLocalSearchParams<{ playerId: string; playerName: string }>();
   const id = parseInt(playerId ?? '0', 10);
   const queryClient = useQueryClient();
+  const { enqueue } = useOfflineQueue();
 
   const [t10, setT10] = useState('');
   const [t30, setT30] = useState('');
-  const [saved, setSaved] = useState<{ score: number | null; msg: string } | null>(null);
+  const [saved, setSaved] = useState<SavedState | null>(null);
 
   const { mutate, isPending } = useMobileSubmitSprint({
     mutation: {
       onSuccess: (data) => {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        setSaved({ score: data.score ?? null, msg: data.message });
+        setSaved({ score: data.score ?? null, msg: data.message, isOffline: false });
         queryClient.invalidateQueries({ queryKey: getMobileGetPlayersQueryKey() });
         if (id) queryClient.invalidateQueries({ queryKey: getMobileGetPlayerQueryKey(id) });
       },
-      onError: () => {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-        Alert.alert('Fehler', 'Test konnte nicht gespeichert werden.');
+      onError: (err, variables) => {
+        if (isNetworkError(err)) {
+          enqueue({
+            type: 'sprint',
+            playerId: variables.playerId,
+            playerName: playerName ?? '',
+            data: variables.data,
+          });
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          setSaved({ score: null, msg: '', isOffline: true });
+        } else {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+          Alert.alert('Fehler', 'Test konnte nicht gespeichert werden.');
+        }
       },
     },
   });
@@ -65,11 +81,23 @@ export default function SprintScreen() {
     return (
       <View style={[s.root, { backgroundColor: colors.background, paddingTop: topPad + 60 }]}>
         <View style={s.successWrap}>
-          <View style={[s.successIcon, { backgroundColor: colors.primary + '20' }]}>
-            <Feather name="check-circle" size={40} color={colors.primary} />
+          <View style={[s.successIcon, { backgroundColor: (saved.isOffline ? '#F59E0B' : colors.primary) + '20' }]}>
+            <Feather
+              name={saved.isOffline ? 'wifi-off' : 'check-circle'}
+              size={40}
+              color={saved.isOffline ? '#F59E0B' : colors.primary}
+            />
           </View>
-          <Text style={[s.successTitle, { color: colors.foreground }]}>Sprint gespeichert!</Text>
-          <Text style={[s.successMsg, { color: colors.mutedForeground }]}>{saved.msg}</Text>
+          <Text style={[s.successTitle, { color: colors.foreground }]}>
+            {saved.isOffline ? 'Offline gespeichert' : 'Sprint gespeichert!'}
+          </Text>
+          {saved.isOffline ? (
+            <Text style={[s.successMsg, { color: colors.mutedForeground }]}>
+              Wird automatisch synchronisiert sobald Netz verfügbar ist.
+            </Text>
+          ) : (
+            <Text style={[s.successMsg, { color: colors.mutedForeground }]}>{saved.msg}</Text>
+          )}
           {saved.score != null && (
             <View style={[s.scorePill, { backgroundColor: colors.primary + '18' }]}>
               <Text style={[s.scorePillVal, { color: colors.primary }]}>{saved.score}</Text>
@@ -161,6 +189,7 @@ export default function SprintScreen() {
       </KeyboardAwareScrollViewCompat>
 
       <View style={[s.footer, { paddingBottom: insets.bottom + 16 + (Platform.OS === 'web' ? 34 : 0), backgroundColor: colors.background, borderTopColor: colors.border }]}>
+        <OfflineBanner />
         <Pressable
           style={({ pressed }) => [s.saveBtn, { backgroundColor: colors.primary, opacity: isPending || !valid || !id ? 0.5 : pressed ? 0.85 : 1 }]}
           disabled={isPending || !valid || !id}
@@ -191,7 +220,7 @@ const s = StyleSheet.create({
   unit: { paddingHorizontal: 14, fontSize: 16, fontFamily: 'Inter_400Regular' },
   hint: { flexDirection: 'row', gap: 8, padding: 12, borderRadius: 10, alignItems: 'flex-start' },
   hintText: { flex: 1, fontSize: 12, fontFamily: 'Inter_400Regular', lineHeight: 18 },
-  footer: { paddingHorizontal: 16, paddingTop: 12, borderTopWidth: 1 },
+  footer: { paddingHorizontal: 16, paddingTop: 12, borderTopWidth: 1, gap: 8 },
   saveBtn: { borderRadius: 12, paddingVertical: 16, alignItems: 'center' },
   saveBtnText: { fontSize: 16, fontFamily: 'Inter_600SemiBold' },
   successWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32, gap: 16 },

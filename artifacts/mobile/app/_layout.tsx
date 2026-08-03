@@ -15,6 +15,7 @@ import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { setBaseUrl } from '@workspace/api-client-react';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
+import { OfflineQueueProvider } from '@/contexts/OfflineQueueContext';
 import { useColorScheme } from 'react-native';
 import { SystemUI } from 'expo-system-ui';
 import { usePushNotificationRegistration } from '@/hooks/usePushNotifications';
@@ -106,12 +107,14 @@ export default function RootLayout() {
       <ErrorBoundary>
         <QueryClientProvider client={queryClient}>
           <AuthProvider>
-            <PushRegistrar />
-            <GestureHandlerRootView style={{ flex: 1 }}>
-              <KeyboardProvider>
-                <RootLayoutNav />
-              </KeyboardProvider>
-            </GestureHandlerRootView>
+            <OfflineQueueProvider>
+              <PushRegistrar />
+              <GestureHandlerRootView style={{ flex: 1 }}>
+                <KeyboardProvider>
+                  <RootLayoutNav />
+                </KeyboardProvider>
+              </GestureHandlerRootView>
+            </OfflineQueueProvider>
           </AuthProvider>
         </QueryClientProvider>
       </ErrorBoundary>

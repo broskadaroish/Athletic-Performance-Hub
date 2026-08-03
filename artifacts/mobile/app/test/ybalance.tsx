@@ -17,9 +17,10 @@ import { useColors } from '@/hooks/useColors';
 import { useMobileSubmitYbalance, getMobileGetPlayerQueryKey, getMobileGetPlayersQueryKey } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { KeyboardAwareScrollViewCompat } from '@/components/KeyboardAwareScrollViewCompat';
+import { useOfflineQueue, isNetworkError } from '@/contexts/OfflineQueueContext';
+import { OfflineBanner } from '@/components/OfflineBanner';
 
 type Direction = 'ant' | 'pm' | 'pl';
-type Side = 'r' | 'l';
 
 const DIRECTIONS: Array<{ key: Direction; label: string; full: string }> = [
   { key: 'ant', label: 'ANT', full: 'Anterior' },
@@ -94,30 +95,44 @@ const ai = StyleSheet.create({
   text: { fontSize: 13, fontFamily: 'Inter_500Medium' },
 });
 
+type SavedState = { score: number | null; sub: number | null; msg: string; isOffline: boolean };
+
 export default function YbalanceScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { playerId, playerName } = useLocalSearchParams<{ playerId: string; playerName: string }>();
   const id = parseInt(playerId ?? '0', 10);
   const queryClient = useQueryClient();
+  const { enqueue } = useOfflineQueue();
 
   const [fields, setFields] = useState<Record<string, string>>({
     ant_r: '', ant_l: '', pm_r: '', pm_l: '', pl_r: '', pl_l: '',
     leg_r: '', leg_l: '',
   });
-  const [saved, setSaved] = useState<{ score: number | null; sub: number | null; msg: string } | null>(null);
+  const [saved, setSaved] = useState<SavedState | null>(null);
 
   const { mutate, isPending } = useMobileSubmitYbalance({
     mutation: {
       onSuccess: (data) => {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        setSaved({ score: data.score ?? null, sub: data.sub_score ?? null, msg: data.message });
+        setSaved({ score: data.score ?? null, sub: data.sub_score ?? null, msg: data.message, isOffline: false });
         queryClient.invalidateQueries({ queryKey: getMobileGetPlayersQueryKey() });
         if (id) queryClient.invalidateQueries({ queryKey: getMobileGetPlayerQueryKey(id) });
       },
-      onError: () => {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-        Alert.alert('Fehler', 'Test konnte nicht gespeichert werden.');
+      onError: (err, variables) => {
+        if (isNetworkError(err)) {
+          enqueue({
+            type: 'ybalance',
+            playerId: variables.playerId,
+            playerName: playerName ?? '',
+            data: variables.data,
+          });
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          setSaved({ score: null, sub: null, msg: '', isOffline: true });
+        } else {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+          Alert.alert('Fehler', 'Test konnte nicht gespeichert werden.');
+        }
       },
     },
   });
@@ -141,11 +156,23 @@ export default function YbalanceScreen() {
     return (
       <View style={[s.root, { backgroundColor: colors.background, paddingTop: topPad + 60 }]}>
         <View style={s.successWrap}>
-          <View style={[s.successIcon, { backgroundColor: colors.primary + '20' }]}>
-            <Feather name="check-circle" size={40} color={colors.primary} />
+          <View style={[s.successIcon, { backgroundColor: (saved.isOffline ? '#F59E0B' : colors.primary) + '20' }]}>
+            <Feather
+              name={saved.isOffline ? 'wifi-off' : 'check-circle'}
+              size={40}
+              color={saved.isOffline ? '#F59E0B' : colors.primary}
+            />
           </View>
-          <Text style={[s.successTitle, { color: colors.foreground }]}>Y-Balance gespeichert!</Text>
-          <Text style={[s.successMsg, { color: colors.mutedForeground }]}>{saved.msg}</Text>
+          <Text style={[s.successTitle, { color: colors.foreground }]}>
+            {saved.isOffline ? 'Offline gespeichert' : 'Y-Balance gespeichert!'}
+          </Text>
+          {saved.isOffline ? (
+            <Text style={[s.successMsg, { color: colors.mutedForeground }]}>
+              Wird automatisch synchronisiert sobald Netz verfügbar ist.
+            </Text>
+          ) : (
+            <Text style={[s.successMsg, { color: colors.mutedForeground }]}>{saved.msg}</Text>
+          )}
           {saved.score != null && (
             <View style={[s.scorePill, { backgroundColor: colors.primary + '18' }]}>
               <Text style={[s.scorePillVal, { color: colors.primary }]}>{saved.score}</Text>
@@ -235,6 +262,7 @@ export default function YbalanceScreen() {
       </KeyboardAwareScrollViewCompat>
 
       <View style={[s.footer, { paddingBottom: insets.bottom + 16 + (Platform.OS === 'web' ? 34 : 0), backgroundColor: colors.background, borderTopColor: colors.border }]}>
+        <OfflineBanner />
         <Pressable
           style={({ pressed }) => [s.saveBtn, { backgroundColor: colors.primary, opacity: isPending || !valid || !id ? 0.5 : pressed ? 0.85 : 1 }]}
           disabled={isPending || !valid || !id}
@@ -277,7 +305,7 @@ const s = StyleSheet.create({
   compVal: { fontSize: 22, fontFamily: 'Inter_700Bold' },
   compLabel: { fontSize: 11, fontFamily: 'Inter_400Regular' },
   hintText: { fontSize: 11, fontFamily: 'Inter_400Regular' },
-  footer: { paddingHorizontal: 16, paddingTop: 12, borderTopWidth: 1 },
+  footer: { paddingHorizontal: 16, paddingTop: 12, borderTopWidth: 1, gap: 8 },
   saveBtn: { borderRadius: 12, paddingVertical: 16, alignItems: 'center' },
   saveBtnText: { fontSize: 16, fontFamily: 'Inter_600SemiBold' },
   successWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32, gap: 16 },
