@@ -329,68 +329,55 @@ if "user" not in st.session_state:
             with _trainer_tab:
                 st.markdown(
                     '<p style="color:#8b949e;font-size:12px;margin-bottom:12px">'
-                    "Wähle deinen Verein aus und registriere dich als Trainer. "
-                    "Dein Vereinsadmin schaltet dein Konto danach frei.</p>",
+                    "Registriere dich als Trainer. Ein Administrator schaltet dein Konto frei "
+                    "und weist dir deinen Verein zu.</p>",
                     unsafe_allow_html=True,
                 )
-                # Vereinsliste laden
-                from database import vereine_laden as _vl
-                _alle_vereine = [v for v in _vl() if v.get("aktiv", 1)]
-                _verein_optionen = {v["name"]: v["id"] for v in _alle_vereine}
-                if not _verein_optionen:
-                    st.info("Noch kein Verein registriert. Bitte zuerst einen Verein anlegen.")
-                else:
-                    _t_verein_name = st.selectbox(
-                        "Verein auswählen",
-                        options=list(_verein_optionen.keys()),
-                        key="trainer_verein",
-                    )
-                    _t_vor, _t_nach = st.columns(2)
-                    with _t_vor:
-                        _t_vorname = st.text_input("Vorname", key="trainer_vorname")
-                    with _t_nach:
-                        _t_nachname = st.text_input("Nachname", key="trainer_nachname")
-                    _t_email = st.text_input(
-                        "E-Mail", key="trainer_email", placeholder="trainer@verein.de"
-                    )
-                    _t_pw1 = st.text_input("Passwort", key="trainer_pw1", type="password")
-                    _t_pw2 = st.text_input(
-                        "Passwort bestätigen", key="trainer_pw2", type="password"
-                    )
-                    if st.button(
-                        "👤 Als Trainer registrieren",
-                        type="primary",
-                        use_container_width=True,
-                        key="trainer_reg_btn",
-                    ):
-                        _t_ok = True
-                        if not _t_vorname.strip() or not _t_nachname.strip():
-                            st.error("Bitte gib Vor- und Nachname ein."); _t_ok = False
-                        elif not _t_email.strip() or "@" not in _t_email:
-                            st.error("Bitte gib eine gültige E-Mail-Adresse ein."); _t_ok = False
-                        elif len(_t_pw1) < 6:
-                            st.error("Das Passwort muss mindestens 6 Zeichen lang sein."); _t_ok = False
-                        elif _t_pw1 != _t_pw2:
-                            st.error("Die Passwörter stimmen nicht überein."); _t_ok = False
-                        if _t_ok:
-                            try:
-                                from database import trainer_registrieren
-                                trainer_registrieren(
-                                    _verein_optionen[_t_verein_name],
-                                    _t_vorname.strip(),
-                                    _t_nachname.strip(),
-                                    _t_email.strip(),
-                                    _t_pw1,
-                                )
-                                st.success(
-                                    "✅ Registrierung erfolgreich! "
-                                    "Dein Vereinsadmin muss dein Konto noch freischalten — "
-                                    "danach kannst du dich anmelden."
-                                )
-                            except ValueError as _ve:
-                                st.error(str(_ve))
-                            except Exception as _ex:
-                                st.error(f"Fehler bei der Registrierung: {_ex}")
+                _t_vor, _t_nach = st.columns(2)
+                with _t_vor:
+                    _t_vorname = st.text_input("Vorname", key="trainer_vorname")
+                with _t_nach:
+                    _t_nachname = st.text_input("Nachname", key="trainer_nachname")
+                _t_email = st.text_input(
+                    "E-Mail", key="trainer_email", placeholder="trainer@verein.de"
+                )
+                _t_pw1 = st.text_input("Passwort", key="trainer_pw1", type="password")
+                _t_pw2 = st.text_input(
+                    "Passwort bestätigen", key="trainer_pw2", type="password"
+                )
+                if st.button(
+                    "👤 Als Trainer registrieren",
+                    type="primary",
+                    use_container_width=True,
+                    key="trainer_reg_btn",
+                ):
+                    _t_ok = True
+                    if not _t_vorname.strip() or not _t_nachname.strip():
+                        st.error("Bitte gib Vor- und Nachname ein."); _t_ok = False
+                    elif not _t_email.strip() or "@" not in _t_email:
+                        st.error("Bitte gib eine gültige E-Mail-Adresse ein."); _t_ok = False
+                    elif len(_t_pw1) < 6:
+                        st.error("Das Passwort muss mindestens 6 Zeichen lang sein."); _t_ok = False
+                    elif _t_pw1 != _t_pw2:
+                        st.error("Die Passwörter stimmen nicht überein."); _t_ok = False
+                    if _t_ok:
+                        try:
+                            from database import trainer_registrieren
+                            trainer_registrieren(
+                                _t_vorname.strip(),
+                                _t_nachname.strip(),
+                                _t_email.strip(),
+                                _t_pw1,
+                            )
+                            st.success(
+                                "✅ Registrierung erfolgreich! "
+                                "Ein Administrator schaltet dein Konto frei — "
+                                "danach kannst du dich anmelden."
+                            )
+                        except ValueError as _ve:
+                            st.error(str(_ve))
+                        except Exception as _ex:
+                            st.error(f"Fehler bei der Registrierung: {_ex}")
     st.stop()
 
 # ─── Session-Timeout: inaktive Sitzungen automatisch abmelden ────────────────

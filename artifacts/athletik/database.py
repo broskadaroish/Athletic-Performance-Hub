@@ -2558,21 +2558,15 @@ def benutzer_by_id(benutzer_id: int) -> dict | None:
 
 
 def trainer_registrieren(
-    verein_id: int,
     vorname: str,
     nachname: str,
     email: str,
     passwort: str,
 ) -> int:
-    """Trainer-Selbstregistrierung über Vereinsauswahl.
-    Gibt benutzer_id zurück. Wirft ValueError bei ungültigem Verein / doppelter E-Mail.
-    Der Trainer startet als inaktiv=0 (muss vom Vereinsadmin freigeschaltet werden)."""
+    """Trainer-Selbstregistrierung ohne Vereinszuordnung.
+    Der Trainer startet als inaktiv=0 — ein Admin schaltet das Konto frei
+    und weist es einem Verein zu."""
     with get_conn() as conn:
-        row = conn.execute(
-            "SELECT id FROM vereine WHERE id=? AND aktiv=1", (verein_id,)
-        ).fetchone()
-        if not row:
-            raise ValueError("Ungültiger Verein. Bitte wähle deinen Verein aus der Liste.")
         existing = conn.execute(
             "SELECT id FROM benutzer WHERE LOWER(email)=LOWER(?)", (email,)
         ).fetchone()
@@ -2581,8 +2575,8 @@ def trainer_registrieren(
         cur = conn.execute(
             """INSERT INTO benutzer
                    (verein_id, vorname, nachname, email, passwort_hash, rolle, aktiv)
-               VALUES (?, ?, ?, ?, ?, 'Trainer', 0)""",
-            (verein_id, vorname, nachname, email, _pw_hash(passwort)),
+               VALUES (NULL, ?, ?, ?, ?, 'Trainer', 0)""",
+            (vorname, nachname, email, _pw_hash(passwort)),
         )
         return cur.lastrowid
 
