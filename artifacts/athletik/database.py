@@ -1694,6 +1694,18 @@ def _migrate_multitenant():
                 conn.execute(f"ALTER TABLE vereine ADD COLUMN {col} {typ}")
             except Exception:
                 pass
+        # benutzer: Trainerportal-Felder
+        neue_benutzer_cols = [
+            ("foto_blob",     "BLOB"),
+            ("telefon",       "TEXT"),
+            ("lizenz",        "TEXT"),
+            ("letzter_login", "TEXT"),
+        ]
+        for col, typ in neue_benutzer_cols:
+            try:
+                conn.execute(f"ALTER TABLE benutzer ADD COLUMN {col} {typ}")
+            except Exception:
+                pass
 
     # Auto-Zuweisung: Falls bereits ein Verein existiert und ein Superadmin,
     # der zu genau diesem Verein gehört, NULL-Spieler sofort zuweisen
@@ -1946,3 +1958,77 @@ def benutzer_passwort(benutzer_id: int, neues_passwort: str) -> None:
             "UPDATE benutzer SET passwort_hash=? WHERE id=?",
             (_pw_hash(neues_passwort), benutzer_id)
         )
+
+
+# ==========================================================================
+# Benutzer — Trainerportal-Erweiterungen
+# ==========================================================================
+
+def benutzer_foto_speichern(benutzer_id: int, foto_bytes: bytes | None) -> None:
+    with get_conn() as conn:
+        conn.execute(
+            "UPDATE benutzer SET foto_blob=? WHERE id=?",
+            (foto_bytes, benutzer_id),
+        )
+
+
+def benutzer_letzter_login_aktualisieren(benutzer_id: int) -> None:
+    from datetime import datetime as _dt2
+    with get_conn() as conn:
+        conn.execute(
+            "UPDATE benutzer SET letzter_login=? WHERE id=?",
+            (_dt2.now().strftime("%Y-%m-%d %H:%M"), benutzer_id),
+        )
+
+
+def benutzer_profil_aktualisieren(
+    benutzer_id: int,
+    vorname: str, nachname: str, email: str,
+    telefon: str | None = None,
+    lizenz: str | None = None,
+) -> None:
+    with get_conn() as conn:
+        conn.execute("""
+            UPDATE benutzer
+            SET vorname=?, nachname=?, email=?, telefon=?, lizenz=?
+            WHERE id=?
+        """, (vorname, nachname, email, telefon, lizenz, benutzer_id))
+
+
+def trainer_statistiken(benutzer_id: int) -> dict:
+    """Zählt Spieler und Diagnostiken für einen Trainer."""
+    _DIAG_TBLS = [
+        "sprint_test", "sprung_test", "anthropometrie", "fms_ergebnis",
+        "y_balance_ergebnis", "ausdauer_test", "kraft_test",
+        "agilitaet_test", "spiro_test",
+    ]
+    with get_conn() as conn:
+        spieler_n = conn.execute(
+            "SELECT COUNT(*) FROM spieler WHERE trainer_id=?", (benutzer_id,)
+        ).fetchone()[0]
+        diag_n = 0
+        for tbl in _DIAG_TBLS:
+            try:
+                diag_n += conn.execute(
+                    f"SELECT COUNT(*) FROM {tbl} "
+                    f"WHERE spieler_id IN (SELECT id FROM spieler WHERE trainer_id=?)",
+                    (benutzer_id,),
+                ).fetchone()[0]
+            except Exception:
+                pass
+        return {"spieler": spieler_n, "diagnostiken": diag_n}
+
+
+def benutzer_loeschen(benutzer_id: int) -> tuple[bool, str]:
+    """Löscht einen Benutzer — nur wenn keine Spieler zugeordnet sind."""
+    with get_conn() as conn:
+        spieler_n = conn.execute(
+            "SELECT COUNT(*) FROM spieler WHERE trainer_id=?", (benutzer_id,)
+        ).fetchone()[0]
+        if spieler_n > 0:
+            return False, (
+                f"Trainer hat noch {spieler_n} Spieler. "
+                "Bitte zuerst alle Spieler einem anderen Trainer zuweisen."
+            )
+        conn.execute("DELETE FROM benutzer WHERE id=?", (benutzer_id,))
+        return True, ""

@@ -32,4 +32,12 @@ def login(email: str, passwort: str) -> dict | None:
         return None
     if user["passwort_hash"] != hash_password(passwort):
         return None
+
+    # Letzten Login-Zeitstempel aktualisieren
+    try:
+        from database import benutzer_letzter_login_aktualisieren
+        benutzer_letzter_login_aktualisieren(user["id"])
+    except Exception:
+        pass
+
     return dict(user)

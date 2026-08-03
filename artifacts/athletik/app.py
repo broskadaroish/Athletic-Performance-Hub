@@ -57,7 +57,8 @@ from database import (
     spiro_nachbelastung_speichern, spiro_nachbelastung_laden,
     spiro_test_loeschen,
     benutzer_laden, benutzer_speichern, benutzer_aktivieren,
-    benutzer_passwort, benutzer_aktualisieren,
+    benutzer_passwort, benutzer_aktualisieren, benutzer_profil_aktualisieren,
+    benutzer_foto_speichern, trainer_statistiken, benutzer_loeschen,
     vereine_laden, verein_speichern, verein_aktivieren,
     verein_by_id, verein_aktualisieren, verein_logo_speichern, verein_statistiken,
     spieler_null_zuweisen, spieler_ohne_verein_zaehlen,
@@ -65,6 +66,7 @@ from database import (
 from auth import login
 from modules.benutzerverwaltung import page_benutzerverwaltung
 from modules.vereine import page_vereine
+from modules.trainerportal import page_trainerportal, page_mein_profil
 from testprotokoll_pdf import (
     generate_testprotokoll, TEST_NAMEN, TEST_REIHENFOLGE,
 )
@@ -7577,12 +7579,13 @@ _MAIN_SECTIONS = [
     "👥  Mannschaft",
     "📄  Dokumente",
     "⚙️  Einstellungen",
+    "👤  Mein Profil",
     "ℹ️  Über",
 ]
 # Rollen-basierte Admin-Sektionen
 _user_rolle_nav = st.session_state.get("user", {}).get("rolle", "Trainer")
 if _user_rolle_nav in ("Superadmin", "Vereinsadmin"):
-    _MAIN_SECTIONS = _MAIN_SECTIONS + ["🔑  Benutzerverwaltung"]
+    _MAIN_SECTIONS = _MAIN_SECTIONS + ["🧑‍💼  Trainerportal", "🔑  Benutzerverwaltung"]
 if _user_rolle_nav == "Superadmin":
     _MAIN_SECTIONS = _MAIN_SECTIONS + ["🏢  Vereinsverwaltung"]
 
@@ -7850,6 +7853,10 @@ elif section == "⚙️  Einstellungen":
     page_einstellungen()
 elif section == "ℹ️  Über":
     page_ueber_software()
+elif section == "👤  Mein Profil":
+    page_mein_profil()
+elif section == "🧑‍💼  Trainerportal":
+    page_trainerportal()
 elif section == "🔑  Benutzerverwaltung":
     page_benutzerverwaltung()
 elif section == "🏢  Vereinsverwaltung":
