@@ -153,7 +153,7 @@ def _line(labels, values, title: str, color: str = "#58a6ff") -> go.Figure:
         line=dict(color=color, width=2, shape="spline"),
         marker=dict(color=color, size=5),
         fill="tozeroy",
-        fillcolor=color + "18",
+        fillcolor=f"rgba({int(color[1:3],16)},{int(color[3:5],16)},{int(color[5:7],16)},0.09)",
         hovertemplate="%{x}: %{y}<extra></extra>",
     ))
     layout = _plotly_layout()

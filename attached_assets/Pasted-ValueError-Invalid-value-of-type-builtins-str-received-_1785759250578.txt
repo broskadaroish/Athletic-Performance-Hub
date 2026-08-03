@@ -1,0 +1,44 @@
+ValueError: Invalid value of type 'builtins.str' received for the 'fillcolor' property of scatter Received value: '#bc8cff18' The 'fillcolor' property is a color and may be specified as: - A hex string (e.g. '#ff0000') - An rgb/rgba string (e.g. 'rgb(255,0,0)') - An hsl/hsla string (e.g. 'hsl(0,100%,50%)') - An hsv/hsva string (e.g. 'hsv(0,100%,100%)') - A named CSS color: see https://plotly.com/python/css-colors/ for a list
+Traceback:
+File "/home/runner/workspace/artifacts/athletik/app.py", line 8240, in <module>
+    page_saas_dashboard()
+    ~~~~~~~~~~~~~~~~~~~^^
+File "/home/runner/workspace/artifacts/athletik/modules/saas_dashboard.py", line 226, in page_saas_dashboard
+    _dash_superadmin(user)
+    ~~~~~~~~~~~~~~~~^^^^^^
+File "/home/runner/workspace/artifacts/athletik/modules/saas_dashboard.py", line 305, in _dash_superadmin
+    st.plotly_chart(_line(lbl, val, "Durchgeführte Diagnostiken pro Monat", _C["purple"]),
+                    ~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+File "/home/runner/workspace/artifacts/athletik/modules/saas_dashboard.py", line 150, in _line
+    fig = go.Figure(go.Scatter(
+                    ~~~~~~~~~~^
+        x=labels, y=values,
+        ^^^^^^^^^^^^^^^^^^^
+    ...<5 lines>...
+        hovertemplate="%{x}: %{y}<extra></extra>",
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ))
+    ^
+File "/home/runner/workspace/.pythonlibs/lib/python3.13/site-packages/plotly/graph_objs/_scatter.py", line 2776, in __init__
+    self._set_property("fillcolor", arg, fillcolor)
+    ~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+File "/home/runner/workspace/.pythonlibs/lib/python3.13/site-packages/plotly/basedatatypes.py", line 4403, in _set_property
+    _set_property_provided_value(self, name, arg, provided)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^
+File "/home/runner/workspace/.pythonlibs/lib/python3.13/site-packages/plotly/basedatatypes.py", line 398, in _set_property_provided_value
+    obj[name] = val
+    ~~~^^^^^^
+File "/home/runner/workspace/.pythonlibs/lib/python3.13/site-packages/plotly/basedatatypes.py", line 4932, in __setitem__
+    self._set_prop(prop, value)
+    ~~~~~~~~~~~~~~^^^^^^^^^^^^^
+File "/home/runner/workspace/.pythonlibs/lib/python3.13/site-packages/plotly/basedatatypes.py", line 5276, in _set_prop
+    raise err
+File "/home/runner/workspace/.pythonlibs/lib/python3.13/site-packages/plotly/basedatatypes.py", line 5271, in _set_prop
+    val = validator.validate_coerce(val)
+File "/home/runner/workspace/.pythonlibs/lib/python3.13/site-packages/_plotly_utils/basevalidators.py", line 1399, in validate_coerce
+    self.raise_invalid_val(v)
+    ~~~~~~~~~~~~~~~~~~~~~~^^^
+File "/home/runner/workspace/.pythonlibs/lib/python3.13/site-packages/_plotly_utils/basevalidators.py", line 312, in raise_invalid_val
+            raise ValueError(
+    ...<11 lines>...
+            )
