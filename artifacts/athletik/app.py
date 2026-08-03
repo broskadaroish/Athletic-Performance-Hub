@@ -59,6 +59,7 @@ from database import (
     benutzer_laden, benutzer_speichern, benutzer_aktivieren,
     benutzer_passwort, benutzer_aktualisieren,
     vereine_laden, verein_speichern, verein_aktivieren,
+    verein_by_id, verein_aktualisieren, verein_logo_speichern, verein_statistiken,
 )
 from auth import login
 from modules.benutzerverwaltung import page_benutzerverwaltung

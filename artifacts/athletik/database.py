@@ -1674,6 +1674,26 @@ def _migrate_multitenant():
                 conn.execute(f"ALTER TABLE spieler ADD COLUMN {col[0]} {col[1]}")
             except Exception:
                 pass
+        # vereine: SaaS-Erweiterungsfelder
+        neue_verein_cols = [
+            ("logo_blob",       "BLOB"),
+            ("farbe_primaer",   "TEXT"),
+            ("farbe_sekundaer", "TEXT"),
+            ("ansprechpartner", "TEXT"),
+            ("email",           "TEXT"),
+            ("telefon",         "TEXT"),
+            ("adresse",         "TEXT"),
+            ("homepage",        "TEXT"),
+            ("lizenztyp",       "TEXT"),
+            ("lizenz_bis",      "TEXT"),
+            ("max_trainer",     "INTEGER"),
+            ("max_spieler",     "INTEGER"),
+        ]
+        for col, typ in neue_verein_cols:
+            try:
+                conn.execute(f"ALTER TABLE vereine ADD COLUMN {col} {typ}")
+            except Exception:
+                pass
 
 
 # ==========================================================================
@@ -1695,11 +1715,84 @@ def verein_speichern(name: str) -> int:
         return cur.lastrowid
 
 
+def verein_by_id(verein_id: int) -> dict | None:
+    with get_conn() as conn:
+        return _row(conn.execute(
+            "SELECT * FROM vereine WHERE id=?", (verein_id,)
+        ).fetchone())
+
+
 def verein_aktivieren(verein_id: int, aktiv: int) -> None:
     with get_conn() as conn:
         conn.execute(
             "UPDATE vereine SET aktiv=? WHERE id=?", (aktiv, verein_id)
         )
+
+
+def verein_aktualisieren(
+    verein_id: int, *,
+    name: str,
+    ansprechpartner: str | None = None,
+    email: str | None = None,
+    telefon: str | None = None,
+    adresse: str | None = None,
+    homepage: str | None = None,
+    farbe_primaer: str | None = None,
+    farbe_sekundaer: str | None = None,
+    lizenztyp: str | None = None,
+    lizenz_bis: str | None = None,
+    max_trainer: int | None = None,
+    max_spieler: int | None = None,
+    aktiv: int = 1,
+) -> None:
+    with get_conn() as conn:
+        conn.execute("""
+            UPDATE vereine SET
+                name=?, ansprechpartner=?, email=?, telefon=?,
+                adresse=?, homepage=?, farbe_primaer=?, farbe_sekundaer=?,
+                lizenztyp=?, lizenz_bis=?, max_trainer=?, max_spieler=?, aktiv=?
+            WHERE id=?
+        """, (name, ansprechpartner, email, telefon,
+              adresse, homepage, farbe_primaer, farbe_sekundaer,
+              lizenztyp, lizenz_bis, max_trainer, max_spieler, aktiv,
+              verein_id))
+
+
+def verein_logo_speichern(verein_id: int, logo_bytes: bytes | None) -> None:
+    with get_conn() as conn:
+        conn.execute(
+            "UPDATE vereine SET logo_blob=? WHERE id=?",
+            (logo_bytes, verein_id)
+        )
+
+
+def verein_statistiken(verein_id: int) -> dict:
+    """Zählt Trainer, Spieler und Diagnostiken für einen Verein."""
+    _DIAG_TABLES = [
+        "sprint_test", "sprung_test", "anthropometrie", "fms_ergebnis",
+        "y_balance_ergebnis", "ausdauer_test", "kraft_test",
+        "agilitaet_test", "spiro_test",
+    ]
+    with get_conn() as conn:
+        trainer_n = conn.execute(
+            "SELECT COUNT(*) FROM benutzer WHERE verein_id=? AND aktiv=1",
+            (verein_id,),
+        ).fetchone()[0]
+        spieler_n = conn.execute(
+            "SELECT COUNT(*) FROM spieler WHERE verein_id=?",
+            (verein_id,),
+        ).fetchone()[0]
+        diag_n = 0
+        for tbl in _DIAG_TABLES:
+            try:
+                diag_n += conn.execute(
+                    f"SELECT COUNT(*) FROM {tbl} "
+                    f"WHERE spieler_id IN (SELECT id FROM spieler WHERE verein_id=?)",
+                    (verein_id,),
+                ).fetchone()[0]
+            except Exception:
+                pass
+        return {"trainer": trainer_n, "spieler": spieler_n, "diagnostiken": diag_n}
 
 
 # ==========================================================================
