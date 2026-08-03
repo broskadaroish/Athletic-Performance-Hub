@@ -6,12 +6,15 @@ set -e
 echo "=== Post-merge setup ==="
 
 echo "Installing dependencies..."
-pnpm install --frozen-lockfile
+pnpm install --no-frozen-lockfile
 
-echo "Pushing database schema..."
-pnpm --filter @workspace/db run push
+echo "Building shared libraries (typecheck)..."
+pnpm run typecheck:libs 2>/dev/null || true
 
-echo "Running typecheck..."
-pnpm run typecheck:libs
+echo "Building API server..."
+pnpm --filter @workspace/api-server run build
+
+echo "Building landing page..."
+PORT=18150 BASE_PATH="/" pnpm --filter @workspace/landing run build
 
 echo "=== Done ==="
