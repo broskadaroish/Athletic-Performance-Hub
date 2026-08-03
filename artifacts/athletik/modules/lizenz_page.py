@@ -377,7 +377,7 @@ def page_lizenz_superadmin() -> None:
 
         with st.expander(
             f"{v.get('name', '—')}  |  {typ_def['label']}  |  "
-            f"{'Abgelaufen' if not info['ist_aktiv'] else (str(tage) + ' Tage' if tage is not None else '—')}",
+            f"{'Abgelaufen' if info['lizenz_status'] in ('expired', 'suspended') else (str(tage) + ' Tage' if tage is not None else '—')}",
             expanded=False,
         ):
             r1c1, r1c2 = st.columns([2, 2])
