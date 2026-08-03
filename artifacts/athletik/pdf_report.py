@@ -211,7 +211,7 @@ class AthletikReport(FPDF):
 
     def cover_page(self, spieler: dict, vereinsname: str = "", saison: str = "",
                    athletik_score: int = 0, module_vorhanden: list = None,
-                   logo_bytes: bytes | None = None):
+                   logo_bytes: bytes | None = None, trainer_name: str = ""):
         """Erstes Blatt — professionelles Deckblatt mit Spieler-Stammdaten."""
         import io as _cio
         module_vorhanden = module_vorhanden or []
@@ -257,6 +257,13 @@ class AthletikReport(FPDF):
         self.set_font("Helvetica", "", 9)
         self.set_text_color(200, 215, 240)
         self.cell(0, 5, "%s  |  %s" % (_safe(pos), _safe(team)))
+
+        # Trainer-Name (links unten im Header)
+        if trainer_name:
+            self.set_xy(15, 50)
+            self.set_font("Helvetica", "I", 7)
+            self.set_text_color(180, 200, 230)
+            self.cell(0, 5, "Trainer: " + _safe(trainer_name))
 
         # Erstellt am
         self.set_xy(0, 50)
@@ -412,6 +419,8 @@ def generate_report(
     vereinsname: str = "",
     saison: str = "",
     logo_bytes: bytes | None = None,
+    trainer_name: str = "",
+    farbe_primaer: str | None = None,
 ) -> bytes:
     """
     Vollstaendiger Athletik-Bericht fuer alle Testmodule.
@@ -430,6 +439,14 @@ def generate_report(
     _module_vorhanden = [n for n, v in _module_map if v]
 
     pdf = AthletikReport()
+    # Dynamische Vereinsfarbe (hex → RGB)
+    if farbe_primaer:
+        try:
+            _h = farbe_primaer.lstrip("#")
+            if len(_h) == 6:
+                pdf.BRAND = (int(_h[0:2], 16), int(_h[2:4], 16), int(_h[4:6], 16))
+        except Exception:
+            pass
     pdf.set_auto_page_break(auto=True, margin=18)
     pdf.add_page()
 
@@ -443,6 +460,7 @@ def generate_report(
         athletik_score=athletik_score,
         module_vorhanden=_module_vorhanden,
         logo_bytes=logo_bytes,
+        trainer_name=trainer_name,
     )
 
     # ── Athletik-Kennzahlen ──────────────────────────────────────────────────

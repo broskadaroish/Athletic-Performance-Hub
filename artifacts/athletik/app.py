@@ -418,6 +418,69 @@ def _datum_filter(df: "pd.DataFrame", key: str) -> "pd.DataFrame":
     return df
 
 
+def _pb_trend_cards(df: "pd.DataFrame", metrics: list, key: str = "") -> None:
+    """Zeigt Persönliche-Bestleistung-Kacheln + Trend-Pfeil für Verlauf-Tabs.
+    metrics: list of (col_name, label, unit, lower_is_better)
+    lower_is_better: True für Zeitmessungen (Sprint, Agilität), False für Scores/Distanzen.
+    """
+    valid = []
+    for col_name, label, unit, lib in metrics:
+        if col_name not in df.columns:
+            continue
+        series = pd.to_numeric(df[col_name], errors="coerce").dropna()
+        series = series[series > 0]
+        if series.empty:
+            continue
+        valid.append((col_name, label, unit, lib, series))
+    if not valid:
+        return
+
+    st.markdown(
+        '<p style="font-size:10px;color:#8b949e;letter-spacing:.8px;margin:6px 0 4px 0">'
+        '🏆 PERSÖNLICHE BESTLEISTUNGEN</p>',
+        unsafe_allow_html=True,
+    )
+    cols = st.columns(len(valid))
+    for col_out, (col_name, label, unit, lower_is_better, series) in zip(cols, valid):
+        pb_val = series.min() if lower_is_better else series.max()
+        pb_idx = series.idxmin() if lower_is_better else series.idxmax()
+        pb_date = str(df.loc[pb_idx, "Datum"]) if "Datum" in df.columns else ""
+
+        trend_html = ""
+        if len(series) >= 2:
+            last_v, prev_v = float(series.iloc[-1]), float(series.iloc[-2])
+            diff = last_v - prev_v
+            if lower_is_better:
+                t_str = (f"↓ {abs(diff):.2f} {unit} verbessert" if diff < -0.001
+                         else f"↑ {diff:.2f} {unit} schlechter" if diff > 0.001 else "→ unverändert")
+                t_clr = "#3fb950" if diff < -0.001 else "#f85149" if diff > 0.001 else "#8b949e"
+            else:
+                t_str = (f"↑ {diff:.2f} {unit} verbessert" if diff > 0.001
+                         else f"↓ {abs(diff):.2f} {unit} schlechter" if diff < -0.001 else "→ unverändert")
+                t_clr = "#3fb950" if diff > 0.001 else "#f85149" if diff < -0.001 else "#8b949e"
+            trend_html = (
+                f'<div style="font-size:10px;color:{t_clr};margin-top:3px">{t_str}</div>'
+            )
+
+        if unit == "s":
+            pb_str = f"{pb_val:.2f}"
+        elif unit in ("%", "cm", "kg", "m", "ml/kg/min"):
+            pb_str = f"{pb_val:.1f}"
+        else:
+            pb_str = f"{int(round(pb_val))}"
+
+        col_out.markdown(
+            f'<div style="background:#161b22;border:1px solid #30363d;border-radius:8px;'
+            f'padding:10px 14px;margin-bottom:8px">'
+            f'<div style="font-size:9px;color:#8b949e;letter-spacing:.8px">{label}</div>'
+            f'<div style="font-size:20px;font-weight:800;color:#e6edf3;line-height:1.2">'
+            f'{pb_str}&thinsp;<span style="font-size:11px;color:#8b949e">{unit}</span></div>'
+            f'<div style="font-size:9px;color:#6e7681">{pb_date}</div>'
+            + trend_html + '</div>',
+            unsafe_allow_html=True,
+        )
+
+
 def _player_selector(key_suffix="") -> dict | None:
     """Returns the globally selected player (no per-page dropdown rendered).
     The selector lives in the sidebar; all pages share the same active player."""
@@ -1508,6 +1571,11 @@ def page_fms():
                 "Bewertung":   r.get("bewertung") or "—",
             } for r in hist_full])
 
+            # ── Persönliche Bestleistung ─────────────────────────────────────
+            _pb_trend_cards(df_fms, [
+                ("Gesamtscore", "FMS Gesamtscore", "Punkte", False),
+            ])
+
             # Gesamtscore-Kurve
             fig_score = go.Figure()
             fig_score.add_trace(go.Scatter(
@@ -1518,7 +1586,8 @@ def page_fms():
             ))
             fig_score.add_hline(y=14, line_dash="dash", line_color="#d29922",
                                 annotation_text="Schwellenwert 14")
-            fig_score.update_layout(**_pl(height=280, title="FMS Gesamtscore"))
+            fig_score.update_layout(**_pl(height=280, title="FMS Gesamtscore",
+                                          yaxis=dict(range=[0, 22], title="Score (0–21)")))
             st.plotly_chart(fig_score, use_container_width=True)
 
             # Einzelwerte-Verlauf
@@ -1730,6 +1799,12 @@ def page_ybalance():
                 "Schwerpunkt":     r.get("schwerpunkt") or "—",
             } for r in hist_yb])
 
+            # ── Persönliche Bestleistung ─────────────────────────────────────
+            _pb_trend_cards(df_yb, [
+                ("Composite R (%)", "Composite Rechts", "%", False),
+                ("Composite L (%)", "Composite Links",  "%", False),
+            ])
+
             # Composite-Score-Kurve
             fig_comp = go.Figure()
             fig_comp.add_trace(go.Scatter(x=df_yb["Datum"], y=df_yb["Composite R (%)"],
@@ -1738,7 +1813,8 @@ def page_ybalance():
                 mode="lines+markers", name="Composite Links",  line=dict(color="#f85149", width=3)))
             fig_comp.add_hline(y=89, line_dash="dash", line_color="#d29922",
                                annotation_text="Schwellenwert 89 %")
-            fig_comp.update_layout(**_pl(height=280, title="Y-Balance Composite Scores"))
+            fig_comp.update_layout(**_pl(height=280, title="Y-Balance Composite Scores",
+                                         yaxis=dict(title="Composite Score (%)")))
             st.plotly_chart(fig_comp, use_container_width=True)
 
             # Einzelrichtungen
@@ -1751,8 +1827,27 @@ def page_ybalance():
                 ]:
                     fig_dir.add_trace(go.Scatter(x=df_yb["Datum"], y=df_yb[col_n],
                         mode="lines+markers", name=col_n, line=dict(color=clr, width=2)))
-                fig_dir.update_layout(**_pl(height=320, title="Reichweiten pro Richtung (cm)"))
+                fig_dir.update_layout(**_pl(height=320, title="Reichweiten pro Richtung (cm)",
+                                             yaxis=dict(title="Reichweite (cm)")))
                 st.plotly_chart(fig_dir, use_container_width=True)
+
+            # Asymmetrie-Verlauf über Zeit
+            _asym_num = pd.to_numeric(df_yb["Asymmetrie"], errors="coerce")
+            _asym_df  = df_yb[_asym_num > 0].copy()
+            if not _asym_df.empty:
+                _asym_vals = pd.to_numeric(_asym_df["Asymmetrie"], errors="coerce")
+                fig_asym = go.Figure()
+                fig_asym.add_trace(go.Bar(
+                    x=_asym_df["Datum"], y=_asym_vals,
+                    marker_color=["#f85149" if v > 10 else "#3fb950" for v in _asym_vals],
+                    text=_asym_vals.round(1), textposition="outside",
+                ))
+                fig_asym.add_hline(y=10, line_dash="dash", line_color="#d29922",
+                                   annotation_text="Grenzwert 10 %")
+                fig_asym.update_layout(**_pl(height=240,
+                                             title="Y-Balance Asymmetrie Rechts vs. Links (%)",
+                                             yaxis=dict(title="Asymmetrie (%)")))
+                st.plotly_chart(fig_asym, use_container_width=True)
 
             # Zwei Testtermine vergleichen
             daten_yb = df_yb["Datum"].tolist()
@@ -2208,6 +2303,7 @@ def page_spieler_profil():
             def _m(key, daten):
                 return daten if _selection.get(key) else None
 
+            _verein_pdf = verein_by_id(_akt_user().get("verein_id") or 0) or {}
             pdf_bytes = generate_report(
                 spieler=auswahl,
                 fms_row=       _m("pdf_m_fms",      fms),
@@ -2228,6 +2324,8 @@ def page_spieler_profil():
                 vereinsname=st.session_state.get("cfg_vereinsname", ""),
                 saison=st.session_state.get("cfg_saison", ""),
                 logo_bytes=logo_laden(),
+                trainer_name=st.session_state.get("cfg_trainer_name", ""),
+                farbe_primaer=_verein_pdf.get("farbe_primaer"),
             )
             st.session_state["pdf_bytes_cache"] = pdf_bytes
             st.download_button(
@@ -3365,7 +3463,7 @@ def page_anthropometrie():
                                      textposition="top center",
                                      line=dict(color="#3b82f6", width=3),
                                      marker=dict(size=8), name="Größe (cm)"))
-            fig.update_layout(**_pl(height=280, title="Körpergröße"))
+            fig.update_layout(**_pl(height=280, title="Körpergröße", yaxis=dict(title="cm")))
             st.plotly_chart(fig, use_container_width=True)
 
         with c_w:
@@ -3375,7 +3473,7 @@ def page_anthropometrie():
                                       textposition="top center",
                                       line=dict(color="#3fb950", width=3),
                                       marker=dict(size=8), name="Gewicht (kg)"))
-            fig2.update_layout(**_pl(height=280, title="Körpergewicht"))
+            fig2.update_layout(**_pl(height=280, title="Körpergewicht", yaxis=dict(title="kg")))
             st.plotly_chart(fig2, use_container_width=True)
 
         c_kf, c_bmi = st.columns(2)
@@ -3391,7 +3489,7 @@ def page_anthropometrie():
                                       hovertext=_kf_hover, hoverinfo="x+text",
                                       line=dict(color="#d29922", width=3),
                                       marker=dict(size=8), name="Körperfett (%)"))
-            fig3.update_layout(**_pl(height=280, title="Körperfett"))
+            fig3.update_layout(**_pl(height=280, title="Körperfett", yaxis=dict(title="%")))
             st.plotly_chart(fig3, use_container_width=True)
 
         with c_bmi:
@@ -3403,12 +3501,37 @@ def page_anthropometrie():
                            annotation_text="Untergrenze 18.5")
             fig4.add_hline(y=25.0, line_dash="dash", line_color="#d29922",
                            annotation_text="Übergewicht 25")
-            fig4.update_layout(**_pl(height=280, title="BMI-Verlauf"))
+            fig4.update_layout(**_pl(height=280, title="BMI-Verlauf", yaxis=dict(title="BMI (kg/m²)")))
             st.plotly_chart(fig4, use_container_width=True)
 
         st.dataframe(df[["Datum", "Größe", "Gewicht", "BMI", "BMI-Kat.", "Körperfett",
                           "KF-Methode", "Muskelmasse", "PHV-Offset", "Reifestatus"]],
                      use_container_width=True, hide_index=True)
+
+        # ── Zwei Termine vergleichen ──────────────────────────────────────────
+        if len(df) >= 2:
+            with st.expander("🔍 Zwei Termine vergleichen"):
+                datums_an = df["Datum"].tolist()
+                anc1, anc2 = st.columns(2)
+                and1 = anc1.selectbox("Termin 1", datums_an, index=0, key="anth_cmp_d1")
+                and2 = anc2.selectbox("Termin 2", datums_an, index=len(datums_an)-1, key="anth_cmp_d2")
+                anr1 = df[df["Datum"] == and1].iloc[0]
+                anr2 = df[df["Datum"] == and2].iloc[0]
+                compare_cols_an = ["Größe", "Gewicht", "Körperfett", "Muskelmasse", "BMI"]
+                rows_an = []
+                for can in compare_cols_an:
+                    v1an = float(anr1.get(can, 0) or 0)
+                    v2an = float(anr2.get(can, 0) or 0)
+                    if v1an > 0 or v2an > 0:
+                        diff_an = round(v2an - v1an, 2) if v1an > 0 and v2an > 0 else "—"
+                        rows_an.append({
+                            "Messung": can,
+                            and1: f"{v1an:.1f}" if v1an else "—",
+                            and2: f"{v2an:.1f}" if v2an else "—",
+                            "Differenz": f"{diff_an:+.2f}" if isinstance(diff_an, float) else diff_an,
+                        })
+                if rows_an:
+                    st.dataframe(pd.DataFrame(rows_an), use_container_width=True, hide_index=True)
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -3557,6 +3680,15 @@ def page_sprint():
 
         df = pd.DataFrame(hist)
         df.columns = ["Datum", "5 m", "10 m", "20 m", "30 m", "40 m", "Beschl.-Index", "Bew. 10 m"]
+
+        # ── Persönliche Bestleistung ──────────────────────────────────────────
+        _pb_trend_cards(df, [
+            ("5 m",  "Sprint 5 m",  "s", True),
+            ("10 m", "Sprint 10 m", "s", True),
+            ("20 m", "Sprint 20 m", "s", True),
+            ("30 m", "Sprint 30 m", "s", True),
+            ("40 m", "Sprint 40 m", "s", True),
+        ])
 
         # ── Letzter Test ────────────────────────────────────────────────────
         if letzter:
@@ -3774,6 +3906,14 @@ def page_sprung():
         df.columns = ["Datum", "CMJ", "Squat Jump", "Drop Jump H.", "RSI",
                       "Standweit", "Asymmetrie %", "Bewertung CMJ"]
 
+        # ── Persönliche Bestleistung ──────────────────────────────────────────
+        _pb_trend_cards(df, [
+            ("CMJ",        "CMJ Sprunghöhe",  "cm",  False),
+            ("Squat Jump", "Squat Jump",       "cm",  False),
+            ("RSI",        "Reactive Strength Index", "",   False),
+            ("Standweit",  "Standweitsprung",  "cm",  False),
+        ])
+
         c_cmj, c_asym = st.columns(2)
         with c_cmj:
             fig = go.Figure()
@@ -3799,6 +3939,32 @@ def page_sprung():
                 st.info("Keine einbeinigen CMJ-Werte vorhanden.")
 
         st.dataframe(df, use_container_width=True, hide_index=True)
+
+        # ── Zwei Termine vergleichen ──────────────────────────────────────────
+        if len(df) >= 2:
+            with st.expander("🔍 Zwei Termine vergleichen"):
+                datums_sp = df["Datum"].tolist()
+                spc1, spc2 = st.columns(2)
+                spd1 = spc1.selectbox("Termin 1", datums_sp, index=0, key="spg_cmp_d1")
+                spd2 = spc2.selectbox("Termin 2", datums_sp, index=len(datums_sp)-1, key="spg_cmp_d2")
+                spr1 = df[df["Datum"] == spd1].iloc[0]
+                spr2 = df[df["Datum"] == spd2].iloc[0]
+                compare_cols_sp = ["CMJ", "Squat Jump", "Drop Jump H.", "RSI", "Standweit", "Asymmetrie %"]
+                rows_sp = []
+                for csp in compare_cols_sp:
+                    v1sp = float(spr1.get(csp, 0) or 0)
+                    v2sp = float(spr2.get(csp, 0) or 0)
+                    if v1sp > 0 or v2sp > 0:
+                        diff_sp = round(v2sp - v1sp, 2) if v1sp > 0 and v2sp > 0 else "—"
+                        rows_sp.append({
+                            "Messung": csp,
+                            spd1: f"{v1sp:.2f}" if v1sp else "—",
+                            spd2: f"{v2sp:.2f}" if v2sp else "—",
+                            "Differenz": f"{diff_sp:+.2f}" if isinstance(diff_sp, float) else diff_sp,
+                        })
+                if rows_sp:
+                    st.dataframe(pd.DataFrame(rows_sp), use_container_width=True, hide_index=True)
+                    st.caption("Differenz: positiv = höher/weiter, negativ = niedriger/kürzer")
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -4022,6 +4188,15 @@ def page_agilitaet():
                           "5-10-5", "T-Test", "Illinois", "Bew. T-Test",
                           "Mod. T-Test", "Pro Agility", "Arrowhead R", "Arrowhead L",
                           "Zig-Zag", "Balsom"]
+
+            # ── Persönliche Bestleistung ──────────────────────────────────────
+            _pb_trend_cards(df, [
+                ("505 R",    "505-Test rechts", "s", True),
+                ("505 L",    "505-Test links",  "s", True),
+                ("T-Test",   "T-Test",          "s", True),
+                ("Illinois", "Illinois Agility","s", True),
+                ("5-10-5",   "5-10-5 Shuttle",  "s", True),
+            ])
 
             # Letzter Test
             if letzter:
@@ -5034,6 +5209,12 @@ def page_ausdauer():
         df = pd.DataFrame(hist)
         df.columns = ["Datum", "Test", "Distanz (m)", "VO₂max", "Bewertung", "HF max", "RPE"]
 
+        # ── Persönliche Bestleistung ──────────────────────────────────────────
+        _pb_trend_cards(df, [
+            ("Distanz (m)", "Yo-Yo Distanz", "m",         False),
+            ("VO₂max",      "VO₂max (Schätzg.)", "ml/kg/min", False),
+        ])
+
         c_d, c_v = st.columns(2)
         with c_d:
             fig = go.Figure()
@@ -5065,6 +5246,32 @@ def page_ausdauer():
                 st.plotly_chart(fig2, use_container_width=True)
 
         st.dataframe(df, use_container_width=True, hide_index=True)
+
+        # ── Zwei Termine vergleichen ──────────────────────────────────────────
+        if len(df) >= 2:
+            with st.expander("🔍 Zwei Termine vergleichen"):
+                datums_au = df["Datum"].tolist()
+                auc1, auc2 = st.columns(2)
+                aud1 = auc1.selectbox("Termin 1", datums_au, index=0, key="aus_cmp_d1")
+                aud2 = auc2.selectbox("Termin 2", datums_au, index=len(datums_au)-1, key="aus_cmp_d2")
+                aur1 = df[df["Datum"] == aud1].iloc[0]
+                aur2 = df[df["Datum"] == aud2].iloc[0]
+                compare_cols_au = ["Distanz (m)", "VO₂max", "HF max", "RPE"]
+                rows_au = []
+                for cau in compare_cols_au:
+                    v1au = float(aur1.get(cau, 0) or 0)
+                    v2au = float(aur2.get(cau, 0) or 0)
+                    if v1au > 0 or v2au > 0:
+                        diff_au = round(v2au - v1au, 1) if v1au > 0 and v2au > 0 else "—"
+                        rows_au.append({
+                            "Messung": cau,
+                            aud1: f"{v1au:.0f}" if v1au else "—",
+                            aud2: f"{v2au:.0f}" if v2au else "—",
+                            "Differenz": f"{diff_au:+.1f}" if isinstance(diff_au, float) else diff_au,
+                        })
+                if rows_au:
+                    st.dataframe(pd.DataFrame(rows_au), use_container_width=True, hide_index=True)
+                    st.caption("Differenz: positiv = besser (mehr Distanz / höherer VO₂max)")
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -5329,6 +5536,14 @@ def page_kraft():
             "Ventral (s)", "Lateral R (s)", "Lateral L (s)",
             "Dorsal (s)", "Lat.-Asym. %", "V/D-Ratio",
         ]
+
+        # ── Persönliche Bestleistung ──────────────────────────────────────────
+        _pb_trend_cards(df, [
+            ("Direkt 1RM",    "Bankdrücken 1RM (direkt)", "kg", False),
+            ("Epley 1RM",     "Bankdrücken 1RM (Epley)",  "kg", False),
+            ("Ventral (s)",   "Planke ventral",           "s",  False),
+            ("Dorsal (s)",    "Planke dorsal",            "s",  False),
+        ])
 
         # ── Letzter Test ──────────────────────────────────────────────────────
         with st.expander("📋 Letzter gespeicherter Test", expanded=True):
@@ -6012,8 +6227,8 @@ def page_einstellungen():
                     "Altersklasse":    p.get("altersklasse") or "—",
                     "Athletik Score":  ascore,
                     "Risiko":          rlv.capitalize(),
-                    "FMS":             fms["score"] if fms else "—",
-                    "VO₂max":          aus["vo2max"] if aus else "—",
+                    "FMS":             int(fms["score"]) if fms else None,
+                    "VO₂max":          float(aus["vo2max"]) if aus and aus.get("vo2max") else None,
                 })
             df_export = pd.DataFrame(rows)
             st.dataframe(df_export, use_container_width=True, hide_index=True)

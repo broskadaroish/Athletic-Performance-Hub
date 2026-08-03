@@ -5,3 +5,7 @@
 - [Phase 0B Skinfold-Formel-Fallstrick](phase-0b-formulas.md) — JP11-Konstanten (3-Punkt-JP) nicht für 11 Messpunkte verwenden; Pařízkova-Logarithmus nutzen
 - [Spiroergometrie extension](spiro-extension.md) — new spiro.py + DB tables + full UI in _page_spiro() wired into page_ausdauer()
 - [Periodisierung Engine v2](periodisierung-engine.md) — exercise pool tuple order is (uebung, saetze, volumen, haeufigkeit); pool must be capped to len to avoid in-week duplicates
+- [PB trend cards helper](pb-trend-cards.md) — _pb_trend_cards(df, metrics, key) added to app.py after _datum_filter; call in every module's Verlauf tab
+- [PDF dynamic brand color](pdf-brand-color.md) — generate_report accepts farbe_primaer (hex str) and trainer_name; sets AthletikReport.BRAND dynamically; call site loads verein_by_id at PDF generation time
+- [saas_dashboard colorscale fix](saas-dashboard-bar-fix.md) — Bar charts must not use colorscale with 8-char hex alpha; use solid color= on marker instead
+- [Mixed-type DataFrame Arrow bug](arrow-mixed-types.md) — columns with int/None must use None not "—" for missing values; "—" causes ArrowInvalid in st.dataframe
