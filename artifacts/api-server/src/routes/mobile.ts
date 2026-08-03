@@ -16,8 +16,20 @@ import {
   getNotificationsEnabled,
   getTrainerPushTokens,
   migratePushTokenColumns,
+  checkDbAccessible,
 } from "../lib/athletik-db.js";
 import { logger } from "../lib/logger.js";
+
+// ─── Startup: verify DB is accessible ────────────────────────────────────────
+const dbCheck = checkDbAccessible();
+if (!dbCheck.ok) {
+  logger.error(
+    { db_path: dbCheck.path },
+    `[DB-Startprüfung] ${dbCheck.error} — Mobile-Endpunkte werden Fehler zurückgeben bis die Datenbank verfügbar ist`,
+  );
+} else {
+  logger.info({ db_path: dbCheck.path }, "[DB-Startprüfung] Datenbankdatei gefunden und lesbar");
+}
 
 // Run idempotent migration on startup
 try { migratePushTokenColumns(); } catch (err) { logger.warn({ err }, "push token migration warning"); }

@@ -3,6 +3,7 @@
  * Uses better-sqlite3 for synchronous queries (externalized from ESM build).
  */
 import Database from "better-sqlite3";
+import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { pbkdf2Sync, randomBytes, timingSafeEqual } from "node:crypto";
@@ -14,6 +15,63 @@ const DEFAULT_DB = path.resolve(
   "../../../../artifacts/athletik/athletik.db",
 );
 const DB_PATH = process.env["ATHLETIK_DB_PATH"] ?? DEFAULT_DB;
+
+// ─── Startup accessibility check ─────────────────────────────────────────────
+/**
+ * Checks whether the SQLite database file exists and is readable.
+ * Call this once at startup and log the result — it gives a clear early-warning
+ * before any request fails with an opaque error.
+ */
+export function checkDbAccessible(): { ok: boolean; path: string; error?: string } {
+  if (!fs.existsSync(DB_PATH)) {
+    return { ok: false, path: DB_PATH, error: `Datenbankdatei nicht gefunden: ${DB_PATH}` };
+  }
+  try {
+    fs.accessSync(DB_PATH, fs.constants.R_OK);
+  } catch {
+    return { ok: false, path: DB_PATH, error: `Datenbankdatei nicht lesbar (fehlende Berechtigung): ${DB_PATH}` };
+  }
+  return { ok: true, path: DB_PATH };
+}
+
+// ─── SQLITE_BUSY retry helpers ────────────────────────────────────────────────
+/** Synchronous sleep via Atomics — safe inside the Node.js main thread. */
+function sleep(ms: number): void {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
+function isBusy(err: unknown): boolean {
+  if (err && typeof err === "object") {
+    const e = err as { code?: string; message?: string };
+    return (
+      e.code === "SQLITE_BUSY" ||
+      e.code === "SQLITE_LOCKED" ||
+      (e.message?.includes("database is locked") ?? false)
+    );
+  }
+  return false;
+}
+
+/**
+ * Runs `fn` up to `retries + 1` times, pausing `delayMs` ms between attempts
+ * whenever the database is locked (SQLITE_BUSY / SQLITE_LOCKED).
+ * Use for read-only queries; write functions should let callers handle busy errors.
+ */
+function withRetry<T>(fn: () => T, retries = 2, delayMs = 200): T {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      return fn();
+    } catch (err) {
+      if (isBusy(err) && attempt < retries) {
+        sleep(delayMs);
+        continue;
+      }
+      throw err;
+    }
+  }
+  // Unreachable, but satisfies TypeScript
+  throw new Error("withRetry: exhausted attempts");
+}
 
 function db(): Database.Database {
   const conn = new Database(DB_PATH, { readonly: false });
@@ -60,21 +118,23 @@ export interface AthletikUser {
 }
 
 export function findUserByEmail(email: string): AthletikUser | null {
-  const conn = db();
-  try {
-    const row = conn
-      .prepare(
-        `SELECT b.id, b.email, b.vorname, b.nachname, b.rolle,
-                b.verein_id, b.passwort_hash, v.name AS verein_name
-         FROM benutzer b
-         LEFT JOIN vereine v ON b.verein_id = v.id
-         WHERE b.email = ? AND b.aktiv = 1`,
-      )
-      .get(email) as AthletikUser | undefined;
-    return row ?? null;
-  } finally {
-    conn.close();
-  }
+  return withRetry(() => {
+    const conn = db();
+    try {
+      const row = conn
+        .prepare(
+          `SELECT b.id, b.email, b.vorname, b.nachname, b.rolle,
+                  b.verein_id, b.passwort_hash, v.name AS verein_name
+           FROM benutzer b
+           LEFT JOIN vereine v ON b.verein_id = v.id
+           WHERE b.email = ? AND b.aktiv = 1`,
+        )
+        .get(email) as AthletikUser | undefined;
+      return row ?? null;
+    } finally {
+      conn.close();
+    }
+  });
 }
 
 export function loginUser(
@@ -107,41 +167,45 @@ export function getPlayers(
   rolle: string,
   vereinId: number | null,
 ): AthletikPlayer[] {
-  const conn = db();
-  try {
-    if (rolle === "Superadmin") {
-      return conn
-        .prepare("SELECT * FROM spieler ORDER BY name")
-        .all() as AthletikPlayer[];
-    }
-    if (rolle === "Vereinsadmin") {
+  return withRetry(() => {
+    const conn = db();
+    try {
+      if (rolle === "Superadmin") {
+        return conn
+          .prepare("SELECT * FROM spieler ORDER BY name")
+          .all() as AthletikPlayer[];
+      }
+      if (rolle === "Vereinsadmin") {
+        return conn
+          .prepare(
+            "SELECT * FROM spieler WHERE verein_id = ? ORDER BY name",
+          )
+          .all(vereinId) as AthletikPlayer[];
+      }
+      // Trainer: only own players
       return conn
         .prepare(
-          "SELECT * FROM spieler WHERE verein_id = ? ORDER BY name",
+          "SELECT * FROM spieler WHERE trainer_id = ? ORDER BY name",
         )
-        .all(vereinId) as AthletikPlayer[];
+        .all(userId) as AthletikPlayer[];
+    } finally {
+      conn.close();
     }
-    // Trainer: only own players
-    return conn
-      .prepare(
-        "SELECT * FROM spieler WHERE trainer_id = ? ORDER BY name",
-      )
-      .all(userId) as AthletikPlayer[];
-  } finally {
-    conn.close();
-  }
+  });
 }
 
 export function getPlayerById(id: number): AthletikPlayer | null {
-  const conn = db();
-  try {
-    const row = conn
-      .prepare("SELECT * FROM spieler WHERE id = ?")
-      .get(id) as AthletikPlayer | undefined;
-    return row ?? null;
-  } finally {
-    conn.close();
-  }
+  return withRetry(() => {
+    const conn = db();
+    try {
+      const row = conn
+        .prepare("SELECT * FROM spieler WHERE id = ?")
+        .get(id) as AthletikPlayer | undefined;
+      return row ?? null;
+    } finally {
+      conn.close();
+    }
+  });
 }
 
 // ─── Latest Tests ─────────────────────────────────────────────────────────────
@@ -165,17 +229,19 @@ export interface FmsRow {
 }
 
 export function getFmsLast(spielerId: number): FmsRow | null {
-  const conn = db();
-  try {
-    const row = conn
-      .prepare(
-        "SELECT * FROM fms_test WHERE spieler_id = ? ORDER BY id DESC LIMIT 1",
-      )
-      .get(spielerId) as FmsRow | undefined;
-    return row ?? null;
-  } finally {
-    conn.close();
-  }
+  return withRetry(() => {
+    const conn = db();
+    try {
+      const row = conn
+        .prepare(
+          "SELECT * FROM fms_test WHERE spieler_id = ? ORDER BY id DESC LIMIT 1",
+        )
+        .get(spielerId) as FmsRow | undefined;
+      return row ?? null;
+    } finally {
+      conn.close();
+    }
+  });
 }
 
 export interface SprintRow {
@@ -189,17 +255,19 @@ export interface SprintRow {
 }
 
 export function getSprintLast(spielerId: number): SprintRow | null {
-  const conn = db();
-  try {
-    const row = conn
-      .prepare(
-        "SELECT datum, beste_5m, beste_10m, beste_20m, beste_30m, bewertung_10m, bewertung_30m FROM sprint_test WHERE spieler_id = ? ORDER BY id DESC LIMIT 1",
-      )
-      .get(spielerId) as SprintRow | undefined;
-    return row ?? null;
-  } finally {
-    conn.close();
-  }
+  return withRetry(() => {
+    const conn = db();
+    try {
+      const row = conn
+        .prepare(
+          "SELECT datum, beste_5m, beste_10m, beste_20m, beste_30m, bewertung_10m, bewertung_30m FROM sprint_test WHERE spieler_id = ? ORDER BY id DESC LIMIT 1",
+        )
+        .get(spielerId) as SprintRow | undefined;
+      return row ?? null;
+    } finally {
+      conn.close();
+    }
+  });
 }
 
 export interface YbalanceRow {
@@ -216,17 +284,19 @@ export interface YbalanceRow {
 }
 
 export function getYbalanceLast(spielerId: number): YbalanceRow | null {
-  const conn = db();
-  try {
-    const row = conn
-      .prepare(
-        "SELECT datum, composite_rechts, composite_links, asymmetrie, anterior_rechts, anterior_links, posteromedial_rechts, posteromedial_links, posterolateral_rechts, posterolateral_links FROM y_balance_test WHERE spieler_id = ? ORDER BY id DESC LIMIT 1",
-      )
-      .get(spielerId) as YbalanceRow | undefined;
-    return row ?? null;
-  } finally {
-    conn.close();
-  }
+  return withRetry(() => {
+    const conn = db();
+    try {
+      const row = conn
+        .prepare(
+          "SELECT datum, composite_rechts, composite_links, asymmetrie, anterior_rechts, anterior_links, posteromedial_rechts, posteromedial_links, posterolateral_rechts, posterolateral_links FROM y_balance_test WHERE spieler_id = ? ORDER BY id DESC LIMIT 1",
+        )
+        .get(spielerId) as YbalanceRow | undefined;
+      return row ?? null;
+    } finally {
+      conn.close();
+    }
+  });
 }
 
 // ─── Score computation ────────────────────────────────────────────────────────
@@ -484,32 +554,36 @@ export function setNotificationsEnabled(userId: number, enabled: boolean): void 
 }
 
 export function getNotificationsEnabled(userId: number): boolean {
-  const conn = db();
-  try {
-    const row = conn
-      .prepare(`SELECT push_notifications_enabled FROM benutzer WHERE id = ?`)
-      .get(userId) as { push_notifications_enabled: number } | undefined;
-    return (row?.push_notifications_enabled ?? 1) === 1;
-  } finally {
-    conn.close();
-  }
+  return withRetry(() => {
+    const conn = db();
+    try {
+      const row = conn
+        .prepare(`SELECT push_notifications_enabled FROM benutzer WHERE id = ?`)
+        .get(userId) as { push_notifications_enabled: number } | undefined;
+      return (row?.push_notifications_enabled ?? 1) === 1;
+    } finally {
+      conn.close();
+    }
+  });
 }
 
 /** Returns all active push tokens for trainers (and admins) in a Verein. */
 export function getTrainerPushTokens(vereinId: number): string[] {
-  const conn = db();
-  try {
-    const rows = conn
-      .prepare(
-        `SELECT push_token FROM benutzer
-         WHERE verein_id = ? AND push_token IS NOT NULL
-           AND push_notifications_enabled = 1 AND aktiv = 1`,
-      )
-      .all(vereinId) as Array<{ push_token: string }>;
-    return rows.map((r) => r.push_token).filter(Boolean);
-  } finally {
-    conn.close();
-  }
+  return withRetry(() => {
+    const conn = db();
+    try {
+      const rows = conn
+        .prepare(
+          `SELECT push_token FROM benutzer
+           WHERE verein_id = ? AND push_token IS NOT NULL
+             AND push_notifications_enabled = 1 AND aktiv = 1`,
+        )
+        .all(vereinId) as Array<{ push_token: string }>;
+      return rows.map((r) => r.push_token).filter(Boolean);
+    } finally {
+      conn.close();
+    }
+  });
 }
 
 // ─── Y-Balance save ───────────────────────────────────────────────────────────
