@@ -141,6 +141,11 @@ from analytics import (
 from periodisierung import (zyklus_erstellen, zyklus_laden, trainingsplan_multi_erstellen,
                              defizit_tabelle, _alter_zu_plangruppe, _PLANGRUPPEN_CONFIG, _POOL,
                              _ALTERS_ERSATZ, verletzung_aktive_bereiche)
+from trainingsphilosophie import (
+    PHILOSOPHIEN, empfehle_philosophie, philosophie_erklaerung,
+)
+from database import philosophie_speichern as _philosophie_speichern
+from database import philosophie_laden    as _philosophie_laden
 from i18n import t, SPRACHEN, get_lang, set_lang
 from pdf_report import generate_report, generate_vergleich_pdf, generate_trainingsplan_pdf
 from pdf_anleitung import generate_anleitung_pdf, ALL_TEST_IDS, TEST_LABELS
@@ -2779,6 +2784,81 @@ def page_trainingsplan():
             st.info("ℹ️ Keine Testdaten vorhanden — Standard-Plan (Hüfte + Rumpf + Knie) wird erstellt.")
 
         st.markdown("---")
+
+        # ── Trainingsphilosophie — Empfehlung + Auswahl ───────────────────────
+        st.markdown("#### 🧠 Trainingsphilosophie")
+
+        # Diagnostik-Score für Empfehlungs-Engine
+        _diag_score: float | None = None
+        try:
+            _ascore_val = athletik_score(fms, y, sprint, sprung, agil, aus)
+            _diag_score = float(_ascore_val) if _ascore_val is not None else None
+        except Exception:
+            pass
+
+        _ph_empfehlung, _ph_conf = empfehle_philosophie(
+            alter            = _tp_alter if "_tp_alter" in dir() else berechne_alter(auswahl.get("geburtsdatum")),
+            plangruppe       = _tp_pg    if "_tp_pg" in dir()    else None,
+            fms_score        = float(fms.score) if fms and hasattr(fms, "score") else None,
+            saison_phase     = st.session_state.get("saison_phase_sel", "Normal"),
+            verletzung_aktiv = bool(verletzung_aktive_bereiche(verletzungen_laden(sid))),
+            diagnostik_score = _diag_score,
+        )
+        _ph_erklaerung = philosophie_erklaerung(
+            _ph_empfehlung,
+            alter         = berechne_alter(auswahl.get("geburtsdatum")),
+            fms_score     = float(fms.score) if fms and hasattr(fms, "score") else None,
+            saison_phase  = st.session_state.get("saison_phase_sel", "Normal"),
+            verletzung_aktiv = bool(verletzung_aktive_bereiche(verletzungen_laden(sid))),
+            diagnostik_score = _diag_score,
+            confidence    = _ph_conf,
+        )
+
+        # Gespeicherte Philosophie laden (persistiert per Spieler)
+        _ph_gespeichert = _philosophie_laden(sid)
+        _ph_default_idx = list(PHILOSOPHIEN.keys()).index(_ph_empfehlung) if _ph_empfehlung in PHILOSOPHIEN else 0
+        if _ph_gespeichert and _ph_gespeichert in PHILOSOPHIEN:
+            _ph_default_idx = list(PHILOSOPHIEN.keys()).index(_ph_gespeichert)
+
+        # Empfehlungskarte
+        _ph_emp_label = PHILOSOPHIEN.get(_ph_empfehlung, {}).get("label", _ph_empfehlung)
+        _ph_conf_pct  = int(_ph_conf * 100)
+        _ph_conf_clr  = "#3fb950" if _ph_conf >= 0.8 else "#d29922" if _ph_conf >= 0.6 else "#8b949e"
+        st.markdown(
+            f'<div style="background:#0d1117;border:1px solid {_ph_conf_clr};border-radius:10px;'
+            f'padding:12px 16px;margin-bottom:12px">'
+            f'<span style="color:{_ph_conf_clr};font-weight:700;font-size:13px">🤖 Empfehlung: {_ph_emp_label}</span>'
+            f'<span style="background:{_ph_conf_clr}22;color:{_ph_conf_clr};border-radius:4px;'
+            f'padding:2px 8px;font-size:11px;margin-left:8px">{_ph_conf_pct} % Übereinstimmung</span><br>'
+            f'<span style="color:#8b949e;font-size:12px;margin-top:4px;display:block">'
+            f'{PHILOSOPHIEN.get(_ph_empfehlung, {}).get("beschreibung", "")}</span>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+
+        # Auswahl-Selectbox (Trainer kann übernehmen oder ändern)
+        _ph_keys   = list(PHILOSOPHIEN.keys())
+        _ph_labels = [PHILOSOPHIEN[k]["label"] for k in _ph_keys]
+        _ph_sel_idx = st.selectbox(
+            "Trainingsphilosophie auswählen",
+            range(len(_ph_keys)),
+            index=_ph_default_idx,
+            format_func=lambda i: _ph_labels[i],
+            key="philosophie_sel",
+            help="Die Empfehlung basiert auf Alter, FMS, Diagnostik, Saisonphase und Verletzungshistorie. "
+                 "Der Trainer kann jederzeit eine andere Philosophie wählen.",
+        )
+        selected_philosophie_key = _ph_keys[_ph_sel_idx]
+        _ph_sel     = PHILOSOPHIEN[selected_philosophie_key]
+        _ph_prog    = _ph_sel.get("progression", "moderat")
+        _ph_energie = _ph_sel.get("energiesystem_fokus", "Gemischt")
+        _ph_methoden = ", ".join(_ph_sel.get("trainingsmethoden", [])[:4])
+        st.caption(
+            f"📈 Progression: **{_ph_prog}** · Energiesystem: **{_ph_energie}** · "
+            f"Methoden: {_ph_methoden}"
+        )
+
+        st.markdown("---")
         st.markdown("#### ⚙️ Planparameter")
         _pc1, _pc2 = st.columns(2)
         plan_laenge = _pc1.selectbox(
@@ -2849,6 +2929,8 @@ def page_trainingsplan():
         )
 
         if st.button("⚡ Trainingsplan erstellen", use_container_width=True, key="auto_gen_btn"):
+            # Gewählte Philosophie speichern (persistiert pro Spieler)
+            _philosophie_speichern(sid, selected_philosophie_key)
             n = trainingsplan_multi_erstellen(
                 sid, schwerpunkt,
                 wochen=plan_laenge,
@@ -2856,11 +2938,13 @@ def page_trainingsplan():
                 verletzung_bereiche=_aktive_bereiche,
                 saison_phase=saison_phase,
                 verfuegbares_equipment=verfuegbares_equipment,
+                philosophie_key=selected_philosophie_key,
             )
-            _phase_hinweis  = f" ({saison_phase})" if saison_phase != "Normal" else ""
+            _phase_hinweis   = f" ({saison_phase})" if saison_phase != "Normal" else ""
             _verletz_hinweis = f" · {len(_aktive_bereiche)} Bereich(e) verletzungsbedingt ausgeschlossen" if _aktive_bereiche else ""
-            _equip_hinweis  = f" · Equipment: {', '.join(verfuegbares_equipment[:3])}{'…' if len(verfuegbares_equipment) > 3 else ''}" if verfuegbares_equipment else ""
-            _save_ok(f"Trainingsplan erstellt — {n} Übungen über {plan_laenge} Wochen ({_tp_pg}){_phase_hinweis}{_verletz_hinweis}{_equip_hinweis}.")
+            _equip_hinweis   = f" · Equipment: {', '.join(verfuegbares_equipment[:3])}{'…' if len(verfuegbares_equipment) > 3 else ''}" if verfuegbares_equipment else ""
+            _philo_hinweis   = f" · Philosophie: {PHILOSOPHIEN.get(selected_philosophie_key, {}).get('label', selected_philosophie_key)}"
+            _save_ok(f"Trainingsplan erstellt — {n} Übungen über {plan_laenge} Wochen ({_tp_pg}){_phase_hinweis}{_verletz_hinweis}{_equip_hinweis}{_philo_hinweis}.")
             st.rerun()
 
     with tab_manual:

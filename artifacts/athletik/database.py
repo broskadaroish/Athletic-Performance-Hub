@@ -704,6 +704,7 @@ def _migrate_spieler_columns():
         ("altersklasse", "TEXT"), ("hauptposition", "TEXT"), ("nebenposition", "TEXT"),
         ("leistungsniveau", "TEXT"), ("trainingsstatus", "TEXT"),
         ("trainer_id", "INTEGER"), ("verein_id", "INTEGER"),
+        ("philosophie_key", "TEXT"),
     ]
     with get_conn() as conn:
         for spalte, typ in neue_spalten:
@@ -1256,6 +1257,29 @@ def db_komplett_zuruecksetzen():
                 conn.execute(f"DELETE FROM {tabelle}")
             except Exception:
                 pass  # Tabelle noch nicht vorhanden
+
+
+# ─── Trainingsphilosophie ────────────────────────────────────────────────────
+
+def philosophie_speichern(spieler_id: int, key: str | None) -> None:
+    """Speichert die gewählte Trainingsphilosophie für einen Spieler."""
+    with get_conn() as conn:
+        conn.execute(
+            "UPDATE spieler SET philosophie_key=? WHERE id=?",
+            (key, spieler_id),
+        )
+
+
+def philosophie_laden(spieler_id: int) -> str | None:
+    """Lädt die gespeicherte Trainingsphilosophie eines Spielers."""
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT philosophie_key FROM spieler WHERE id=?",
+            (spieler_id,),
+        ).fetchone()
+    if row:
+        return row[0] if isinstance(row, (list, tuple)) else row.get("philosophie_key")
+    return None
 
 
 # ─── Verletzungshistorie ────────────────────────────────────────────────────

@@ -21,6 +21,14 @@ from database import (
     periodisierung_loeschen, periodisierung_bulk_insert, periodisierung_laden,
     trainingsplan_loeschen, trainingsplan_eintrag_speichern,
 )
+from trainingsphilosophie import (
+    philosophie_pool_cap,
+    philosophie_normativ,
+    philosophie_satz_cap,
+    philosophie_bereich_erlaubt,
+    philosophie_haeuf_cap,
+    PHILOSOPHIEN,
+)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Exercise pool  (area → phase-key → list of (uebung, saetze, volumen, haeuf))
@@ -1071,24 +1079,23 @@ def trainingsplan_multi_erstellen(spieler_id: int, schwerpunkt_text: str,
                                   alter: float | None = None,
                                   verletzung_bereiche: set | list | None = None,
                                   saison_phase: str = "Normal",
-                                  verfuegbares_equipment: list | None = None) -> int:
+                                  verfuegbares_equipment: list | None = None,
+                                  philosophie_key: str | None = None) -> int:
     """
     Altersbasierter Trainingsplan mit klarer 4-Phasen-Progression.
     Spec §1–§8: Belastungsnormative, Trainingsreihenfolge, Trainingsprinzipien,
     Equipment-Fallback, Energiesysteme, Olymp. Gewichtheben-Gate, Dokumentation.
-
-    Progression:
-      Phase 1 (W1–2):  stabilisation — Mobilität & Bewegungsqualität
-      Phase 2 (W3–5):  stabilisation → kraft — Stabilität & Kraftaufbau
-      Phase 3 (W6–8):  kraft → power — Leistungsentwicklung
-      Phase 4 (W9–12): power — Fußballspezifisch & Belastungssteuerung
+    Trainingsphilosophie-Spec §1–§6: philosophie_key steuert Übungsauswahl, Normative,
+    Methoden, Intensität, Umfang, Häufigkeit, Progression.
 
     saison_phase: "Normal" | "Vorbereitung" | "Saison" | "Nachsaison"
     verletzung_bereiche: Set von _POOL-Bereichsnamen, die ausgeschlossen werden.
     verfuegbares_equipment: Liste verfügbarer Equipment-Typen; None = alles.
+    philosophie_key: Schlüssel aus PHILOSOPHIEN-Dict; None = kein Override.
     """
     _verletzt  = set(verletzung_bereiche or [])
     _equip_set = set(verfuegbares_equipment) if verfuegbares_equipment else None
+    _philo     = philosophie_key  # shorthand
 
     _saison_max_key: str | None = None
     _saison_force_deload = False
@@ -1120,6 +1127,8 @@ def trainingsplan_multi_erstellen(spieler_id: int, schwerpunkt_text: str,
         pool_key = _max_pool_key(pool_key, cfg["max_pool_key"])
         if _saison_max_key:
             pool_key = _max_pool_key(pool_key, _saison_max_key)
+        # Trainingsphilosophie: pool_key-Cap anwenden
+        pool_key = philosophie_pool_cap(_philo, pool_key)
 
         scores = dict(basis_scores)
         if "Phase 4" in phase_name or saison_phase == "Saison":
@@ -1151,6 +1160,9 @@ def trainingsplan_multi_erstellen(spieler_id: int, schwerpunkt_text: str,
         for area, score in sorted_areas:
             if area in _verletzt:
                 continue
+            # Trainingsphilosophie: Bereich gesperrt oder nicht erlaubt
+            if not philosophie_bereich_erlaubt(_philo, area):
+                continue
             n = max(0, score - 2) if is_deload else score
             if n <= 0:
                 continue
@@ -1175,13 +1187,25 @@ def trainingsplan_multi_erstellen(spieler_id: int, schwerpunkt_text: str,
                 saison_phase, is_deload, plangruppe, energie, seq_order,
             )
 
-            # §1 Belastungsnormative (dynamisch)
+            # §1 Belastungsnormative (dynamisch) + Trainingsphilosophie-Override
             bnorm     = belastungsnormative_berechnen(
                 area, effective_pk, alter, saison_phase, is_deload, energie,
             )
+            bnorm     = philosophie_normativ(_philo, bnorm)
             pause_sek = bnorm["pause_sek"]
             _, aust   = _pause_und_ausfuehrung(area, effective_pk, is_deload, plangruppe)
             rpe       = bnorm["rpe"]
+
+            # Philosophie: maximaler Satz-Cap
+            _eff_satz_cap = philosophie_satz_cap(_philo, cfg["max_saetze"])
+
+            # Philosophie: Häufigkeits-Override
+            _philo_haeuf = philosophie_haeuf_cap(_philo)
+
+            # Begruendung: Philosophie-Info anfügen
+            _philo_label = PHILOSOPHIEN.get(_philo, {}).get("label", "") if _philo else ""
+            if _philo_label:
+                begruend += f" | Philosophie: {_philo_label}"
 
             for uebung, saetze, volumen, haeufigkeit in exercises:
                 # Altersgerechter Übungsersatz
@@ -1191,12 +1215,16 @@ def trainingsplan_multi_erstellen(spieler_id: int, schwerpunkt_text: str,
                 if ersatz != "ok":
                     uebung, saetze, volumen, haeufigkeit = ersatz
 
+                # Philosophie: Häufigkeit überschreiben wenn gesetzt
+                if _philo_haeuf:
+                    haeufigkeit = _philo_haeuf
+
                 if is_deload:
                     haeufigkeit = haeufigkeit.replace("3×", "2×").replace("4×", "2×")
                 if not is_deload and vol_mult >= 1.15:
                     saetze = _steigere_saetze(saetze, 1)
 
-                saetze      = _saetze_begrenzen(saetze, cfg["max_saetze"])
+                saetze      = _saetze_begrenzen(saetze, _eff_satz_cap)
                 haeufigkeit = _haeufigkeit_begrenzen(haeufigkeit, cfg["haeuf_cap"])
                 tags        = _tags_fuer_haeufigkeit(haeufigkeit)
 
