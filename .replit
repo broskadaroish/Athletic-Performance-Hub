@@ -25,8 +25,8 @@ runButton = "Project"
     expertMode = true
 
     [postMerge]
-    path = "scripts/post-merge.sh"
-    timeoutMs = 20000
+path = "scripts/post-merge.sh"
+timeoutMs = 120000
 
     [nix]
     channel = "stable-25_05"
