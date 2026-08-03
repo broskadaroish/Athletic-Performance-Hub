@@ -480,14 +480,85 @@ def _progress_html(value: int, max_val: int, color: str = "#1f6feb") -> str:
     return f'<div class="prog-wrap"><div class="prog-fill" style="width:{pct:.0f}%;background:{color}"></div></div>'
 
 def _save_ok(msg: str) -> None:
-    """Speichert eine Erfolgsmeldung in session_state für Anzeige nach st.rerun()."""
+    """Erfolgsmeldung (grün) nach st.rerun() als Toast anzeigen."""
     st.session_state["__save_ok__"] = msg
+    _audit("OK", msg)
+
+def _save_err(msg: str) -> None:
+    """Fehlermeldung (rot) nach st.rerun() als Toast anzeigen."""
+    st.session_state["__save_err__"] = msg
+    _audit("ERROR", msg)
+
+def _save_warn(msg: str) -> None:
+    """Warnmeldung (gelb) nach st.rerun() als Toast anzeigen."""
+    st.session_state["__save_warn__"] = msg
+    _audit("WARN", msg)
+
+def _save_info(msg: str) -> None:
+    """Info-Meldung (blau) nach st.rerun() als Toast anzeigen."""
+    st.session_state["__save_info__"] = msg
+
+def _audit(level: str, msg: str, detail: str = "") -> None:
+    """Interne Protokollierung aller wichtigen Aktionen (Zeitpunkt, Benutzer, Aktion, Ergebnis)."""
+    try:
+        user = st.session_state.get("user") or {}
+        uid  = user.get("id", "–")
+        mail = user.get("email", user.get("name", "–"))
+        import logging as _logging
+        _log_fb = _logging.getLogger("athletik.feedback")
+        _log_fb.info("[%s] user=%s(%s) | %s%s", level, uid, mail, msg,
+                     f" | {detail}" if detail else "")
+    except Exception:
+        pass
 
 def _check_save_ok() -> None:
-    """Zeigt gespeicherte Erfolgsmeldung als auto-verschwindenden Toast."""
-    msg = st.session_state.pop("__save_ok__", None)
-    if msg:
+    """
+    Zeigt alle gespeicherten Feedback-Meldungen als auto-verschwindende Toasts.
+    Einheitlich: ✅ Erfolg · ❌ Fehler · ⚠️ Warnung · ℹ️ Info
+    """
+    if msg := st.session_state.pop("__save_ok__",   None):
         st.toast(f"✅ {msg}", icon=None)
+    if msg := st.session_state.pop("__save_err__",  None):
+        st.toast(f"❌ {msg}", icon=None)
+    if msg := st.session_state.pop("__save_warn__", None):
+        st.toast(f"⚠️ {msg}", icon=None)
+    if msg := st.session_state.pop("__save_info__", None):
+        st.toast(f"ℹ️ {msg}", icon=None)
+
+_check_feedback = _check_save_ok  # einheitlicher Alias für neuen Code
+
+def _confirm_loeschen(key: str, was: str = "diesen Datensatz",
+                      btn_label: str | None = None) -> bool:
+    """
+    Zweistufige Bestätigungsabfrage vor kritischen Lösch-Aktionen (Spec §5 Sicherheitsabfrage).
+    Gibt True zurück, wenn der Benutzer die Löschung explizit bestätigt hat.
+
+    Verwendung:
+        if _confirm_loeschen("verletzung_del", was="diesen Verletzungseintrag"):
+            verletzung_loeschen(vid)
+            _save_ok("Eintrag gelöscht.")
+            st.rerun()
+    """
+    _pend = f"__del_pend_{key}__"
+    if not st.session_state.get(_pend):
+        _lbl = btn_label or f"🗑️ {was.capitalize()} löschen"
+        if st.button(_lbl, key=key, type="secondary"):
+            st.session_state[_pend] = True
+            st.rerun()
+        return False
+    # Bestätigungs-UI
+    st.warning(
+        f"⚠️ **Möchtest du {was} wirklich löschen?**  \n"
+        "Diese Aktion kann nicht rückgängig gemacht werden."
+    )
+    _c1, _c2 = st.columns(2)
+    if _c1.button("✅ Ja, endgültig löschen", key=f"{key}_yes", type="primary"):
+        st.session_state.pop(_pend, None)
+        return True
+    if _c2.button("❌ Abbrechen", key=f"{key}_no"):
+        st.session_state.pop(_pend, None)
+        st.rerun()
+    return False
 
 def _reset_keys(*keys: str) -> None:
     """Löscht Formularfelder aus dem Session-State → werden beim nächsten Render auf Default zurückgesetzt."""
@@ -1781,7 +1852,7 @@ def page_fms():
                     obs_fms["seite"], obs_fms["auspraegung"],
                     obs_fms["freitext"], obs_fms["text_generiert"],
                 )
-            st.toast("✅ FMS Test gespeichert!", icon=None)
+            _save_ok("FMS Test gespeichert!")
             _reset_keys("ds", "ts", "hl", "hr", "il", "ir", "shl", "shr", "al", "ar", "rl", "rr")
             st.markdown("---")
             st.markdown("### Ergebnis")
@@ -2522,7 +2593,8 @@ def page_spieler_profil():
                     format_func=lambda x: f"{x.get('datum','')} — {x.get('koerperteil','')} ({x.get('art','')})",
                     key="del_v",
                 )
-                if st.button("Eintrag löschen", key="del_v_btn"):
+                if _confirm_loeschen("del_v_btn", was="diesen Verletzungseintrag",
+                                     btn_label="🗑️ Eintrag löschen"):
                     verletzung_loeschen(del_v["id"])
                     _save_ok("Verletzungseintrag gelöscht.")
                     st.rerun()
@@ -2666,7 +2738,7 @@ def page_spieler_profil():
                 mime="application/pdf",
                 key="pdf_dl",
             )
-            st.success(f"✅ PDF erstellt mit {_n_aktiv} Modulen.")
+            _save_ok(f"PDF erstellt mit {_n_aktiv} Modulen.")
 
         st.markdown("---")
         st.markdown("### 📧 E-Mail vorbereiten")
@@ -3074,9 +3146,9 @@ def page_trainingsplan():
                         mime      = "application/pdf",
                         key       = "tp_pdf_download",
                     )
-                    st.success(f"✅ PDF fertig — {len(_tv_pdf_bytes) // 1024} KB · Altersgruppe: {_tv_pg}")
+                    _save_ok(f"Trainingsplan-PDF erstellt — {len(_tv_pdf_bytes) // 1024} KB · Altersgruppe: {_tv_pg}")
                 except Exception as _tv_exc:
-                    st.error(f"Fehler beim Erstellen des PDFs: {_tv_exc}")
+                    _save_err(f"PDF konnte nicht erstellt werden: {_tv_exc}")
 
         st.markdown("---")
 
@@ -3941,7 +4013,8 @@ def page_anthropometrie():
                 )
                 st.rerun()
         with col_del:
-            if letzter and st.button("🗑️ Letzte löschen", use_container_width=True, key="anthro_del"):
+            if letzter and _confirm_loeschen("anthro_del", was="die letzte Messung",
+                                              btn_label="🗑️ Letzte löschen"):
                 anthropometrie_loeschen_letzten(sid)
                 _save_ok("Letzte Messung gelöscht.")
                 st.rerun()
@@ -5402,9 +5475,10 @@ def _page_spiro():
             )
 
             st.markdown("---")
-            if st.button("🗑️ Diesen Test löschen", key="spiro_del", type="secondary"):
+            if _confirm_loeschen("spiro_del", was="diesen Stufentest",
+                                  btn_label="🗑️ Diesen Test löschen"):
                 spiro_test_loeschen(test_a["id"])
-                st.success("✅ Stufentest gelöscht.")
+                _save_ok("Stufentest gelöscht.")
                 st.rerun()
 
     # ═══════════════════════════════════════════════════════════════════════════

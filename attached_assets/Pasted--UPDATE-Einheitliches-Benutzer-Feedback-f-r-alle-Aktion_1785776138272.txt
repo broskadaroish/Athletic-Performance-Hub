@@ -1,0 +1,194 @@
+# UPDATE – Einheitliches Benutzer-Feedback für alle Aktionen
+
+## WICHTIG
+
+Erweitere die gesamte Bruce Football Performance Platform um ein einheitliches Benachrichtigungs- und Feedbacksystem.
+
+Alle bestehenden Funktionen müssen vollständig erhalten bleiben.
+
+--------------------------------------------------
+
+## Ziel
+
+Jede Aktion des Benutzers muss unmittelbar eine sichtbare Rückmeldung geben.
+
+Der Benutzer darf niemals im Unklaren sein, ob eine Aktion erfolgreich war oder fehlgeschlagen ist.
+
+Das gilt für die gesamte Plattform.
+
+--------------------------------------------------
+
+## Betroffene Aktionen
+
+Mindestens folgende Aktionen müssen eine Rückmeldung anzeigen:
+
+- Erstellen
+- Speichern
+- Aktualisieren
+- Bearbeiten
+- Löschen
+- Importieren
+- Exportieren
+- Hochladen
+- Herunterladen
+- Login
+- Logout
+- Registrierung
+- Passwort ändern
+- Passwort zurücksetzen
+- Trainingsplan generieren
+- PDF erstellen
+- Spieler auswählen
+- Test speichern
+- Test löschen
+- Test bearbeiten
+- Trainingsplan speichern
+- Trainingsplan löschen
+- Einstellungen speichern
+- Benutzer anlegen
+- Benutzer bearbeiten
+- Benutzer löschen
+
+Alle zukünftigen Funktionen müssen dieses Feedbacksystem ebenfalls verwenden.
+
+--------------------------------------------------
+
+## Erfolgsmeldungen
+
+Nach erfolgreicher Aktion soll automatisch eine grüne Erfolgsmeldung erscheinen.
+
+Beispiele:
+
+✅ Spieler erfolgreich gespeichert.
+
+✅ Spieler erfolgreich gelöscht.
+
+✅ Trainingsplan erfolgreich erstellt.
+
+✅ Trainingsplan erfolgreich gespeichert.
+
+✅ PDF erfolgreich erstellt.
+
+✅ Änderungen erfolgreich übernommen.
+
+Die Meldung soll automatisch nach wenigen Sekunden verschwinden.
+
+--------------------------------------------------
+
+## Warnmeldungen
+
+Bei kritischen Aktionen soll eine gelbe Warnmeldung erscheinen.
+
+Beispiele:
+
+⚠️ Bitte zuerst einen Spieler auswählen.
+
+⚠️ Es wurden keine Änderungen vorgenommen.
+
+⚠️ Pflichtfelder fehlen.
+
+--------------------------------------------------
+
+## Fehlermeldungen
+
+Bei Fehlern soll eine rote Meldung erscheinen.
+
+Beispiele:
+
+❌ Spieler konnte nicht gespeichert werden.
+
+❌ Verbindung zur Datenbank fehlgeschlagen.
+
+❌ PDF konnte nicht erstellt werden.
+
+❌ Test konnte nicht gelöscht werden.
+
+Die Fehlermeldung soll möglichst verständlich sein.
+
+--------------------------------------------------
+
+## Sicherheitsabfrage
+
+Vor kritischen Aktionen muss eine Bestätigung erscheinen.
+
+Zum Beispiel:
+
+Spieler löschen
+
+Test löschen
+
+Trainingsplan löschen
+
+Benutzer löschen
+
+Meldung:
+
+"Möchten Sie diesen Datensatz wirklich löschen?"
+
+Optionen:
+
+Ja
+
+Nein
+
+--------------------------------------------------
+
+## Ladeanzeige
+
+Bei längeren Aktionen anzeigen:
+
+Speichern...
+
+Laden...
+
+Trainingsplan wird erstellt...
+
+PDF wird erstellt...
+
+Analyse wird berechnet...
+
+Der Benutzer soll jederzeit erkennen, dass die Software arbeitet.
+
+--------------------------------------------------
+
+## Einheitliches Design
+
+Alle Meldungen sollen im gesamten System identisch aussehen.
+
+Grün = Erfolg
+
+Gelb = Warnung
+
+Rot = Fehler
+
+Blau = Information
+
+--------------------------------------------------
+
+## Protokollierung
+
+Alle wichtigen Aktionen sollen zusätzlich intern protokolliert werden.
+
+Zum Beispiel:
+
+Zeitpunkt
+
+Benutzer
+
+Aktion
+
+Ergebnis
+
+Fehler (falls vorhanden)
+
+--------------------------------------------------
+
+## Abschlussbedingungen
+
+Diese Erweiterung gilt nur als abgeschlossen, wenn:
+
+- Jede Benutzeraktion eine passende Rückmeldung anzeigt.
+- Erfolgs-, Warn- und Fehlermeldungen im gesamten System einheitlich dargestellt werden.
+- Kritische Aktionen eine Sicherheitsabfrage besitzen.
+- Längere Prozesse eine Ladeanzeige besitzen.
+- Alle bestehenden Funktionen weiterhin vollständig funktionieren.
