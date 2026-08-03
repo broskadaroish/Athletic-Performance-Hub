@@ -2649,22 +2649,34 @@ def registrier_code_regenerieren(verein_id: int) -> str:
 
 
 def benutzer_speichern(verein_id, vorname, nachname, email, passwort, rolle) -> int:
+    import sqlite3 as _sqlite3
     with get_conn() as conn:
-        cur = conn.execute("""
-            INSERT INTO benutzer (verein_id, vorname, nachname, email,
-                                  passwort_hash, rolle, aktiv)
-            VALUES (?, ?, ?, ?, ?, ?, 1)
-        """, (verein_id, vorname, nachname, email, _pw_hash(passwort), rolle))
-        return cur.lastrowid
+        try:
+            cur = conn.execute("""
+                INSERT INTO benutzer (verein_id, vorname, nachname, email,
+                                      passwort_hash, rolle, aktiv)
+                VALUES (?, ?, ?, ?, ?, ?, 1)
+            """, (verein_id, vorname, nachname, email, _pw_hash(passwort), rolle))
+            return cur.lastrowid
+        except _sqlite3.IntegrityError as e:
+            if "UNIQUE" in str(e) and "email" in str(e):
+                raise ValueError(f"Die E-Mail-Adresse '{email}' ist bereits vergeben.") from e
+            raise
 
 
 def benutzer_aktualisieren(benutzer_id, verein_id, vorname, nachname, email, rolle) -> None:
+    import sqlite3 as _sqlite3
     with get_conn() as conn:
-        conn.execute("""
-            UPDATE benutzer
-            SET verein_id=?, vorname=?, nachname=?, email=?, rolle=?
-            WHERE id=?
-        """, (verein_id, vorname, nachname, email, rolle, benutzer_id))
+        try:
+            conn.execute("""
+                UPDATE benutzer
+                SET verein_id=?, vorname=?, nachname=?, email=?, rolle=?
+                WHERE id=?
+            """, (verein_id, vorname, nachname, email, rolle, benutzer_id))
+        except _sqlite3.IntegrityError as e:
+            if "UNIQUE" in str(e) and "email" in str(e):
+                raise ValueError(f"Die E-Mail-Adresse '{email}' ist bereits vergeben.") from e
+            raise
 
 
 def benutzer_aktivieren(benutzer_id: int, aktiv: int) -> None:

@@ -143,7 +143,10 @@ def page_benutzerverwaltung():
         elif not n_pw:
             st.error("Passwort fehlt.")
         else:
-            benutzer_speichern(n_verein_id, n_vorname.strip(), n_nachname.strip(),
-                               n_email.strip(), n_pw, n_rolle)
-            st.success(f"Benutzer **{n_vorname} {n_nachname}** angelegt.")
-            st.rerun()
+            try:
+                benutzer_speichern(n_verein_id, n_vorname.strip(), n_nachname.strip(),
+                                   n_email.strip(), n_pw, n_rolle)
+                st.success(f"Benutzer **{n_vorname} {n_nachname}** angelegt.")
+                st.rerun()
+            except ValueError as e:
+                st.error(str(e))
