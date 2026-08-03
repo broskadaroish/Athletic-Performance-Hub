@@ -4,10 +4,14 @@
 set -e
 
 echo "=== Post-merge setup ==="
+
 echo "Installing dependencies..."
-pnpm install --no-frozen-lockfile
+pnpm install --frozen-lockfile
+
+echo "Pushing database schema..."
+pnpm --filter @workspace/db run push
 
 echo "Running typecheck..."
-pnpm run typecheck:libs 2>/dev/null || true
+pnpm run typecheck:libs
 
 echo "=== Done ==="

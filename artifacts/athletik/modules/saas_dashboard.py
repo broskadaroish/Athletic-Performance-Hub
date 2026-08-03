@@ -10,7 +10,7 @@ from database import (
     dashboard_monatlich_vereine, dashboard_monatlich_trainer,
     dashboard_monatlich_diagnostiken,
     dashboard_spieler_altersklassen, dashboard_spieler_mannschaften,
-    dashboard_letzte_logins,
+    dashboard_letzte_logins, dashboard_verein_uebersicht,
     dashboard_trainer_letzte_spieler, dashboard_trainer_ohne_test,
     dashboard_trainer_neue_verletzungen, dashboard_trainer_diagnostiken_monat,
     spieler_laden, verein_by_id, spieler_ohne_verein_zaehlen,
@@ -220,6 +220,191 @@ def _navigate(section: str) -> None:
     st.rerun()
 
 
+# ── Vereinsvergleich-Tabelle (Superadmin) ─────────────────────────────────────
+
+def _tage_bis(lizenz_bis_str) -> int | None:
+    """Gibt die Anzahl der verbleibenden Tage bis Lizenzablauf zurück (negativ = abgelaufen)."""
+    if not lizenz_bis_str:
+        return None
+    try:
+        import datetime as _dt
+        bis = _dt.date.fromisoformat(str(lizenz_bis_str))
+        return (bis - _dt.date.today()).days
+    except Exception:
+        return None
+
+
+def _letzte_aktivitaet_text(ts: str | None) -> str:
+    """Wandelt einen ISO-Zeitstempel in einen lesbaren Relativtext um."""
+    if not ts:
+        return "—"
+    try:
+        import datetime as _dt
+        dt = _dt.datetime.fromisoformat(str(ts).replace("Z", "+00:00"))
+        dt = dt.replace(tzinfo=None)
+        delta = _dt.datetime.now() - dt
+        days  = delta.days
+        if days == 0:
+            h = delta.seconds // 3600
+            return f"heute, vor {h} Std." if h > 0 else "gerade eben"
+        if days == 1:
+            return "gestern"
+        if days < 7:
+            return f"vor {days} Tagen"
+        if days < 30:
+            return f"vor {days // 7} Woche(n)"
+        if days < 365:
+            return f"vor {days // 30} Monat(en)"
+        return f"vor {days // 365} Jahr(en)"
+    except Exception:
+        return str(ts)[:10]
+
+
+def _vereins_vergleich_tabelle() -> None:
+    """Sortierbare Vereinsvergleich-Tabelle für den Superadmin."""
+    st.markdown(
+        f'<div style="font-size:12px;font-weight:700;color:{_C["muted"]};'
+        f'letter-spacing:.5px;margin:4px 0 12px">🏢 VEREINSÜBERSICHT — VERGLEICH</div>',
+        unsafe_allow_html=True,
+    )
+
+    vereine = dashboard_verein_uebersicht()
+    if not vereine:
+        st.info("Noch keine Vereine angelegt.")
+        return
+
+    # ── Sortiersteuerung ──────────────────────────────────────────────────────
+    _SORT_OPTS = {
+        "Name (A–Z)":          ("name",            False),
+        "Diagnostiken ↓":      ("n_diagnostiken",  True),
+        "Spieler ↓":           ("n_spieler",       True),
+        "Trainer ↓":           ("n_trainer",       True),
+        "Letzte Aktivität ↓":  ("letzte_aktivitaet", True),
+        "Status":              ("_status_sort",    False),
+    }
+    sc1, sc2 = st.columns([2, 5])
+    with sc1:
+        sort_key = st.selectbox(
+            "Sortieren nach",
+            list(_SORT_OPTS.keys()),
+            key="sa_vereinstab_sort",
+            label_visibility="collapsed",
+        )
+
+    sort_field, sort_desc = _SORT_OPTS[sort_key]
+
+    # Status-Hilfssortierung berechnen (0=aktiv, 1=ablaufend, 2=inaktiv/gesperrt)
+    def _status_sort_val(v):
+        if v.get("gesperrt") or not v.get("aktiv", 1):
+            return 2
+        tage = _tage_bis(v.get("lizenz_bis"))
+        if tage is not None and tage < 0:
+            return 2
+        if tage is not None and tage <= 30:
+            return 1
+        return 0
+
+    for v in vereine:
+        v["_status_sort"] = _status_sort_val(v)
+
+    # Sort with nulls always last, regardless of direction
+    def _sort_val(v):
+        val = v.get(sort_field)
+        if isinstance(val, (int, float)):
+            return val
+        return str(val) if val is not None else None
+
+    vereine_nonnull = [v for v in vereine if v.get(sort_field) is not None]
+    vereine_null    = [v for v in vereine if v.get(sort_field) is None]
+    vereine_nonnull.sort(key=_sort_val, reverse=sort_desc)
+    vereine = vereine_nonnull + vereine_null
+
+    # ── Tabellenkopf ─────────────────────────────────────────────────────────
+    st.markdown(
+        f'<div style="display:grid;grid-template-columns:2fr 1fr 0.6fr 0.6fr 0.8fr 1.2fr 0.8fr 0.7fr;'
+        f'gap:4px;padding:6px 12px;border-radius:6px;margin-bottom:2px;'
+        f'background:{_C["surf"]};border:1px solid {_C["border"]}">'
+        f'<span style="font-size:10px;font-weight:700;color:{_C["muted"]};letter-spacing:.5px">VEREIN</span>'
+        f'<span style="font-size:10px;font-weight:700;color:{_C["muted"]};letter-spacing:.5px">LIZENZ</span>'
+        f'<span style="font-size:10px;font-weight:700;color:{_C["muted"]};letter-spacing:.5px;text-align:right">TRAINER</span>'
+        f'<span style="font-size:10px;font-weight:700;color:{_C["muted"]};letter-spacing:.5px;text-align:right">SPIELER</span>'
+        f'<span style="font-size:10px;font-weight:700;color:{_C["muted"]};letter-spacing:.5px;text-align:right">DIAGN.</span>'
+        f'<span style="font-size:10px;font-weight:700;color:{_C["muted"]};letter-spacing:.5px">LETZTE AKTIVITÄT</span>'
+        f'<span style="font-size:10px;font-weight:700;color:{_C["muted"]};letter-spacing:.5px">STATUS</span>'
+        f'<span style="font-size:10px;font-weight:700;color:{_C["muted"]};letter-spacing:.5px"></span>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
+
+    # ── Zeilen ────────────────────────────────────────────────────────────────
+    _LIZ_C = {
+        "Enterprise":    _C["orange"],
+        "Premium":       _C["blue"],
+        "Standard":      _C["green"],
+        "Basis":         _C["muted"],
+        "Test (30 Tage)":_C["red"],
+        "FREE":          _C["muted"],
+    }
+
+    for v in vereine:
+        vid   = v["id"]
+        name  = v.get("name") or f"Verein {vid}"
+        lt    = v.get("lizenztyp") or "Basis"
+        liz_c = _LIZ_C.get(lt, _C["muted"])
+
+        # Status ermitteln
+        gesperrt = v.get("gesperrt") or not v.get("aktiv", 1)
+        tage     = _tage_bis(v.get("lizenz_bis"))
+        if gesperrt or (tage is not None and tage < 0):
+            row_status     = "Inaktiv"
+            status_color   = _C["red"]
+            row_bg         = f"{_C['red']}0d"
+            row_border     = f"{_C['red']}44"
+        elif tage is not None and tage <= 30:
+            row_status     = f"Läuft ab ({tage}d)"
+            status_color   = _C["orange"]
+            row_bg         = f"{_C['orange']}0d"
+            row_border     = f"{_C['orange']}44"
+        else:
+            row_status     = "Aktiv"
+            status_color   = _C["green"]
+            row_bg         = "rgba(0,0,0,0)"
+            row_border     = _C["border"]
+
+        akt_text = _letzte_aktivitaet_text(v.get("letzte_aktivitaet"))
+
+        st.markdown(
+            f'<div style="display:grid;grid-template-columns:2fr 1fr 0.6fr 0.6fr 0.8fr 1.2fr 0.8fr 0.7fr;'
+            f'gap:4px;padding:8px 12px;border-radius:6px;margin-bottom:3px;'
+            f'background:{row_bg};border:1px solid {row_border};align-items:center">'
+            # Vereinsname
+            f'<span style="font-size:13px;font-weight:600;color:{_C["text"]}">{name}</span>'
+            # Lizenz-Badge
+            f'<span><span style="background:{liz_c}22;color:{liz_c};font-size:10px;font-weight:700;'
+            f'padding:2px 8px;border-radius:8px;border:1px solid {liz_c}44">{lt}</span></span>'
+            # Trainer
+            f'<span style="font-size:13px;color:{_C["text"]};text-align:right">{v["n_trainer"]}</span>'
+            # Spieler
+            f'<span style="font-size:13px;color:{_C["text"]};text-align:right">{v["n_spieler"]}</span>'
+            # Diagnostiken
+            f'<span style="font-size:13px;color:{_C["text"]};text-align:right">{v["n_diagnostiken"]}</span>'
+            # Letzte Aktivität
+            f'<span style="font-size:11px;color:{_C["muted"]}">{akt_text}</span>'
+            # Status-Chip
+            f'<span><span style="background:{status_color}22;color:{status_color};font-size:10px;'
+            f'font-weight:700;padding:2px 8px;border-radius:8px;border:1px solid {status_color}44">'
+            f'{row_status}</span></span>'
+            # Platzhalter für Button-Spalte (Button wird danach gerendert)
+            f'<span></span>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+        # Button zum Öffnen der Vereinsverwaltung
+        if st.button("→ Details", key=f"sa_vdetail_{vid}", help=f"{name} in der Vereinsverwaltung öffnen"):
+            st.session_state["sa_goto_verein_id"] = vid
+            _navigate("🏢  Vereinsverwaltung")
+
+
 # ── Hauptrouter ───────────────────────────────────────────────────────────────
 
 def page_saas_dashboard():
@@ -317,6 +502,11 @@ def _dash_superadmin(user: dict):
                             use_container_width=True, config={"displayModeBar": False})
         else:
             st.info("Noch keine Spieler angelegt.")
+
+    st.divider()
+
+    # ── Vereinsvergleich ──────────────────────────────────────────────────────
+    _vereins_vergleich_tabelle()
 
     st.divider()
 

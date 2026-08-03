@@ -89,6 +89,9 @@ def page_vereine():
         )
 
     # ── Vereinsliste als aufklappbare Zeilen ──────────────────────────────────
+    # When navigating from the dashboard comparison table, auto-expand the target
+    goto_id = st.session_state.pop("sa_goto_verein_id", None)
+
     for v in vereine:
         stats  = verein_statistiken(v["id"])
         lt     = v.get("lizenztyp") or "Basis"
@@ -99,7 +102,8 @@ def page_vereine():
             f"{'·  ' + ablauf + '   ' if ablauf else ''}"
             f"·  {stats['trainer']} Trainer  ·  {stats['spieler']} Spieler"
         )
-        with st.expander(label):
+        auto_open = goto_id is not None and v["id"] == goto_id
+        with st.expander(label, expanded=auto_open):
             _verein_detail(v, stats)
 
 

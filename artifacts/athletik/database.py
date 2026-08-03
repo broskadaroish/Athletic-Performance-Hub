@@ -2411,6 +2411,61 @@ def dashboard_sa_kpis() -> dict:
     }
 
 
+def dashboard_verein_uebersicht() -> list[dict]:
+    """Gibt für jeden Verein eine Zeile mit aggregierten Kennzahlen zurück.
+
+    Felder: id, name, lizenztyp, lizenz_bis, lizenz_status, aktiv, gesperrt,
+            n_trainer, n_spieler, n_diagnostiken, letzte_aktivitaet
+    """
+    with get_conn() as conn:
+        # Basisinfo aller Vereine — optional columns may not exist on older DBs
+        try:
+            vereine = _rows(conn.execute(
+                "SELECT id, name, lizenztyp, lizenz_bis, lizenz_status, aktiv, gesperrt "
+                "FROM vereine ORDER BY name"
+            ).fetchall())
+        except sqlite3.OperationalError as _e:
+            if "no such column" not in str(_e):
+                raise
+            # Older schema: optional columns not yet added via ALTER TABLE
+            vereine = _rows(conn.execute(
+                "SELECT id, name, aktiv FROM vereine ORDER BY name"
+            ).fetchall())
+            for v in vereine:
+                v.setdefault("lizenztyp", None)
+                v.setdefault("lizenz_bis", None)
+                v.setdefault("lizenz_status", None)
+                v.setdefault("gesperrt", 0)
+
+        for v in vereine:
+            vid = v["id"]
+            v["n_trainer"] = conn.execute(
+                "SELECT COUNT(*) FROM benutzer WHERE verein_id=? AND aktiv=1", (vid,)
+            ).fetchone()[0]
+            v["n_spieler"] = conn.execute(
+                "SELECT COUNT(*) FROM spieler WHERE verein_id=?", (vid,)
+            ).fetchone()[0]
+            # Letzte Benutzeranmeldung im Verein
+            row = conn.execute(
+                "SELECT MAX(letzter_login) FROM benutzer WHERE verein_id=? "
+                "AND letzter_login IS NOT NULL", (vid,)
+            ).fetchone()
+            v["letzte_aktivitaet"] = row[0] if row and row[0] else None
+            # Diagnostiken quer über alle Tabellen
+            diag_n = 0
+            for tbl in _DIAG_TBLS:
+                try:
+                    diag_n += conn.execute(
+                        f"SELECT COUNT(*) FROM {tbl} "
+                        f"WHERE spieler_id IN (SELECT id FROM spieler WHERE verein_id=?)",
+                        (vid,),
+                    ).fetchone()[0]
+                except Exception:
+                    pass
+            v["n_diagnostiken"] = diag_n
+    return vereine
+
+
 def dashboard_va_kpis(verein_id: int) -> dict:
     """KPIs für Vereinsadmin-Dashboard."""
     with get_conn() as conn:
