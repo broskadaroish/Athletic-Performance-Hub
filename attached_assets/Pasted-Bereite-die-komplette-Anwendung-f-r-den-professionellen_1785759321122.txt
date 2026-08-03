@@ -1,0 +1,128 @@
+Bereite die komplette Anwendung für den professionellen Onlinebetrieb vor.
+
+Die Anwendung soll später als SaaS für mehrere Vereine verkauft werden.
+
+Prüfe das komplette Projekt auf Deployment-Fähigkeit.
+
+Erledige selbstständig:
+
+==========================================
+PRODUKTIONSBETRIEB
+==========================================
+
+Prüfe:
+
+- Projektstruktur
+- Abhängigkeiten
+- requirements.txt
+- .replit
+- .streamlit
+- Startskripte
+- Environment Variablen
+- Datenbankpfade
+- Uploadpfade
+- Bildspeicherung
+- PDF-Erstellung
+- Dateirechte
+
+Erstelle alles, was für den Produktivbetrieb benötigt wird.
+
+==========================================
+SICHERHEIT
+==========================================
+
+Prüfe:
+
+- Passwörter
+- Session Management
+- SQL Injection
+- XSS
+- Dateiupload
+- Rollen
+- Rechte
+
+Verbessere die Sicherheit.
+
+==========================================
+DATEIEN
+==========================================
+
+Prüfe:
+
+Logo Upload
+
+Spielerbilder
+
+PDFs
+
+Exports
+
+Importe
+
+Alle Uploads sollen auch online funktionieren.
+
+==========================================
+DATENBANK
+==========================================
+
+Prüfe:
+
+SQLite Nutzung
+
+Migrationen
+
+Backups
+
+Mehrbenutzerbetrieb
+
+Bereite die Datenbank für eine spätere PostgreSQL Migration vor.
+
+Noch keine PostgreSQL Umstellung durchführen.
+
+==========================================
+FEHLERBEHANDLUNG
+==========================================
+
+Verbessere:
+
+404
+
+500
+
+Datenbankfehler
+
+Benutzerfehler
+
+Uploadfehler
+
+==========================================
+PERFORMANCE
+==========================================
+
+Prüfe:
+
+Caching
+
+Langsame Datenbankabfragen
+
+Große Tabellen
+
+Diagramme
+
+PDF Erzeugung
+
+==========================================
+ABSCHLUSS
+==========================================
+
+Erstelle einen Bericht.
+
+Welche Dateien wurden geändert?
+
+Welche Probleme wurden gefunden?
+
+Welche Probleme wurden behoben?
+
+Welche Punkte fehlen noch bis zum Livebetrieb?
+
+Keine fachlichen Änderungen an der Diagnostik durchführen.

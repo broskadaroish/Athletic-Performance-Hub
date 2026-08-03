@@ -7,7 +7,8 @@ import sqlite3
 from contextlib import contextmanager
 from datetime import date, datetime
 
-DB_PATH = "athletik.db"
+import os as _os
+DB_PATH = _os.environ.get("ATHLETIK_DB_PATH", "athletik.db")
 
 # Sentinel für optionale Parameter (unterscheidet None von "nicht übergeben")
 _UNSET = object()
@@ -25,12 +26,19 @@ def _rows(rs):
 
 @contextmanager
 def get_conn():
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=30)
     conn.row_factory = sqlite3.Row  # rows behave like dicts
+    conn.execute("PRAGMA journal_mode=WAL")      # besser für Mehrbenutzer-Betrieb
+    conn.execute("PRAGMA synchronous=NORMAL")    # WAL + NORMAL = sicher und schnell
+    conn.execute("PRAGMA cache_size=-32000")     # 32 MB Query-Cache
+    conn.execute("PRAGMA temp_store=MEMORY")     # Temp-Tabellen im RAM
     conn.execute("PRAGMA foreign_keys = ON")
     try:
         yield conn
         conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
     finally:
         conn.close()
 
@@ -413,6 +421,7 @@ def init_db():
     _migrate_spieler_columns()
     _migrate_db()
     _migrate_multitenant()
+    _create_indexes()
 
 
 # ─── Trainerbeobachtungen ─────────────────────────────────────────────────────
@@ -560,6 +569,34 @@ def checkliste_custom_speichern(test_id: str, punkte_text: str) -> None:
                ON CONFLICT(test_id) DO UPDATE SET punkte = excluded.punkte""",
             (test_id, punkte_text.strip()),
         )
+
+
+def _create_indexes():
+    """Erstellt Performance-Indizes — idempotent, sicher bei wiederholtem Aufruf."""
+    indexes = [
+        # Multi-Tenant-Filtering
+        "CREATE INDEX IF NOT EXISTS idx_spieler_verein    ON spieler(verein_id)",
+        "CREATE INDEX IF NOT EXISTS idx_spieler_trainer   ON spieler(trainer_id)",
+        "CREATE INDEX IF NOT EXISTS idx_benutzer_verein   ON benutzer(verein_id)",
+        "CREATE INDEX IF NOT EXISTS idx_benutzer_email    ON benutzer(email)",
+        # Test-Abfragen (spieler_id → letzter Test)
+        "CREATE INDEX IF NOT EXISTS idx_fms_spieler       ON fms_test(spieler_id, datum)",
+        "CREATE INDEX IF NOT EXISTS idx_y_spieler         ON y_balance_test(spieler_id, datum)",
+        "CREATE INDEX IF NOT EXISTS idx_sprint_spieler    ON sprint_test(spieler_id, datum)",
+        "CREATE INDEX IF NOT EXISTS idx_sprung_spieler    ON sprung_test(spieler_id, datum)",
+        "CREATE INDEX IF NOT EXISTS idx_agil_spieler      ON agilitaet_test(spieler_id, datum)",
+        "CREATE INDEX IF NOT EXISTS idx_ausdauer_spieler  ON ausdauer_test(spieler_id, datum)",
+        "CREATE INDEX IF NOT EXISTS idx_kraft_spieler     ON kraft_test(spieler_id, datum)",
+        "CREATE INDEX IF NOT EXISTS idx_anthro_spieler    ON anthropometrie(spieler_id, datum)",
+        "CREATE INDEX IF NOT EXISTS idx_verletz_spieler   ON verletzung(spieler_id)",
+        "CREATE INDEX IF NOT EXISTS idx_trainplan_spieler ON trainingsplan(spieler_id)",
+    ]
+    with get_conn() as conn:
+        for stmt in indexes:
+            try:
+                conn.execute(stmt)
+            except Exception:
+                pass
 
 
 def _migrate_spieler_columns():
@@ -1961,10 +1998,37 @@ def verein_statistiken(verein_id: int) -> dict:
 # ==========================================================================
 
 import hashlib as _hashlib
+import hmac as _hmac
+import secrets as _secrets
 
 
 def _pw_hash(passwort: str) -> str:
-    return _hashlib.sha256(passwort.encode()).hexdigest()
+    """PBKDF2-SHA256 mit zufälligem Salt (260.000 Iterationen).
+    Format: pbkdf2:<salt_hex>:<hash_hex>
+    Ersetzt das frühere unsalted SHA-256."""
+    salt = _secrets.token_hex(16)
+    h = _hashlib.pbkdf2_hmac(
+        "sha256", passwort.encode("utf-8"), salt.encode("utf-8"), 260_000
+    )
+    return f"pbkdf2:{salt}:{h.hex()}"
+
+
+def _pw_verify(passwort: str, stored_hash: str) -> bool:
+    """Prüft Passwort gegen gespeicherten Hash.
+    Unterstützt altes SHA-256 (ohne Salt) für nahtlose Migration."""
+    if stored_hash.startswith("pbkdf2:"):
+        try:
+            _, salt, h = stored_hash.split(":", 2)
+            h_new = _hashlib.pbkdf2_hmac(
+                "sha256", passwort.encode("utf-8"), salt.encode("utf-8"), 260_000
+            )
+            return _hmac.compare_digest(h_new.hex(), h)
+        except Exception:
+            return False
+    else:
+        # Legacy: SHA-256 ohne Salt — wird beim nächsten Login automatisch upgegradet
+        legacy = _hashlib.sha256(passwort.encode("utf-8")).hexdigest()
+        return _hmac.compare_digest(legacy, stored_hash)
 
 
 def benutzer_laden() -> list[dict]:

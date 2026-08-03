@@ -3,7 +3,11 @@ headless = true
 address = "0.0.0.0"
 port = 8082
 enableCORS = false
-enableXsrfProtection = false
+enableXsrfProtection = false   # Proxy-kompatibel; für direkten HTTPS-Betrieb auf true setzen
+maxUploadSize = 10             # MB — für Logo + Spielerbilder ausreichend
 
 [browser]
 gatherUsageStats = false
+
+[runner]
+fastReruns = true

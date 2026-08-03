@@ -141,7 +141,7 @@ from field_eval import alter_zu_altersgruppe, asymmetrie_badge_html, fms_asymmet
 
 # ─── Anleitung-Download-Button (wiederverwendbar auf jeder Testseite) ─────────
 
-@st.cache_data(show_spinner=False)
+@st.cache_data(show_spinner=False, ttl=300)
 def _generate_anleitung_cached(test_id: str, vereinsname: str, saison: str,
                                logo_bytes: bytes | None = None) -> bytes:
     """Generiert ein Einzel-Test-PDF (gecacht nach test_id + Vereinsinfos + Logo)."""
@@ -7150,7 +7150,7 @@ def page_spieler_vergleich():
     st.markdown("---")
     _ex_col, _ = st.columns([3, 7])
     with _ex_col:
-        @st.cache_data(show_spinner=False)
+        @st.cache_data(show_spinner=False, ttl=300)
         def _vergleich_pdf_cached(pid1, pid2, sc1, sc2):
             return generate_vergleich_pdf(
                 sp1=sp1, sp2=sp2, sc1=sc1, sc2=sc2,
