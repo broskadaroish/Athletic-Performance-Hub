@@ -28,6 +28,7 @@ app_py_files = [
 app_datas = (
     app_py_files
     + [(str(APP_DIR / "assets"), "assets")]       # SVGs, Icons, PDFs …
+    + [(str(APP_DIR / "modules"), "modules")]     # Multi-Tenant: benutzerverwaltung, vereine
     + st_datas
     + plotly_datas
     + fpdf_datas
@@ -38,7 +39,9 @@ app_datas = (
 # ── Lokale Module als Hidden Imports (app.py wird von Streamlit geladen) ──────
 local_modules = [
     "age_norms", "agilitaet", "analytics", "anthropometrie", "ausdauer",
+    "auth",                                                      # Multi-Tenant: Authentifizierung
     "database", "export", "field_eval", "fms", "help_ui", "i18n", "kraft",
+    "modules", "modules.benutzerverwaltung", "modules.vereine",  # Multi-Tenant: Admin-Module
     "pdf_anleitung", "pdf_report", "periodisierung", "safety_texts", "spiro",
     "sprint", "sprung", "test_help", "test_observations", "testprotokoll_pdf",
     "theme", "training", "ui_components", "y_balance",

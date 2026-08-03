@@ -98,6 +98,9 @@ FEHLER: Inno Setup wurde nicht gefunden.
 ### PyInstaller-Fehler (fehlende Module)
 Falls Module fehlen: in `athletik.spec` unter `hiddenimports` das fehlende Paket eintragen.
 
+> **Multi-Tenant-Module** (`auth.py`, `modules/benutzerverwaltung.py`, `modules/vereine.py`)
+> sind bereits als `datas` und `hiddenimports` eingetragen und werden automatisch mitgeliefert.
+
 ### App startet nicht / Browser öffnet sich nicht
 1. `BruceFootballDiagnostics.exe` direkt aus dem Installationsordner starten
 2. Konsolenausgabe auf Fehlermeldungen prüfen
