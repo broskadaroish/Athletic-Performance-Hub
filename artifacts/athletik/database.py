@@ -2558,27 +2558,21 @@ def benutzer_by_id(benutzer_id: int) -> dict | None:
 
 
 def trainer_registrieren(
-    registrier_code: str,
+    verein_id: int,
     vorname: str,
     nachname: str,
     email: str,
     passwort: str,
 ) -> int:
-    """Trainer-Selbstregistrierung via Vereins-Beitrittscode.
-    Gibt benutzer_id zurück. Wirft ValueError bei ungültigem Code / doppelter E-Mail.
+    """Trainer-Selbstregistrierung über Vereinsauswahl.
+    Gibt benutzer_id zurück. Wirft ValueError bei ungültigem Verein / doppelter E-Mail.
     Der Trainer startet als inaktiv=0 (muss vom Vereinsadmin freigeschaltet werden)."""
-    import secrets as _secrets
-    code = registrier_code.strip().upper()
     with get_conn() as conn:
         row = conn.execute(
-            "SELECT id FROM vereine WHERE UPPER(registrier_code)=? AND aktiv=1",
-            (code,),
+            "SELECT id FROM vereine WHERE id=? AND aktiv=1", (verein_id,)
         ).fetchone()
         if not row:
-            raise ValueError(
-                "Ungültiger Beitrittscode. Bitte deinen Vereinsadmin um den richtigen Code."
-            )
-        verein_id = row[0]
+            raise ValueError("Ungültiger Verein. Bitte wähle deinen Verein aus der Liste.")
         existing = conn.execute(
             "SELECT id FROM benutzer WHERE LOWER(email)=LOWER(?)", (email,)
         ).fetchone()
