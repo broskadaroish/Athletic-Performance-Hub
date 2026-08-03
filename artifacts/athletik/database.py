@@ -421,11 +421,32 @@ def init_db():
             wert       BLOB,
             geaendert  TEXT DEFAULT (datetime('now'))
         );
+
+        CREATE TABLE IF NOT EXISTS spieler_zuweisung_log (
+            id               INTEGER PRIMARY KEY AUTOINCREMENT,
+            spieler_id       INTEGER NOT NULL REFERENCES spieler(id) ON DELETE CASCADE,
+            zeitstempel      TEXT    NOT NULL DEFAULT (datetime('now')),
+            ausfuehrender_id INTEGER REFERENCES benutzer(id) ON DELETE SET NULL,
+            alt_trainer_id   INTEGER,
+            neu_trainer_id   INTEGER,
+            alt_verein_id    INTEGER,
+            neu_verein_id    INTEGER
+        );
+
+        CREATE TABLE IF NOT EXISTS benachrichtigungen (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            benutzer_id INTEGER NOT NULL REFERENCES benutzer(id) ON DELETE CASCADE,
+            typ         TEXT    NOT NULL DEFAULT 'info',
+            text        TEXT    NOT NULL,
+            gelesen     INTEGER NOT NULL DEFAULT 0,
+            erstellt_am TEXT    NOT NULL DEFAULT (datetime('now'))
+        );
         """)
     # Migrationen: neue Spalten und Indizes für bestehende Datenbanken nachträglich anlegen
     _migrate_spieler_columns()
     _migrate_db()
     _migrate_multitenant()
+    _migrate_szl_actor_fk()  # Korrigiert ON DELETE SET NULL auf ausfuehrender_id
     _create_indexes()
 
 
@@ -574,6 +595,71 @@ def checkliste_custom_speichern(test_id: str, punkte_text: str) -> None:
                ON CONFLICT(test_id) DO UPDATE SET punkte = excluded.punkte""",
             (test_id, punkte_text.strip()),
         )
+
+
+def _migrate_szl_actor_fk():
+    """Recreates spieler_zuweisung_log with ON DELETE SET NULL on ausfuehrender_id.
+
+    SQLite does not support ALTER TABLE … DROP CONSTRAINT or adding ON DELETE actions,
+    so we use the rename → create → copy → drop pattern with PRAGMA foreign_keys OFF.
+    The migration is idempotent: a marker in app_einstellungen prevents double execution.
+    """
+    import sqlite3 as _sqlite3
+    raw = _sqlite3.connect(DB_PATH, timeout=30)
+    raw.row_factory = _sqlite3.Row
+    raw.execute("PRAGMA journal_mode=WAL")
+    # Must be OFF before altering/recreating tables with FK changes
+    raw.execute("PRAGMA foreign_keys = OFF")
+    try:
+        # Idempotency check
+        marker = raw.execute(
+            "SELECT 1 FROM app_einstellungen WHERE schluessel='szl_actor_fk_v1'"
+        ).fetchone()
+        if marker:
+            return
+
+        # Clean up any aborted previous attempt
+        raw.execute("DROP TABLE IF EXISTS _szl_tmp")
+        raw.commit()
+
+        tbl = raw.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='spieler_zuweisung_log'"
+        ).fetchone()
+        if tbl:
+            raw.execute(
+                "ALTER TABLE spieler_zuweisung_log RENAME TO _szl_tmp"
+            )
+            raw.execute("""
+                CREATE TABLE spieler_zuweisung_log (
+                    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+                    spieler_id       INTEGER NOT NULL
+                                     REFERENCES spieler(id) ON DELETE CASCADE,
+                    zeitstempel      TEXT    NOT NULL DEFAULT (datetime('now')),
+                    ausfuehrender_id INTEGER
+                                     REFERENCES benutzer(id) ON DELETE SET NULL,
+                    alt_trainer_id   INTEGER,
+                    neu_trainer_id   INTEGER,
+                    alt_verein_id    INTEGER,
+                    neu_verein_id    INTEGER
+                )
+            """)
+            raw.execute(
+                "INSERT INTO spieler_zuweisung_log SELECT * FROM _szl_tmp"
+            )
+            raw.execute("DROP TABLE _szl_tmp")
+
+        raw.execute(
+            "INSERT OR IGNORE INTO app_einstellungen (schluessel, wert)"
+            " VALUES ('szl_actor_fk_v1', '1')"
+        )
+        raw.commit()
+    except Exception:
+        try:
+            raw.rollback()
+        except Exception:
+            pass
+    finally:
+        raw.close()
 
 
 def _create_indexes():
@@ -738,6 +824,32 @@ def _migrate_db():
         except Exception:
             pass
 
+        # ── Zuweisung-Log-Tabelle (für bestehende Datenbanken) ───────────────
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS spieler_zuweisung_log (
+                id               INTEGER PRIMARY KEY AUTOINCREMENT,
+                spieler_id       INTEGER NOT NULL REFERENCES spieler(id) ON DELETE CASCADE,
+                zeitstempel      TEXT    NOT NULL DEFAULT (datetime('now')),
+                ausfuehrender_id INTEGER REFERENCES benutzer(id),
+                alt_trainer_id   INTEGER,
+                neu_trainer_id   INTEGER,
+                alt_verein_id    INTEGER,
+                neu_verein_id    INTEGER
+            )
+        """)
+
+        # ── Benachrichtigungen-Tabelle (für bestehende Datenbanken) ──────────
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS benachrichtigungen (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                benutzer_id INTEGER NOT NULL REFERENCES benutzer(id) ON DELETE CASCADE,
+                typ         TEXT    NOT NULL DEFAULT 'info',
+                text        TEXT    NOT NULL,
+                gelesen     INTEGER NOT NULL DEFAULT 0,
+                erstellt_am TEXT    NOT NULL DEFAULT (datetime('now'))
+            )
+        """)
+
 
 # ─── Hilfsfunktionen ───────────────────────────────────────────────────────
 
@@ -871,6 +983,7 @@ def spieler_loeschen(spieler_id):
             "verletzung", "anthropometrie", "agilitaet_test", "ausdauer_test",
             "sprint_test", "sprung_test", "fms_test", "y_balance_test",
             "trainingsplan", "periodisierung", "trainerbeobachtung", "kraft_test",
+            "spieler_zuweisung_log",
         ]:
             try:
                 conn.execute(f"DELETE FROM {tabelle} WHERE spieler_id=?", (spieler_id,))
@@ -880,7 +993,8 @@ def spieler_loeschen(spieler_id):
 
 
 def spieler_trainer_zuweisen(spieler_id: int, trainer_id, verein_id,
-                             aufrufender_verein_id=None) -> None:
+                             aufrufender_verein_id=None,
+                             ausfuehrender_id=None) -> None:
     """Weist einem Spieler Trainer und Verein zu – mit serverseitiger Validierung.
 
     Regeln:
@@ -919,16 +1033,62 @@ def spieler_trainer_zuweisen(spieler_id: int, trainer_id, verein_id,
                     f"nicht zu Verein {verein_id}."
                 )
 
+        # Alte Werte lesen für Logging
+        alt = conn.execute(
+            "SELECT trainer_id, verein_id FROM spieler WHERE id=?",
+            (spieler_id,),
+        ).fetchone()
+        alt_tid = alt["trainer_id"] if alt else None
+        alt_vid = alt["verein_id"] if alt else None
+
         conn.execute(
             "UPDATE spieler SET trainer_id=?, verein_id=? WHERE id=?",
             (trainer_id, verein_id, spieler_id),
         )
 
+        # Nur loggen wenn sich etwas geändert hat
+        if alt_tid != trainer_id or alt_vid != verein_id:
+            conn.execute(
+                """INSERT INTO spieler_zuweisung_log
+                   (spieler_id, ausfuehrender_id, alt_trainer_id, neu_trainer_id,
+                    alt_verein_id, neu_verein_id)
+                   VALUES (?,?,?,?,?,?)""",
+                (spieler_id, ausfuehrender_id, alt_tid, trainer_id, alt_vid, verein_id),
+            )
+
+            # Spielername für Benachrichtigungstext ermitteln
+            _sp = conn.execute(
+                "SELECT name FROM spieler WHERE id=?", (spieler_id,)
+            ).fetchone()
+            _sp_name = _sp["name"] if _sp else f"Spieler #{spieler_id}"
+
+            # Alten Trainer benachrichtigen (nur wenn wirklich gewechselt und es einen alten Trainer gab)
+            if alt_tid is not None and alt_tid != trainer_id:
+                _neu_name = "— kein Trainer —"
+                if trainer_id is not None:
+                    _neu_row = conn.execute(
+                        "SELECT vorname, nachname FROM benutzer WHERE id=?", (trainer_id,)
+                    ).fetchone()
+                    if _neu_row:
+                        _neu_name = f"{_neu_row['vorname']} {_neu_row['nachname']}".strip()
+                _msg = (
+                    f"Spieler **{_sp_name}** wurde einem anderen Trainer zugewiesen. "
+                    f"Neuer Trainer: {_neu_name}."
+                )
+                try:
+                    conn.execute(
+                        "INSERT INTO benachrichtigungen (benutzer_id, typ, text) VALUES (?,?,?)",
+                        (alt_tid, "spieler_wechsel", _msg),
+                    )
+                except Exception:
+                    pass  # Tabelle evtl. noch nicht migriert
+
 
 def spieler_aktualisieren(spieler_id, vorname, nachname, geburtsdatum, geschlecht,
                           hauptposition, nebenposition, altersklasse,
                           spielbein, leistungsniveau, mannschaft, trainingsstatus,
-                          trainer_id=_UNSET, verein_id=_UNSET):
+                          trainer_id=_UNSET, verein_id=_UNSET,
+                          ausfuehrender_id=None):
     """Aktualisiert die Stammdaten eines bestehenden Spielers.
 
     trainer_id und verein_id sind optional: wird der Parameter weggelassen (Sentinel),
@@ -936,6 +1096,17 @@ def spieler_aktualisieren(spieler_id, vorname, nachname, geburtsdatum, geschlech
     """
     name = f"{vorname} {nachname}".strip()
     with get_conn() as conn:
+        # Alte Zuweisung lesen, falls trainer_id oder verein_id geändert werden
+        if trainer_id is not _UNSET or verein_id is not _UNSET:
+            alt = conn.execute(
+                "SELECT trainer_id, verein_id FROM spieler WHERE id=?",
+                (spieler_id,),
+            ).fetchone()
+            alt_tid = alt["trainer_id"] if alt else None
+            alt_vid = alt["verein_id"] if alt else None
+        else:
+            alt_tid = alt_vid = None
+
         conn.execute(
             """UPDATE spieler SET
                name=?, vorname=?, nachname=?, geburtsdatum=?, geschlecht=?,
@@ -951,6 +1122,110 @@ def spieler_aktualisieren(spieler_id, vorname, nachname, geburtsdatum, geschlech
             conn.execute("UPDATE spieler SET trainer_id=? WHERE id=?", (trainer_id, spieler_id))
         if verein_id is not _UNSET:
             conn.execute("UPDATE spieler SET verein_id=? WHERE id=?", (verein_id, spieler_id))
+
+        # Zuweisung loggen, wenn sich trainer_id oder verein_id geändert hat
+        neu_tid = trainer_id if trainer_id is not _UNSET else alt_tid
+        neu_vid = verein_id  if verein_id  is not _UNSET else alt_vid
+        if (trainer_id is not _UNSET or verein_id is not _UNSET) and (alt_tid != neu_tid or alt_vid != neu_vid):
+            conn.execute(
+                """INSERT INTO spieler_zuweisung_log
+                   (spieler_id, ausfuehrender_id, alt_trainer_id, neu_trainer_id,
+                    alt_verein_id, neu_verein_id)
+                   VALUES (?,?,?,?,?,?)""",
+                (spieler_id, ausfuehrender_id, alt_tid, neu_tid, alt_vid, neu_vid),
+            )
+
+            # Alten Trainer benachrichtigen (nur bei echtem Trainer-Wechsel)
+            if alt_tid is not None and alt_tid != neu_tid:
+                _sp_name = name  # name is already computed above
+                _neu_name = "— kein Trainer —"
+                if neu_tid is not None:
+                    _neu_row = conn.execute(
+                        "SELECT vorname, nachname FROM benutzer WHERE id=?", (neu_tid,)
+                    ).fetchone()
+                    if _neu_row:
+                        _neu_name = f"{_neu_row['vorname']} {_neu_row['nachname']}".strip()
+                _msg = (
+                    f"Spieler **{_sp_name}** wurde einem anderen Trainer zugewiesen. "
+                    f"Neuer Trainer: {_neu_name}."
+                )
+                try:
+                    conn.execute(
+                        "INSERT INTO benachrichtigungen (benutzer_id, typ, text) VALUES (?,?,?)",
+                        (alt_tid, "spieler_wechsel", _msg),
+                    )
+                except Exception:
+                    pass  # Tabelle evtl. noch nicht migriert
+
+
+def benachrichtigung_schreiben(benutzer_id: int, text: str, typ: str = "info") -> None:
+    """Schreibt eine neue In-App-Benachrichtigung für einen Benutzer."""
+    with get_conn() as conn:
+        conn.execute(
+            "INSERT INTO benachrichtigungen (benutzer_id, typ, text) VALUES (?,?,?)",
+            (benutzer_id, typ, text),
+        )
+
+
+def benachrichtigungen_laden(benutzer_id: int, nur_ungelesen: bool = False) -> list[dict]:
+    """Lädt Benachrichtigungen für einen Benutzer (neueste zuerst)."""
+    with get_conn() as conn:
+        if nur_ungelesen:
+            rows = conn.execute(
+                "SELECT * FROM benachrichtigungen WHERE benutzer_id=? AND gelesen=0 ORDER BY id DESC",
+                (benutzer_id,),
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                "SELECT * FROM benachrichtigungen WHERE benutzer_id=? ORDER BY id DESC LIMIT 50",
+                (benutzer_id,),
+            ).fetchall()
+    return _rows(rows)
+
+
+def benachrichtigung_gelesen_setzen(benachrichtigung_id: int) -> None:
+    """Markiert eine einzelne Benachrichtigung als gelesen."""
+    with get_conn() as conn:
+        conn.execute(
+            "UPDATE benachrichtigungen SET gelesen=1 WHERE id=?",
+            (benachrichtigung_id,),
+        )
+
+
+def benachrichtigungen_alle_gelesen(benutzer_id: int) -> None:
+    """Markiert alle Benachrichtigungen eines Benutzers als gelesen."""
+    with get_conn() as conn:
+        conn.execute(
+            "UPDATE benachrichtigungen SET gelesen=1 WHERE benutzer_id=?",
+            (benutzer_id,),
+        )
+
+
+def zuweisung_log_laden(spieler_id: int) -> list[dict]:
+    """Gibt alle Zuweisung-Log-Einträge für einen Spieler zurück (neueste zuerst).
+
+    Jeder Eintrag enthält zusätzlich aufgelöste Namen für Trainer und Vereine
+    (alt_trainer_name, neu_trainer_name, alt_verein_name, neu_verein_name).
+    """
+    with get_conn() as conn:
+        rows = _rows(conn.execute(
+            """SELECT l.*,
+                      b_aus.vorname || ' ' || b_aus.nachname AS ausfuehrender_name,
+                      b_alt.vorname || ' ' || b_alt.nachname AS alt_trainer_name,
+                      b_neu.vorname || ' ' || b_neu.nachname AS neu_trainer_name,
+                      v_alt.name AS alt_verein_name,
+                      v_neu.name AS neu_verein_name
+               FROM spieler_zuweisung_log l
+               LEFT JOIN benutzer b_aus ON b_aus.id = l.ausfuehrender_id
+               LEFT JOIN benutzer b_alt ON b_alt.id = l.alt_trainer_id
+               LEFT JOIN benutzer b_neu ON b_neu.id = l.neu_trainer_id
+               LEFT JOIN vereine  v_alt ON v_alt.id = l.alt_verein_id
+               LEFT JOIN vereine  v_neu ON v_neu.id = l.neu_verein_id
+               WHERE l.spieler_id = ?
+               ORDER BY l.id DESC""",
+            (spieler_id,),
+        ).fetchall())
+    return rows
 
 
 def db_komplett_zuruecksetzen():

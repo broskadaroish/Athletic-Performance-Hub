@@ -68,6 +68,8 @@ from database import (
     vereine_laden, verein_speichern, verein_aktivieren,
     verein_by_id, verein_aktualisieren, verein_logo_speichern, verein_statistiken,
     spieler_null_zuweisen, spieler_ohne_verein_zaehlen,
+    zuweisung_log_laden,
+    benachrichtigungen_laden, benachrichtigungen_alle_gelesen,
 )
 from auth import login, hash_password
 from modules.benutzerverwaltung import page_benutzerverwaltung
@@ -1253,6 +1255,7 @@ def _render_inline_edit_form(sp: dict) -> None:
                     _e_npos if _e_npos != "—" else "",
                     _e_ak, _e_sb, _e_lvl,
                     _e_mann.strip(), _e_ts,
+                    ausfuehrender_id=_akt_user().get("id"),
                     **_kwargs,
                 )
                 st.session_state.pop("inline_edit_id", None)
@@ -1540,6 +1543,7 @@ def page_spieler():
                             trainer_id=_za_sel_tid,
                             verein_id=_za_sel_vid,
                             aufrufender_verein_id=_va_vid if _rolle == "Vereinsadmin" else None,
+                            ausfuehrender_id=_akt_user().get("id"),
                         )
                         _save_ok(
                             f"**{_za_sp['name']}**: Trainer-Zuweisung wurde aktualisiert."
@@ -8256,6 +8260,41 @@ with st.sidebar:
                     )
             if not _sb_has_test:
                 st.caption("Noch keine Testdaten vorhanden.")
+
+            # ── Zuweisung-Verlauf (nur Superadmin-Sicht) ─────────────────────
+            if _akt_user()["rolle"] == "Superadmin":
+                _sb_log = zuweisung_log_laden(_sb_pid)
+                st.markdown(
+                    "<div style='font-size:10px;font-weight:700;color:#58a6ff;"
+                    "letter-spacing:1px;margin:10px 0 4px'>🔗 ZUWEISUNG-VERLAUF</div>",
+                    unsafe_allow_html=True,
+                )
+                if _sb_log:
+                    for _le in _sb_log:
+                        _le_ts   = (_le.get("zeitstempel") or "")[:16].replace("T", " ")
+                        _le_by   = _le.get("ausfuehrender_name") or "—"
+                        _le_atr  = _le.get("alt_trainer_name") or "—"
+                        _le_ntr  = _le.get("neu_trainer_name") or "—"
+                        _le_avi  = _le.get("alt_verein_name") or "—"
+                        _le_nvi  = _le.get("neu_verein_name") or "—"
+                        _le_txt  = []
+                        if _le.get("alt_trainer_id") != _le.get("neu_trainer_id"):
+                            _le_txt.append(f"Trainer: {_le_atr} → {_le_ntr}")
+                        if _le.get("alt_verein_id") != _le.get("neu_verein_id"):
+                            _le_txt.append(f"Verein: {_le_avi} → {_le_nvi}")
+                        _le_change = " · ".join(_le_txt) if _le_txt else "Keine Änderung"
+                        st.markdown(
+                            f"<div style='font-size:10px;padding:3px 0;"
+                            f"border-bottom:1px solid #21262d;color:#e6edf3'>"
+                            f"<span style='color:#8b949e'>{_le_ts}</span>"
+                            f"<span style='color:#58a6ff;margin:0 4px'>·</span>"
+                            f"<span>{_le_change}</span>"
+                            f"<span style='color:#8b949e;font-size:9px;float:right'>"
+                            f"von {_le_by}</span></div>",
+                            unsafe_allow_html=True,
+                        )
+                else:
+                    st.caption("Noch keine Zuweisungsänderungen protokolliert.")
     else:
         st.markdown(
             f'<div style="padding:8px 0;color:{C["muted"]};font-size:12px">Kein Spieler angelegt.</div>',
@@ -8263,6 +8302,30 @@ with st.sidebar:
         )
 
     st.markdown(f'<hr style="border-color:{C["surface2"]};margin:10px 0">', unsafe_allow_html=True)
+
+    # ── Benachrichtigungen (nur für Trainer-Rolle) ────────────────────────────
+    _nb_user = _akt_user()
+    if _nb_user.get("rolle") == "Trainer" and _nb_user.get("id"):
+        _nb_ungelesen = benachrichtigungen_laden(_nb_user["id"], nur_ungelesen=True)
+        if _nb_ungelesen:
+            _nb_count = len(_nb_ungelesen)
+            with st.expander(f"🔔 Benachrichtigungen ({_nb_count} neu)", expanded=True):
+                for _nb in _nb_ungelesen:
+                    _nb_ts = (_nb.get("erstellt_am") or "")[:16].replace("T", " ")
+                    # Markdown-Fettdruck in den Text einbetten
+                    _nb_txt = _nb.get("text") or ""
+                    st.markdown(
+                        f"<div style='font-size:11px;padding:6px 0;"
+                        f"border-bottom:1px solid #21262d;color:#e6edf3'>"
+                        f"{_nb_txt}"
+                        f"<br><span style='color:#8b949e;font-size:9px'>{_nb_ts}</span>"
+                        f"</div>",
+                        unsafe_allow_html=True,
+                    )
+                if st.button("✅ Alle als gelesen markieren",
+                             key="nb_alle_gelesen", use_container_width=True):
+                    benachrichtigungen_alle_gelesen(_nb_user["id"])
+                    st.rerun()
 
     # ── Pending navigation from quick-action buttons ───────────────────────────
     # Must be applied before the widget is instantiated to avoid StreamlitAPIException
