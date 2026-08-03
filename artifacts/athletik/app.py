@@ -136,6 +136,7 @@ from kraft import KraftErgebnis as _KraftErgebnis, epley_1rm as _epley_1rm
 from analytics import (
     risiko_score, risiko_label, athletik_score, athletik_sub_scores,
     defizite_ermitteln, schwerpunkt_sammeln,
+    ist_unauffaellig, ERHALTUNGS_SCHWERPUNKT, ERHALTUNGS_BEGRUENDUNG,
 )
 from periodisierung import (zyklus_erstellen, zyklus_laden, trainingsplan_multi_erstellen,
                              defizit_tabelle, _alter_zu_plangruppe, _PLANGRUPPEN_CONFIG, _POOL,
@@ -2430,10 +2431,25 @@ def page_spieler_profil():
                     )
         with col_r:
             st.markdown("### 🏋️ Trainingsempfehlungen")
-            bereiche = empfehlung_bereiche(schwerpunkt)
+            # Erhaltungstraining wenn Tests vorliegen aber keine Defizite erkannt
+            _sw_empf = schwerpunkt
+            _erh_aktiv = False
+            if not schwerpunkt.strip():
+                if ist_unauffaellig(fms, y, sprint, sprung, agil, aus, spiro_row=_spiro_p):
+                    _sw_empf = ERHALTUNGS_SCHWERPUNKT
+                    _erh_aktiv = True
+            bereiche = empfehlung_bereiche(_sw_empf)
             if not bereiche:
-                st.info("Kein spezifischer Trainingsschwerpunkt erkannt.")
+                st.info("Noch keine Testdaten erfasst — Diagnostik durchführen, um Trainingsempfehlungen zu erhalten.")
             else:
+                if _erh_aktiv:
+                    st.success("✅ **Unauffällige Diagnostik** — Erhaltungs- und Leistungssteigerungsplan aktiv", icon=None)
+                    st.markdown(
+                        f'<div style="background:#0d1117;border-left:3px solid #3fb950;padding:10px 14px;'
+                        f'border-radius:6px;margin-bottom:10px;font-size:12px;color:#8b949e">'
+                        f'{ERHALTUNGS_BEGRUENDUNG}</div>',
+                        unsafe_allow_html=True,
+                    )
                 for bereich, uebungen in uebungen_fuer_bereiche(bereiche).items():
                     with st.expander(f"**{bereich}** — {len(uebungen)} Übungen"):
                         for u in uebungen:
@@ -2703,24 +2719,50 @@ def page_trainingsplan():
     schwerpunkt = schwerpunkt_sammeln(fms, y, sprint, sprung, agil, aus,
                                       kraft_row=kraft_letzter(sid), spiro_row=spiro)
 
+    # Erhaltungstraining-Modus: Tests vorhanden, aber keine Defizite erkannt
+    _tp_unauffaellig = ist_unauffaellig(fms, y, sprint, sprung, agil, aus, spiro_row=spiro)
+    if _tp_unauffaellig and not schwerpunkt.strip():
+        schwerpunkt = ERHALTUNGS_SCHWERPUNKT
+
     tab_auto, tab_manual, tab_view = st.tabs(["🤖 Automatisch generieren", "✍️ Manuell hinzufügen", "📋 Plan anzeigen"])
 
     with tab_auto:
         st.markdown("### Individuellen Trainingsplan aus Diagnostikdaten")
 
-        # ── Deficit Analysis ──────────────────────────────────────────────────
+        # ── Erhaltungstraining-Banner ──────────────────────────────────────────
+        if _tp_unauffaellig:
+            st.markdown(
+                f'<div style="background:#0d2415;border:1px solid #3fb950;border-radius:10px;'
+                f'padding:14px 18px;margin-bottom:16px">'
+                f'<div style="font-size:14px;font-weight:700;color:#3fb950;margin-bottom:4px">'
+                f'✅ Unauffällige Diagnostik — Trainingsmodus: Leistung erhalten und weiterentwickeln</div>'
+                f'<div style="font-size:12px;color:#8b949e">{ERHALTUNGS_BEGRUENDUNG}</div>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+            st.markdown("#### 🎯 Trainingsschwerpunkte")
+            _erh_farben = {"🔴 Primär": "#58a6ff", "🟡 Sekundär": "#3fb950", "🟢 Tertiär": "#8b949e"}
+            _erh_label  = {"🔴 Primär": "Hauptschwerpunkt", "🟡 Sekundär": "Ergänzung", "🟢 Tertiär": "Basis"}
+        else:
+            _erh_farben = {"🔴 Primär": "#f85149", "🟡 Sekundär": "#d29922", "🟢 Tertiär": "#3fb950"}
+            _erh_label  = None
+
+        # ── Deficit / Focus Analysis ──────────────────────────────────────────
         defizite = defizit_tabelle(schwerpunkt)
         if defizite:
-            st.markdown("#### 🔍 Erkannte Defizite")
+            if not _tp_unauffaellig:
+                st.markdown("#### 🔍 Erkannte Defizite")
+            _farben = _erh_farben
             _d_cols = st.columns(min(len(defizite), 4))
-            _farben = {"🔴 Primär": "#f85149", "🟡 Sekundär": "#d29922", "🟢 Tertiär": "#3fb950"}
             for i, d in enumerate(defizite):
-                col = _d_cols[i % len(_d_cols)]
+                col  = _d_cols[i % len(_d_cols)]
                 _clr = _farben.get(d["Priorität"], "#8b949e")
+                _lbl = (_erh_label[d["Priorität"]] if _erh_label and d["Priorität"] in _erh_label
+                        else d["Priorität"])
                 col.markdown(
                     f'<div style="background:#161b22;border:2px solid {_clr};border-radius:8px;'
                     f'padding:10px 14px;margin-bottom:8px;text-align:center">'
-                    f'<div style="font-size:18px">{d["Priorität"].split()[0]}</div>'
+                    f'<div style="font-size:11px;color:{_clr};font-weight:700">{_lbl}</div>'
                     f'<div style="font-weight:700;color:#e6edf3;font-size:14px">{d["Bereich"]}</div>'
                     f'<div style="color:{_clr};font-size:12px">{d["Volumen/Woche"]}</div>'
                     f'</div>',

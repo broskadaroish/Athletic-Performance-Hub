@@ -1,0 +1,173 @@
+# UPDATE – Regelbasierte Trainings-Engine erweitern: Erhaltungstraining bei unauffälliger Diagnostik
+
+## WICHTIG
+
+Erweitere die bestehende regelbasierte Trainings-Engine.
+
+Alle bisherigen Funktionen, Berechnungen und Regeln müssen vollständig erhalten bleiben.
+
+Diese Erweiterung ergänzt ausschließlich die Entscheidungslogik des Trainingsgenerators.
+
+---
+
+## Ziel
+
+Wenn ein Spieler bei den durchgeführten Tests keine relevanten Defizite aufweist, darf die Software niemals ausgeben:
+
+- Kein Training notwendig
+- Keine Empfehlung
+- Kein Trainingsplan
+
+Stattdessen muss automatisch ein individueller Erhaltungs- und Leistungssteigerungsplan erstellt werden.
+
+---
+
+## Regel
+
+Wenn folgende Bedingungen erfüllt sind:
+
+- FMS im unauffälligen Bereich
+- Y-Balance ohne relevante Asymmetrien
+- Sprintleistung alters- und leistungsgerecht
+- Ausdauer alters- und leistungsgerecht
+- Keine relevanten Auffälligkeiten im Athletik-Score
+- Kein erhöhtes Verletzungsrisiko
+
+Dann automatisch:
+
+Trainingsmodus = "Leistung erhalten und weiterentwickeln"
+
+---
+
+## Trainingsziele
+
+Der Trainingsplan soll:
+
+- vorhandene Leistungsfähigkeit erhalten
+- Verletzungen vorbeugen
+- Mobilität erhalten
+- Stabilität erhalten
+- Kraft erhalten bzw. leicht verbessern
+- Schnelligkeit erhalten bzw. leicht verbessern
+- Explosivität erhalten
+- Koordination verbessern
+- fußballspezifische Leistungsfähigkeit erhalten
+
+---
+
+## Trainingsschwerpunkte
+
+Die Software soll automatisch abwechslungsreiche Schwerpunkte setzen.
+
+Beispiel:
+
+25–30 % Mobilität und Prävention
+
+20–25 % Core und Stabilität
+
+20–25 % Schnelligkeit und Explosivität
+
+20–25 % Kraft
+
+10–15 % Koordination und Bewegungsqualität
+
+Diese Werte dürfen je nach Alter, Leistungsniveau, Position, Trainingshäufigkeit und Saisonphase automatisch angepasst werden.
+
+---
+
+## Übungsauswahl
+
+Die Übungsdatenbank soll automatisch Übungen auswählen.
+
+Beispiele:
+
+- Dynamisches Dehnen
+- Mobilität
+- Core
+- Einbeinige Stabilität
+- Hüftstabilität
+- Sprunggelenkstabilität
+- Sprinttechnik
+- Antritt
+- Maximalschnelligkeit
+- Plyometrie
+- Mehrgelenkige Kraftübungen
+- Präventionsübungen
+- Koordination
+
+Es dürfen niemals immer dieselben Übungen verwendet werden.
+
+Die Übungsauswahl soll abwechslungsreich erfolgen.
+
+---
+
+## Belastungssteuerung
+
+Auch beim Erhaltungstraining automatisch berechnen:
+
+- Intensität
+- Belastungsdauer
+- Belastungsumfang
+- Belastungsdichte
+- Belastungshäufigkeit
+- Satzanzahl
+- Wiederholungen
+- Pausen
+- RPE
+
+Alle Parameter müssen zum Leistungsniveau des Spielers passen.
+
+---
+
+## Trainingsprinzipien
+
+Die Reihenfolge der Übungen muss weiterhin automatisch nach trainingswissenschaftlichen Grundsätzen erfolgen.
+
+- Aktivierung
+- Dynamisches Dehnen
+- Sprint/Schnelligkeit
+- Plyometrie
+- Mehrgelenkige Kraftübungen
+- Eingelenkige Übungen
+- Core
+- Prävention
+- Cool-down
+
+---
+
+## Automatische Erklärung
+
+Der Trainingsgenerator soll automatisch eine verständliche Begründung erzeugen.
+
+Beispiel:
+
+"Die Diagnostik zeigt keine relevanten Defizite oder Asymmetrien. Daher wurde ein Erhaltungs- und Leistungssteigerungsprogramm erstellt. Ziel ist es, die aktuelle Leistungsfähigkeit langfristig zu sichern, Verletzungen vorzubeugen und gezielt weitere Leistungsreize zu setzen."
+
+---
+
+## Wichtige Grundregel
+
+Ein positiver Test bedeutet NICHT:
+
+- kein Training
+
+sondern:
+
+- Erhaltungstraining
+- Prävention
+- Leistungsentwicklung
+
+Die Bruce Football Performance Platform soll grundsätzlich immer einen individuellen Trainingsplan erstellen – entweder zur Verbesserung erkannter Defizite oder zur Aufrechterhaltung und Weiterentwicklung der vorhandenen Leistungsfähigkeit.
+
+---
+
+## Qualitätssicherung
+
+Nach der Umsetzung prüfen:
+
+- Wird bei unauffälliger Diagnostik automatisch ein Erhaltungstrainingsplan erstellt?
+- Ist der Plan abwechslungsreich?
+- Werden alle Trainingsprinzipien eingehalten?
+- Werden unterschiedliche Übungen gewählt?
+- Funktionieren alle bisherigen Trainingspläne weiterhin unverändert?
+- Bleiben alle bestehenden Funktionen der Plattform vollständig erhalten?

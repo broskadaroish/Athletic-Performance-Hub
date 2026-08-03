@@ -510,3 +510,42 @@ def schwerpunkt_sammeln(
         if schw and float(schw) < 12:
             parts.append("ausdauer schwellentraining")
     return " ".join(parts)
+
+
+# ── Erhaltungstraining ─────────────────────────────────────────────────────────
+# Schwerpunkt-Text für unauffällige Diagnostik — liefert ausgewogene Coverage:
+#   Rumpf/Core: 3 Treffer → Primär  |  Hüfte, Schnelligkeit, Explosivität,
+#   Oberschenkel: 2 Treffer → Sekundär  |  Sprunggelenk, Agilität, Fußball: 1 → Tertiär
+ERHALTUNGS_SCHWERPUNKT = (
+    "hüfte becken sprunggelenk rumpf core rotations "
+    "schnelligkeit sprint explosiv sprung oberschenkel hamstring "
+    "agilität fußball"
+)
+
+# Begründungstext gemäß Spezifikation
+ERHALTUNGS_BEGRUENDUNG = (
+    "Die Diagnostik zeigt keine relevanten Defizite oder Asymmetrien. "
+    "Daher wurde ein Erhaltungs- und Leistungssteigerungsprogramm erstellt. "
+    "Ziel ist es, die aktuelle Leistungsfähigkeit langfristig zu sichern, "
+    "Verletzungen vorzubeugen und gezielt weitere Leistungsreize zu setzen."
+)
+
+
+def ist_unauffaellig(
+    fms_row=None,
+    y_row=None,
+    sprint_row=None,
+    sprung_row=None,
+    agil_row=None,
+    aus_row=None,
+    spiro_row=None,
+) -> bool:
+    """True wenn ≥1 Test vorhanden und keine relevanten Defizite erkannt.
+    Ein positiver Test → Erhaltungstraining, niemals 'kein Training notwendig'."""
+    tests_vorhanden = any([fms_row, y_row, sprint_row, sprung_row, agil_row, aus_row, spiro_row])
+    if not tests_vorhanden:
+        return False
+    sw = schwerpunkt_sammeln(
+        fms_row, y_row, sprint_row, sprung_row, agil_row, aus_row, spiro_row=spiro_row
+    )
+    return not sw.strip()
