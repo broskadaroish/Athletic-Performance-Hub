@@ -1758,6 +1758,24 @@ def verein_aktualisieren(
               verein_id))
 
 
+def verein_loeschen(verein_id: int) -> tuple[bool, str]:
+    """Löscht einen Verein — nur wenn keine Spieler oder Benutzer mehr zugeordnet sind.
+    Gibt (True, "") bei Erfolg zurück, sonst (False, Fehlermeldung)."""
+    with get_conn() as conn:
+        spieler_n = conn.execute(
+            "SELECT COUNT(*) FROM spieler WHERE verein_id=?", (verein_id,)
+        ).fetchone()[0]
+        benutzer_n = conn.execute(
+            "SELECT COUNT(*) FROM benutzer WHERE verein_id=?", (verein_id,)
+        ).fetchone()[0]
+        if spieler_n > 0:
+            return False, f"Verein hat noch {spieler_n} Spieler. Bitte zuerst alle Spieler entfernen oder einem anderen Verein zuweisen."
+        if benutzer_n > 0:
+            return False, f"Verein hat noch {benutzer_n} Benutzer. Bitte zuerst alle Benutzer entfernen oder verschieben."
+        conn.execute("DELETE FROM vereine WHERE id=?", (verein_id,))
+        return True, ""
+
+
 def verein_logo_speichern(verein_id: int, logo_bytes: bytes | None) -> None:
     with get_conn() as conn:
         conn.execute(

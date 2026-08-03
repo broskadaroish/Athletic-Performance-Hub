@@ -6,7 +6,7 @@ import streamlit as st
 from database import (
     vereine_laden, verein_speichern, verein_by_id,
     verein_aktualisieren, verein_logo_speichern,
-    verein_aktivieren, verein_statistiken,
+    verein_aktivieren, verein_statistiken, verein_loeschen,
     benutzer_laden,
 )
 
@@ -366,6 +366,37 @@ def _verein_edit_form(v: dict):
                     )
                     st.success("✅ Stammdaten gespeichert.")
                     st.rerun()
+
+        # ── Gefahrenzone: Verein löschen ──────────────────────────────────────
+        st.markdown(
+            '<div style="margin-top:20px;padding:16px 18px;border-radius:8px;'
+            'background:#1a0a0a;border:1px solid #6e1a1a">'
+            '<div style="font-size:12px;font-weight:700;color:#f85149;'
+            'letter-spacing:0.5px;margin-bottom:6px">⚠ GEFAHRENZONE</div>'
+            '<div style="font-size:12px;color:#8b949e">Verein dauerhaft löschen — '
+            'nur möglich wenn keine Spieler oder Benutzer mehr zugeordnet sind.</div>'
+            '</div>',
+            unsafe_allow_html=True,
+        )
+        confirm_key = f"vv_del_confirm_{vid}"
+        del_key     = f"vv_del_btn_{vid}"
+        confirmed = st.checkbox(
+            f'Ich möchte **{v["name"]}** unwiderruflich löschen',
+            key=confirm_key,
+        )
+        if st.button(
+            "🗑 Verein löschen",
+            key=del_key,
+            type="secondary",
+            disabled=not confirmed,
+        ):
+            ok, msg = verein_loeschen(vid)
+            if ok:
+                st.session_state["verein_edit_id"] = None
+                st.success(f"✅ Verein **{v['name']}** wurde gelöscht.")
+                st.rerun()
+            else:
+                st.error(f"❌ {msg}")
 
     # ── Tab 2: Logo & Design ───────────────────────────────────────────────────
     with tab_design:
