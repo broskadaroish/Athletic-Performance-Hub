@@ -1695,6 +1695,79 @@ def _migrate_multitenant():
             except Exception:
                 pass
 
+    # Auto-Zuweisung: Falls bereits ein Verein existiert und ein Superadmin,
+    # der zu genau diesem Verein gehört, NULL-Spieler sofort zuweisen
+    # (Upgrade-Szenario). Nur wenn Verein und Admin zusammengehören, um
+    # Cross-Tenant-Zuweisung zu vermeiden. Nur vollständig fehlende Datensätze
+    # (beide IDs NULL) werden atomar gesetzt.
+    try:
+        with get_conn() as conn:
+            row = conn.execute(
+                """SELECT b.id AS admin_id, b.verein_id
+                     FROM benutzer b
+                     JOIN vereine  v ON v.id = b.verein_id
+                    WHERE b.rolle = 'Superadmin'
+                    LIMIT 1"""
+            ).fetchone()
+            if row:
+                _aid, _vid = row[0], row[1]
+                conn.execute(
+                    """UPDATE spieler
+                          SET verein_id  = ?,
+                              trainer_id = ?
+                        WHERE verein_id IS NULL
+                          AND trainer_id IS NULL""",
+                    (_vid, _aid),
+                )
+    except Exception:
+        pass
+
+
+# ==========================================================================
+# Multi-Tenant Hilfsfunktionen
+# ==========================================================================
+
+def spieler_null_zuweisen(verein_id: int, trainer_id: int) -> int:
+    """Weist alle Spieler, bei denen BEIDE IDs fehlen (verein_id IS NULL UND
+    trainer_id IS NULL), atomar dem angegebenen Verein und Trainer zu.
+
+    Validiert serverseitig, dass trainer_id zum verein_id gehört, um
+    Cross-Tenant-Zuweisung zu verhindern.
+
+    Gibt die Anzahl der aktualisierten Datensätze zurück.
+    Wirft ValueError, wenn Trainer und Verein nicht übereinstimmen.
+    """
+    with get_conn() as conn:
+        # Serverseitige Validierung: Trainer muss zum Verein gehören
+        row = conn.execute(
+            "SELECT id FROM benutzer WHERE id=? AND verein_id=?",
+            (trainer_id, verein_id),
+        ).fetchone()
+        if not row:
+            raise ValueError(
+                f"Trainer {trainer_id} gehört nicht zu Verein {verein_id}. "
+                "Zuweisung abgebrochen."
+            )
+        # Nur vollständig unzugeordnete Spieler (beide IDs NULL) atomar setzen
+        cur = conn.execute(
+            """UPDATE spieler
+                  SET verein_id  = ?,
+                      trainer_id = ?
+                WHERE verein_id IS NULL
+                  AND trainer_id IS NULL""",
+            (verein_id, trainer_id),
+        )
+        return cur.rowcount
+
+
+def spieler_ohne_verein_zaehlen() -> int:
+    """Anzahl der Spieler, die noch keinem Verein zugeordnet sind (beide IDs NULL)."""
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT COUNT(*) FROM spieler WHERE verein_id IS NULL AND trainer_id IS NULL"
+        ).fetchone()
+        return row[0] if row else 0
+
 
 # ==========================================================================
 # Vereine

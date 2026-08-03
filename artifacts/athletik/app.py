@@ -60,6 +60,7 @@ from database import (
     benutzer_passwort, benutzer_aktualisieren,
     vereine_laden, verein_speichern, verein_aktivieren,
     verein_by_id, verein_aktualisieren, verein_logo_speichern, verein_statistiken,
+    spieler_null_zuweisen, spieler_ohne_verein_zaehlen,
 )
 from auth import login
 from modules.benutzerverwaltung import page_benutzerverwaltung
@@ -235,8 +236,13 @@ if "user" not in st.session_state:
                     st.error("Passwörter stimmen nicht überein.")
                 else:
                     _vid = verein_speichern("Standard-Verein")
-                    benutzer_speichern(_vid, "Super", "Admin",
-                                      _setup_email.strip(), _setup_pw1, "Superadmin")
+                    _aid = benutzer_speichern(_vid, "Super", "Admin",
+                                             _setup_email.strip(), _setup_pw1, "Superadmin")
+                    # Bestehende Spieler (Upgrade von Single- auf Multi-Tenant)
+                    # sofort dem neuen Standard-Verein zuweisen.
+                    _n = spieler_null_zuweisen(_vid, _aid)
+                    if _n:
+                        st.info(f"ℹ️ {_n} bestehende Spieler wurden dem Standard-Verein zugewiesen.")
                     st.success("✅ Superadmin angelegt — bitte jetzt anmelden.")
                     st.rerun()
         else:

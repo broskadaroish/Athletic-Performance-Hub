@@ -7,6 +7,8 @@ from database import (
     benutzer_passwort,
     benutzer_aktualisieren,
     vereine_laden,
+    spieler_null_zuweisen,
+    spieler_ohne_verein_zaehlen,
 )
 
 
@@ -25,6 +27,45 @@ def page_benutzerverwaltung():
     vereine = vereine_laden()
     if rolle == "Vereinsadmin":
         vereine = [v for v in vereine if v["id"] == meine_verein_id]
+
+    # ── Bestehende Spieler zuweisen (Superadmin, Upgrade-Hilfe) ───────────────
+    if rolle == "Superadmin":
+        _null_count = spieler_ohne_verein_zaehlen()
+        if _null_count > 0:
+            st.warning(
+                f"⚠️ **{_null_count} Spieler** haben noch keinen Verein und sind für "
+                "Trainer unsichtbar. Weise sie einem Verein und Trainer zu."
+            )
+            _vereine_choice = vereine_laden()
+            _alle_benutzer_zuw = benutzer_laden()
+            if _vereine_choice:
+                _zc1, _zc2, _zc3 = st.columns([2, 2, 1])
+                _ziel_verein = _zc1.selectbox(
+                    "Ziel-Verein", _vereine_choice,
+                    format_func=lambda x: x["name"], key="zuw_verein"
+                )
+                # Trainer-Liste auf den gewählten Verein beschränken
+                _trainer_im_verein = [
+                    b for b in _alle_benutzer_zuw
+                    if b.get("verein_id") == _ziel_verein["id"]
+                    and b.get("rolle") in ("Superadmin", "Trainer", "Vereinsadmin")
+                ]
+                if _trainer_im_verein:
+                    _ziel_trainer = _zc2.selectbox(
+                        "Ziel-Trainer/Admin", _trainer_im_verein,
+                        format_func=lambda b: f"{b.get('vorname','')} {b.get('nachname','')} ({b.get('rolle','')})",
+                        key="zuw_trainer"
+                    )
+                    if _zc3.button("✅ Zuweisen", key="zuw_btn", use_container_width=True):
+                        try:
+                            _n = spieler_null_zuweisen(_ziel_verein["id"], _ziel_trainer["id"])
+                            st.success(f"✅ {_n} Spieler dem Verein **{_ziel_verein['name']}** zugewiesen.")
+                            st.rerun()
+                        except ValueError as _e:
+                            st.error(f"❌ {_e}")
+                else:
+                    _zc2.warning("Kein Benutzer in diesem Verein — zuerst einen Trainer anlegen.")
+        st.divider()
 
     # ── Bestehende Benutzer ────────────────────────────────────────────────────
     st.subheader(f"Benutzer ({len(alle_benutzer)})")
