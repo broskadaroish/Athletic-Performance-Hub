@@ -2798,6 +2798,20 @@ def page_trainingsplan():
         _sp_beschr = _SAISON_OPTIONEN[saison_phase][1]
         st.caption(f"**{_SAISON_OPTIONEN[saison_phase][0]}** — {_sp_beschr}")
 
+        # §4 Equipment-Auswahl — verfügbares Equipment bestimmt Übungsauswahl
+        _EQUIPMENT_ALLE = [
+            "Körpergewicht", "Miniband", "Powerband", "Freie Gewichte",
+            "Kurzhanteln", "Langhanteln", "Kettlebell", "Medizinball",
+            "Maschine", "Schlitten", "Ball",
+        ]
+        verfuegbares_equipment = st.multiselect(
+            "Verfügbares Equipment",
+            _EQUIPMENT_ALLE,
+            default=["Körpergewicht", "Miniband", "Freie Gewichte", "Ball"],
+            key="equip_sel",
+            help="Übungen mit nicht verfügbarem Equipment werden automatisch durch gleichwertige Alternativen ersetzt (Spec §4).",
+        )
+
         # ── Aktive Verletzungen erkennen und anzeigen ─────────────────────────
         _alle_verletzungen = verletzungen_laden(sid)
         _aktive_bereiche   = verletzung_aktive_bereiche(_alle_verletzungen)
@@ -2834,10 +2848,12 @@ def page_trainingsplan():
                 alter=_tp_alter,
                 verletzung_bereiche=_aktive_bereiche,
                 saison_phase=saison_phase,
+                verfuegbares_equipment=verfuegbares_equipment,
             )
-            _phase_hinweis = f" ({saison_phase})" if saison_phase != "Normal" else ""
+            _phase_hinweis  = f" ({saison_phase})" if saison_phase != "Normal" else ""
             _verletz_hinweis = f" · {len(_aktive_bereiche)} Bereich(e) verletzungsbedingt ausgeschlossen" if _aktive_bereiche else ""
-            _save_ok(f"Trainingsplan erstellt — {n} Übungen über {plan_laenge} Wochen ({_tp_pg}){_phase_hinweis}{_verletz_hinweis}.")
+            _equip_hinweis  = f" · Equipment: {', '.join(verfuegbares_equipment[:3])}{'…' if len(verfuegbares_equipment) > 3 else ''}" if verfuegbares_equipment else ""
+            _save_ok(f"Trainingsplan erstellt — {n} Übungen über {plan_laenge} Wochen ({_tp_pg}){_phase_hinweis}{_verletz_hinweis}{_equip_hinweis}.")
             st.rerun()
 
     with tab_manual:
@@ -2884,16 +2900,29 @@ def page_trainingsplan():
 
         df = pd.DataFrame(plan)
         # New schema: bereich, uebung, saetze, wiederholungen, haeufigkeit, woche, tag, pause_sekunden, ausfuehrung
-        expected_cols = ["Bereich","Übung","Sätze","Wdh.","Häufigkeit","Woche","Tag","Pause (s)","Ausführung"]
-        if len(df.columns) == len(expected_cols):
-            df.columns = expected_cols
+        # Spaltenbezeichnungen für 9- (alt) und 13-Spalten-Schema (neu)
+        _cols9  = ["Bereich","Übung","Sätze","Wdh.","Häufigkeit","Woche","Tag","Pause (s)","Ausführung"]
+        _cols13 = _cols9 + ["RPE","Energie-System","Equipment","Begründung"]
+        if len(df.columns) == 13:
+            df.columns = _cols13
+        elif len(df.columns) == 9:
+            df.columns = _cols9
+            df["RPE"]           = 7
+            df["Energie-System"] = "Gemischt"
+            df["Equipment"]     = "Körpergewicht"
+            df["Begründung"]    = ""
         elif len(df.columns) == 6:
             df.columns = ["Bereich","Übung","Sätze","Wdh.","Häufigkeit","Woche"]
-            df["Tag"]       = 1
-            df["Pause (s)"] = 90
-            df["Ausführung"] = "kontrolliert"
+            df["Tag"]           = 1
+            df["Pause (s)"]     = 90
+            df["Ausführung"]    = "kontrolliert"
+            df["RPE"]           = 7
+            df["Energie-System"] = "Gemischt"
+            df["Equipment"]     = "Körpergewicht"
+            df["Begründung"]    = ""
         else:
-            df.columns = expected_cols[:len(df.columns)]
+            df.columns = _cols13[:len(df.columns)]
+        expected_cols = _cols13
 
         _total_wochen   = int(df["Woche"].max())
         _total_uebungen = len(df["Übung"].unique()) if "Übung" in df.columns else len(df)
@@ -3018,10 +3047,15 @@ def page_trainingsplan():
                             f'{breich}</div>',
                             unsafe_allow_html=True,
                         )
-                        _sub_b = sub_t[sub_t["Bereich"] == breich][
-                            ["Übung","Sätze","Wdh.","Pause (s)","Ausführung"]
-                        ].copy()
-                        _sub_b = _sub_b.rename(columns={"Wdh.": "Wdh. / Dauer", "Pause (s)": "Pause (s)"})
+                        _view_cols = ["Übung","Sätze","Wdh.","Pause (s)","RPE","Energie-System","Equipment","Ausführung"]
+                        _avail = [c for c in _view_cols if c in sub_t.columns]
+                        _sub_b = sub_t[sub_t["Bereich"] == breich][_avail].copy()
+                        _sub_b = _sub_b.rename(columns={"Wdh.": "Wdh. / Dauer"})
+                        # RPE-Farbcodierung als Text-Ergänzung
+                        if "RPE" in _sub_b.columns:
+                            _sub_b["RPE"] = _sub_b["RPE"].apply(
+                                lambda r: f"RPE {r} {'🟢' if r<=5 else '🟡' if r<=7 else '🔴'}"
+                            )
                         st.dataframe(_sub_b, use_container_width=True, hide_index=True)
 
                     # ── Cool-Down Hinweis ──────────────────────────────────────
@@ -3048,9 +3082,21 @@ def page_periodisierung():
     sprung = sprung_letzter(sid)
     agil   = agilitaet_letzter(sid)
     aus    = ausdauer_letzter(sid)
-    schwerpunkt = schwerpunkt_sammeln(fms, y, sprint, sprung, agil, aus,
-                                      kraft_row=kraft_letzter(sid),
-                                      spiro_row=spiro_test_letzter(sid))
+    _spiro_perio = spiro_test_letzter(sid)
+    schwerpunkt  = schwerpunkt_sammeln(fms, y, sprint, sprung, agil, aus,
+                                       kraft_row=kraft_letzter(sid),
+                                       spiro_row=_spiro_perio)
+
+    # Erhaltungstraining-Modus: Tests vorhanden, keine Defizite → ERHALTUNGS_SCHWERPUNKT
+    if ist_unauffaellig(fms, y, sprint, sprung, agil, aus, spiro_row=_spiro_perio) and not schwerpunkt.strip():
+        schwerpunkt = ERHALTUNGS_SCHWERPUNKT
+        st.markdown(
+            f'<div style="background:#0d2415;border:1px solid #3fb950;border-radius:10px;'
+            f'padding:12px 16px;margin-bottom:16px">'
+            f'<span style="color:#3fb950;font-weight:700">✅ Unauffällige Diagnostik</span>'
+            f'<span style="color:#8b949e;font-size:12px;margin-left:8px">— Trainingsmodus: Leistung erhalten und weiterentwickeln</span></div>',
+            unsafe_allow_html=True,
+        )
 
     # ── Deficit summary ───────────────────────────────────────────────────────
     defizite = defizit_tabelle(schwerpunkt)

@@ -780,7 +780,11 @@ def _migrate_db():
         for _col, _typ in [
             ("tag",            "INTEGER DEFAULT 1"),
             ("pause_sekunden", "INTEGER DEFAULT 90"),
-            ("ausfuehrung",    "TEXT DEFAULT 'kontrolliert'"),
+            ("ausfuehrung",    "TEXT    DEFAULT 'kontrolliert'"),
+            ("rpe",            "INTEGER DEFAULT 7"),
+            ("energie_system", "TEXT    DEFAULT 'Gemischt'"),
+            ("equipment",      "TEXT    DEFAULT 'Körpergewicht'"),
+            ("begruendung",    "TEXT    DEFAULT ''"),
         ]:
             try:
                 conn.execute(f"ALTER TABLE trainingsplan ADD COLUMN {_col} {_typ}")
@@ -1853,13 +1857,18 @@ def trainingsplan_loeschen(spieler_id):
 def trainingsplan_eintrag_speichern(spieler_id, datum, woche, bereich, uebung, saetze, wdh,
                                     haeufigkeit, tag: int = 1,
                                     pause_sekunden: int = 90,
-                                    ausfuehrung: str = "kontrolliert"):
+                                    ausfuehrung: str = "kontrolliert",
+                                    rpe: int = 7,
+                                    energie_system: str = "Gemischt",
+                                    equipment: str = "Körpergewicht",
+                                    begruendung: str = ""):
     with get_conn() as conn:
         conn.execute(
             "INSERT INTO trainingsplan (spieler_id,datum,woche,bereich,uebung,saetze,wiederholungen,"
-            "haeufigkeit,status,tag,pause_sekunden,ausfuehrung) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+            "haeufigkeit,status,tag,pause_sekunden,ausfuehrung,rpe,energie_system,equipment,begruendung)"
+            " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (spieler_id, datum, woche, bereich, uebung, saetze, wdh, haeufigkeit, "offen",
-             tag, pause_sekunden, ausfuehrung),
+             tag, pause_sekunden, ausfuehrung, rpe, energie_system, equipment, begruendung),
         )
 
 
@@ -1869,7 +1878,11 @@ def trainingsplan_laden(spieler_id):
             "SELECT bereich,uebung,saetze,wiederholungen,haeufigkeit,woche,"
             "COALESCE(tag,1) as tag,"
             "COALESCE(pause_sekunden,90) as pause_sekunden,"
-            "COALESCE(ausfuehrung,'kontrolliert') as ausfuehrung "
+            "COALESCE(ausfuehrung,'kontrolliert') as ausfuehrung,"
+            "COALESCE(rpe,7) as rpe,"
+            "COALESCE(energie_system,'Gemischt') as energie_system,"
+            "COALESCE(equipment,'Körpergewicht') as equipment,"
+            "COALESCE(begruendung,'') as begruendung "
             "FROM trainingsplan WHERE spieler_id=? ORDER BY woche,tag,id",
             (spieler_id,),
         ).fetchall())

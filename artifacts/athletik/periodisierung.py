@@ -644,6 +644,270 @@ _ALTERS_ERSATZ: dict[str, dict[str, tuple | None]] = {
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Trainingswissenschaftliche Belastungsmetadaten (Spec §1–§7)
+# Quellen: NSCA (2016), Zatsiorsky & Kraemer (2006), Buchheit & Laursen (2013)
+# ─────────────────────────────────────────────────────────────────────────────
+
+# §2 Trainingsreihenfolge: Slot 1–17 — hohe neuronale Belastung immer zuerst (§3)
+_TRAININGS_SEQUENZ: dict[tuple[str, str], int] = {
+    ("Sprunggelenk",  "stabilisation"): 1,   # Aktivierung / Fußmobilisierung
+    ("Hüfte",         "stabilisation"): 2,   # Dynamisches Dehnen / Hüftmobilität
+    ("Schnelligkeit", "stabilisation"): 3,   # Sprinttechnik
+    ("Schnelligkeit", "kraft"):         4,   # Antrittsschnelligkeit
+    ("Agilität",      "stabilisation"): 4,   # COD-Technik
+    ("Schnelligkeit", "power"):         5,   # Maximalschnelligkeit
+    ("Agilität",      "kraft"):         5,   # COD-Kraft
+    ("Agilität",      "power"):         5,   # reaktive Agilität
+    ("Explosivität",  "stabilisation"): 6,   # Plyometrie-Einführung
+    # Slot 7: Olympisches Gewichtheben — via _olympic_geeignet() gate
+    ("Oberschenkel",  "kraft"):         8,   # Maximalkraft (Hamstrings)
+    ("Explosivität",  "kraft"):         9,   # Schnellkraft
+    ("Oberschenkel",  "power"):         9,   # Schnellkraft (Hamstring explosiv)
+    ("Explosivität",  "power"):         10,  # Explosivkraft
+    ("Knie",          "power"):         10,  # Explosivkraft Knie
+    ("Hüfte",         "power"):         10,  # Explosivkraft Hüfte
+    ("Knie",          "kraft"):         11,  # Mehrgelenk komplex
+    ("Hüfte",         "kraft"):         12,  # Mehrgelenk einfach
+    ("Sprunggelenk",  "kraft"):         13,  # Eingelenkige Kraftübungen
+    ("Rumpf",         "kraft"):         14,  # Core
+    ("Rumpf",         "power"):         14,  # Core reaktiv
+    ("Rumpf",         "stabilisation"): 15,  # Stabilisation
+    ("Knie",          "stabilisation"): 16,  # Prävention
+    ("Oberschenkel",  "stabilisation"): 16,  # Prävention
+    ("Sprunggelenk",  "power"):         16,  # reaktive Prävention
+    ("Fußball",       "stabilisation"): 17,  # Cool-down / Fußball
+    ("Fußball",       "kraft"):         17,
+    ("Fußball",       "power"):         17,
+}
+
+# §5 Energiesystem-Zuordnung pro (bereich, pool_key)
+_ENERGIE_SYSTEM: dict[tuple[str, str], str] = {
+    ("Schnelligkeit", "stabilisation"): "ATP-KP",
+    ("Schnelligkeit", "kraft"):         "ATP-KP",
+    ("Schnelligkeit", "power"):         "ATP-KP",
+    ("Explosivität",  "stabilisation"): "ATP-KP",
+    ("Explosivität",  "kraft"):         "ATP-KP",
+    ("Explosivität",  "power"):         "ATP-KP",
+    ("Agilität",      "stabilisation"): "ATP-KP",
+    ("Agilität",      "kraft"):         "ATP-KP",
+    ("Agilität",      "power"):         "ATP-KP",
+    ("Oberschenkel",  "stabilisation"): "Aerob",
+    ("Oberschenkel",  "kraft"):         "Gemischt",
+    ("Oberschenkel",  "power"):         "ATP-KP",
+    ("Knie",          "stabilisation"): "Aerob",
+    ("Knie",          "kraft"):         "Gemischt",
+    ("Knie",          "power"):         "ATP-KP",
+    ("Hüfte",         "stabilisation"): "Aerob",
+    ("Hüfte",         "kraft"):         "Gemischt",
+    ("Hüfte",         "power"):         "ATP-KP",
+    ("Rumpf",         "stabilisation"): "Aerob",
+    ("Rumpf",         "kraft"):         "Gemischt",
+    ("Rumpf",         "power"):         "ATP-KP",
+    ("Sprunggelenk",  "stabilisation"): "Aerob",
+    ("Sprunggelenk",  "kraft"):         "Aerob",
+    ("Sprunggelenk",  "power"):         "ATP-KP",
+    ("Fußball",       "stabilisation"): "Aerob",
+    ("Fußball",       "kraft"):         "Gemischt",
+    ("Fußball",       "power"):         "Laktazid",
+}
+
+# §4 Primäres Equipment pro (bereich, pool_key)
+_EQUIPMENT_PRIMÄR: dict[tuple[str, str], str] = {
+    ("Schnelligkeit", "stabilisation"): "Körpergewicht",
+    ("Schnelligkeit", "kraft"):         "Körpergewicht",
+    ("Schnelligkeit", "power"):         "Körpergewicht",
+    ("Explosivität",  "stabilisation"): "Körpergewicht",
+    ("Explosivität",  "kraft"):         "Körpergewicht",
+    ("Explosivität",  "power"):         "Körpergewicht",
+    ("Agilität",      "stabilisation"): "Körpergewicht",
+    ("Agilität",      "kraft"):         "Körpergewicht",
+    ("Agilität",      "power"):         "Körpergewicht",
+    ("Oberschenkel",  "stabilisation"): "Körpergewicht",
+    ("Oberschenkel",  "kraft"):         "Maschine",
+    ("Oberschenkel",  "power"):         "Freie Gewichte",
+    ("Knie",          "stabilisation"): "Körpergewicht",
+    ("Knie",          "kraft"):         "Freie Gewichte",
+    ("Knie",          "power"):         "Körpergewicht",
+    ("Hüfte",         "stabilisation"): "Miniband",
+    ("Hüfte",         "kraft"):         "Freie Gewichte",
+    ("Hüfte",         "power"):         "Kettlebell",
+    ("Rumpf",         "stabilisation"): "Körpergewicht",
+    ("Rumpf",         "kraft"):         "Körpergewicht",
+    ("Rumpf",         "power"):         "Medizinball",
+    ("Sprunggelenk",  "stabilisation"): "Körpergewicht",
+    ("Sprunggelenk",  "kraft"):         "Körpergewicht",
+    ("Sprunggelenk",  "power"):         "Körpergewicht",
+    ("Fußball",       "stabilisation"): "Ball",
+    ("Fußball",       "kraft"):         "Ball",
+    ("Fußball",       "power"):         "Ball",
+}
+
+# Equipment-Fallback: alternative pool_key wenn primäres Equipment fehlt (§4)
+_EQUIPMENT_FALLBACK_POOL: dict[str, str] = {
+    "Maschine":       "stabilisation",  # Kein Gerät → Körpergewicht-Variante
+    "Kettlebell":     "kraft",          # Kein Kettlebell → Freie-Gewichte-Variante
+    "Medizinball":    "kraft",          # Kein Medizinball → Kraft-Variante
+    "Freie Gewichte": "stabilisation",  # Keine freien Gewichte → Körpergewicht
+    "Miniband":       "stabilisation",  # Kein Miniband → Körpergewicht
+}
+
+# §6 Olympisches Gewichtheben — Übungspool (nur für geeignete Athleten)
+_OLYMPIC_POOL: list[tuple] = [
+    ("Hang Power Clean",          "4", "3 Wdh.",  "2×/Woche"),
+    ("Power Clean",               "4", "3 Wdh.",  "2×/Woche"),
+    ("High Pull",                 "4", "4 Wdh.",  "2×/Woche"),
+    ("Power Clean + Push Press",  "3", "3 Wdh.",  "1×/Woche"),
+    ("Hang Snatch (leicht)",      "3", "3 Wdh.",  "1×/Woche"),
+    ("Push Press",                "4", "4 Wdh.",  "2×/Woche"),
+]
+
+
+def _olympic_geeignet(plangruppe: str, pool_key: str, verletzt: set) -> bool:
+    """
+    Olympisches Gewichtheben nur wenn (Spec §6):
+    - Athletisch geeignet: Senior oder U18 (Kraftbasis vorhanden)
+    - Power-Phase (ausreichende Kraftbasis vorausgesetzt)
+    - Keine relevante Verletzung (Rumpf/Schulter/Oberschenkel)
+    """
+    if plangruppe not in ("Senior", "U18"):
+        return False
+    if pool_key != "power":
+        return False
+    if verletzt & {"Rumpf", "Schulter", "Oberschenkel"}:
+        return False
+    return True
+
+
+def belastungsnormative_berechnen(
+    bereich: str,
+    pool_key: str,
+    alter: float | None,
+    saison_phase: str,
+    is_deload: bool,
+    energie: str,
+) -> dict:
+    """
+    Berechnet alle 10 Belastungsnormative dynamisch (Spec §1).
+    Parameter passen sich automatisch an Diagnostik, Alter, Saisonphase an.
+    Quellen: NSCA (2016), Zatsiorsky & Kraemer (2006), Buchheit & Laursen (2013)
+    """
+    pg  = _alter_zu_plangruppe(alter)
+    cfg = _PLANGRUPPEN_CONFIG[pg]
+
+    # ① RPE (1–10 modifizierte Borg-Skala)
+    rpe = {"stabilisation": 5, "kraft": 7, "power": 8}.get(pool_key, 6)
+    rpe += {"Vorbereitung": 1, "Saison": -1, "Nachsaison": -2}.get(saison_phase, 0)
+    rpe += -1 if is_deload else 0
+    rpe += -1 if pg in ("U10", "Ü55") else 0
+    rpe = max(4, min(10, rpe))
+
+    # ② Belastungsintensität (% 1RM / Maximalleistung)
+    _int = {"stabilisation": (50, 65), "kraft": (70, 80), "power": (82, 93)}
+    lo, hi = _int.get(pool_key, (60, 75))
+    if is_deload:
+        lo, hi = max(40, lo - 15), max(55, hi - 15)
+    if pg == "U10":
+        lo, hi = max(40, lo - 10), max(55, hi - 10)
+    intensitaet = f"{lo}–{hi} % max. Leistung"
+
+    # ③ Belastungsdauer
+    belastungsdauer = {"stabilisation": "20–35 min", "kraft": "30–45 min", "power": "25–40 min"}.get(pool_key, "30 min")
+
+    # ④ Belastungsumfang
+    if is_deload:
+        belastungsumfang = "Sehr niedrig — Deload (60–70 % max. Wochenvolumen)"
+    else:
+        belastungsumfang = {
+            "stabilisation": "Niedrig (≤ 80 % max. Wochenvolumen)",
+            "kraft":         "Mittel (80–100 % max. Wochenvolumen)",
+            "power":         "Hoch (100–120 % max. Wochenvolumen)",
+        }.get(pool_key, "Mittel")
+
+    # ⑤ Belastungshäufigkeit
+    belastungshaeufigkeit = {"stabilisation": "2–3×/Woche", "kraft": "2×/Woche", "power": "1–2×/Woche"}.get(pool_key, "2×/Woche")
+
+    # ⑥ Belastungsdichte (Belastung:Pause-Verhältnis)
+    belastungsdichte = {"stabilisation": "1:2", "kraft": "1:3", "power": "1:4–1:6"}.get(pool_key, "1:3")
+
+    # ⑨ Pausenlänge (s) — bereichsspezifisch + altersbasiert
+    pause_sek, _ = _BEREICH_PARAMS.get(
+        (bereich, pool_key),
+        (_PAUSE_FALLBACK.get(pool_key, 90), ""),
+    )
+    pause_sek = max(30, pause_sek + cfg["pause_offset"] + (-15 if is_deload else 0))
+
+    # ⑩ HFmax (nur für Ausdauer-/Intervallbelastungen relevant)
+    _hf = {"stabilisation": (65, 75), "kraft": (72, 82), "power": (82, 92)}
+    hf_lo, hf_hi = _hf.get(pool_key, (70, 80))
+    hfmax = f"{hf_lo}–{hf_hi} % HFmax" if energie in ("Aerob", "Laktazid", "Gemischt") else None
+
+    # Angewendete Trainingsprinzipien (Spec §3)
+    prinzipien: list[str] = []
+    if bereich in ("Schnelligkeit", "Agilität"):
+        prinzipien += ["Schnelligkeit vor Kraftausdauer", "Hohe neuronale vor metabolischer Belastung"]
+    if bereich == "Explosivität" and pool_key in ("kraft", "power"):
+        prinzipien.append("Komplexe Übungen vor einfachen (Plyometrie-Prinzip)")
+    if bereich in ("Oberschenkel", "Knie"):
+        prinzipien.append("Große Muskelgruppen vor kleinen")
+    if bereich == "Rumpf" and pool_key == "stabilisation":
+        prinzipien.append("Core/Stabilisation am Ende der Einheit")
+    if bereich in ("Knie", "Oberschenkel") and pool_key == "stabilisation":
+        prinzipien.append("Präventiver Fokus am Ende der Einheit")
+
+    return {
+        "rpe":                   rpe,
+        "intensitaet":           intensitaet,
+        "belastungsdauer":       belastungsdauer,
+        "belastungsumfang":      belastungsumfang,
+        "belastungshaeufigkeit": belastungshaeufigkeit,
+        "belastungsdichte":      belastungsdichte,
+        "pause_sek":             pause_sek,
+        "hfmax":                 hfmax,
+        "energie":               energie,
+        "prinzipien":            prinzipien,
+    }
+
+
+def _generate_begruendung(
+    bereich: str,
+    pool_key: str,
+    phase_name: str,
+    phase_ziel: str,
+    saison_phase: str,
+    is_deload: bool,
+    plangruppe: str,
+    energie: str,
+    seq_order: int,
+) -> str:
+    """
+    Automatische Dokumentation je Trainingsblock (Spec §8).
+    Erklärt: Reihenfolge, Parameter, Übungsauswahl, Prinzipien, Energiesystem.
+    """
+    _seq_labels = {
+        1: "Aktivierung", 2: "Dynamisches Dehnen", 3: "Sprinttechnik",
+        4: "Antrittsschnelligkeit", 5: "Maximalschnelligkeit", 6: "Plyometrie",
+        7: "Olympisches Gewichtheben", 8: "Maximalkraft", 9: "Schnellkraft",
+        10: "Explosivkraft", 11: "Mehrgelenk-komplex", 12: "Mehrgelenk-einfach",
+        13: "Eingelenkig", 14: "Core", 15: "Stabilisation", 16: "Prävention",
+        17: "Cool-down / Fußball",
+    }
+    seq_label = _seq_labels.get(seq_order, f"Block {seq_order}")
+    parts = [
+        f"Reihenfolge: Pos. {seq_order}/17 ({seq_label})",
+        f"Phase: {phase_name}",
+        f"Ziel: {phase_ziel}",
+        f"Energiesystem: {energie}",
+    ]
+    if saison_phase != "Normal":
+        parts.append(f"Saisonperiode {saison_phase}: Belastungsparameter angepasst")
+    if is_deload:
+        parts.append("Deload-Woche: Volumen −30–40 % für aktive Regeneration")
+    if plangruppe not in ("Senior", "U18"):
+        parts.append(f"Altersgruppe {plangruppe}: Übungsauswahl und Intensität altersadaptiert")
+    return " | ".join(parts)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Helper functions
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -806,11 +1070,12 @@ def trainingsplan_multi_erstellen(spieler_id: int, schwerpunkt_text: str,
                                   wochen: int = 8,
                                   alter: float | None = None,
                                   verletzung_bereiche: set | list | None = None,
-                                  saison_phase: str = "Normal") -> int:
+                                  saison_phase: str = "Normal",
+                                  verfuegbares_equipment: list | None = None) -> int:
     """
     Altersbasierter Trainingsplan mit klarer 4-Phasen-Progression.
-    Keine identischen Trainingswochen — Übungsoffset rotiert wochenweise.
-    Phase 4 (W9–12) enthält immer Fußball-spezifische Einheiten.
+    Spec §1–§8: Belastungsnormative, Trainingsreihenfolge, Trainingsprinzipien,
+    Equipment-Fallback, Energiesysteme, Olymp. Gewichtheben-Gate, Dokumentation.
 
     Progression:
       Phase 1 (W1–2):  stabilisation — Mobilität & Bewegungsqualität
@@ -819,15 +1084,12 @@ def trainingsplan_multi_erstellen(spieler_id: int, schwerpunkt_text: str,
       Phase 4 (W9–12): power — Fußballspezifisch & Belastungssteuerung
 
     saison_phase: "Normal" | "Vorbereitung" | "Saison" | "Nachsaison"
-      - Normal/Vorbereitung: volle 4-Phasen-Progression
-      - Saison:     Erhaltungstraining — reduziertes Volumen, kein Power, +Fußball
-      - Nachsaison: Regeneration — nur Stabilisation, max. 4 Wochen
-
-    verletzung_bereiche: Set von _POOL-Bereichsnamen, die ausgeschlossen werden sollen.
+    verletzung_bereiche: Set von _POOL-Bereichsnamen, die ausgeschlossen werden.
+    verfuegbares_equipment: Liste verfügbarer Equipment-Typen; None = alles.
     """
-    _verletzt = set(verletzung_bereiche or [])
+    _verletzt  = set(verletzung_bereiche or [])
+    _equip_set = set(verfuegbares_equipment) if verfuegbares_equipment else None
 
-    # Saisonperiode-Anpassungen
     _saison_max_key: str | None = None
     _saison_force_deload = False
     if saison_phase == "Saison":
@@ -838,7 +1100,7 @@ def trainingsplan_multi_erstellen(spieler_id: int, schwerpunkt_text: str,
         wochen = min(wochen, 4)
         _saison_max_key = "stabilisation"
 
-    wochen = wochen if wochen in (4, 6, 8, 12) else 8
+    wochen       = wochen if wochen in (4, 6, 8, 12) else 8
     basis_scores = defizit_score(schwerpunkt_text)
     plangruppe   = _alter_zu_plangruppe(alter)
     cfg          = _PLANGRUPPEN_CONFIG[plangruppe]
@@ -851,36 +1113,75 @@ def trainingsplan_multi_erstellen(spieler_id: int, schwerpunkt_text: str,
     total = 0
 
     for w_idx, (pool_key, phase_name, phase_ziel, is_deload, vol_mult, offset) in enumerate(woche_config):
-        woche    = w_idx + 1
+        woche = w_idx + 1
 
-        # Saison-Anpassungen auf Pool-Key
         if _saison_force_deload:
             is_deload = True
         pool_key = _max_pool_key(pool_key, cfg["max_pool_key"])
         if _saison_max_key:
             pool_key = _max_pool_key(pool_key, _saison_max_key)
 
-        # Phase 4 / Saison-Phase: Fußball als Sekundärbereich einschließen
         scores = dict(basis_scores)
         if "Phase 4" in phase_name or saison_phase == "Saison":
             scores["Fußball"] = max(scores.get("Fußball", 0), 2)
 
         sorted_areas = sorted(scores.items(), key=lambda x: -x[1])
 
+        # §2 Trainingsreihenfolge: Einträge sammeln und nach Sequenz-Slot sortieren
+        week_entries: list[tuple] = []
+
+        # §6 Olympisches Gewichtheben (gate-controlled)
+        if _olympic_geeignet(plangruppe, pool_key, _verletzt):
+            _ol_u, _ol_s, _ol_v, _ol_h = _OLYMPIC_POOL[offset % len(_OLYMPIC_POOL)]
+            if is_deload:
+                _ol_h = _ol_h.replace("2×", "1×")
+            _, _ol_aust = _pause_und_ausfuehrung("Schnelligkeit", pool_key, is_deload, plangruppe)
+            _ol_aust = "Maximale Technikqualität · " + _ol_aust
+            _ol_begruend = (
+                f"Reihenfolge: Pos. 7/17 (Olympisches Gewichtheben) | Phase: {phase_name} | "
+                f"Ziel: {phase_ziel} | Energiesystem: ATP-KP | "
+                f"Nur für {plangruppe}: Technikvoraussetzungen erfüllt (Spec §6)"
+            )
+            for _tag in _tags_fuer_haeufigkeit(_ol_h):
+                week_entries.append((
+                    7, _tag, "Explosivität", _ol_u, _ol_s, _ol_v, _ol_h,
+                    180, _ol_aust, 8, "ATP-KP", "Langhantel", _ol_begruend,
+                ))
+
         for area, score in sorted_areas:
-            # ── Verletzungs-Filter: verletzte Bereiche überspringen ───────────
             if area in _verletzt:
                 continue
-            # Deload: deutlich reduziertes Volumen
-            if is_deload:
-                n = max(0, score - 2)  # primär=1, sekundär=0, tertiär=0
-            else:
-                n = score              # primär=3, sekundär=2, tertiär=1
-
+            n = max(0, score - 2) if is_deload else score
             if n <= 0:
                 continue
 
-            exercises = _pool_fuer_area(area, pool_key, n, offset=offset)
+            # §4 Equipment-Fallback: Wenn Equipment nicht verfügbar → alternativer Pool-Key
+            effective_pk = pool_key
+            eq_primary   = _EQUIPMENT_PRIMÄR.get((area, pool_key), "Körpergewicht")
+            if (_equip_set and eq_primary not in _equip_set
+                    and eq_primary not in ("Körpergewicht", "Ball")):
+                fallback = _EQUIPMENT_FALLBACK_POOL.get(eq_primary)
+                if fallback:
+                    effective_pk = _max_pool_key(fallback, "stabilisation")
+                    eq_primary   = _EQUIPMENT_PRIMÄR.get((area, effective_pk), "Körpergewicht")
+
+            exercises = _pool_fuer_area(area, effective_pk, n, offset=offset)
+
+            # §2 Sequenz-Slot + §5 Energiesystem + §8 Dokumentation
+            seq_order = _TRAININGS_SEQUENZ.get((area, effective_pk), 15)
+            energie   = _ENERGIE_SYSTEM.get((area, effective_pk), "Gemischt")
+            begruend  = _generate_begruendung(
+                area, effective_pk, phase_name, phase_ziel,
+                saison_phase, is_deload, plangruppe, energie, seq_order,
+            )
+
+            # §1 Belastungsnormative (dynamisch)
+            bnorm     = belastungsnormative_berechnen(
+                area, effective_pk, alter, saison_phase, is_deload, energie,
+            )
+            pause_sek = bnorm["pause_sek"]
+            _, aust   = _pause_und_ausfuehrung(area, effective_pk, is_deload, plangruppe)
+            rpe       = bnorm["rpe"]
 
             for uebung, saetze, volumen, haeufigkeit in exercises:
                 # Altersgerechter Übungsersatz
@@ -890,29 +1191,37 @@ def trainingsplan_multi_erstellen(spieler_id: int, schwerpunkt_text: str,
                 if ersatz != "ok":
                     uebung, saetze, volumen, haeufigkeit = ersatz
 
-                # Deload: Häufigkeit reduzieren
                 if is_deload:
                     haeufigkeit = haeufigkeit.replace("3×", "2×").replace("4×", "2×")
-
-                # Progressive Überlastung: ab vol_mult ≥ 1.15 einen Satz mehr
                 if not is_deload and vol_mult >= 1.15:
                     saetze = _steigere_saetze(saetze, 1)
 
                 saetze      = _saetze_begrenzen(saetze, cfg["max_saetze"])
                 haeufigkeit = _haeufigkeit_begrenzen(haeufigkeit, cfg["haeuf_cap"])
                 tags        = _tags_fuer_haeufigkeit(haeufigkeit)
-                pause, aust = _pause_und_ausfuehrung(area, pool_key, is_deload, plangruppe)
 
                 for tag in tags:
-                    trainingsplan_eintrag_speichern(
-                        spieler_id, str(date.today()), woche,
-                        area, uebung, saetze, volumen,
-                        haeufigkeit,
-                        tag=tag,
-                        pause_sekunden=pause,
-                        ausfuehrung=aust,
-                    )
-                    total += 1
+                    week_entries.append((
+                        seq_order, tag, area, uebung, saetze, volumen, haeufigkeit,
+                        pause_sek, aust, rpe, energie, eq_primary, begruend,
+                    ))
+
+        # §2 + §3 Trainingsreihenfolge erzwingen: erst nach Tag, dann nach Sequenz-Slot
+        week_entries.sort(key=lambda e: (e[1], e[0]))
+
+        for seq_ord, tag, area, uebung, saetze, volumen, haeufigkeit, pause_sek, aust, rpe, energie, equipment, begruend in week_entries:
+            trainingsplan_eintrag_speichern(
+                spieler_id, str(date.today()), woche,
+                area, uebung, saetze, volumen, haeufigkeit,
+                tag=tag,
+                pause_sekunden=pause_sek,
+                ausfuehrung=aust,
+                rpe=rpe,
+                energie_system=energie,
+                equipment=equipment,
+                begruendung=begruend,
+            )
+            total += 1
 
     return total
 

@@ -1,0 +1,164 @@
+# UPDATE – Trainingsgenerator nach trainingswissenschaftlichen Belastungsnormativen erweitern
+
+## WICHTIG
+
+Erweitere die bestehende regelbasierte Trainings-Engine.
+
+Alle bestehenden Funktionen müssen vollständig erhalten bleiben.
+
+Diese Erweiterung ergänzt ausschließlich die Trainingsplanung.
+
+Es dürfen keine festen Trainingspläne verwendet werden.
+
+Alle Belastungsparameter müssen automatisch anhand der Diagnostik, des Leistungsniveaus, des Alters, der Position, der Saisonphase, der Trainingshäufigkeit und des Trainingsziels berechnet werden.
+
+--------------------------------------------------
+
+## 1. Belastungsnormative
+
+Jeder automatisch erzeugte Trainingsplan muss folgende Belastungsnormative berechnen:
+
+- Belastungsintensität
+- Belastungsdauer
+- Belastungsumfang
+- Belastungshäufigkeit
+- Belastungsdichte
+- Satzanzahl
+- Wiederholungen
+- Pausenlänge
+- RPE
+- HFmax (wenn relevant)
+
+Die Belastungsnormative müssen sich automatisch anpassen und dürfen nicht statisch sein.
+
+--------------------------------------------------
+
+## 2. Trainingsreihenfolge
+
+Die Software muss automatisch die optimale Übungsreihenfolge festlegen.
+
+Folgende Reihenfolge ist grundsätzlich einzuhalten:
+
+1. Aktivierung
+2. Dynamisches Dehnen
+3. Sprinttechnik
+4. Antrittsschnelligkeit
+5. Maximalschnelligkeit
+6. Plyometrie
+7. Olympisches Gewichtheben (wenn geeignet)
+8. Maximalkraft
+9. Schnellkraft
+10. Explosivkraft
+11. Anspruchsvolle Mehrgelenksübungen
+12. Weniger anspruchsvolle Mehrgelenksübungen
+13. Eingelenkige Kraftübungen
+14. Core
+15. Stabilisation
+16. Prävention
+17. Cool-down
+
+Von dieser Reihenfolge darf nur abgewichen werden, wenn dies trainingswissenschaftlich begründet ist.
+
+--------------------------------------------------
+
+## 3. Trainingsprinzipien
+
+Der Generator muss automatisch folgende Prinzipien berücksichtigen:
+
+- Schnelligkeit immer vor Kraftausdauer
+- Hohe neuronale Belastung vor metabolischer Belastung
+- Komplexe Übungen vor einfachen Übungen
+- Mehrgelenkige Übungen vor eingelenkigen Übungen
+- Große Muskelgruppen vor kleinen Muskelgruppen
+- Druck- und Zugübungen möglichst abwechseln
+- Oberkörper- und Unterkörperübungen sinnvoll kombinieren
+- Einseitige Belastungen vermeiden
+- Keine identischen Bewegungsmuster direkt hintereinander
+- Ausreichende Regenerationszeiten zwischen ähnlichen Belastungen
+
+--------------------------------------------------
+
+## 4. Krafttrainingsarten
+
+Die Übungsdatenbank und der Trainingsgenerator müssen automatisch zwischen folgenden Krafttrainingsformen unterscheiden:
+
+- Eigenkörpergewicht
+- Minibänder
+- Powerbänder
+- Freie Gewichte
+- Kurzhanteln
+- Langhanteln
+- Kettlebells
+- Medizinbälle
+- Maschinen
+- Schlitten
+- Olympisches Gewichtheben
+
+Falls bestimmtes Equipment nicht verfügbar ist, muss automatisch eine gleichwertige Alternative gewählt werden.
+
+--------------------------------------------------
+
+## 5. Energiesysteme
+
+Jede Übung muss einem primären Energiesystem zugeordnet werden.
+
+- ATP-KP-System (anaerob alaktazid)
+- Anaerob-laktazides System
+- Aerobes System
+
+Der Trainingsgenerator muss abhängig vom Trainingsziel automatisch die passenden Energiesysteme priorisieren.
+
+--------------------------------------------------
+
+## 6. Olympisches Gewichtheben
+
+Olympische Übungen dürfen nur vorgeschlagen werden, wenn:
+
+- der Athlet das erforderliche Leistungsniveau besitzt,
+- keine medizinischen Einschränkungen bestehen,
+- die Technikvoraussetzungen erfüllt sind.
+
+Falls diese Voraussetzungen nicht erfüllt sind, müssen automatisch geeignete Alternativen gewählt werden.
+
+--------------------------------------------------
+
+## 7. Trainingsqualität
+
+Jeder Trainingsplan muss:
+
+- individuell,
+- abwechslungsreich,
+- regelbasiert,
+- wissenschaftlich nachvollziehbar,
+- fußballspezifisch
+
+erstellt werden.
+
+Es dürfen niemals monotone oder einseitige Trainingspläne entstehen.
+
+--------------------------------------------------
+
+## 8. Automatische Dokumentation
+
+Der Trainingsgenerator soll zu jeder Einheit intern dokumentieren:
+
+- Warum diese Reihenfolge gewählt wurde.
+- Warum diese Belastungsparameter gewählt wurden.
+- Warum diese Übungen ausgewählt wurden.
+- Welche Trainingsprinzipien angewendet wurden.
+- Welche Energiesysteme trainiert werden.
+
+Diese Informationen dienen der Nachvollziehbarkeit und Qualitätssicherung.
+
+--------------------------------------------------
+
+## Abschlussbedingungen
+
+Die Erweiterung gilt als erfolgreich umgesetzt, wenn:
+
+- Alle Trainingspläne automatisch nach den Belastungsnormativen erstellt werden.
+- Die Übungsreihenfolge den trainingswissenschaftlichen Grundsätzen entspricht.
+- Krafttrainingsarten automatisch passend ausgewählt werden.
+- Energiesysteme korrekt berücksichtigt werden.
+- Olympisches Gewichtheben nur bei geeigneten Athleten integriert wird.
+- Alle bisherigen Funktionen der Bruce Football Performance Platform vollständig erhalten bleiben.
