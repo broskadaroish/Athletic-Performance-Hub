@@ -41,7 +41,9 @@ local_modules = [
     "age_norms", "agilitaet", "analytics", "anthropometrie", "ausdauer",
     "auth",                                                      # Multi-Tenant: Authentifizierung
     "database", "export", "field_eval", "fms", "help_ui", "i18n", "kraft",
-    "modules", "modules.benutzerverwaltung", "modules.vereine",  # Multi-Tenant: Admin-Module
+    "modules",                                                       # Multi-Tenant: Paket
+    "modules.benutzerverwaltung", "modules.saas_dashboard",         # Multi-Tenant: Admin-Module
+    "modules.trainerportal", "modules.vereine",                     # Multi-Tenant: Admin-Module
     "pdf_anleitung", "pdf_report", "periodisierung", "safety_texts", "spiro",
     "sprint", "sprung", "test_help", "test_observations", "testprotokoll_pdf",
     "theme", "training", "ui_components", "y_balance",

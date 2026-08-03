@@ -45,6 +45,17 @@ if errorlevel 1 (
 python -m pip install pyinstaller pillow matplotlib --quiet
 echo  Pakete installiert.
 
+:: ── 2b. Spec-Vollständigkeit prüfen ──────────────────────────────────────────
+echo.
+echo [2b/6] Spec-Prüfung — local_modules auf Vollständigkeit prüfen...
+python "%INSTALLER_DIR%\check_spec.py"
+if errorlevel 1 (
+    echo.
+    echo  Build abgebrochen. Bitte athletik.spec aktualisieren (siehe oben).
+    pause
+    exit /b 1
+)
+
 :: ── 3. PyInstaller ausführen ─────────────────────────────────────────────────
 echo.
 echo [3/6] PyInstaller — App bündeln...
