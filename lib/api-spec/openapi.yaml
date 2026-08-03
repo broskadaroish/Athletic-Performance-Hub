@@ -13,12 +13,15 @@ tags:
     description: Kontaktformular und Leads
   - name: stripe
     description: Stripe Webhooks und Preise
+  - name: mobile
+    description: Mobile companion app operations
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
+      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -105,7 +108,179 @@ paths:
         "200":
           description: Webhook verarbeitet
 
+  /mobile/auth/login:
+    post:
+      operationId: mobileLogin
+      tags: [mobile]
+      summary: Mobile login
+      description: Authenticate a trainer with email and password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MobileLoginRequest"
+      responses:
+        "200":
+          description: Authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MobileLoginResponse"
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MobileError"
+
+  /mobile/players:
+    get:
+      operationId: mobileGetPlayers
+      tags: [mobile]
+      summary: List players
+      description: Returns players assigned to the authenticated trainer
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Player list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MobilePlayersResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MobileError"
+
+  /mobile/players/{playerId}:
+    get:
+      operationId: mobileGetPlayer
+      tags: [mobile]
+      summary: Get player profile
+      description: Returns full player profile with latest test results and athletik score
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: playerId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Player detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MobilePlayerDetailResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MobileError"
+
+  /mobile/players/{playerId}/fms:
+    post:
+      operationId: mobileSubmitFms
+      tags: [mobile]
+      summary: Submit FMS test
+      description: Save a new FMS test result for a player
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: playerId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MobileFmsRequest"
+      responses:
+        "200":
+          description: Test saved, returns updated score
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MobileTestResult"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MobileError"
+
+  /mobile/players/{playerId}/sprint:
+    post:
+      operationId: mobileSubmitSprint
+      tags: [mobile]
+      summary: Submit sprint test
+      description: Save a new sprint test result for a player
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: playerId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MobileSprintRequest"
+      responses:
+        "200":
+          description: Test saved, returns updated score
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MobileTestResult"
+
+  /mobile/players/{playerId}/ybalance:
+    post:
+      operationId: mobileSubmitYbalance
+      tags: [mobile]
+      summary: Submit Y-Balance test
+      description: Save a new Y-Balance test result for a player
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: playerId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MobileYbalanceRequest"
+      responses:
+        "200":
+          description: Test saved, returns updated score
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MobileTestResult"
+
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
   schemas:
     HealthStatus:
       type: object
@@ -196,3 +371,260 @@ components:
           type: string
       required:
         - type
+
+    MobileError:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+
+    MobileLoginRequest:
+      type: object
+      properties:
+        email:
+          type: string
+        password:
+          type: string
+      required:
+        - email
+        - password
+
+    MobileLoginResponse:
+      type: object
+      properties:
+        token:
+          type: string
+        user:
+          $ref: "#/components/schemas/MobileUser"
+      required:
+        - token
+        - user
+
+    MobileUser:
+      type: object
+      properties:
+        id:
+          type: integer
+        email:
+          type: string
+        vorname:
+          type: string
+        nachname:
+          type: string
+        rolle:
+          type: string
+        verein_id:
+          type: integer
+          nullable: true
+        verein_name:
+          type: string
+          nullable: true
+      required:
+        - id
+        - email
+        - vorname
+        - nachname
+        - rolle
+
+    MobilePlayerSummary:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        vorname:
+          type: string
+        nachname:
+          type: string
+        mannschaft:
+          type: string
+          nullable: true
+        altersklasse:
+          type: string
+          nullable: true
+        score:
+          type: integer
+          nullable: true
+        last_test_date:
+          type: string
+          nullable: true
+      required:
+        - id
+        - name
+        - vorname
+        - nachname
+
+    MobilePlayersResponse:
+      type: object
+      properties:
+        players:
+          type: array
+          items:
+            $ref: "#/components/schemas/MobilePlayerSummary"
+      required:
+        - players
+
+    MobileLatestTests:
+      type: object
+      properties:
+        fms:
+          type: object
+          nullable: true
+          properties:
+            datum:
+              type: string
+            score:
+              type: integer
+            bewertung:
+              type: string
+            asymmetrie:
+              type: string
+              nullable: true
+        sprint:
+          type: object
+          nullable: true
+          properties:
+            datum:
+              type: string
+            beste_10m:
+              type: number
+              nullable: true
+            beste_30m:
+              type: number
+              nullable: true
+            bewertung_10m:
+              type: string
+              nullable: true
+        ybalance:
+          type: object
+          nullable: true
+          properties:
+            datum:
+              type: string
+            composite_rechts:
+              type: number
+            composite_links:
+              type: number
+            asymmetrie:
+              type: string
+              nullable: true
+
+    MobilePlayerDetailResponse:
+      type: object
+      properties:
+        player:
+          $ref: "#/components/schemas/MobilePlayerSummary"
+        score:
+          type: integer
+          nullable: true
+        tests:
+          $ref: "#/components/schemas/MobileLatestTests"
+      required:
+        - player
+        - tests
+
+    MobileTestResult:
+      type: object
+      properties:
+        score:
+          type: integer
+          nullable: true
+        sub_score:
+          type: integer
+          nullable: true
+        message:
+          type: string
+      required:
+        - message
+
+    MobileFmsRequest:
+      type: object
+      properties:
+        datum:
+          type: string
+        deep_squat:
+          type: integer
+        hurdle_l:
+          type: integer
+        hurdle_r:
+          type: integer
+        inline_l:
+          type: integer
+        inline_r:
+          type: integer
+        shoulder_l:
+          type: integer
+        shoulder_r:
+          type: integer
+        aslr_l:
+          type: integer
+        aslr_r:
+          type: integer
+        trunk:
+          type: integer
+        rotary_l:
+          type: integer
+        rotary_r:
+          type: integer
+      required:
+        - datum
+        - deep_squat
+        - hurdle_l
+        - hurdle_r
+        - inline_l
+        - inline_r
+        - shoulder_l
+        - shoulder_r
+        - aslr_l
+        - aslr_r
+        - trunk
+        - rotary_l
+        - rotary_r
+
+    MobileSprintRequest:
+      type: object
+      properties:
+        datum:
+          type: string
+        best_10m:
+          type: number
+        best_30m:
+          type: number
+      required:
+        - datum
+        - best_10m
+
+    MobileYbalanceRequest:
+      type: object
+      properties:
+        datum:
+          type: string
+        ant_r:
+          type: number
+        ant_l:
+          type: number
+        pm_r:
+          type: number
+        pm_l:
+          type: number
+        pl_r:
+          type: number
+        pl_l:
+          type: number
+        leg_length_r:
+          type: number
+          nullable: true
+        leg_length_l:
+          type: number
+          nullable: true
+      required:
+        - datum
+        - ant_r
+        - ant_l
+        - pm_r
+        - pm_l
+        - pl_r
+        - pl_l

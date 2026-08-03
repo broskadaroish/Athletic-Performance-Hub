@@ -62,3 +62,115 @@ export interface StripeEventPayload {
   id?: string;
 }
 
+export interface MobileError {
+  error: string;
+}
+
+export interface MobileLoginRequest {
+  email: string;
+  password: string;
+}
+
+export interface MobileUser {
+  id: number;
+  email: string;
+  vorname: string;
+  nachname: string;
+  rolle: string;
+  verein_id?: number | null;
+  verein_name?: string | null;
+}
+
+export interface MobileLoginResponse {
+  token: string;
+  user: MobileUser;
+}
+
+export interface MobilePlayerSummary {
+  id: number;
+  name: string;
+  vorname: string;
+  nachname: string;
+  mannschaft?: string | null;
+  altersklasse?: string | null;
+  score?: number | null;
+  last_test_date?: string | null;
+}
+
+export interface MobilePlayersResponse {
+  players: MobilePlayerSummary[];
+}
+
+export type MobileLatestTestsFms = {
+  datum?: string;
+  score?: number;
+  bewertung?: string;
+  asymmetrie?: string | null;
+} | null;
+
+export type MobileLatestTestsSprint = {
+  datum?: string;
+  beste_10m?: number | null;
+  beste_30m?: number | null;
+  bewertung_10m?: string | null;
+} | null;
+
+export type MobileLatestTestsYbalance = {
+  datum?: string;
+  composite_rechts?: number;
+  composite_links?: number;
+  asymmetrie?: string | null;
+} | null;
+
+export interface MobileLatestTests {
+  fms?: MobileLatestTestsFms;
+  sprint?: MobileLatestTestsSprint;
+  ybalance?: MobileLatestTestsYbalance;
+}
+
+export interface MobilePlayerDetailResponse {
+  player: MobilePlayerSummary;
+  score?: number | null;
+  tests: MobileLatestTests;
+}
+
+export interface MobileTestResult {
+  score?: number | null;
+  sub_score?: number | null;
+  message: string;
+}
+
+export interface MobileFmsRequest {
+  datum: string;
+  deep_squat: number;
+  hurdle_l: number;
+  hurdle_r: number;
+  inline_l: number;
+  inline_r: number;
+  shoulder_l: number;
+  shoulder_r: number;
+  aslr_l: number;
+  aslr_r: number;
+  trunk: number;
+  rotary_l: number;
+  rotary_r: number;
+}
+
+export interface MobileSprintRequest {
+  datum: string;
+  best_10m: number;
+  best_30m?: number;
+}
+
+export interface MobileYbalanceRequest {
+  datum: string;
+  ant_r: number;
+  ant_l: number;
+  pm_r: number;
+  pm_l: number;
+  pl_r: number;
+  pl_l: number;
+  leg_length_r?: number | null;
+  leg_length_l?: number | null;
+}
+

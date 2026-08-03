@@ -26,6 +26,15 @@ import type {
   HealthStatus,
   LeadInput,
   MaintenanceStatus,
+  MobileError,
+  MobileFmsRequest,
+  MobileLoginRequest,
+  MobileLoginResponse,
+  MobilePlayerDetailResponse,
+  MobilePlayersResponse,
+  MobileSprintRequest,
+  MobileTestResult,
+  MobileYbalanceRequest,
   StripeEventPayload
 } from './api.schemas';
 
@@ -65,6 +74,7 @@ export const getHealthCheckUrl = () => {
 }
 
 /**
+ * Returns server health status
  * @summary Health check
  */
 export const healthCheck = async ( options?: RequestInit): Promise<HealthStatus> => {
@@ -421,5 +431,452 @@ export const useStripeWebhook = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getStripeWebhookMutationOptions(options));
+    }
+
+export const getMobileLoginUrl = () => {
+
+
+
+
+  return `/api/mobile/auth/login`
+}
+
+/**
+ * Authenticate a trainer with email and password
+ * @summary Mobile login
+ */
+export const mobileLogin = async (mobileLoginRequest: MobileLoginRequest, options?: RequestInit): Promise<MobileLoginResponse> => {
+
+  return customFetch<MobileLoginResponse>(getMobileLoginUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(mobileLoginRequest)
+  }
+);}
+
+
+
+
+
+export const getMobileLoginMutationOptions = <TError = ErrorType<MobileError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof mobileLogin>>, TError,{data: BodyType<MobileLoginRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof mobileLogin>>, TError,{data: BodyType<MobileLoginRequest>}, TContext> => {
+
+const mutationKey = ['mobileLogin'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof mobileLogin>>, {data: BodyType<MobileLoginRequest>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  mobileLogin(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type MobileLoginMutationResult = NonNullable<Awaited<ReturnType<typeof mobileLogin>>>
+    export type MobileLoginMutationBody = BodyType<MobileLoginRequest>
+    export type MobileLoginMutationError = ErrorType<MobileError>
+
+    /**
+ * @summary Mobile login
+ */
+export const useMobileLogin = <TError = ErrorType<MobileError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof mobileLogin>>, TError,{data: BodyType<MobileLoginRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof mobileLogin>>,
+        TError,
+        {data: BodyType<MobileLoginRequest>},
+        TContext
+      > => {
+      return useMutation(getMobileLoginMutationOptions(options));
+    }
+
+export const getMobileGetPlayersUrl = () => {
+
+
+
+
+  return `/api/mobile/players`
+}
+
+/**
+ * Returns players assigned to the authenticated trainer
+ * @summary List players
+ */
+export const mobileGetPlayers = async ( options?: RequestInit): Promise<MobilePlayersResponse> => {
+
+  return customFetch<MobilePlayersResponse>(getMobileGetPlayersUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getMobileGetPlayersQueryKey = () => {
+    return [
+    `/api/mobile/players`
+    ] as const;
+    }
+
+
+export const getMobileGetPlayersQueryOptions = <TData = Awaited<ReturnType<typeof mobileGetPlayers>>, TError = ErrorType<MobileError>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof mobileGetPlayers>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getMobileGetPlayersQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof mobileGetPlayers>>> = ({ signal }) => mobileGetPlayers({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof mobileGetPlayers>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type MobileGetPlayersQueryResult = NonNullable<Awaited<ReturnType<typeof mobileGetPlayers>>>
+export type MobileGetPlayersQueryError = ErrorType<MobileError>
+
+
+/**
+ * @summary List players
+ */
+
+export function useMobileGetPlayers<TData = Awaited<ReturnType<typeof mobileGetPlayers>>, TError = ErrorType<MobileError>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof mobileGetPlayers>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getMobileGetPlayersQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getMobileGetPlayerUrl = (playerId: number,) => {
+
+
+
+
+  return `/api/mobile/players/${playerId}`
+}
+
+/**
+ * Returns full player profile with latest test results and athletik score
+ * @summary Get player profile
+ */
+export const mobileGetPlayer = async (playerId: number, options?: RequestInit): Promise<MobilePlayerDetailResponse> => {
+
+  return customFetch<MobilePlayerDetailResponse>(getMobileGetPlayerUrl(playerId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getMobileGetPlayerQueryKey = (playerId: number,) => {
+    return [
+    `/api/mobile/players/${playerId}`
+    ] as const;
+    }
+
+
+export const getMobileGetPlayerQueryOptions = <TData = Awaited<ReturnType<typeof mobileGetPlayer>>, TError = ErrorType<MobileError>>(playerId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof mobileGetPlayer>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getMobileGetPlayerQueryKey(playerId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof mobileGetPlayer>>> = ({ signal }) => mobileGetPlayer(playerId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: playerId !== null && playerId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof mobileGetPlayer>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type MobileGetPlayerQueryResult = NonNullable<Awaited<ReturnType<typeof mobileGetPlayer>>>
+export type MobileGetPlayerQueryError = ErrorType<MobileError>
+
+
+/**
+ * @summary Get player profile
+ */
+
+export function useMobileGetPlayer<TData = Awaited<ReturnType<typeof mobileGetPlayer>>, TError = ErrorType<MobileError>>(
+ playerId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof mobileGetPlayer>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getMobileGetPlayerQueryOptions(playerId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getMobileSubmitFmsUrl = (playerId: number,) => {
+
+
+
+
+  return `/api/mobile/players/${playerId}/fms`
+}
+
+/**
+ * Save a new FMS test result for a player
+ * @summary Submit FMS test
+ */
+export const mobileSubmitFms = async (playerId: number,
+    mobileFmsRequest: MobileFmsRequest, options?: RequestInit): Promise<MobileTestResult> => {
+
+  return customFetch<MobileTestResult>(getMobileSubmitFmsUrl(playerId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(mobileFmsRequest)
+  }
+);}
+
+
+
+
+
+export const getMobileSubmitFmsMutationOptions = <TError = ErrorType<MobileError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof mobileSubmitFms>>, TError,{playerId: number;data: BodyType<MobileFmsRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof mobileSubmitFms>>, TError,{playerId: number;data: BodyType<MobileFmsRequest>}, TContext> => {
+
+const mutationKey = ['mobileSubmitFms'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof mobileSubmitFms>>, {playerId: number;data: BodyType<MobileFmsRequest>}> = (props) => {
+          const {playerId,data} = props ?? {};
+
+          return  mobileSubmitFms(playerId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type MobileSubmitFmsMutationResult = NonNullable<Awaited<ReturnType<typeof mobileSubmitFms>>>
+    export type MobileSubmitFmsMutationBody = BodyType<MobileFmsRequest>
+    export type MobileSubmitFmsMutationError = ErrorType<MobileError>
+
+    /**
+ * @summary Submit FMS test
+ */
+export const useMobileSubmitFms = <TError = ErrorType<MobileError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof mobileSubmitFms>>, TError,{playerId: number;data: BodyType<MobileFmsRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof mobileSubmitFms>>,
+        TError,
+        {playerId: number;data: BodyType<MobileFmsRequest>},
+        TContext
+      > => {
+      return useMutation(getMobileSubmitFmsMutationOptions(options));
+    }
+
+export const getMobileSubmitSprintUrl = (playerId: number,) => {
+
+
+
+
+  return `/api/mobile/players/${playerId}/sprint`
+}
+
+/**
+ * Save a new sprint test result for a player
+ * @summary Submit sprint test
+ */
+export const mobileSubmitSprint = async (playerId: number,
+    mobileSprintRequest: MobileSprintRequest, options?: RequestInit): Promise<MobileTestResult> => {
+
+  return customFetch<MobileTestResult>(getMobileSubmitSprintUrl(playerId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(mobileSprintRequest)
+  }
+);}
+
+
+
+
+
+export const getMobileSubmitSprintMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof mobileSubmitSprint>>, TError,{playerId: number;data: BodyType<MobileSprintRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof mobileSubmitSprint>>, TError,{playerId: number;data: BodyType<MobileSprintRequest>}, TContext> => {
+
+const mutationKey = ['mobileSubmitSprint'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof mobileSubmitSprint>>, {playerId: number;data: BodyType<MobileSprintRequest>}> = (props) => {
+          const {playerId,data} = props ?? {};
+
+          return  mobileSubmitSprint(playerId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type MobileSubmitSprintMutationResult = NonNullable<Awaited<ReturnType<typeof mobileSubmitSprint>>>
+    export type MobileSubmitSprintMutationBody = BodyType<MobileSprintRequest>
+    export type MobileSubmitSprintMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Submit sprint test
+ */
+export const useMobileSubmitSprint = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof mobileSubmitSprint>>, TError,{playerId: number;data: BodyType<MobileSprintRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof mobileSubmitSprint>>,
+        TError,
+        {playerId: number;data: BodyType<MobileSprintRequest>},
+        TContext
+      > => {
+      return useMutation(getMobileSubmitSprintMutationOptions(options));
+    }
+
+export const getMobileSubmitYbalanceUrl = (playerId: number,) => {
+
+
+
+
+  return `/api/mobile/players/${playerId}/ybalance`
+}
+
+/**
+ * Save a new Y-Balance test result for a player
+ * @summary Submit Y-Balance test
+ */
+export const mobileSubmitYbalance = async (playerId: number,
+    mobileYbalanceRequest: MobileYbalanceRequest, options?: RequestInit): Promise<MobileTestResult> => {
+
+  return customFetch<MobileTestResult>(getMobileSubmitYbalanceUrl(playerId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(mobileYbalanceRequest)
+  }
+);}
+
+
+
+
+
+export const getMobileSubmitYbalanceMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof mobileSubmitYbalance>>, TError,{playerId: number;data: BodyType<MobileYbalanceRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof mobileSubmitYbalance>>, TError,{playerId: number;data: BodyType<MobileYbalanceRequest>}, TContext> => {
+
+const mutationKey = ['mobileSubmitYbalance'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof mobileSubmitYbalance>>, {playerId: number;data: BodyType<MobileYbalanceRequest>}> = (props) => {
+          const {playerId,data} = props ?? {};
+
+          return  mobileSubmitYbalance(playerId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type MobileSubmitYbalanceMutationResult = NonNullable<Awaited<ReturnType<typeof mobileSubmitYbalance>>>
+    export type MobileSubmitYbalanceMutationBody = BodyType<MobileYbalanceRequest>
+    export type MobileSubmitYbalanceMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Submit Y-Balance test
+ */
+export const useMobileSubmitYbalance = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof mobileSubmitYbalance>>, TError,{playerId: number;data: BodyType<MobileYbalanceRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof mobileSubmitYbalance>>,
+        TError,
+        {playerId: number;data: BodyType<MobileYbalanceRequest>},
+        TContext
+      > => {
+      return useMutation(getMobileSubmitYbalanceMutationOptions(options));
     }
 
