@@ -67,6 +67,7 @@ from auth import login
 from modules.benutzerverwaltung import page_benutzerverwaltung
 from modules.vereine import page_vereine
 from modules.trainerportal import page_trainerportal, page_mein_profil
+from modules.saas_dashboard import page_saas_dashboard
 from testprotokoll_pdf import (
     generate_testprotokoll, TEST_NAMEN, TEST_REIHENFOLGE,
 )
@@ -7834,7 +7835,7 @@ with st.sidebar:
 # ── Route ─────────────────────────────────────────────────────────────────────
 _check_save_ok()
 if section == "🏠  Startseite":
-    page_startseite()
+    page_saas_dashboard()
 elif section == "👤  Spieler":
     _SUB_SPIELER[sub_choice]()
 elif section == "🔬  Diagnostik":

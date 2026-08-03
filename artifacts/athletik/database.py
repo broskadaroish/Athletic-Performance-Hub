@@ -2032,3 +2032,242 @@ def benutzer_loeschen(benutzer_id: int) -> tuple[bool, str]:
             )
         conn.execute("DELETE FROM benutzer WHERE id=?", (benutzer_id,))
         return True, ""
+
+
+# ── Dashboard Analytics ───────────────────────────────────────────────────────
+
+_DIAG_TBLS = [
+    "sprint_test", "sprung_test", "anthropometrie", "fms_test",
+    "y_balance_test", "ausdauer_test", "kraft_test", "agilitaet_test", "spiro_test",
+]
+
+
+def dashboard_sa_kpis() -> dict:
+    """KPIs für Superadmin-Dashboard."""
+    with get_conn() as conn:
+        n_vereine  = conn.execute("SELECT COUNT(*) FROM vereine").fetchone()[0]
+        n_aktiv    = conn.execute("SELECT COUNT(*) FROM vereine WHERE aktiv=1").fetchone()[0]
+        n_gesperrt = conn.execute("SELECT COUNT(*) FROM vereine WHERE aktiv=0").fetchone()[0]
+        n_vadmin   = conn.execute(
+            "SELECT COUNT(*) FROM benutzer WHERE rolle='Vereinsadmin' AND aktiv=1"
+        ).fetchone()[0]
+        n_trainer  = conn.execute(
+            "SELECT COUNT(*) FROM benutzer WHERE rolle='Trainer' AND aktiv=1"
+        ).fetchone()[0]
+        n_spieler  = conn.execute("SELECT COUNT(*) FROM spieler").fetchone()[0]
+        n_benutzer = conn.execute("SELECT COUNT(*) FROM benutzer WHERE aktiv=1").fetchone()[0]
+        total_diag = 0
+        for t in _DIAG_TBLS:
+            try:
+                total_diag += conn.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0]
+            except Exception:
+                pass
+    return {
+        "n_vereine": n_vereine, "n_aktiv": n_aktiv, "n_gesperrt": n_gesperrt,
+        "n_vadmin": n_vadmin, "n_trainer": n_trainer, "n_spieler": n_spieler,
+        "n_benutzer": n_benutzer, "n_diagnostiken": total_diag,
+    }
+
+
+def dashboard_va_kpis(verein_id: int) -> dict:
+    """KPIs für Vereinsadmin-Dashboard."""
+    with get_conn() as conn:
+        n_trainer  = conn.execute(
+            "SELECT COUNT(*) FROM benutzer WHERE verein_id=? AND aktiv=1", (verein_id,)
+        ).fetchone()[0]
+        n_spieler  = conn.execute(
+            "SELECT COUNT(*) FROM spieler WHERE verein_id=?", (verein_id,)
+        ).fetchone()[0]
+        n_verletz  = conn.execute(
+            "SELECT COUNT(*) FROM verletzung v JOIN spieler s ON v.spieler_id=s.id "
+            "WHERE s.verein_id=? AND (v.ausfall_tage IS NULL OR "
+            "date(v.datum,'+'||v.ausfall_tage||' days')>=date('now'))", (verein_id,)
+        ).fetchone()[0]
+        # Players never tested
+        n_ungetestet = conn.execute(
+            "SELECT COUNT(*) FROM spieler s WHERE s.verein_id=? "
+            "AND NOT EXISTS (SELECT 1 FROM fms_test WHERE spieler_id=s.id) "
+            "AND NOT EXISTS (SELECT 1 FROM sprint_test WHERE spieler_id=s.id) "
+            "AND NOT EXISTS (SELECT 1 FROM y_balance_test WHERE spieler_id=s.id)",
+            (verein_id,)
+        ).fetchone()[0]
+        total_diag = 0
+        for t in _DIAG_TBLS:
+            try:
+                total_diag += conn.execute(
+                    f"SELECT COUNT(*) FROM {t} WHERE spieler_id IN "
+                    f"(SELECT id FROM spieler WHERE verein_id=?)", (verein_id,)
+                ).fetchone()[0]
+            except Exception:
+                pass
+        # Avg FMS score (latest per player)
+        avg_fms = conn.execute(
+            "SELECT AVG(f.score) FROM fms_test f "
+            "WHERE f.spieler_id IN (SELECT id FROM spieler WHERE verein_id=?) "
+            "AND f.id=(SELECT MAX(id) FROM fms_test WHERE spieler_id=f.spieler_id)",
+            (verein_id,)
+        ).fetchone()[0]
+    return {
+        "n_trainer": n_trainer, "n_spieler": n_spieler, "n_verletzungen": n_verletz,
+        "n_ungetestet": n_ungetestet, "n_diagnostiken": total_diag,
+        "avg_fms": round(avg_fms, 1) if avg_fms else None,
+    }
+
+
+def dashboard_monatlich_vereine(n: int = 12) -> list:
+    with get_conn() as conn:
+        rows = conn.execute(
+            "SELECT strftime('%Y-%m',erstellt_am) AS m, COUNT(*) AS n "
+            "FROM vereine WHERE erstellt_am IS NOT NULL GROUP BY m ORDER BY m"
+        ).fetchall()
+    return [{"monat": r[0], "n": r[1]} for r in rows]
+
+
+def dashboard_monatlich_trainer(n: int = 12) -> list:
+    with get_conn() as conn:
+        rows = conn.execute(
+            "SELECT strftime('%Y-%m',erstellt_am) AS m, COUNT(*) AS n "
+            "FROM benutzer WHERE rolle IN ('Trainer','Vereinsadmin') "
+            "AND erstellt_am IS NOT NULL GROUP BY m ORDER BY m"
+        ).fetchall()
+    return [{"monat": r[0], "n": r[1]} for r in rows]
+
+
+def dashboard_monatlich_diagnostiken(verein_id=None, n: int = 12) -> list:
+    monthly: dict = {}
+    with get_conn() as conn:
+        for tbl in _DIAG_TBLS:
+            try:
+                if verein_id:
+                    rows = conn.execute(
+                        f"SELECT strftime('%Y-%m',t.datum) AS m, COUNT(*) AS n "
+                        f"FROM {tbl} t JOIN spieler s ON t.spieler_id=s.id "
+                        f"WHERE s.verein_id=? AND t.datum IS NOT NULL GROUP BY m",
+                        (verein_id,),
+                    ).fetchall()
+                else:
+                    rows = conn.execute(
+                        f"SELECT strftime('%Y-%m',datum) AS m, COUNT(*) AS n "
+                        f"FROM {tbl} WHERE datum IS NOT NULL GROUP BY m"
+                    ).fetchall()
+                for r in rows:
+                    monthly[r[0]] = monthly.get(r[0], 0) + r[1]
+            except Exception:
+                pass
+    return [{"monat": k, "n": v} for k, v in sorted(monthly.items())]
+
+
+def dashboard_spieler_altersklassen(verein_id=None) -> list:
+    with get_conn() as conn:
+        if verein_id:
+            rows = conn.execute(
+                "SELECT COALESCE(altersklasse,'Unbekannt') AS ak, COUNT(*) AS n "
+                "FROM spieler WHERE verein_id=? GROUP BY ak ORDER BY n DESC", (verein_id,)
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                "SELECT COALESCE(altersklasse,'Unbekannt') AS ak, COUNT(*) AS n "
+                "FROM spieler GROUP BY ak ORDER BY n DESC"
+            ).fetchall()
+    return [{"altersklasse": r[0], "n": r[1]} for r in rows]
+
+
+def dashboard_spieler_mannschaften(verein_id=None) -> list:
+    with get_conn() as conn:
+        if verein_id:
+            rows = conn.execute(
+                "SELECT COALESCE(mannschaft,'Ohne Mannschaft') AS m, COUNT(*) AS n "
+                "FROM spieler WHERE verein_id=? GROUP BY m ORDER BY n DESC", (verein_id,)
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                "SELECT COALESCE(mannschaft,'Ohne Mannschaft') AS m, COUNT(*) AS n "
+                "FROM spieler GROUP BY m ORDER BY n DESC"
+            ).fetchall()
+    return [{"mannschaft": r[0], "n": r[1]} for r in rows]
+
+
+def dashboard_letzte_logins(verein_id=None, limit: int = 8) -> list:
+    with get_conn() as conn:
+        if verein_id:
+            rows = conn.execute(
+                "SELECT vorname,nachname,email,rolle,letzter_login FROM benutzer "
+                "WHERE verein_id=? AND letzter_login IS NOT NULL "
+                "ORDER BY letzter_login DESC LIMIT ?", (verein_id, limit)
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                "SELECT vorname,nachname,email,rolle,letzter_login FROM benutzer "
+                "WHERE letzter_login IS NOT NULL ORDER BY letzter_login DESC LIMIT ?",
+                (limit,)
+            ).fetchall()
+    return [{"vorname": r[0], "nachname": r[1], "email": r[2],
+             "rolle": r[3], "letzter_login": r[4]} for r in rows]
+
+
+def dashboard_trainer_letzte_spieler(trainer_id: int, limit: int = 6) -> list:
+    with get_conn() as conn:
+        rows = conn.execute(
+            "SELECT s.id, s.name, s.vorname, s.nachname, s.mannschaft, s.altersklasse, "
+            "(SELECT MAX(d) FROM ("
+            " SELECT datum AS d FROM fms_test     WHERE spieler_id=s.id "
+            " UNION ALL SELECT datum FROM sprint_test   WHERE spieler_id=s.id "
+            " UNION ALL SELECT datum FROM y_balance_test WHERE spieler_id=s.id "
+            " UNION ALL SELECT datum FROM agilitaet_test WHERE spieler_id=s.id "
+            " UNION ALL SELECT datum FROM ausdauer_test  WHERE spieler_id=s.id "
+            ")) AS letzte_messung "
+            "FROM spieler s WHERE s.trainer_id=? "
+            "ORDER BY letzte_messung DESC LIMIT ?",
+            (trainer_id, limit),
+        ).fetchall()
+    return [{"id": r[0], "name": r[1], "vorname": r[2], "nachname": r[3],
+             "mannschaft": r[4] or "—", "altersklasse": r[5] or "—",
+             "letzte_messung": r[6]} for r in rows]
+
+
+def dashboard_trainer_ohne_test(trainer_id: int) -> int:
+    """Spieler ohne Test in den letzten 30 Tagen (inkl. nie getesteter)."""
+    with get_conn() as conn:
+        n = conn.execute(
+            "SELECT COUNT(*) FROM spieler s WHERE s.trainer_id=? "
+            "AND NOT EXISTS ("
+            " SELECT 1 FROM ("
+            "  SELECT spieler_id, datum FROM fms_test "
+            "  UNION ALL SELECT spieler_id, datum FROM sprint_test "
+            "  UNION ALL SELECT spieler_id, datum FROM y_balance_test "
+            "  UNION ALL SELECT spieler_id, datum FROM agilitaet_test "
+            "  UNION ALL SELECT spieler_id, datum FROM ausdauer_test "
+            " ) t WHERE t.spieler_id=s.id "
+            "   AND t.datum >= date('now','-30 days')"
+            ")",
+            (trainer_id,),
+        ).fetchone()[0]
+    return n
+
+
+def dashboard_trainer_neue_verletzungen(trainer_id: int) -> int:
+    with get_conn() as conn:
+        n = conn.execute(
+            "SELECT COUNT(*) FROM verletzung v JOIN spieler s ON v.spieler_id=s.id "
+            "WHERE s.trainer_id=? AND v.datum >= date('now','-14 days')",
+            (trainer_id,),
+        ).fetchone()[0]
+    return n
+
+
+def dashboard_trainer_diagnostiken_monat(trainer_id: int) -> int:
+    """Diagnostiken diesen Monat für alle Spieler des Trainers."""
+    monat = __import__("datetime").date.today().strftime("%Y-%m")
+    total = 0
+    with get_conn() as conn:
+        for t in _DIAG_TBLS:
+            try:
+                total += conn.execute(
+                    f"SELECT COUNT(*) FROM {t} WHERE spieler_id IN "
+                    f"(SELECT id FROM spieler WHERE trainer_id=?) "
+                    f"AND strftime('%Y-%m',datum)=?",
+                    (trainer_id, monat),
+                ).fetchone()[0]
+            except Exception:
+                pass
+    return total
