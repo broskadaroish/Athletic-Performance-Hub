@@ -56,14 +56,14 @@ from database import (
     spiro_stufen_speichern, spiro_stufen_laden,
     spiro_nachbelastung_speichern, spiro_nachbelastung_laden,
     spiro_test_loeschen,
-    benutzer_laden, benutzer_speichern, benutzer_aktivieren,
+    benutzer_laden, benutzer_speichern, benutzer_aktivieren, benutzer_by_id,
     benutzer_passwort, benutzer_aktualisieren, benutzer_profil_aktualisieren,
     benutzer_foto_speichern, trainer_statistiken, benutzer_loeschen,
     vereine_laden, verein_speichern, verein_aktivieren,
     verein_by_id, verein_aktualisieren, verein_logo_speichern, verein_statistiken,
     spieler_null_zuweisen, spieler_ohne_verein_zaehlen,
 )
-from auth import login
+from auth import login, hash_password
 from modules.benutzerverwaltung import page_benutzerverwaltung
 from modules.vereine import page_vereine
 from modules.trainerportal import page_trainerportal, page_mein_profil
@@ -5894,6 +5894,30 @@ def page_einstellungen():
             f'</div></div>',
             unsafe_allow_html=True,
         )
+
+    with st.expander("🔑 Passwort ändern"):
+        st.markdown("### 🔑 Passwort ändern")
+        st.caption(
+            "Gib dein aktuelles Passwort zur Bestätigung ein, dann das neue Passwort zweimal."
+        )
+        st.markdown("---")
+        _pw_alt    = st.text_input("Aktuelles Passwort",       key="pw_change_alt",  type="password")
+        _pw_neu1   = st.text_input("Neues Passwort",           key="pw_change_neu1", type="password")
+        _pw_neu2   = st.text_input("Neues Passwort bestätigen", key="pw_change_neu2", type="password")
+        if st.button("🔑 Passwort ändern", key="pw_change_btn", type="primary"):
+            _u = _akt_user()
+            _u_db = benutzer_by_id(_u["id"])
+            if not _pw_alt:
+                st.error("❌ Bitte das aktuelle Passwort eingeben.")
+            elif _u_db is None or _u_db.get("passwort_hash") != hash_password(_pw_alt):
+                st.error("❌ Das aktuelle Passwort ist falsch.")
+            elif len(_pw_neu1) < 4:
+                st.error("❌ Das neue Passwort muss mindestens 4 Zeichen haben.")
+            elif _pw_neu1 != _pw_neu2:
+                st.error("❌ Die neuen Passwörter stimmen nicht überein.")
+            else:
+                benutzer_passwort(_u["id"], _pw_neu1)
+                st.success("✅ Passwort erfolgreich geändert.")
 
     with st.expander("🔒 Datenschutz & Datenverwaltung"):
         st.markdown("### 🔒 Datenschutz & Datenverwaltung")
