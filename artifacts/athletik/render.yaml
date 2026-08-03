@@ -45,6 +45,37 @@ services:
       mountPath: /data
       sizeGB: 5               # je nach Datenmenge anpassen
 
+  # ── Täglicher Backup-Cron-Job ─────────────────────────────────────────────
+  - type: cron
+    name: athletik-backup
+    env: python
+    region: frankfurt
+    plan: starter
+    schedule: "0 2 * * *"    # täglich um 02:00 UTC
+    buildCommand: pip install --no-cache-dir -r requirements.txt
+    startCommand: python tools/backup.py
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: ATHLETIK_DATA_DIR
+        value: /data
+      - key: ATHLETIK_DB_PATH
+        value: /data/athletik.db
+      - key: BACKUP_RETENTION_DAYS
+        value: "30"
+      # S3-Upload (optional — nur setzen wenn externer Speicher gewünscht):
+      # - key: S3_BUCKET
+      #   sync: false
+      # - key: S3_ENDPOINT_URL
+      #   sync: false
+      # - key: AWS_ACCESS_KEY_ID
+      #   sync: false
+      # - key: AWS_SECRET_ACCESS_KEY
+      #   sync: false
+    disk:
+      name: athletik-data      # dasselbe Volume wie der Web-Service
+      mountPath: /data
+
 # Optional: PostgreSQL-Datenbank hinzufügen (für spätere PG-Migration)
 # databases:
 #   - name: athletik-db

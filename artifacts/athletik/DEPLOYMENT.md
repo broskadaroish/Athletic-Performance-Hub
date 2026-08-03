@@ -217,15 +217,57 @@ python tools/migrate_to_pg.py
 - [ ] `.env` nicht in Git eingecheckt (`.gitignore` schließt aus)
 - [ ] `SESSION_SECRET` ist wirklich zufällig (nicht der Placeholder)
 
-### Backup-Strategie (manuell einrichten)
+### Backup-Strategie
 
-```bash
-# Tägliches SQLite-Backup (Cron auf VPS oder GitHub Action)
-sqlite3 /data/athletik.db ".backup /data/uploads/backups/athletik_$(date +%Y%m%d).db"
+Das Backup-Skript `tools/backup.py` übernimmt die tägliche Sicherung vollautomatisch.
 
-# Backups älter als 30 Tage löschen
-find /data/uploads/backups -name "*.db" -mtime +30 -delete
+| Merkmal | Detail |
+|---|---|
+| Backup-Pfad | `uploads/backups/athletik_YYYY-MM-DD.db` |
+| Methode | SQLite Online-Backup-API (konsistenter Snapshot) |
+| Integritätsprüfung | `PRAGMA integrity_check` nach jedem Backup |
+| Aufbewahrung | 30 Tage (konfigurierbar via `BACKUP_RETENTION_DAYS`) |
+| S3-Upload | Optional — via `S3_BUCKET` + AWS-Credentials |
+
+**Render.com** — Cron-Job ist in `render.yaml` bereits konfiguriert (läuft täglich 02:00 UTC).
+Gleiches `athletik-data`-Volume wird von Web-Service und Cron-Job geteilt.
+
+**Railway.app** — Cron-Skript manuell konfigurieren:
 ```
+python tools/backup.py
+```
+Zeitplan: `0 2 * * *` (täglich 02:00 UTC)
+
+**VPS / Docker** — Systemd-Timer oder Crontab:
+```bash
+# crontab -e
+0 2 * * * cd /app && ATHLETIK_DB_PATH=/data/athletik.db ATHLETIK_DATA_DIR=/data python tools/backup.py >> /data/logs/backup.log 2>&1
+```
+
+**Manuelles Backup** jederzeit ausführbar:
+```bash
+cd artifacts/athletik
+python tools/backup.py
+```
+
+**S3-Upload aktivieren** (optional, z. B. Cloudflare R2 oder AWS S3):
+```bash
+export S3_BUCKET=mein-backup-bucket
+export S3_ENDPOINT_URL=https://<account>.r2.cloudflarestorage.com  # nur für R2
+export AWS_ACCESS_KEY_ID=...
+export AWS_SECRET_ACCESS_KEY=...
+python tools/backup.py
+```
+
+**Konfigurierbare Env-Vars:**
+
+| Variable | Standard | Beschreibung |
+|---|---|---|
+| `BACKUP_RETENTION_DAYS` | `30` | Backups älter als N Tage werden gelöscht (0 = nie löschen) |
+| `S3_BUCKET` | *(leer)* | S3-Bucket-Name (leer = kein Upload) |
+| `S3_ENDPOINT_URL` | *(leer)* | Endpoint für S3-kompatible Dienste (R2, MinIO, …) |
+| `AWS_ACCESS_KEY_ID` | *(leer)* | S3-Zugangsdaten |
+| `AWS_SECRET_ACCESS_KEY` | *(leer)* | S3-Zugangsdaten |
 
 ---
 

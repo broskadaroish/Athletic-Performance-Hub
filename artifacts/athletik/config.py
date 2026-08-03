@@ -48,6 +48,12 @@ TRUSTED_PROXIES  = os.environ.get("TRUSTED_PROXIES", "127.0.0.1")
 # ── Logging ───────────────────────────────────────────────────────────────────
 LOG_LEVEL = os.environ.get("LOG_LEVEL", "WARNING" if APP_ENV == "production" else "INFO")
 
+# ── Backup ───────────────────────────────────────────────────────────────────
+BACKUP_RETENTION_DAYS = int(os.environ.get("BACKUP_RETENTION_DAYS", "30"))
+# S3-kompatibler Speicher für externes Backup (leer = deaktiviert)
+S3_BUCKET        = os.environ.get("S3_BUCKET", "")
+S3_ENDPOINT_URL  = os.environ.get("S3_ENDPOINT_URL", "")
+
 # ── Session-Timeout ───────────────────────────────────────────────────────────
 SESSION_TIMEOUT_MINUTES = int(os.environ.get("SESSION_TIMEOUT_MINUTES", "60"))
 
