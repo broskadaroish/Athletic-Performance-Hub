@@ -1278,7 +1278,10 @@ def philosophie_laden(spieler_id: int) -> str | None:
             (spieler_id,),
         ).fetchone()
     if row:
-        return row[0] if isinstance(row, (list, tuple)) else row.get("philosophie_key")
+        try:
+            return row["philosophie_key"]
+        except (IndexError, KeyError, TypeError):
+            return row[0] if row[0] is not None else None
     return None
 
 
