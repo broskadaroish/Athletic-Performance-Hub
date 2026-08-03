@@ -56,7 +56,13 @@ from database import (
     spiro_stufen_speichern, spiro_stufen_laden,
     spiro_nachbelastung_speichern, spiro_nachbelastung_laden,
     spiro_test_loeschen,
+    benutzer_laden, benutzer_speichern, benutzer_aktivieren,
+    benutzer_passwort, benutzer_aktualisieren,
+    vereine_laden, verein_speichern, verein_aktivieren,
 )
+from auth import login
+from modules.benutzerverwaltung import page_benutzerverwaltung
+from modules.vereine import page_vereine
 from testprotokoll_pdf import (
     generate_testprotokoll, TEST_NAMEN, TEST_REIHENFOLGE,
 )
@@ -198,6 +204,54 @@ st.set_page_config(
 # ─── Inject central design system ────────────────────────────────────────────
 st.markdown(APP_CSS, unsafe_allow_html=True)
 
+# ─── Login-Gate: Benutzer muss angemeldet sein ────────────────────────────────
+if "user" not in st.session_state:
+    _lc1, _lc2, _lc3 = st.columns([1, 2, 1])
+    with _lc2:
+        if os.path.exists(_APP_ICON_PATH):
+            _li1, _li2, _li3 = st.columns([1, 2, 1])
+            _li2.image(_APP_ICON_PATH, width=72)
+        st.markdown(
+            '<h2 style="color:#e6edf3;text-align:center;margin:16px 0 4px">Bruce Football</h2>'
+            '<p style="color:#8b949e;text-align:center;font-size:13px;margin-bottom:20px">'
+            'Performance Diagnostics</p>',
+            unsafe_allow_html=True,
+        )
+        # Erste Einrichtung — noch kein Benutzer vorhanden
+        _alle_benutzer_login = benutzer_laden()
+        if not _alle_benutzer_login:
+            st.info("🚀 **Erste Einrichtung** — Lege den ersten Superadmin an.")
+            _setup_email = st.text_input("E-Mail / Benutzername", key="setup_email")
+            _setup_pw1   = st.text_input("Passwort",              key="setup_pw1", type="password")
+            _setup_pw2   = st.text_input("Passwort bestätigen",   key="setup_pw2", type="password")
+            if st.button("✅ Superadmin anlegen", type="primary",
+                         use_container_width=True, key="setup_btn"):
+                if not _setup_email.strip():
+                    st.error("E-Mail fehlt.")
+                elif len(_setup_pw1) < 4:
+                    st.error("Passwort muss mindestens 4 Zeichen haben.")
+                elif _setup_pw1 != _setup_pw2:
+                    st.error("Passwörter stimmen nicht überein.")
+                else:
+                    _vid = verein_speichern("Standard-Verein")
+                    benutzer_speichern(_vid, "Super", "Admin",
+                                      _setup_email.strip(), _setup_pw1, "Superadmin")
+                    st.success("✅ Superadmin angelegt — bitte jetzt anmelden.")
+                    st.rerun()
+        else:
+            _login_email    = st.text_input("E-Mail / Benutzername", key="login_email",
+                                            placeholder="trainer@verein.de")
+            _login_passwort = st.text_input("Passwort", key="login_pw", type="password")
+            if st.button("🔐 Anmelden", type="primary",
+                         use_container_width=True, key="login_btn"):
+                _user_obj = login(_login_email.strip(), _login_passwort)
+                if _user_obj:
+                    st.session_state["user"] = _user_obj
+                    st.rerun()
+                else:
+                    st.error("❌ E-Mail oder Passwort falsch.")
+    st.stop()
+
 # ─── Startup-Gate: Zweckbestimmung muss bestätigt werden ─────────────────────
 if not _zweck_bestaetigt():
     st.markdown(
@@ -291,6 +345,11 @@ def _reset_keys(*keys: str) -> None:
     for k in keys:
         st.session_state.pop(k, None)
 
+def _akt_user() -> dict:
+    """Gibt den eingeloggten Benutzer-Dict zurück (nach Login-Gate immer vorhanden)."""
+    return st.session_state.get("user") or {"id": None, "rolle": "Superadmin", "verein_id": None}
+
+
 def _validate_geburtsdatum(datum_str: str):
     """Prüft Datum TT.MM.JJJJ — gibt (True, None) oder (False, Fehlermeldung) zurück."""
     from datetime import datetime as _dt, date as _d
@@ -352,7 +411,7 @@ def _datum_filter(df: "pd.DataFrame", key: str) -> "pd.DataFrame":
 def _player_selector(key_suffix="") -> dict | None:
     """Returns the globally selected player (no per-page dropdown rendered).
     The selector lives in the sidebar; all pages share the same active player."""
-    spieler = spieler_laden()
+    spieler = spieler_laden(_akt_user()["id"], _akt_user()["rolle"], _akt_user()["verein_id"])
     if not spieler:
         st.warning("👤 Noch keine Spieler angelegt. Gehe zu **Spieler → Verwaltung** um den ersten Spieler anzulegen.")
         return None
@@ -403,7 +462,7 @@ def page_dashboard():
         unsafe_allow_html=True,
     )
 
-    all_players = spieler_laden()
+    all_players = spieler_laden(_akt_user()["id"], _akt_user()["rolle"], _akt_user()["verein_id"])
     if not all_players:
         st.markdown(
             empty_state("👥", "Noch keine Spieler angelegt",
@@ -1039,13 +1098,15 @@ def page_spieler():
                         nebenposition if nebenposition != "—" else "",
                         altersklasse, spielbein, leistungsniveau,
                         mannschaft.strip(), trainingsstatus,
+                        trainer_id=_akt_user()["id"],
+                        verein_id=_akt_user()["verein_id"],
                     )
                     _save_ok(f"Spieler **{vorname} {nachname}** wurde gespeichert.")
                     st.rerun()
 
     # ── Tab 2: Alle Spieler — direkt in der Tabelle bearbeiten ──────────────────
     with tab_list:
-        _sp_list = spieler_laden()
+        _sp_list = spieler_laden(_akt_user()["id"], _akt_user()["rolle"], _akt_user()["verein_id"])
         if not _sp_list:
             st.info("Noch keine Spieler vorhanden.")
             return
@@ -5332,7 +5393,7 @@ def page_kraft():
 
 def page_startseite():
     """Home — personalisierte Übersicht für den aktiven Spieler."""
-    spieler_liste = spieler_laden()
+    spieler_liste = spieler_laden(_akt_user()["id"], _akt_user()["rolle"], _akt_user()["verein_id"])
     if not spieler_liste:
         st.markdown(empty_state("⚽", "Willkommen bei Athletik Diagnostik",
                                 "Lege unter Spieler → Verwaltung deinen ersten Spieler an."),
@@ -5663,7 +5724,7 @@ def page_einstellungen():
 
         st.markdown("---")
         st.markdown("### Kader-Übersicht")
-        alle = spieler_laden()
+        alle = spieler_laden(_akt_user()["id"], _akt_user()["rolle"], _akt_user()["verein_id"])
         st.metric("Spieler gesamt", len(alle))
         if alle:
             mannschaften = list({p.get("mannschaft") or "Keine" for p in alle})
@@ -5843,7 +5904,7 @@ def page_einstellungen():
             "Löscht den Spieler samt aller Testdaten, Verletzungshistorie und "
             "Trainingsplan. Diese Aktion kann nicht rückgängig gemacht werden."
         )
-        alle_spieler = spieler_laden()
+        alle_spieler = spieler_laden(_akt_user()["id"], _akt_user()["rolle"], _akt_user()["verein_id"])
         if not alle_spieler:
             st.info("Keine Spieler vorhanden.")
         else:
@@ -5895,7 +5956,7 @@ def page_einstellungen():
 
     with st.expander("💾 Export & Backup"):
         st.markdown("### Daten exportieren")
-        alle = spieler_laden()
+        alle = spieler_laden(_akt_user()["id"], _akt_user()["rolle"], _akt_user()["verein_id"])
         if not alle:
             st.info("Keine Spieler vorhanden.")
         else:
@@ -6246,7 +6307,7 @@ def page_spieler_vergleich():
     )
     st.markdown("---")
 
-    alle_spieler = spieler_laden()
+    alle_spieler = spieler_laden(_akt_user()["id"], _akt_user()["rolle"], _akt_user()["verein_id"])
     if len(alle_spieler) < 2:
         st.info("⚠️ Mindestens **zwei Spieler** werden für den Vergleich benötigt. "
                 "Bitte unter **Spieler → Verwaltung** weitere Spieler anlegen.")
@@ -7206,7 +7267,7 @@ def page_testprotokoll():
         unsafe_allow_html=True,
     )
 
-    alle_spieler = spieler_laden()
+    alle_spieler = spieler_laden(_akt_user()["id"], _akt_user()["rolle"], _akt_user()["verein_id"])
 
     # ── Schritt 1: Variante ────────────────────────────────────────────────────
     st.markdown("### Schritt 1 — Variante")
@@ -7511,6 +7572,12 @@ _MAIN_SECTIONS = [
     "⚙️  Einstellungen",
     "ℹ️  Über",
 ]
+# Rollen-basierte Admin-Sektionen
+_user_rolle_nav = st.session_state.get("user", {}).get("rolle", "Trainer")
+if _user_rolle_nav in ("Superadmin", "Vereinsadmin"):
+    _MAIN_SECTIONS = _MAIN_SECTIONS + ["🔑  Benutzerverwaltung"]
+if _user_rolle_nav == "Superadmin":
+    _MAIN_SECTIONS = _MAIN_SECTIONS + ["🏢  Vereinsverwaltung"]
 
 with st.sidebar:
     # ── Logo ──────────────────────────────────────────────────────────────────
@@ -7526,7 +7593,7 @@ with st.sidebar:
         st.image(_APP_ICON_PATH, width=64)
 
     # ── Global player selector ────────────────────────────────────────────────
-    alle_spieler = spieler_laden()
+    alle_spieler = spieler_laden(_akt_user()["id"], _akt_user()["rolle"], _akt_user()["verein_id"])
     if alle_spieler:
         pid_current = st.session_state.get("global_player_id")
         idx_current = 0
@@ -7721,6 +7788,27 @@ with st.sidebar:
         unsafe_allow_html=True,
     )
 
+    # ── Benutzer-Info & Abmelden ──────────────────────────────────────────────
+    _sb_user  = st.session_state.get("user", {})
+    _sb_uname = (f"{_sb_user.get('vorname','')} {_sb_user.get('nachname','')}".strip()
+                 or _sb_user.get("email", ""))
+    _sb_rolle = _sb_user.get("rolle", "")
+    _sb_verein = _sb_user.get("verein_name") or _sb_user.get("verein") or ""
+    st.markdown(
+        f'<div style="margin:8px 0 4px;padding:8px 12px;background:{C["surface"]};'
+        f'border-radius:8px;border:1px solid {C["border"]}">'
+        f'<div style="font-size:9px;color:{C["muted"]};letter-spacing:1px">ANGEMELDET ALS</div>'
+        f'<div style="font-size:12px;font-weight:600;color:{C["text"]}">{_sb_uname}</div>'
+        f'<div style="font-size:10px;color:{C["muted"]}">{_sb_rolle}'
+        f'{" · " + _sb_verein if _sb_verein else ""}</div>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
+    if st.button("🚪 Abmelden", key="logout_btn", use_container_width=True):
+        for _lk in list(st.session_state.keys()):
+            del st.session_state[_lk]
+        st.rerun()
+
     # ── Copyright-Footer ──────────────────────────────────────────────────────
     st.markdown(
         f'<div style="position:fixed;bottom:0;left:0;width:240px;padding:8px 12px;'
@@ -7755,3 +7843,7 @@ elif section == "⚙️  Einstellungen":
     page_einstellungen()
 elif section == "ℹ️  Über":
     page_ueber_software()
+elif section == "🔑  Benutzerverwaltung":
+    page_benutzerverwaltung()
+elif section == "🏢  Vereinsverwaltung":
+    page_vereine()

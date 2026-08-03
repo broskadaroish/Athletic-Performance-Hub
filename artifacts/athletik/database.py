@@ -37,6 +37,27 @@ def get_conn():
 def init_db():
     with get_conn() as conn:
         conn.executescript("""
+        -- ── Multi-Tenant: Vereine ──────────────────────────────────────────────
+        CREATE TABLE IF NOT EXISTS vereine (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            name        TEXT NOT NULL,
+            aktiv       INTEGER DEFAULT 1,
+            erstellt_am TEXT    DEFAULT (date('now'))
+        );
+
+        -- ── Multi-Tenant: Benutzer ─────────────────────────────────────────────
+        CREATE TABLE IF NOT EXISTS benutzer (
+            id            INTEGER PRIMARY KEY AUTOINCREMENT,
+            verein_id     INTEGER REFERENCES vereine(id),
+            vorname       TEXT,
+            nachname      TEXT,
+            email         TEXT UNIQUE NOT NULL,
+            passwort_hash TEXT NOT NULL,
+            rolle         TEXT NOT NULL DEFAULT 'Trainer',
+            aktiv         INTEGER DEFAULT 1,
+            erstellt_am   TEXT    DEFAULT (date('now'))
+        );
+
         CREATE TABLE IF NOT EXISTS spieler (
             id              INTEGER PRIMARY KEY AUTOINCREMENT,
             name            TEXT NOT NULL,
@@ -51,7 +72,9 @@ def init_db():
             hauptposition   TEXT,
             nebenposition   TEXT,
             leistungsniveau TEXT,
-            trainingsstatus TEXT
+            trainingsstatus TEXT,
+            trainer_id      INTEGER REFERENCES benutzer(id),
+            verein_id       INTEGER REFERENCES vereine(id)
         );
 
         CREATE TABLE IF NOT EXISTS verletzung (
@@ -386,6 +409,7 @@ def init_db():
     # Migrationen: neue Spalten und Indizes für bestehende Datenbanken nachträglich anlegen
     _migrate_spieler_columns()
     _migrate_db()
+    _migrate_multitenant()
 
 
 # ─── Trainerbeobachtungen ─────────────────────────────────────────────────────
@@ -541,6 +565,7 @@ def _migrate_spieler_columns():
         ("vorname", "TEXT"), ("nachname", "TEXT"), ("geschlecht", "TEXT"),
         ("altersklasse", "TEXT"), ("hauptposition", "TEXT"), ("nebenposition", "TEXT"),
         ("leistungsniveau", "TEXT"), ("trainingsstatus", "TEXT"),
+        ("trainer_id", "INTEGER"), ("verein_id", "INTEGER"),
     ]
     with get_conn() as conn:
         for spalte, typ in neue_spalten:
@@ -708,7 +733,8 @@ def altersklasse_vorschlag(geburtsdatum_str: str) -> str:
 
 def spieler_speichern(vorname, nachname, geburtsdatum, geschlecht,
                       hauptposition, nebenposition, altersklasse,
-                      spielbein, leistungsniveau, mannschaft, trainingsstatus):
+                      spielbein, leistungsniveau, mannschaft, trainingsstatus,
+                      trainer_id=None, verein_id=None):
     name = f"{vorname} {nachname}".strip()
     with get_conn() as conn:
         # F-05: Duplikatschutz — gleicher Name + Geburtsdatum
@@ -722,11 +748,13 @@ def spieler_speichern(vorname, nachname, geburtsdatum, geschlecht,
             """INSERT INTO spieler
                (name, vorname, nachname, geburtsdatum, geschlecht,
                 position, hauptposition, nebenposition, altersklasse,
-                spielbein, leistungsniveau, mannschaft, trainingsstatus)
-               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                spielbein, leistungsniveau, mannschaft, trainingsstatus,
+                trainer_id, verein_id)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
             (name, vorname, nachname, geburtsdatum, geschlecht,
              hauptposition, hauptposition, nebenposition, altersklasse,
-             spielbein, leistungsniveau, mannschaft, trainingsstatus),
+             spielbein, leistungsniveau, mannschaft, trainingsstatus,
+             trainer_id, verein_id),
         )
         return cursor.lastrowid
 
@@ -760,8 +788,30 @@ def einwilligung_alle() -> list[dict]:
 
 # ─── Spieler ───────────────────────────────────────────────────────────────
 
-def spieler_laden():
+def spieler_laden(benutzer_id=None, rolle="Trainer", verein_id=None):
+    """Lädt Spieler gefiltert nach Benutzerrolle (Multi-Tenant-Sicherheit).
+
+    Superadmin  → alle Spieler
+    Vereinsadmin → alle Spieler seines Vereins
+    Trainer     → nur eigene Spieler (trainer_id = benutzer_id)
+    """
     with get_conn() as conn:
+        if rolle == "Superadmin":
+            return _rows(conn.execute(
+                "SELECT * FROM spieler ORDER BY name"
+            ).fetchall())
+        if rolle == "Vereinsadmin":
+            return _rows(conn.execute(
+                "SELECT * FROM spieler WHERE verein_id=? ORDER BY name",
+                (verein_id,),
+            ).fetchall())
+        # Trainer (default)
+        if benutzer_id is not None:
+            return _rows(conn.execute(
+                "SELECT * FROM spieler WHERE trainer_id=? ORDER BY name",
+                (benutzer_id,),
+            ).fetchall())
+        # Fallback: kein User (Legacy / Einzelbetrieb ohne Login)
         return _rows(conn.execute("SELECT * FROM spieler ORDER BY name").fetchall())
 
 
@@ -1585,3 +1635,130 @@ def kraft_versuche_laden(kraft_test_id: int) -> list[dict]:
             "SELECT * FROM kraft_test_versuch WHERE kraft_test_id=? ORDER BY uebung,versuchsnummer",
             (kraft_test_id,),
         ).fetchall())
+
+
+# ==========================================================================
+# Multi-Tenant: Migration bestehender Datenbanken
+# ==========================================================================
+
+def _migrate_multitenant():
+    """Legt vereine/benutzer-Tabellen und spieler-Spalten an, falls noch nicht vorhanden.
+    Idempotent — kann beliebig oft aufgerufen werden."""
+    with get_conn() as conn:
+        # vereine-Tabelle
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS vereine (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                name        TEXT NOT NULL,
+                aktiv       INTEGER DEFAULT 1,
+                erstellt_am TEXT    DEFAULT (date('now'))
+            )
+        """)
+        # benutzer-Tabelle
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS benutzer (
+                id            INTEGER PRIMARY KEY AUTOINCREMENT,
+                verein_id     INTEGER REFERENCES vereine(id),
+                vorname       TEXT,
+                nachname      TEXT,
+                email         TEXT UNIQUE NOT NULL,
+                passwort_hash TEXT NOT NULL,
+                rolle         TEXT NOT NULL DEFAULT 'Trainer',
+                aktiv         INTEGER DEFAULT 1,
+                erstellt_am   TEXT    DEFAULT (date('now'))
+            )
+        """)
+        # spieler: neue Fremdschlüssel-Spalten
+        for col in [("trainer_id", "INTEGER"), ("verein_id", "INTEGER")]:
+            try:
+                conn.execute(f"ALTER TABLE spieler ADD COLUMN {col[0]} {col[1]}")
+            except Exception:
+                pass
+
+
+# ==========================================================================
+# Vereine
+# ==========================================================================
+
+def vereine_laden() -> list[dict]:
+    with get_conn() as conn:
+        return _rows(conn.execute(
+            "SELECT * FROM vereine ORDER BY name"
+        ).fetchall())
+
+
+def verein_speichern(name: str) -> int:
+    with get_conn() as conn:
+        cur = conn.execute(
+            "INSERT INTO vereine (name, aktiv) VALUES (?, 1)", (name,)
+        )
+        return cur.lastrowid
+
+
+def verein_aktivieren(verein_id: int, aktiv: int) -> None:
+    with get_conn() as conn:
+        conn.execute(
+            "UPDATE vereine SET aktiv=? WHERE id=?", (aktiv, verein_id)
+        )
+
+
+# ==========================================================================
+# Benutzer
+# ==========================================================================
+
+import hashlib as _hashlib
+
+
+def _pw_hash(passwort: str) -> str:
+    return _hashlib.sha256(passwort.encode()).hexdigest()
+
+
+def benutzer_laden() -> list[dict]:
+    with get_conn() as conn:
+        return _rows(conn.execute("""
+            SELECT b.*, v.name AS verein
+            FROM benutzer b
+            LEFT JOIN vereine v ON b.verein_id = v.id
+            ORDER BY v.name, b.nachname, b.vorname
+        """).fetchall())
+
+
+def benutzer_by_id(benutzer_id: int) -> dict | None:
+    with get_conn() as conn:
+        return _row(conn.execute(
+            "SELECT * FROM benutzer WHERE id=?", (benutzer_id,)
+        ).fetchone())
+
+
+def benutzer_speichern(verein_id, vorname, nachname, email, passwort, rolle) -> int:
+    with get_conn() as conn:
+        cur = conn.execute("""
+            INSERT INTO benutzer (verein_id, vorname, nachname, email,
+                                  passwort_hash, rolle, aktiv)
+            VALUES (?, ?, ?, ?, ?, ?, 1)
+        """, (verein_id, vorname, nachname, email, _pw_hash(passwort), rolle))
+        return cur.lastrowid
+
+
+def benutzer_aktualisieren(benutzer_id, verein_id, vorname, nachname, email, rolle) -> None:
+    with get_conn() as conn:
+        conn.execute("""
+            UPDATE benutzer
+            SET verein_id=?, vorname=?, nachname=?, email=?, rolle=?
+            WHERE id=?
+        """, (verein_id, vorname, nachname, email, rolle, benutzer_id))
+
+
+def benutzer_aktivieren(benutzer_id: int, aktiv: int) -> None:
+    with get_conn() as conn:
+        conn.execute(
+            "UPDATE benutzer SET aktiv=? WHERE id=?", (aktiv, benutzer_id)
+        )
+
+
+def benutzer_passwort(benutzer_id: int, neues_passwort: str) -> None:
+    with get_conn() as conn:
+        conn.execute(
+            "UPDATE benutzer SET passwort_hash=? WHERE id=?",
+            (_pw_hash(neues_passwort), benutzer_id)
+        )
