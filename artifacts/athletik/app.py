@@ -3928,8 +3928,8 @@ def page_sprint():
         v1_10, v2_10, v3_10, b10 = _sprint_eingabe("10 m", "s10", letzter, c_l, "sprint_10m", altersgruppe)
         v1_20, v2_20, v3_20, b20 = _sprint_eingabe("20 m", "s20", letzter, c_r, "sprint_20m", altersgruppe)
         v1_30, v2_30, v3_30, b30 = _sprint_eingabe("30 m", "s30", letzter, c_r, "sprint_30m", altersgruppe)
-        v1_40, v2_40, v3_40, b40 = _sprint_eingabe("40 m", "s40", letzter, c_l, "sprint_40m", altersgruppe)
-        c_l.caption("40-m-Zeit nur eingeben wenn gemessen — sonst auf 0.00 lassen.")
+        v1_40, v2_40, v3_40, b40 = _sprint_eingabe("40 m", "s40", letzter, c_r, "sprint_40m", altersgruppe)
+        c_r.caption("40-m-Zeit nur eingeben wenn gemessen — sonst auf 0.00 lassen.")
 
         from sprint import (beschleunigungsindex, bewertung_sprint, bewertung_farbe,
                             SprintErgebnis as _SE)

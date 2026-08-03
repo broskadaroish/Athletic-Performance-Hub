@@ -12,10 +12,21 @@ from database import (
 from auth import hash_password
 
 _LIZENZEN = [
-    "Keine", "UEFA C", "UEFA B", "UEFA A", "UEFA Pro",
+    "UEFA C", "UEFA B", "UEFA A", "UEFA Pro",
     "DFB Torwarttrainer", "DFB Fitness-Trainer", "Athletiktrainer",
     "Sportphysiotherapeut", "Sonstiges",
 ]
+
+def _liz_to_list(raw: str | None) -> list[str]:
+    """Kommagetrennte DB-Lizenz-Zeichenkette → Python-Liste."""
+    if not raw:
+        return []
+    return [x.strip() for x in raw.split(",") if x.strip() in _LIZENZEN]
+
+def _liz_to_str(selected: list[str]) -> str | None:
+    """Multiselect-Liste → kommagetrennte Zeichenkette für DB (None wenn leer)."""
+    cleaned = [x for x in selected if x in _LIZENZEN]
+    return ", ".join(cleaned) if cleaned else None
 
 _ROLLEN = ["Trainer", "Vereinsadmin"]
 _ROLLEN_SUPER = ["Trainer", "Vereinsadmin", "Superadmin"]
@@ -260,7 +271,7 @@ def _neuer_trainer_form(admin_user: dict, admin_rolle: str, vereine: list):
         f_em   = c1.text_input("E-Mail / Login *")
         f_pw   = c2.text_input("Passwort *", type="password")
         f_tel  = c1.text_input("Telefonnummer")
-        f_liz  = c2.selectbox("Lizenz", _LIZENZEN)
+        f_liz  = c2.multiselect("Trainer-Lizenzen", _LIZENZEN)
 
         rollen_choices = _ROLLEN_SUPER if admin_rolle == "Superadmin" else _ROLLEN
         f_rol  = c1.selectbox("Rolle", rollen_choices)
@@ -281,10 +292,16 @@ def _neuer_trainer_form(admin_user: dict, admin_rolle: str, vereine: list):
             if not f_em.strip() or not f_pw:
                 st.error("E-Mail und Passwort sind erforderlich.")
             else:
-                benutzer_speichern(
+                neu_id = benutzer_speichern(
                     f_vid, f_vn.strip(), f_nn.strip(),
                     f_em.strip(), f_pw, f_rol,
                 )
+                if f_liz:
+                    benutzer_profil_aktualisieren(
+                        neu_id, f_vn.strip(), f_nn.strip(),
+                        f_em.strip(), f_tel.strip() or None,
+                        _liz_to_str(f_liz),
+                    )
                 st.session_state["tp_neu"] = False
                 st.success(f"✅ Trainer **{f_vn} {f_nn}** angelegt.")
                 st.rerun()
@@ -317,9 +334,8 @@ def _trainer_edit_form(b: dict, admin_user: dict, admin_rolle: str, vereine: lis
             f_nn  = c2.text_input("Nachname",      value=b.get("nachname","") or "")
             f_em  = c1.text_input("E-Mail / Login",value=b.get("email","")    or "")
             f_tel = c2.text_input("Telefon",       value=b.get("telefon","")  or "")
-            cur_liz = b.get("lizenz") or "Keine"
-            liz_idx = _LIZENZEN.index(cur_liz) if cur_liz in _LIZENZEN else 0
-            f_liz = c1.selectbox("Lizenz", _LIZENZEN, index=liz_idx)
+            f_liz = c1.multiselect("Trainer-Lizenzen", _LIZENZEN,
+                                    default=_liz_to_list(b.get("lizenz")))
             rollen_choices = _ROLLEN_SUPER if admin_rolle == "Superadmin" else _ROLLEN
             cur_r = b.get("rolle","Trainer")
             r_idx = rollen_choices.index(cur_r) if cur_r in rollen_choices else 0
@@ -343,7 +359,7 @@ def _trainer_edit_form(b: dict, admin_user: dict, admin_rolle: str, vereine: lis
                 benutzer_profil_aktualisieren(vid, f_vn.strip(), f_nn.strip(),
                                                f_em.strip(),
                                                f_tel.strip() or None,
-                                               f_liz if f_liz != "Keine" else None)
+                                               _liz_to_str(f_liz))
                 benutzer_aktivieren(vid, 1 if f_aktiv else 0)
                 st.success("✅ Profil gespeichert.")
                 st.rerun()
@@ -482,9 +498,8 @@ def page_mein_profil():
                                     value=b.get("email","") or "")
             f_tel = pc2.text_input("Telefonnummer",
                                     value=b.get("telefon","") or "")
-            cur_liz = b.get("lizenz") or "Keine"
-            liz_idx = _LIZENZEN.index(cur_liz) if cur_liz in _LIZENZEN else 0
-            f_liz = st.selectbox("Trainer-Lizenz", _LIZENZEN, index=liz_idx)
+            f_liz = st.multiselect("Trainer-Lizenzen", _LIZENZEN,
+                                    default=_liz_to_list(b.get("lizenz")))
 
             if st.form_submit_button("💾 Profil speichern", type="primary",
                                      use_container_width=True):
@@ -494,7 +509,7 @@ def page_mein_profil():
                     benutzer_profil_aktualisieren(
                         uid, f_vn.strip(), f_nn.strip(), f_em.strip(),
                         f_tel.strip() or None,
-                        f_liz if f_liz != "Keine" else None,
+                        _liz_to_str(f_liz),
                     )
                     # Session aktualisieren
                     st.session_state["user"]["vorname"]  = f_vn.strip()
