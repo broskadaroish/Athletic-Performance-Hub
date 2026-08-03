@@ -47,7 +47,7 @@ def risiko_score(fms_row, y_row, verletzungen=None) -> int:
         elif fms_score <= 14:
             score += 1
         if "Asymmetrie" in str(fms_row["asymmetrie"]):
-            score += 1
+            score += 2  # Asymmetrie ist stärkerer Prädiktor als Rohscore (Kiesel et al. 2007)
 
     if y_row:
         comp_r = y_row["composite_rechts"]
@@ -58,7 +58,7 @@ def risiko_score(fms_row, y_row, verletzungen=None) -> int:
         elif avg < 89:
             score += 1
         if "Asymmetrie" in str(y_row["asymmetrie"]):
-            score += 1
+            score += 2  # Bilaterale Asymmetrie erhöhtes Verletzungsrisiko (Plisky et al. 2006)
 
     # ── Verletzungshistorie ──────────────────────────────────────────────────
     if verletzungen:

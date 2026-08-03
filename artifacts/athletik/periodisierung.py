@@ -761,9 +761,52 @@ def _tags_fuer_haeufigkeit(haeuf: str) -> list[int]:
 # Public API: Trainingsplan (4-Phase progression, week-by-week configuration)
 # ─────────────────────────────────────────────────────────────────────────────
 
+# ── Verletzungsbereich-Mapping (koerperteil → _POOL-Bereiche) ─────────────────
+_VERLETZUNG_BEREICH_MAP: dict[str, list[str]] = {
+    "Sprunggelenk":  ["Sprunggelenk"],
+    "Knie":          ["Knie"],
+    "Oberschenkel":  ["Oberschenkel", "Schnelligkeit", "Explosivität"],
+    "Leiste":        ["Hüfte"],
+    "Hüfte":         ["Hüfte"],
+    "Lendenwirbel":  ["Rumpf"],
+    "Schulter":      ["Schulter"],
+    "Sonstiges":     [],
+}
+
+
+def verletzung_aktive_bereiche(verletzungen: list) -> set[str]:
+    """Gibt die _POOL-Bereiche aktiver Verletzungen zurück (noch im Ausfall-Fenster)."""
+    from datetime import date as _date, datetime as _dt, timedelta as _td
+    bereiche: set[str] = set()
+    heute = _date.today()
+    for v in (verletzungen or []):
+        ausfall = int(v.get("ausfall_tage") or 0)
+        if ausfall <= 0:
+            continue
+        datum_str = str(v.get("datum") or "")
+        try:
+            for fmt in ("%d.%m.%Y", "%Y-%m-%d"):
+                try:
+                    datum = _dt.strptime(datum_str, fmt).date()
+                    break
+                except ValueError:
+                    continue
+            else:
+                continue
+            if datum + _td(days=ausfall) >= heute:
+                koerperteil = str(v.get("koerperteil") or "")
+                for b in _VERLETZUNG_BEREICH_MAP.get(koerperteil, []):
+                    bereiche.add(b)
+        except Exception:
+            continue
+    return bereiche
+
+
 def trainingsplan_multi_erstellen(spieler_id: int, schwerpunkt_text: str,
                                   wochen: int = 8,
-                                  alter: float | None = None) -> int:
+                                  alter: float | None = None,
+                                  verletzung_bereiche: set | list | None = None,
+                                  saison_phase: str = "Normal") -> int:
     """
     Altersbasierter Trainingsplan mit klarer 4-Phasen-Progression.
     Keine identischen Trainingswochen — Übungsoffset rotiert wochenweise.
@@ -774,7 +817,27 @@ def trainingsplan_multi_erstellen(spieler_id: int, schwerpunkt_text: str,
       Phase 2 (W3–5):  stabilisation → kraft — Stabilität & Kraftaufbau
       Phase 3 (W6–8):  kraft → power — Leistungsentwicklung
       Phase 4 (W9–12): power — Fußballspezifisch & Belastungssteuerung
+
+    saison_phase: "Normal" | "Vorbereitung" | "Saison" | "Nachsaison"
+      - Normal/Vorbereitung: volle 4-Phasen-Progression
+      - Saison:     Erhaltungstraining — reduziertes Volumen, kein Power, +Fußball
+      - Nachsaison: Regeneration — nur Stabilisation, max. 4 Wochen
+
+    verletzung_bereiche: Set von _POOL-Bereichsnamen, die ausgeschlossen werden sollen.
     """
+    _verletzt = set(verletzung_bereiche or [])
+
+    # Saisonperiode-Anpassungen
+    _saison_max_key: str | None = None
+    _saison_force_deload = False
+    if saison_phase == "Saison":
+        wochen = min(wochen, 4)
+        _saison_max_key = "kraft"
+        _saison_force_deload = True
+    elif saison_phase == "Nachsaison":
+        wochen = min(wochen, 4)
+        _saison_max_key = "stabilisation"
+
     wochen = wochen if wochen in (4, 6, 8, 12) else 8
     basis_scores = defizit_score(schwerpunkt_text)
     plangruppe   = _alter_zu_plangruppe(alter)
@@ -789,16 +852,25 @@ def trainingsplan_multi_erstellen(spieler_id: int, schwerpunkt_text: str,
 
     for w_idx, (pool_key, phase_name, phase_ziel, is_deload, vol_mult, offset) in enumerate(woche_config):
         woche    = w_idx + 1
-        pool_key = _max_pool_key(pool_key, cfg["max_pool_key"])
 
-        # Phase 4: Fußball immer als Sekundärbereich einschließen
+        # Saison-Anpassungen auf Pool-Key
+        if _saison_force_deload:
+            is_deload = True
+        pool_key = _max_pool_key(pool_key, cfg["max_pool_key"])
+        if _saison_max_key:
+            pool_key = _max_pool_key(pool_key, _saison_max_key)
+
+        # Phase 4 / Saison-Phase: Fußball als Sekundärbereich einschließen
         scores = dict(basis_scores)
-        if "Phase 4" in phase_name:
+        if "Phase 4" in phase_name or saison_phase == "Saison":
             scores["Fußball"] = max(scores.get("Fußball", 0), 2)
 
         sorted_areas = sorted(scores.items(), key=lambda x: -x[1])
 
         for area, score in sorted_areas:
+            # ── Verletzungs-Filter: verletzte Bereiche überspringen ───────────
+            if area in _verletzt:
+                continue
             # Deload: deutlich reduziertes Volumen
             if is_deload:
                 n = max(0, score - 2)  # primär=1, sekundär=0, tertiär=0

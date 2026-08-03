@@ -131,7 +131,7 @@ from analytics import (
 )
 from periodisierung import (zyklus_erstellen, zyklus_laden, trainingsplan_multi_erstellen,
                              defizit_tabelle, _alter_zu_plangruppe, _PLANGRUPPEN_CONFIG, _POOL,
-                             _ALTERS_ERSATZ)
+                             _ALTERS_ERSATZ, verletzung_aktive_bereiche)
 from i18n import t, SPRACHEN, get_lang, set_lang
 from pdf_report import generate_report, generate_vergleich_pdf, generate_trainingsplan_pdf
 from pdf_anleitung import generate_anleitung_pdf, ALL_TEST_IDS, TEST_LABELS
@@ -2574,15 +2574,32 @@ def page_trainingsplan():
             index=1,
             key="plan_laenge",
         )
-        _pc2.markdown(
-            f'<div style="background:#161b22;border:1px solid #30363d;border-radius:8px;'
-            f'padding:12px 14px;margin-top:26px">'
-            f'<b>Aufbau:</b> {plan_laenge // 2 if plan_laenge > 4 else plan_laenge} Wochen Aufbau · '
-            f'{"je Woche 4 Deload" if plan_laenge >= 4 else ""}<br>'
-            f'<small style="color:#8b949e">Mehrere Trainingsbereiche pro Woche · '
-            f'Belastungssteuerung nach 4-Wochen-Block</small></div>',
-            unsafe_allow_html=True,
+
+        # ── Saisonperiode ─────────────────────────────────────────────────────
+        _SAISON_OPTIONEN = {
+            "Normal":       ("🔄 Normal",        "Defizit-getriebene 4-Phasen-Progression"),
+            "Vorbereitung": ("📈 Vorbereitung",   "Volles Volumen & Intensität — Fitness aufbauen"),
+            "Saison":       ("⚽ Saison",         "Erhaltungstraining — weniger Volumen, +Fußball"),
+            "Nachsaison":   ("🔁 Nachsaison",     "Regeneration — nur Stabilisation, max. 4 Wochen"),
+        }
+        saison_phase = _pc2.selectbox(
+            "Saisonperiode",
+            list(_SAISON_OPTIONEN.keys()),
+            format_func=lambda k: _SAISON_OPTIONEN[k][0],
+            key="saison_phase_sel",
         )
+        _sp_beschr = _SAISON_OPTIONEN[saison_phase][1]
+        st.caption(f"**{_SAISON_OPTIONEN[saison_phase][0]}** — {_sp_beschr}")
+
+        # ── Aktive Verletzungen erkennen und anzeigen ─────────────────────────
+        _alle_verletzungen = verletzungen_laden(sid)
+        _aktive_bereiche   = verletzung_aktive_bereiche(_alle_verletzungen)
+        if _aktive_bereiche:
+            st.warning(
+                "⚠️ **Aktive Verletzung erkannt** — folgende Bereiche werden im Plan ausgeschlossen:\n\n"
+                + ", ".join(sorted(_aktive_bereiche)),
+                icon=None,
+            )
 
         # Altersgruppe ermitteln und anzeigen
         _tp_alter = berechne_alter(auswahl.get("geburtsdatum"))
@@ -2604,8 +2621,16 @@ def page_trainingsplan():
         )
 
         if st.button("⚡ Trainingsplan erstellen", use_container_width=True, key="auto_gen_btn"):
-            n = trainingsplan_multi_erstellen(sid, schwerpunkt, wochen=plan_laenge, alter=_tp_alter)
-            _save_ok(f"Trainingsplan erstellt — {n} Übungen über {plan_laenge} Wochen ({_tp_pg}).")
+            n = trainingsplan_multi_erstellen(
+                sid, schwerpunkt,
+                wochen=plan_laenge,
+                alter=_tp_alter,
+                verletzung_bereiche=_aktive_bereiche,
+                saison_phase=saison_phase,
+            )
+            _phase_hinweis = f" ({saison_phase})" if saison_phase != "Normal" else ""
+            _verletz_hinweis = f" · {len(_aktive_bereiche)} Bereich(e) verletzungsbedingt ausgeschlossen" if _aktive_bereiche else ""
+            _save_ok(f"Trainingsplan erstellt — {n} Übungen über {plan_laenge} Wochen ({_tp_pg}){_phase_hinweis}{_verletz_hinweis}.")
             st.rerun()
 
     with tab_manual:
