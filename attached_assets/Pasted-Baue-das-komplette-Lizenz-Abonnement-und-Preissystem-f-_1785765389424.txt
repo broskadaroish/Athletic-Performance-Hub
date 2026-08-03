@@ -1,0 +1,308 @@
+Baue das komplette Lizenz-, Abonnement- und Preissystem für Bruce Football Performance Diagnostics fertig.
+
+Ziel:
+
+Die Software soll als professionelle SaaS-Lösung für Fußballtrainer und Vereine verkauft werden.
+
+Die Software richtet sich ausschließlich an den sportlichen Bereich und dient der Athletikanalyse, Leistungsentwicklung und Trainingsunterstützung.
+
+==========================================
+PREISMODELL
+==========================================
+
+Die Software besitzt nur zwei kostenpflichtige Tarife.
+
+------------------------------------------
+
+🟢 BASIC
+
+Preis:
+
+9,90 € / Monat
+
+oder
+
+99 € / Jahr
+
+Geeignet für:
+
+- Einzeltrainer
+- Jugendtrainer
+- kleine Vereine
+
+Enthalten:
+
+- Bis zu 40 Spieler
+- 1 Trainer
+- Alle Athletiktests
+- Dashboard
+- PDF-Berichte
+- Trainingspläne
+- Verlauf
+- Exportfunktionen
+- E-Mail Support
+
+------------------------------------------
+
+🔵 PRO
+
+Preis:
+
+24,90 € / Monat
+
+oder
+
+249 € / Jahr
+
+Geeignet für:
+
+- komplette Vereine
+- mehrere Mannschaften
+- Leistungszentren
+
+Enthalten:
+
+- Unbegrenzte Spieler
+- Unbegrenzte Trainer
+- Vereinsverwaltung
+- Mehrere Mannschaften
+- Teamanalysen
+- Vereinslogo
+- Erweiterte Dashboards
+- Alle Athletiktests
+- PDF-Berichte
+- Prioritäts-Support
+
+==========================================
+30 TAGE TESTPHASE
+==========================================
+
+Jeder neue Verein erhält automatisch:
+
+30 Tage kostenlos testen
+
+Keine Kreditkarte erforderlich.
+
+Nach Ablauf:
+
+Upgrade auf BASIC
+
+oder
+
+Upgrade auf PRO
+
+==========================================
+PREISSEITE
+==========================================
+
+Erstelle eine moderne Preisübersicht.
+
+Vergleich BASIC gegen PRO.
+
+Zeige übersichtlich:
+
+✔ enthalten
+
+✔ nicht enthalten
+
+Responsive Design.
+
+==========================================
+LIZENZSYSTEM
+==========================================
+
+Passe das komplette Lizenzsystem an.
+
+Lizenzstatus:
+
+- Testphase
+- BASIC
+- PRO
+- Abgelaufen
+
+Jeder Verein besitzt:
+
+- Lizenztyp
+- Ablaufdatum
+- Restliche Testtage
+- Zahlungsstatus
+
+==========================================
+STRIPE
+==========================================
+
+Bereite die Stripe-Integration vollständig vor.
+
+Unterstütze:
+
+- Monatsabo
+- Jahresabo
+- Upgrade
+- Downgrade
+- Kündigung
+- Reaktivierung
+
+Noch keine echten API Keys verwenden.
+
+Alle Schlüssel ausschließlich über Environment Variablen.
+
+==========================================
+SUPERADMIN
+==========================================
+
+Superadmin kann:
+
+- Tarif ändern
+- Testphase verlängern
+- Lizenz aktivieren
+- Lizenz sperren
+- Lizenz verlängern
+
+Dashboard anzeigen:
+
+- aktive Vereine
+- Testphasen
+- BASIC
+- PRO
+- abgelaufene Lizenzen
+
+==========================================
+VEREINSADMIN
+==========================================
+
+Eigene Lizenzseite.
+
+Anzeige:
+
+- aktueller Tarif
+- Restliche Testtage
+- Ablaufdatum
+- Upgrade Button
+- Monatsabo
+- Jahresabo
+
+==========================================
+RECHTLICHE ANPASSUNG
+==========================================
+
+Die Software ist KEIN Medizinprodukt.
+
+Sie dient ausschließlich der:
+
+- Athletikanalyse
+- Leistungsanalyse
+- Funktionellen Bewegungsanalyse
+- Trainingsplanung
+- Trainingssteuerung
+- Trainingsdokumentation
+- Leistungsentwicklung
+- Belastungssteuerung
+
+Die Software erstellt KEINE medizinischen Diagnosen.
+
+Entferne oder ersetze sämtliche medizinischen Begriffe.
+
+Nicht verwenden:
+
+- medizinische Diagnose
+- Diagnose
+- Therapie
+- Behandlung
+- Patient
+- medizinische Bewertung
+- medizinische Empfehlung
+- Heilung
+- medizinisch validiert
+
+Verwende stattdessen:
+
+- Athletikanalyse
+- Leistungsanalyse
+- Bewertung
+- Auffälligkeit
+- Beobachtung
+- Trainingshinweis
+- Trainingsschwerpunkt
+- Funktionelle Einschränkung
+- Belastungssteuerung
+- Leistungsentwicklung
+
+==========================================
+GESAMTE SOFTWARE PRÜFEN
+==========================================
+
+Überprüfe sämtliche Texte in:
+
+- Dashboard
+- Landingpage
+- PDF-Berichte
+- Menüs
+- Tooltips
+- Hilfetexte
+- Impressum
+- Datenschutz
+- Lizenzseiten
+- Registrierungsseiten
+
+Passe alle Texte entsprechend an.
+
+==========================================
+HAFTUNGSHINWEIS
+==========================================
+
+Füge folgenden Hinweis in:
+
+- Impressum
+- PDF-Berichte
+- Einstellungen
+- Landingpage
+
+ein:
+
+"Diese Software dient ausschließlich der sportlichen Athletikanalyse, Leistungsentwicklung, Trainingsplanung und Trainingsdokumentation.
+
+Sie ersetzt keine medizinische Untersuchung, Diagnose oder Behandlung durch Ärztinnen, Ärzte oder andere medizinische Fachpersonen.
+
+Alle Auswertungen dienen ausschließlich der Unterstützung von Trainerinnen und Trainern im sportlichen Kontext."
+
+==========================================
+DESIGN
+==========================================
+
+Behalte das moderne SaaS-Design.
+
+Responsive.
+
+Dark Mode.
+
+Einheitliche Farben.
+
+Professionelle Preisübersicht.
+
+==========================================
+WICHTIG
+==========================================
+
+Keine bestehenden Funktionen entfernen.
+
+Nur erweitern oder verbessern.
+
+Alle bisherigen Daten müssen erhalten bleiben.
+
+==========================================
+ABSCHLUSS
+==========================================
+
+Erstelle einen Abschlussbericht.
+
+Welche Dateien wurden geändert?
+
+Welche Datenbanktabellen wurden ergänzt?
+
+Welche Lizenzfunktionen wurden erstellt?
+
+Welche Stripe-Komponenten sind vorbereitet?
+
+Welche Punkte fehlen noch bis zum Livebetrieb?
+
+Welche Punkte müssen erst mit echten Stripe-API-Keys aktiviert werden?

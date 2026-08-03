@@ -48,7 +48,21 @@ export default function Impressum() {
             10115 Berlin
           </p>
 
-          <div className="mt-16 pt-8 border-t border-white/10 text-sm text-muted-foreground">
+          {/* Haftungshinweis Software */}
+          <div className="mt-12 bg-primary/5 border border-primary/20 rounded-xl p-8">
+            <h2 className="text-xl font-bold mb-4 font-mono uppercase tracking-widest text-primary mt-0">Hinweis zur Software</h2>
+            <p className="text-muted-foreground leading-relaxed mb-3">
+              Diese Software dient ausschließlich der sportlichen Athletikanalyse, Leistungsentwicklung, Trainingsplanung und Trainingsdokumentation.
+            </p>
+            <p className="text-muted-foreground leading-relaxed mb-3">
+              Sie ersetzt keine medizinische Untersuchung, Diagnose oder Behandlung durch Ärztinnen, Ärzte oder andere medizinische Fachpersonen.
+            </p>
+            <p className="text-muted-foreground leading-relaxed">
+              Alle Auswertungen dienen ausschließlich der Unterstützung von Trainerinnen und Trainern im sportlichen Kontext.
+            </p>
+          </div>
+
+          <div className="mt-10 pt-8 border-t border-white/10 text-sm text-muted-foreground">
             <h3 className="text-base font-bold text-white mb-2">Haftung für Inhalte</h3>
             <p className="mb-4">
               Als Diensteanbieter sind wir gemäß § 7 Abs.1 TMG für eigene Inhalte auf diesen Seiten nach den allgemeinen Gesetzen verantwortlich. Nach §§ 8 bis 10 TMG sind wir als Diensteanbieter jedoch nicht verpflichtet, übermittelte oder gespeicherte fremde Informationen zu überwachen oder nach Umständen zu forschen, die auf eine rechtswidrige Tätigkeit hinweisen.

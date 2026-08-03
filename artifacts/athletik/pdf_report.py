@@ -987,7 +987,7 @@ def generate_report(
             pdf.section_title("TRAINERBEOBACHTUNGEN")
             pdf.disclaimer_box(_safe(
                 "Diese Eintraege wurden vom Trainer waehrend der Diagnostik erfasst. "
-                "Beobachtungen dienen der Trainingssteuerung — keine medizinische Diagnose."
+                "Beobachtungen dienen der Trainingssteuerung — sportliche Auswertung, kein Ersatz für ärztlichen Rat."
             ), border_color=(80, 100, 100))
             _test_lbl = {
                 "fms": "FMS", "y_balance": "Y-Balance", "sprint": "Sprint",

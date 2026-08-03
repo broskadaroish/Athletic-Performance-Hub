@@ -4,7 +4,8 @@ Lizenzsystem — Bruce Football Performance Diagnostics.
 Saubere Trennung von Lizenz-Logik und App-Code.
 Alle Lizenzprüfungen laufen hier durch.
 
-Lizenztypen: FREE → BASIC → PRO → ENTERPRISE
+Lizenztypen: BASIC | PRO
+Testphase:   30 Tage kostenlos, keine Kreditkarte erforderlich
 """
 
 from __future__ import annotations
@@ -21,52 +22,52 @@ class LizenzTypDef(TypedDict):
     label: str
     max_trainer: int
     max_spieler: int
-    preis_monat: int   # EUR
-    preis_jahr: int    # EUR
+    preis_monat: float   # EUR
+    preis_jahr: float    # EUR
     stripe_price_monat: str   # Stripe Price-ID Platzhalter
     stripe_price_jahr: str    # Stripe Price-ID Platzhalter
     features: list[str]
+    geeignet_fuer: list[str]
 
 
 LIZENZ_TYPEN: dict[str, LizenzTypDef] = {
-    "FREE": {
-        "label":               "Free",
-        "max_trainer":         1,
-        "max_spieler":         15,
-        "preis_monat":         0,
-        "preis_jahr":          0,
-        "stripe_price_monat":  "",  # kein Stripe für Free
-        "stripe_price_jahr":   "",
-        "features": [
-            "diagnostik_basis",
-            "spielerprofil",
-        ],
-    },
     "BASIC": {
         "label":               "Basic",
-        "max_trainer":         3,
-        "max_spieler":         50,
-        "preis_monat":         29,
-        "preis_jahr":          290,
+        "max_trainer":         1,
+        "max_spieler":         40,
+        "preis_monat":         9.90,
+        "preis_jahr":          99.0,
         "stripe_price_monat":  os.environ.get("STRIPE_PRICE_BASIC_MONAT", "price_basic_monat_placeholder"),
         "stripe_price_jahr":   os.environ.get("STRIPE_PRICE_BASIC_JAHR",  "price_basic_jahr_placeholder"),
+        "geeignet_fuer": [
+            "Einzeltrainer",
+            "Jugendtrainer",
+            "Kleine Vereine",
+        ],
         "features": [
             "diagnostik_basis",
-            "diagnostik_erweitert",
             "spielerprofil",
             "pdf_export",
             "excel_export",
-            "verletzungsmanagement",
+            "verlauf",
+            "trainingsplanung",
+            "dashboard",
+            "email_support",
         ],
     },
     "PRO": {
         "label":               "Pro",
-        "max_trainer":         10,
-        "max_spieler":         200,
-        "preis_monat":         79,
-        "preis_jahr":          790,
+        "max_trainer":         9999,   # unbegrenzt
+        "max_spieler":         9999,   # unbegrenzt
+        "preis_monat":         24.90,
+        "preis_jahr":          249.0,
         "stripe_price_monat":  os.environ.get("STRIPE_PRICE_PRO_MONAT", "price_pro_monat_placeholder"),
         "stripe_price_jahr":   os.environ.get("STRIPE_PRICE_PRO_JAHR",  "price_pro_jahr_placeholder"),
+        "geeignet_fuer": [
+            "Komplette Vereine",
+            "Mehrere Mannschaften",
+            "Leistungszentren",
+        ],
         "features": [
             "diagnostik_basis",
             "diagnostik_erweitert",
@@ -79,21 +80,37 @@ LIZENZ_TYPEN: dict[str, LizenzTypDef] = {
             "periodisierung",
             "spielervergleich",
             "mannschaftsdashboard",
+            "vereinsverwaltung",
+            "vereinslogo",
+            "teamanalysen",
+            "prioritaets_support",
         ],
-    },
-    "ENTERPRISE": {
-        "label":               "Enterprise",
-        "max_trainer":         9999,
-        "max_spieler":         9999,
-        "preis_monat":         199,
-        "preis_jahr":          1990,
-        "stripe_price_monat":  os.environ.get("STRIPE_PRICE_ENT_MONAT", "price_ent_monat_placeholder"),
-        "stripe_price_jahr":   os.environ.get("STRIPE_PRICE_ENT_JAHR",  "price_ent_jahr_placeholder"),
-        "features": ["all"],
     },
 }
 
-TESTPHASE_TAGE = 14   # Tage kostenlose Testphase bei Neuregistrierung
+# Feature-Labels für die UI
+FEATURE_LABELS: dict[str, str] = {
+    "diagnostik_basis":      "Alle Athletiktests",
+    "diagnostik_erweitert":  "Erweiterte Diagnostik (Y-Balance, Agilität)",
+    "diagnostik_spiro":      "Spiroergometrie / VO₂max",
+    "spielerprofil":         "Spielerprofile & Verlauf",
+    "pdf_export":            "PDF-Berichte",
+    "excel_export":          "Excel-Export",
+    "verlauf":               "Leistungsverlauf & Trends",
+    "verletzungsmanagement": "Belastungsmanagement",
+    "trainingsplanung":      "Trainingspläne",
+    "periodisierung":        "Periodisierung",
+    "spielervergleich":      "Spieler-Vergleich",
+    "mannschaftsdashboard":  "Mannschafts-Dashboard",
+    "vereinsverwaltung":     "Vereinsverwaltung",
+    "vereinslogo":           "Vereinslogo in PDFs",
+    "teamanalysen":          "Teamanalysen",
+    "dashboard":             "Dashboard",
+    "email_support":         "E-Mail Support",
+    "prioritaets_support":   "Prioritäts-Support",
+}
+
+TESTPHASE_TAGE = 30   # Tage kostenlose Testphase bei Neuregistrierung
 
 # ─── Status-Typen ─────────────────────────────────────────────────────────────
 
@@ -107,168 +124,110 @@ TESTPHASE_TAGE = 14   # Tage kostenlose Testphase bei Neuregistrierung
 
 class LizenzInfo(TypedDict):
     verein_id: int
-    lizenz_typ: str           # FREE | BASIC | PRO | ENTERPRISE
+    lizenz_typ: str           # BASIC | PRO
     lizenz_status: str        # trial | active | expired | suspended | cancelled
     lizenz_bis: str | None    # ISO-Date oder None
     testphase_bis: str | None # ISO-Date oder None
     gesperrt: bool
     zahlungsstatus: str       # offen | bezahlt | fehlgeschlagen | storniert
-    stripe_customer_id: str | None
-    stripe_subscription_id: str | None
-    # berechnete Felder
-    ist_aktiv: bool           # True wenn Nutzung erlaubt
     tage_verbleibend: int | None
     ablauf_datum: date | None
+    stripe_customer_id: str | None
+    stripe_subscription_id: str | None
 
-
-# ─── Hilfsfunktionen ──────────────────────────────────────────────────────────
-
-def _parse_date(s: str | None) -> date | None:
-    if not s:
-        return None
-    try:
-        return date.fromisoformat(str(s)[:10])
-    except (ValueError, TypeError):
-        return None
-
-
-def _tage_bis(d: date | None) -> int | None:
-    if d is None:
-        return None
-    delta = (d - date.today()).days
-    return delta
-
-
-# ─── Lizenz-Status berechnen ──────────────────────────────────────────────────
 
 def get_lizenz_info(verein_row: dict) -> LizenzInfo:
-    """Berechnet den aktuellen Lizenz-Status aus einem verein-Dict.
-    Kein DB-Aufruf — Eingabe ist bereits geladenes verein-Dict."""
+    """Berechnet den vollständigen Lizenz-Status eines Vereins."""
+    from functools import lru_cache
 
-    typ = (verein_row.get("lizenztyp") or "FREE").upper()
-    if typ not in LIZENZ_TYPEN:
-        typ = "FREE"
+    verein_id = verein_row.get("id", 0)
+    cache_key = f"_lizenz_info_{verein_id}"
 
-    status       = verein_row.get("lizenz_status") or "trial"
-    gesperrt     = bool(verein_row.get("gesperrt", 0))
-    lizenz_bis   = _parse_date(verein_row.get("lizenz_bis"))
-    testphase    = _parse_date(verein_row.get("testphase_bis"))
-    zahlungs_st  = verein_row.get("zahlungsstatus") or "offen"
+    if cache_key in st.session_state:
+        return st.session_state[cache_key]
 
-    # Gesperrt hat höchste Priorität
-    if gesperrt or not verein_row.get("aktiv", 1):
-        return LizenzInfo(
-            verein_id=verein_row["id"],
-            lizenz_typ=typ,
-            lizenz_status="suspended",
-            lizenz_bis=verein_row.get("lizenz_bis"),
-            testphase_bis=verein_row.get("testphase_bis"),
-            gesperrt=True,
-            zahlungsstatus=zahlungs_st,
-            stripe_customer_id=verein_row.get("stripe_customer_id"),
-            stripe_subscription_id=verein_row.get("stripe_subscription_id"),
-            ist_aktiv=False,
-            tage_verbleibend=None,
-            ablauf_datum=None,
-        )
+    heute = date.today()
 
-    today = date.today()
-    ablauf = None
-    ist_aktiv = False
+    lizenz_typ     = (verein_row.get("lizenztyp") or "BASIC").upper()
+    lizenz_status  = verein_row.get("lizenz_status") or "trial"
+    gesperrt       = bool(verein_row.get("gesperrt", 0))
+    zahlungsstatus = verein_row.get("zahlungsstatus") or "offen"
 
-    if status == "trial":
-        if testphase and testphase >= today:
-            ist_aktiv = True
-            ablauf = testphase
-        else:
-            # Testphase abgelaufen → expired
-            status = "expired"
+    # Normalize: FREE → BASIC, ENTERPRISE → PRO (Altdaten-Kompatibilität)
+    if lizenz_typ not in LIZENZ_TYPEN:
+        lizenz_typ = "BASIC"
 
-    elif status == "active":
-        if lizenz_bis and lizenz_bis >= today:
-            ist_aktiv = True
-            ablauf = lizenz_bis
-        else:
-            status = "expired"
+    # Ablaufdatum bestimmen
+    ablauf_datum: date | None = None
+    tage_verbleibend: int | None = None
 
-    elif status == "cancelled":
-        # Abo gekündigt — läuft noch bis Lizenzende
-        if lizenz_bis and lizenz_bis >= today:
-            ist_aktiv = True
-            ablauf = lizenz_bis
-        else:
-            status = "expired"
+    if lizenz_status == "trial":
+        raw = verein_row.get("testphase_bis")
+        if raw:
+            try:
+                ablauf_datum = date.fromisoformat(str(raw)[:10])
+                tage_verbleibend = (ablauf_datum - heute).days
+            except ValueError:
+                pass
+    else:
+        raw = verein_row.get("lizenz_bis")
+        if raw:
+            try:
+                ablauf_datum = date.fromisoformat(str(raw)[:10])
+                tage_verbleibend = (ablauf_datum - heute).days
+            except ValueError:
+                pass
 
-    elif status in ("expired", "suspended"):
-        ist_aktiv = False
+    # Abgelaufen-Check
+    if tage_verbleibend is not None and tage_verbleibend < 0:
+        lizenz_status = "expired"
 
-    return LizenzInfo(
-        verein_id=verein_row["id"],
-        lizenz_typ=typ,
-        lizenz_status=status,
-        lizenz_bis=verein_row.get("lizenz_bis"),
-        testphase_bis=verein_row.get("testphase_bis"),
-        gesperrt=gesperrt,
-        zahlungsstatus=zahlungs_st,
-        stripe_customer_id=verein_row.get("stripe_customer_id"),
-        stripe_subscription_id=verein_row.get("stripe_subscription_id"),
-        ist_aktiv=ist_aktiv,
-        tage_verbleibend=_tage_bis(ablauf),
-        ablauf_datum=ablauf,
-    )
+    if gesperrt:
+        lizenz_status = "suspended"
+
+    info: LizenzInfo = {
+        "verein_id":              verein_id,
+        "lizenz_typ":             lizenz_typ,
+        "lizenz_status":          lizenz_status,
+        "lizenz_bis":             verein_row.get("lizenz_bis"),
+        "testphase_bis":          verein_row.get("testphase_bis"),
+        "gesperrt":               gesperrt,
+        "zahlungsstatus":         zahlungsstatus,
+        "tage_verbleibend":       tage_verbleibend,
+        "ablauf_datum":           ablauf_datum,
+        "stripe_customer_id":     verein_row.get("stripe_customer_id"),
+        "stripe_subscription_id": verein_row.get("stripe_subscription_id"),
+    }
+
+    st.session_state[cache_key] = info
+    return info
 
 
-def feature_erlaubt(info: LizenzInfo, feature: str) -> bool:
-    """Prüft ob ein bestimmtes Feature für diese Lizenz verfügbar ist."""
-    if not info["ist_aktiv"]:
-        return False
-    typ_def = LIZENZ_TYPEN.get(info["lizenz_typ"], LIZENZ_TYPEN["FREE"])
-    feats = typ_def["features"]
-    if "all" in feats:
-        return True
-    return feature in feats
-
-
-def trainer_limit_erreicht(info: LizenzInfo, aktuelle_anzahl: int) -> bool:
-    """True wenn das Trainer-Limit der Lizenz erreicht ist."""
-    typ_def = LIZENZ_TYPEN.get(info["lizenz_typ"], LIZENZ_TYPEN["FREE"])
-    return aktuelle_anzahl >= typ_def["max_trainer"]
-
-
-def spieler_limit_erreicht(info: LizenzInfo, aktuelle_anzahl: int) -> bool:
-    """True wenn das Spieler-Limit der Lizenz erreicht ist."""
-    typ_def = LIZENZ_TYPEN.get(info["lizenz_typ"], LIZENZ_TYPEN["FREE"])
-    return aktuelle_anzahl >= typ_def["max_spieler"]
-
-
-# ─── App-Gate ─────────────────────────────────────────────────────────────────
-
-def enforce_license_gate() -> LizenzInfo | None:
-    """Prüft die Lizenz des aktuellen Vereins und stoppt bei Bedarf die App.
-
-    Superadmin wird niemals geblockt.
-    Gibt LizenzInfo zurück (im session_state gecacht).
-    Gibt None zurück für Superadmin (kein Limit).
+def enforce_license_gate() -> None:
     """
-    from database import verein_by_id
-
+    Prüft den Lizenzstatus bei jedem Re-Run.
+    Blockiert die App bei gesperrten oder abgelaufenen Lizenzen.
+    Superadmins werden nie blockiert.
+    """
     user = st.session_state.get("user", {})
-    rolle = user.get("rolle", "Trainer")
+    if not user:
+        return  # nicht eingeloggt — Login-Gate greift
 
-    # Superadmin ist niemals eingeschränkt
-    if rolle == "Superadmin":
-        return None
+    if user.get("rolle") == "Superadmin":
+        return  # Superadmin immer durch
 
     verein_id = user.get("verein_id")
     if not verein_id:
-        return None
+        return
 
-    # Cache — nur einmal pro Rerun laden
     cache_key = f"_lizenz_info_{verein_id}"
     if cache_key not in st.session_state:
-        verein_row = verein_by_id(verein_id) or {}
+        try:
+            from database import lizenz_info_laden
+            verein_row = lizenz_info_laden(verein_id) or {}
+        except Exception:
+            return
         info = get_lizenz_info(verein_row)
-        st.session_state[cache_key] = info
     else:
         info = st.session_state[cache_key]
 
@@ -276,20 +235,48 @@ def enforce_license_gate() -> LizenzInfo | None:
         _zeige_gesperrt_page()
         st.stop()
 
-    if not info["ist_aktiv"]:
+    if info["lizenz_status"] == "expired":
         _zeige_abgelaufen_page(info)
         st.stop()
 
-    # Warnung: Ablauf nahe
-    tage = info.get("tage_verbleibend")
-    if tage is not None and 0 <= tage <= 7:
-        status_label = "Testphase" if info["lizenz_status"] == "trial" else "Lizenz"
-        if tage == 0:
-            st.warning(f"⚠️ Deine {status_label} läuft **heute** ab.")
-        else:
-            st.warning(f"⚠️ Deine {status_label} läuft in **{tage} Tag{'en' if tage != 1 else ''}** ab.")
 
-    return info
+def feature_erlaubt(feature: str, lizenz_typ: str) -> bool:
+    """Prüft ob ein Feature im aktuellen Lizenztyp enthalten ist."""
+    typ_def = LIZENZ_TYPEN.get(lizenz_typ.upper())
+    if not typ_def:
+        return False
+    feats = typ_def["features"]
+    return "all" in feats or feature in feats
+
+
+def trainer_limit_erreicht(verein_id: int, lizenz_typ: str) -> bool:
+    """Gibt True zurück wenn das Trainer-Limit erreicht ist."""
+    try:
+        from database import get_conn
+        with get_conn() as conn:
+            count = conn.execute(
+                "SELECT COUNT(*) FROM benutzer WHERE verein_id=? AND aktiv=1 AND rolle='Trainer'",
+                (verein_id,)
+            ).fetchone()[0]
+        typ_def = LIZENZ_TYPEN.get(lizenz_typ.upper(), LIZENZ_TYPEN["BASIC"])
+        return count >= typ_def["max_trainer"]
+    except Exception:
+        return False
+
+
+def spieler_limit_erreicht(verein_id: int, lizenz_typ: str) -> bool:
+    """Gibt True zurück wenn das Spieler-Limit erreicht ist."""
+    try:
+        from database import get_conn
+        with get_conn() as conn:
+            count = conn.execute(
+                "SELECT COUNT(*) FROM spieler WHERE verein_id=? AND aktiv=1",
+                (verein_id,)
+            ).fetchone()[0]
+        typ_def = LIZENZ_TYPEN.get(lizenz_typ.upper(), LIZENZ_TYPEN["BASIC"])
+        return count >= typ_def["max_spieler"]
+    except Exception:
+        return False
 
 
 def invalidate_lizenz_cache(verein_id: int) -> None:
@@ -327,7 +314,7 @@ def _zeige_abgelaufen_page(info: LizenzInfo) -> None:
     if info["lizenz_status"] == "trial":
         titel = "Testphase abgelaufen"
         text  = (
-            "Deine kostenlose 14-Tage-Testphase ist abgelaufen. "
+            "Deine kostenlose 30-Tage-Testphase ist abgelaufen. "
             "Wähle einen Tarif und aktiviere deine Lizenz, um weiterzumachen."
         )
     else:

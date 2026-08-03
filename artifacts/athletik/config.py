@@ -65,8 +65,6 @@ STRIPE_PRICE_BASIC_MONAT = os.environ.get("STRIPE_PRICE_BASIC_MONAT", "")
 STRIPE_PRICE_BASIC_JAHR  = os.environ.get("STRIPE_PRICE_BASIC_JAHR",  "")
 STRIPE_PRICE_PRO_MONAT   = os.environ.get("STRIPE_PRICE_PRO_MONAT",   "")
 STRIPE_PRICE_PRO_JAHR    = os.environ.get("STRIPE_PRICE_PRO_JAHR",    "")
-STRIPE_PRICE_ENT_MONAT   = os.environ.get("STRIPE_PRICE_ENT_MONAT",   "")
-STRIPE_PRICE_ENT_JAHR    = os.environ.get("STRIPE_PRICE_ENT_JAHR",    "")
 
 # Öffentliche App-URL (für Stripe Redirect-URLs)
 APP_BASE_URL = os.environ.get("APP_BASE_URL", "http://localhost:8082")

@@ -2111,7 +2111,7 @@ def _migrate_multitenant():
         # Vereine ohne testphase_bis bekommen heute + 14 Tage gesetzt
         conn.execute("""
             UPDATE vereine
-               SET testphase_bis = date('now', '+14 days'),
+               SET testphase_bis = date('now', '+30 days'),
                    lizenz_status = COALESCE(lizenz_status, 'trial')
              WHERE testphase_bis IS NULL
         """)
@@ -2204,12 +2204,12 @@ def vereine_laden() -> list[dict]:
 def verein_speichern(name: str) -> int:
     import datetime as _dt
     testphase_bis = (
-        _dt.date.today() + _dt.timedelta(days=14)
+        _dt.date.today() + _dt.timedelta(days=30)
     ).isoformat()
     with get_conn() as conn:
         cur = conn.execute(
             """INSERT INTO vereine (name, aktiv, lizenz_status, lizenztyp, testphase_bis)
-               VALUES (?, 1, 'trial', 'FREE', ?)""",
+               VALUES (?, 1, 'trial', 'BASIC', ?)""",
             (name, testphase_bis),
         )
         return cur.lastrowid
@@ -2224,10 +2224,10 @@ def verein_registrieren(
     email: str,
     passwort: str,
 ) -> tuple[int, int]:
-    """Erstellt einen neuen Verein mit Vereinsadmin und startet 14-Tage-Testphase.
+    """Erstellt einen neuen Verein mit Vereinsadmin und startet 30-Tage-Testphase.
     Gibt (verein_id, benutzer_id) zurück."""
     import datetime as _dt
-    testphase_bis = (_dt.date.today() + _dt.timedelta(days=14)).isoformat()
+    testphase_bis = (_dt.date.today() + _dt.timedelta(days=30)).isoformat()
 
     # Prüfen ob E-Mail bereits vergeben
     with get_conn() as conn:
@@ -2241,7 +2241,7 @@ def verein_registrieren(
     # Testphase explizit setzen (verein_speichern setzt sie bereits)
     with get_conn() as conn:
         conn.execute(
-            "UPDATE vereine SET testphase_bis=?, lizenz_status='trial', lizenztyp='FREE' WHERE id=?",
+            "UPDATE vereine SET testphase_bis=?, lizenz_status='trial', lizenztyp='BASIC' WHERE id=?",
             (testphase_bis, verein_id),
         )
 

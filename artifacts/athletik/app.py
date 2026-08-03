@@ -347,7 +347,7 @@ if not _zweck_bestaetigt():
         '<div style="background:#0d1117;border:1px solid #30363d;border-radius:8px;'
         'padding:14px 16px;margin-top:20px;color:#f0a030;font-size:13px">'
         '⚠️ Diese Anwendung ist eine sportliche Trainings- und Dokumentationshilfe. '
-        'Sie stellt keine medizinische Diagnose und erteilt keine medizinische Freigabe.</div>',
+        'Sie ersetzt keine ärztliche Untersuchung und erteilt keine Sportfreigabe.</div>',
         unsafe_allow_html=True,
     )
     st.markdown("")
@@ -4619,7 +4619,7 @@ def _page_spiro():
         'padding:12px 16px;margin-bottom:14px;font-size:13px;color:#cdd9e5">'
         'ℹ️ <b>Hinweis:</b> Diese App führt keine Spiroergometrie durch. Sie dient zur '
         'strukturierten Erfassung, Auswertung und Verlaufskontrolle von Ergebnissen '
-        'fachgerecht durchgeführter Tests. Keine medizinische Diagnose, keine Sportfreigabe.'
+        'fachgerecht durchgeführter Tests. Sportliche Auswertung — kein Ersatz für eine ärztliche Untersuchung.'
         '</div>',
         unsafe_allow_html=True,
     )

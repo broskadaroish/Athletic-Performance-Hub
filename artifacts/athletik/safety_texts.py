@@ -4,11 +4,35 @@ safety_texts.py
 Zentrale Datei für alle Pflicht- und Sicherheitshinweise der App.
 Alle Seiten, PDFs und E-Mails beziehen ihre Hinweise ausschließlich
 von hier — kein widersprüchlicher Text an anderen Stellen.
+
+Bruce Football Performance Diagnostics ist kein Medizinprodukt.
+Die Software dient ausschließlich der sportlichen Athletikanalyse,
+Leistungsentwicklung, Trainingsplanung und Trainingsdokumentation.
 """
 
 # ─── Versionierung ────────────────────────────────────────────────────────────
 
-ZWECKBESTIMMUNG_VERSION = "1.0"
+ZWECKBESTIMMUNG_VERSION = "2.0"
+
+# ─── Offizieller Haftungshinweis (Pflichttext) ───────────────────────────────
+
+HAFTUNGSHINWEIS = (
+    "Diese Software dient ausschließlich der sportlichen Athletikanalyse, "
+    "Leistungsentwicklung, Trainingsplanung und Trainingsdokumentation.\n\n"
+    "Sie ersetzt keine medizinische Untersuchung, Diagnose oder Behandlung "
+    "durch Ärztinnen, Ärzte oder andere medizinische Fachpersonen.\n\n"
+    "Alle Auswertungen dienen ausschließlich der Unterstützung von "
+    "Trainerinnen und Trainern im sportlichen Kontext."
+)
+
+HAFTUNGSHINWEIS_KURZ = (
+    "Diese Software dient ausschließlich der sportlichen Athletikanalyse, "
+    "Leistungsentwicklung, Trainingsplanung und Trainingsdokumentation. "
+    "Sie ersetzt keine medizinische Untersuchung, Diagnose oder Behandlung "
+    "durch Ärztinnen, Ärzte oder andere medizinische Fachpersonen. "
+    "Alle Auswertungen dienen ausschließlich der Unterstützung von "
+    "Trainerinnen und Trainern im sportlichen Kontext."
+)
 
 # ─── Zweckbestimmung (vollständiger Pflichttext) ──────────────────────────────
 
@@ -19,16 +43,16 @@ Diese Anwendung dient ausschliesslich der Dokumentation, Organisation und \
 sportlichen Auswertung von Trainings- und Leistungstests.
 
 Die angezeigten Ergebnisse, Bewertungen, Ampelfarben, Hinweise und \
-Trainingsempfehlungen stellen keine medizinische Diagnose, Untersuchung, \
-Behandlung oder Freigabe dar.
+Trainingsempfehlungen sind sportliche Orientierungswerte. \
+Sie stellen keine Sportfreigabe und keinen Ersatz fuer eine \
+aerztliche Untersuchung dar.
 
-Die Anwendung ersetzt keine aerztliche, physiotherapeutische oder sonstige \
-medizinische Untersuchung und Beratung.
+Die Anwendung ersetzt keine aerztliche oder therapeutische Fachberatung.
 
 Bei Schmerzen, Verletzungsverdacht, Schwindel, Atemproblemen, ungewoehnlicher \
 Erschoepfung oder anderen gesundheitlichen Beschwerden darf die betroffene \
 Person nicht allein aufgrund einer App-Auswertung weitertrainieren. In solchen \
-Faellen ist eine medizinisch qualifizierte Fachperson hinzuzuziehen.
+Faellen ist eine qualifizierte Fachperson hinzuzuziehen.
 
 Der Anwender bleibt fuer die Auswahl, Durchfuehrung und Anpassung des \
 Trainings verantwortlich.
@@ -43,16 +67,16 @@ Diese Anwendung dient **ausschließlich** der Dokumentation, Organisation und \
 sportlichen Auswertung von Trainings- und Leistungstests.
 
 Die angezeigten Ergebnisse, Bewertungen, Ampelfarben, Hinweise und \
-Trainingsempfehlungen stellen **keine medizinische Diagnose, Untersuchung, \
-Behandlung oder Freigabe** dar.
+Trainingsempfehlungen sind sportliche Orientierungswerte. \
+Sie stellen **keine Sportfreigabe** und keinen Ersatz für eine \
+ärztliche Untersuchung dar.
 
-Die Anwendung **ersetzt keine** ärztliche, physiotherapeutische oder sonstige \
-medizinische Untersuchung und Beratung.
+Die Anwendung **ersetzt keine** ärztliche oder therapeutische Fachberatung.
 
 Bei Schmerzen, Verletzungsverdacht, Schwindel, Atemproblemen, ungewöhnlicher \
 Erschöpfung oder anderen gesundheitlichen Beschwerden darf die betroffene \
 Person **nicht allein aufgrund einer App-Auswertung weitertrainieren**. In \
-solchen Fällen ist eine medizinisch qualifizierte Fachperson hinzuzuziehen.
+solchen Fällen ist eine qualifizierte Fachperson hinzuzuziehen.
 
 Der Anwender bleibt für die Auswahl, Durchführung und Anpassung des Trainings \
 verantwortlich.
@@ -65,7 +89,7 @@ Gesundheitszustand und Belastbarkeit berücksichtigt werden.\
 
 AMPEL_GRUEN = (
     "Im Rahmen der vorliegenden sportlichen Testdaten aktuell kein auffälliger Wert. "
-    "Dies ist keine medizinische Freigabe."
+    "Kein Ersatz für eine ärztliche Untersuchung."
 )
 
 AMPEL_GELB = (
@@ -76,12 +100,12 @@ AMPEL_GELB = (
 AMPEL_ROT = (
     "Deutlich auffälliger sportlicher Testwert oder gemeldete Beschwerden. "
     "Keine automatische Trainingsfreigabe. "
-    "Trainerische Prüfung und gegebenenfalls medizinische Abklärung erforderlich."
+    "Trainerische Prüfung und bei anhaltenden Beschwerden fachärztliche Abklärung empfohlen."
 )
 
 AMPEL_FUSSZEILE = (
     "Die Ampelfarbe basiert nur auf den eingegebenen Daten "
-    "und ersetzt keine medizinische Beurteilung."
+    "und dient ausschließlich als sportliche Orientierung."
 )
 
 # ─── Trainingsplan-Hinweis ────────────────────────────────────────────────────
@@ -90,7 +114,7 @@ TRAININGSPLAN_HINWEIS = (
     "Dieser Plan ist eine allgemeine sportliche Trainingsempfehlung auf "
     "Grundlage der eingegebenen Daten. Er muss durch eine qualifizierte "
     "Trainingsperson geprüft, angepasst und beaufsichtigt werden. "
-    "Er ersetzt keine medizinische oder physiotherapeutische Behandlung."
+    "Er ersetzt keine ärztliche oder therapeutische Fachberatung."
 )
 
 TRAININGSPLAN_BESCHWERDEN_SPERRE = (
@@ -102,8 +126,9 @@ TRAININGSPLAN_BESCHWERDEN_SPERRE = (
 
 PHV_HINWEIS = (
     "Die angezeigte Einschätzung des Wachstums- oder Reifestatus ist eine "
-    "rechnerische Schätzung. Sie stellt keine medizinische, pädiatrische "
-    "oder endokrinologische Beurteilung dar."
+    "rechnerische Schätzung auf Basis sportlicher Testdaten. "
+    "Sie dient ausschließlich der Trainingssteuerung und ist kein Ersatz "
+    "für eine ärztliche Beurteilung."
 )
 
 # ─── FMS / Y-Balance ──────────────────────────────────────────────────────────
@@ -120,7 +145,7 @@ BESCHWERDEN_HINWEIS = (
     "Es wurden Beschwerden angegeben. Die App kann deren Ursache oder Schwere "
     "nicht beurteilen. Die weitere Belastung muss verantwortungsvoll geprüft "
     "werden. Bei starken, anhaltenden oder zunehmenden Beschwerden ist eine "
-    "medizinische Fachperson hinzuzuziehen."
+    "qualifizierte Fachperson hinzuzuziehen."
 )
 
 # ─── Test-Abbruchhinweis ──────────────────────────────────────────────────────
@@ -134,12 +159,12 @@ ABBRUCH_HINWEIS = (
 # ─── PDF-Fußzeile (jede Seite) ────────────────────────────────────────────────
 
 PDF_FUSSZEILE = (
-    "Sportliche Trainings- und Dokumentationshilfe \u2013 "
-    "keine medizinische Diagnose oder Freigabe."
+    "Sportliche Athletikanalyse und Trainingsdokumentation \u2013 "
+    "kein Ersatz für eine ärztliche Untersuchung."
 )
 
 # Kurzversion für Header/Cards
-KURZ_HINWEIS = "Sportliche Auswertung \u2013 keine medizinische Diagnose oder Freigabe."
+KURZ_HINWEIS = "Sportliche Auswertung \u2013 kein Ersatz für eine ärztliche Untersuchung."
 
 # ─── E-Mail-Vorschlagstext ────────────────────────────────────────────────────
 
@@ -149,8 +174,8 @@ Guten Tag,
 anbei erhalten Sie das sportliche Testprotokoll.
 
 Die enthaltenen Ergebnisse und Hinweise dienen ausschließlich der \
-Trainingsdokumentation und sportlichen Orientierung. Sie stellen keine \
-medizinische Diagnose oder Freigabe dar.
+Trainingsdokumentation und sportlichen Orientierung. Sie stellen keinen \
+Ersatz für eine ärztliche Untersuchung dar.
 
 Freundliche Grüße
 

@@ -83,31 +83,15 @@ def _tarif_karte(
 
     feats = typ_def["features"]
     feat_html = ""
-    feat_labels = {
-        "diagnostik_basis":      "Basis-Diagnostik (FMS, Sprint, Sprung)",
-        "diagnostik_erweitert":  "Erweiterte Diagnostik (Y-Balance, Agilität)",
-        "diagnostik_spiro":      "Spiroergometrie / VO₂max",
-        "spielerprofil":         "Spielerprofile & Fotos",
-        "pdf_export":            "PDF-Berichte",
-        "excel_export":          "Excel-Export",
-        "verletzungsmanagement": "Verletzungsmanagement",
-        "trainingsplanung":      "Trainingsplanung",
-        "periodisierung":        "Periodisierung",
-        "spielervergleich":      "Spieler-Vergleich",
-        "mannschaftsdashboard":  "Mannschafts-Dashboard",
-        "all":                   "Alle Funktionen — unbegrenzt",
-    }
+    from license import FEATURE_LABELS as feat_labels
     for f in feats:
         feat_html += f'<div style="font-size:12px;color:{_C["muted"]};margin-bottom:3px">✓ {feat_labels.get(f, f)}</div>'
 
     preis_html = (
         f'<div style="font-size:22px;font-weight:800;color:{_C["text"]}">'
-        f'{typ_def["preis_monat"]} €<span style="font-size:12px;font-weight:400;color:{_C["muted"]}"> / Monat</span></div>'
+        f'{typ_def["preis_monat"]:.2f} €<span style="font-size:12px;font-weight:400;color:{_C["muted"]}"> / Monat</span></div>'
         f'<div style="font-size:11px;color:{_C["muted"]};margin-bottom:12px">'
-        f'oder {typ_def["preis_jahr"]} € / Jahr</div>'
-        if typ_def["preis_monat"] > 0 else
-        f'<div style="font-size:22px;font-weight:800;color:{_C["green"]}">Kostenlos</div>'
-        f'<div style="font-size:11px;color:{_C["muted"]};margin-bottom:12px"> </div>'
+        f'oder {typ_def["preis_jahr"]:.0f} € / Jahr</div>'
     )
 
     st.markdown(
@@ -145,7 +129,7 @@ def page_lizenz_vereinsadmin() -> None:
     # ── Aktuellen Status laden ─────────────────────────────────────────────────
     verein_row = lizenz_info_laden(verein_id) or {}
     info = get_lizenz_info(verein_row)
-    typ_def = LIZENZ_TYPEN.get(info["lizenz_typ"], LIZENZ_TYPEN["FREE"])
+    typ_def = LIZENZ_TYPEN.get(info["lizenz_typ"], LIZENZ_TYPEN["BASIC"])
 
     # ── Status-Banner ──────────────────────────────────────────────────────────
     badge = _status_badge(info["lizenz_status"])
@@ -205,7 +189,7 @@ def page_lizenz_vereinsadmin() -> None:
             unsafe_allow_html=True,
         )
 
-        cols = st.columns(4)
+        cols = st.columns(2)
         for i, (typ_key, typ_def_iter) in enumerate(LIZENZ_TYPEN.items()):
             with cols[i]:
                 def _on_upgrade(key=typ_key):
@@ -328,7 +312,7 @@ def page_lizenz_superadmin() -> None:
         tage    = info.get("tage_verbleibend")
         ablauf  = info.get("ablauf_datum")
         badge   = _status_badge(info["lizenz_status"])
-        typ_def = LIZENZ_TYPEN.get(info["lizenz_typ"], LIZENZ_TYPEN["FREE"])
+        typ_def = LIZENZ_TYPEN.get(info["lizenz_typ"], LIZENZ_TYPEN["BASIC"])
 
         with st.expander(
             f"{v.get('name', '—')}  |  {typ_def['label']}  |  "

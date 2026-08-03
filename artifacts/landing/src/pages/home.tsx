@@ -104,94 +104,130 @@ export default function Home() {
       {/* Pricing Section */}
       <section className="py-24" id="preise">
         <div className="container mx-auto px-4">
-          <div className="text-center max-w-3xl mx-auto mb-16">
-            <h2 className="text-3xl md:text-5xl font-bold mb-4">Investition in Performance</h2>
-            <p className="text-xl text-muted-foreground">
-              Transparente Modelle für jede Vereinsgröße. Von der einzelnen Mannschaft bis zum gesamten NLZ.
+          <div className="text-center max-w-3xl mx-auto mb-6">
+            <h2 className="text-3xl md:text-5xl font-bold mb-4">Einfache, transparente Preise</h2>
+            <p className="text-xl text-muted-foreground mb-3">
+              Zwei Tarife — für jeden Verein der richtige Plan.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
-            {/* Starter Plan */}
-            <div className="bg-secondary/20 border border-white/5 p-8 rounded-lg flex flex-col">
+          {/* Trial Banner */}
+          <div className="max-w-2xl mx-auto mb-14">
+            <div className="border border-primary/30 bg-primary/5 rounded-xl px-6 py-4 text-center">
+              <span className="text-primary font-bold font-mono text-sm uppercase tracking-widest mr-2">30 Tage kostenlos testen</span>
+              <span className="text-muted-foreground text-sm">— keine Kreditkarte erforderlich</span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto mb-16">
+            {/* Basic Plan */}
+            <div className="bg-secondary/20 border border-white/10 p-8 rounded-xl flex flex-col">
               <div className="mb-6">
-                <h3 className="text-xl font-bold font-mono uppercase tracking-widest text-muted-foreground mb-2">Starter</h3>
-                <div className="text-4xl font-bold">1 Mannschaft</div>
+                <h3 className="text-sm font-bold font-mono uppercase tracking-widest text-muted-foreground mb-3">🟢 Basic</h3>
+                <div className="flex items-end gap-1 mb-1">
+                  <span className="text-5xl font-bold">9,90</span>
+                  <span className="text-xl text-muted-foreground mb-2">€ / Monat</span>
+                </div>
+                <div className="text-sm text-muted-foreground">oder 99 € / Jahr <span className="text-primary font-medium">(2 Monate gratis)</span></div>
               </div>
-              <ul className="space-y-4 mb-8 flex-1">
-                <li className="flex items-start gap-3">
-                  <CheckCircle2 className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                  <span className="text-muted-foreground">Alle Testprotokolle</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <CheckCircle2 className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                  <span className="text-muted-foreground">Basis-Reports</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <CheckCircle2 className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                  <span className="text-muted-foreground">Bis zu 35 Spieler</span>
-                </li>
+              <div className="text-xs text-muted-foreground font-mono uppercase tracking-widest mb-4">
+                Für Einzeltrainer · Jugendtrainer · Kleine Vereine
+              </div>
+              <ul className="space-y-3 mb-8 flex-1 text-sm">
+                {[
+                  "Bis zu 40 Spieler",
+                  "1 Trainer",
+                  "Alle Athletiktests",
+                  "Dashboard & Verlauf",
+                  "PDF-Berichte",
+                  "Trainingspläne",
+                  "Exportfunktionen",
+                  "E-Mail Support",
+                ].map((f) => (
+                  <li key={f} className="flex items-start gap-3">
+                    <CheckCircle2 className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+                    <span className="text-muted-foreground">{f}</span>
+                  </li>
+                ))}
               </ul>
               <Button asChild variant="outline" className="w-full">
-                <Link href="/register">Interesse wecken</Link>
+                <Link href="/register">30 Tage kostenlos testen</Link>
               </Button>
             </div>
 
-            {/* Professional Plan (Highlighted) */}
-            <div className="bg-secondary/40 border border-primary/50 p-8 rounded-lg flex flex-col relative transform md:-translate-y-4 shadow-2xl">
+            {/* Pro Plan */}
+            <div className="bg-secondary/40 border border-primary/50 p-8 rounded-xl flex flex-col relative shadow-2xl">
               <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-primary text-primary-foreground px-4 py-1 rounded-full text-xs font-bold uppercase tracking-widest">
-                Am beliebtesten
+                Empfohlen
               </div>
               <div className="mb-6 mt-2">
-                <h3 className="text-xl font-bold font-mono uppercase tracking-widest text-primary mb-2">Professional</h3>
-                <div className="text-4xl font-bold">Bis 5 Teams</div>
+                <h3 className="text-sm font-bold font-mono uppercase tracking-widest text-primary mb-3">🔵 Pro</h3>
+                <div className="flex items-end gap-1 mb-1">
+                  <span className="text-5xl font-bold">24,90</span>
+                  <span className="text-xl text-muted-foreground mb-2">€ / Monat</span>
+                </div>
+                <div className="text-sm text-muted-foreground">oder 249 € / Jahr <span className="text-primary font-medium">(2 Monate gratis)</span></div>
               </div>
-              <ul className="space-y-4 mb-8 flex-1">
-                <li className="flex items-start gap-3">
-                  <CheckCircle2 className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                  <span className="text-white">Alles aus Starter</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <CheckCircle2 className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                  <span className="text-white">Vergleichs-Dashboard</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <CheckCircle2 className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                  <span className="text-white">Vereinslogo in PDFs</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <CheckCircle2 className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                  <span className="text-white">Asymmetrie-Warnungen</span>
-                </li>
+              <div className="text-xs text-muted-foreground font-mono uppercase tracking-widest mb-4">
+                Für komplette Vereine · Leistungszentren · NLZ
+              </div>
+              <ul className="space-y-3 mb-8 flex-1 text-sm">
+                {[
+                  "Unbegrenzte Spieler",
+                  "Unbegrenzte Trainer",
+                  "Vereinsverwaltung",
+                  "Mehrere Mannschaften",
+                  "Teamanalysen & Dashboard",
+                  "Vereinslogo in PDFs",
+                  "Alle Athletiktests inkl. VO₂max",
+                  "Prioritäts-Support",
+                ].map((f) => (
+                  <li key={f} className="flex items-start gap-3">
+                    <CheckCircle2 className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+                    <span className="text-white">{f}</span>
+                  </li>
+                ))}
               </ul>
               <Button asChild className="w-full">
-                <Link href="/register">Demo vereinbaren</Link>
+                <Link href="/register">30 Tage kostenlos testen</Link>
               </Button>
             </div>
+          </div>
 
-            {/* Enterprise Plan */}
-            <div className="bg-secondary/20 border border-white/5 p-8 rounded-lg flex flex-col">
-              <div className="mb-6">
-                <h3 className="text-xl font-bold font-mono uppercase tracking-widest text-muted-foreground mb-2">Enterprise</h3>
-                <div className="text-4xl font-bold">Ganzer Verein</div>
+          {/* Feature Comparison Table */}
+          <div className="max-w-4xl mx-auto">
+            <h3 className="text-center text-lg font-bold mb-6 text-muted-foreground font-mono uppercase tracking-widest">Tarifvergleich</h3>
+            <div className="border border-white/10 rounded-xl overflow-hidden text-sm">
+              <div className="grid grid-cols-3 bg-secondary/40 px-6 py-3 font-bold">
+                <div className="text-muted-foreground">Funktion</div>
+                <div className="text-center">Basic</div>
+                <div className="text-center text-primary">Pro</div>
               </div>
-              <ul className="space-y-4 mb-8 flex-1">
-                <li className="flex items-start gap-3">
-                  <CheckCircle2 className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                  <span className="text-muted-foreground">Unbegrenzte Teams</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <CheckCircle2 className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                  <span className="text-muted-foreground">Unbegrenzte Accounts</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <CheckCircle2 className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                  <span className="text-muted-foreground">Persönlicher Onboarding-Manager</span>
-                </li>
-              </ul>
-              <Button asChild variant="outline" className="w-full">
-                <Link href="/register">Kontakt aufnehmen</Link>
-              </Button>
+              {[
+                ["Spieler", "bis 40", "Unbegrenzt"],
+                ["Trainer", "1", "Unbegrenzt"],
+                ["Alle Athletiktests", "✓", "✓"],
+                ["Dashboard & Verlauf", "✓", "✓"],
+                ["PDF-Berichte", "✓", "✓"],
+                ["Exportfunktionen", "✓", "✓"],
+                ["Trainingspläne", "✓", "✓"],
+                ["Spiroergometrie / VO₂max", "—", "✓"],
+                ["Mehrere Mannschaften", "—", "✓"],
+                ["Vereinsverwaltung", "—", "✓"],
+                ["Vereinslogo in PDFs", "—", "✓"],
+                ["Teamanalysen", "—", "✓"],
+                ["Spielervergleich", "—", "✓"],
+                ["Support", "E-Mail", "Priorität"],
+              ].map(([feat, basic, pro], i) => (
+                <div
+                  key={feat}
+                  className={`grid grid-cols-3 px-6 py-3 border-t border-white/5 ${i % 2 === 0 ? "bg-secondary/10" : ""}`}
+                >
+                  <div className="text-muted-foreground">{feat}</div>
+                  <div className={`text-center font-mono ${basic === "—" ? "text-muted-foreground/40" : "text-white"}`}>{basic}</div>
+                  <div className={`text-center font-mono font-bold ${pro === "—" ? "text-muted-foreground/40" : "text-primary"}`}>{pro}</div>
+                </div>
+              ))}
             </div>
           </div>
         </div>
