@@ -1,0 +1,24 @@
+# Nicht ins Docker-Image kopieren
+.env
+.env.*
+.streamlit/secrets.toml
+*.db
+*.db-shm
+*.db-wal
+uploads/
+logs/
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pythonlibs/
+.idea/
+.vscode/
+*.swp
+.DS_Store
+backup_*.py
+athletik_BACKUP_*.db
+athletik_backup_*.db
+installer/dist/
+installer/build/
+build/dist/

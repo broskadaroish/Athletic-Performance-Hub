@@ -20,6 +20,11 @@ import plotly.graph_objects as go
 import plotly.express as px
 import pandas as pd
 
+# ─── Produktions-Setup (einmalig beim Modulimport) ────────────────────────────
+import config          # Env-Vars zentralisiert, ensure_dirs() läuft beim Import
+import logging_config  # Logging konfigurieren + rotierende Logdatei in Produktion
+_log = logging_config.logger
+
 from theme import APP_CSS, C, PLOTLY_LAYOUT as _PL_BASE
 from help_ui import sicherheitshinweis_box, show_test_info, show_field_help, field_info_col, norm_badge, show_trainer_checkliste
 from ui_components import (
@@ -6094,8 +6099,11 @@ def page_einstellungen():
                     st.rerun()
         if _neue_logo_datei is not None:
             _logo_raw = _neue_logo_datei.getvalue()
-            if len(_logo_raw) > 2 * 1024 * 1024:
-                st.error("❌ Datei zu groß — maximale Größe: 2 MB.")
+            from utils.file_magic import validate_image
+            _ok, _err = validate_image(_logo_raw, max_mb=config.MAX_LOGO_MB)
+            if not _ok:
+                st.error(f"❌ {_err}")
+                _log.warning("Abgelehnter Logo-Upload: %s", _err)
             else:
                 logo_speichern(_logo_raw)
                 _save_ok("Vereinslogo gespeichert.")
@@ -6417,10 +6425,12 @@ def page_einstellungen():
 def _custom_docs_section(kategorie: str, titel: str = "Eigene Dokumente"):
     """Upload, Anzeige und Verwaltung eigener PDF-Dokumente.
     kategorie: 'anleitungen' oder 'protokolle'.
+    Dateien werden in config.DOCS_DIR / kategorie gespeichert
+    (persistentes Volume in Produktion).
     """
-    import pathlib
+    from utils.file_magic import validate_pdf
 
-    ordner = pathlib.Path(__file__).parent / "assets" / "custom_docs" / kategorie
+    ordner = config.DOCS_DIR / kategorie
     ordner.mkdir(parents=True, exist_ok=True)
 
     st.markdown(f"---\n### 📂 {titel}")
@@ -6438,13 +6448,24 @@ def _custom_docs_section(kategorie: str, titel: str = "Eigene Dokumente"):
     )
     if uploaded:
         neu = 0
+        fehler = []
         for f in uploaded:
+            raw = f.getvalue()
+            ok, err = validate_pdf(raw, max_mb=config.MAX_DOC_MB)
+            if not ok:
+                fehler.append(f"**{f.name}**: {err}")
+                _log.warning("Abgelehnter PDF-Upload: %s — %s", f.name, err)
+                continue
             ziel = ordner / f.name
             with open(ziel, "wb") as fh:
-                fh.write(f.getvalue())
+                fh.write(raw)
             neu += 1
-        _save_ok(f"{neu} Datei(en) gespeichert.")
-        st.rerun()
+        if fehler:
+            for msg in fehler:
+                st.error(f"❌ {msg}")
+        if neu:
+            _save_ok(f"{neu} Datei(en) gespeichert.")
+            st.rerun()
 
     # ── Gespeicherte Dateien ──────────────────────────────────────────────────
     dateien = sorted(ordner.glob("*.pdf"))
@@ -6649,7 +6670,14 @@ def page_export_pdf():
             label_visibility="collapsed",
         )
         if _logo_override is not None:
-            _logo_bytes = _logo_override.getvalue()
+            _raw_override = _logo_override.getvalue()
+            from utils.file_magic import validate_image as _vi
+            _ok_ov, _err_ov = _vi(_raw_override, max_mb=config.MAX_LOGO_MB)
+            if not _ok_ov:
+                st.error(f"❌ {_err_ov}")
+                _logo_bytes = None
+            else:
+                _logo_bytes = _raw_override
 
         st.markdown("---")
 

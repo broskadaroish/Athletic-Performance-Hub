@@ -8,7 +8,12 @@ from contextlib import contextmanager
 from datetime import date, datetime
 
 import os as _os
-DB_PATH = _os.environ.get("ATHLETIK_DB_PATH", "athletik.db")
+# DB-Pfad aus config.py lesen (zentrales Settings-Modul).
+# Fallback auf direkten Env-Var-Zugriff falls config noch nicht geladen.
+try:
+    from config import SQLITE_PATH as DB_PATH
+except ImportError:
+    DB_PATH = _os.environ.get("ATHLETIK_DB_PATH", "athletik.db")
 
 # Sentinel für optionale Parameter (unterscheidet None von "nicht übergeben")
 _UNSET = object()

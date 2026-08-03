@@ -1,0 +1,55 @@
+version: "3.9"
+
+# ============================================================
+# Athletik App — Docker Compose für VPS / Self-Hosting
+#
+# Starten:   docker-compose up -d
+# Stoppen:   docker-compose down
+# Logs:      docker-compose logs -f athletik
+# ============================================================
+
+services:
+  athletik:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      APP_ENV:           production
+      PORT:              "8080"
+      LOG_LEVEL:         WARNING
+      BEHIND_PROXY:      "1"
+      ATHLETIK_DATA_DIR: /data
+      ATHLETIK_DB_PATH:  /data/athletik.db
+      # Secrets aus .env-Datei lesen (nicht in docker-compose.yml eintragen!)
+      SESSION_SECRET:    ${SESSION_SECRET}
+      SECRET_KEY:        ${SECRET_KEY}
+      # Für PostgreSQL (optional):
+      # DATABASE_URL:    ${DATABASE_URL}
+    volumes:
+      # Persistenter Datenspeicher — DB + Uploads + Logs
+      - athletik_data:/data
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request; urllib.request.urlopen('http://localhost:8080/_stcore/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # Optional: nginx als Reverse Proxy (SSL-Terminierung)
+  # nginx:
+  #   image: nginx:alpine
+  #   restart: unless-stopped
+  #   ports:
+  #     - "80:80"
+  #     - "443:443"
+  #   volumes:
+  #     - ./nginx.conf.example:/etc/nginx/conf.d/athletik.conf:ro
+  #     - /etc/letsencrypt:/etc/letsencrypt:ro
+  #   depends_on:
+  #     - athletik
+
+volumes:
+  athletik_data:
+    driver: local

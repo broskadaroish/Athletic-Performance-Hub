@@ -1,0 +1,27 @@
+# ============================================================
+# Railway.app Deployment-Konfiguration
+# Docs: https://docs.railway.com/reference/config-as-code
+# ============================================================
+
+[build]
+builder = "nixpacks"
+buildCommand = "pip install --no-cache-dir -r requirements.txt"
+
+[deploy]
+startCommand = "bash start.sh"
+healthcheckPath = "/_stcore/health"
+healthcheckTimeout = 300
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 10
+
+# Env-Variablen im Railway Dashboard setzen:
+#   APP_ENV          = production
+#   LOG_LEVEL        = WARNING
+#   BEHIND_PROXY     = 1
+#   ATHLETIK_DATA_DIR = /mnt/data
+#   ATHLETIK_DB_PATH  = /mnt/data/athletik.db
+#   SESSION_SECRET   = <zufälliger langer String>
+#   SECRET_KEY       = <zufälliger langer String>
+#
+# Für PostgreSQL: Railway PostgreSQL-Service hinzufügen →
+# DATABASE_URL wird automatisch als Env-Var injiziert.

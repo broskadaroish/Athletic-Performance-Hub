@@ -360,9 +360,16 @@ def _trainer_edit_form(b: dict, admin_user: dict, admin_rolle: str, vereine: lis
                                    type=["png","jpg","jpeg","webp"],
                                    key=f"tp_foto_up_{vid}")
             if up:
-                benutzer_foto_speichern(vid, up.read())
-                st.success("✅ Foto gespeichert.")
-                st.rerun()
+                from utils.file_magic import validate_image
+                import config as _cfg
+                _raw = up.read()
+                _ok, _err = validate_image(_raw, max_mb=_cfg.MAX_SPIELERBILD_MB)
+                if not _ok:
+                    st.error(f"❌ {_err}")
+                else:
+                    benutzer_foto_speichern(vid, _raw)
+                    st.success("✅ Foto gespeichert.")
+                    st.rerun()
             if b.get("foto_blob"):
                 if st.button("🗑 Foto entfernen", key=f"tp_foto_del_{vid}"):
                     benutzer_foto_speichern(vid, None)
@@ -448,11 +455,18 @@ def page_mein_profil():
         up = st.file_uploader("Neues Foto", type=["png","jpg","jpeg","webp"],
                                key="mp_foto_up", label_visibility="collapsed")
         if up:
-            benutzer_foto_speichern(uid, up.read())
-            # Sofort im session_state aktualisieren
-            st.session_state["user"]["foto_blob"] = up.read()
-            st.success("✅ Foto gespeichert.")
-            st.rerun()
+            from utils.file_magic import validate_image
+            import config as _cfg
+            _raw = up.read()
+            _ok, _err = validate_image(_raw, max_mb=_cfg.MAX_SPIELERBILD_MB)
+            if not _ok:
+                st.error(f"❌ {_err}")
+            else:
+                benutzer_foto_speichern(uid, _raw)
+                # Sofort im session_state aktualisieren
+                st.session_state["user"]["foto_blob"] = _raw
+                st.success("✅ Foto gespeichert.")
+                st.rerun()
         if b.get("foto_blob"):
             if st.button("🗑 Entfernen", key="mp_foto_del"):
                 benutzer_foto_speichern(uid, None)

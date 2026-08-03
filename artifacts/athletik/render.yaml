@@ -1,0 +1,54 @@
+# ============================================================
+# Render.com Deployment-Konfiguration
+# Docs: https://render.com/docs/render-yaml-spec
+# ============================================================
+
+services:
+  - type: web
+    name: athletik-app
+    env: python
+    region: frankfurt         # EU-Datenschutz (alternativ: oregon, singapore)
+    plan: starter             # starter | standard | pro
+    branch: main
+
+    buildCommand: pip install --no-cache-dir -r requirements.txt
+    startCommand: bash start.sh
+
+    # Render setzt PORT automatisch
+    healthCheckPath: /_stcore/health
+
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: LOG_LEVEL
+        value: WARNING
+      - key: BEHIND_PROXY
+        value: "1"
+      - key: ATHLETIK_DATA_DIR
+        value: /data
+      - key: ATHLETIK_DB_PATH
+        value: /data/athletik.db
+      # Secrets über Render Dashboard setzen — NICHT hier eintragen:
+      - key: SESSION_SECRET
+        sync: false           # manuell im Dashboard setzen
+      - key: SECRET_KEY
+        sync: false
+      # PostgreSQL-URL wird automatisch hinzugefügt wenn DB-Service verknüpft:
+      # - key: DATABASE_URL
+      #   fromDatabase:
+      #     name: athletik-db
+      #     property: connectionString
+
+    # Persistentes Volume für DB + Uploads + Logs
+    disk:
+      name: athletik-data
+      mountPath: /data
+      sizeGB: 5               # je nach Datenmenge anpassen
+
+# Optional: PostgreSQL-Datenbank hinzufügen (für spätere PG-Migration)
+# databases:
+#   - name: athletik-db
+#     databaseName: athletik
+#     user: athletik
+#     region: frankfurt
+#     plan: starter

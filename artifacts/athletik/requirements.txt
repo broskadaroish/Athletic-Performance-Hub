@@ -6,3 +6,9 @@ numpy>=1.26
 openpyxl>=3.1
 Pillow>=10.0
 matplotlib>=3.8
+
+# PostgreSQL-Adapter (für spätere PG-Migration; schadet nicht wenn SQLite genutzt wird)
+psycopg2-binary>=2.9
+
+# Env-Datei-Unterstützung (optional — Render/Railway setzen Vars direkt)
+python-dotenv>=1.0
