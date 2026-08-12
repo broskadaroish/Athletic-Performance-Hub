@@ -1,0 +1,1039 @@
+SCHRITT 10 – IMPRESSUM, DATENSCHUTZ, AGB/NUTZUNGSBEDINGUNGEN, INFO UND SUPPORT
+
+Arbeite auf Basis des bestehenden Athletic Performance Hub Projekts weiter.
+
+WICHTIG:
+Diese Aufgabe betrifft ausschließlich:
+
+* sichtbare rechtliche Seiten
+* Info-Seite
+* Support-Kontakt
+* Footer-/Navigationslinks
+* rechtliche Hinweise
+
+NICHT verändern:
+
+* Login
+* Passwort vergessen
+* Benutzername vergessen
+* Registrierung
+* E-Mail-Verifikation
+* SMTP-Konfiguration
+* [noreply@aphsystem.de](mailto:noreply@aphsystem.de) Systemversand
+* Sessionverwaltung
+* ath_sid
+* CookieController
+* Datenbanklogik
+* Spieler
+* Diagnostik
+* Trainingsplanlogik
+* Sprintlogik
+* Pakete
+* Preise
+* Lizenzen
+* Vertragslogik
+* Kündigungslogik
+* Mandantentrennung
+
+==================================================
+0. VERBINDLICHE ARBEITSREGEL
+============================
+
+Prüfe zuerst, ob bereits vorhanden:
+
+* Info-Seite
+* Impressum
+* Datenschutz
+* AGB/Nutzungsbedingungen
+* Support-Seite
+* Footer
+* Rechtliche Links auf Loginseite
+
+Für jeden Punkt gilt:
+
+A) vollständig vorhanden
+→ vorhandene Struktur weiterverwenden und Inhalt aktualisieren
+
+B) teilweise vorhanden
+→ ergänzen
+
+C) nicht vorhanden
+→ neu erstellen
+
+Keine doppelten Seiten oder parallelen Rechtstext-Systeme erstellen.
+
+==================================================
+
+1. PRODUKTNAME
+   ==================================================
+
+Öffentlicher Produktname:
+
+Athletic Performance Hub
+
+Kurzname:
+
+APH
+
+Domain:
+
+aphsystem.de
+
+==================================================
+2. ANBIETERDATEN
+================
+
+Verwende folgende Anbieterangaben:
+
+Broska Daroish
+Athletic Performance Hub
+Am Remswasen 57
+73527 Schwäbisch Gmünd
+Deutschland
+
+Support:
+
+[support@aphsystem.de](mailto:support@aphsystem.de)
+
+Automatischer Systemversand:
+
+[noreply@aphsystem.de](mailto:noreply@aphsystem.de)
+
+==================================================
+3. WICHTIGE E-MAIL-TRENNUNG
+===========================
+
+[support@aphsystem.de](mailto:support@aphsystem.de) verwenden für:
+
+* Support
+* Kundenanfragen
+* Entwickler/Support kontaktieren
+* Datenschutzanfragen
+* Kontakt
+
+[noreply@aphsystem.de](mailto:noreply@aphsystem.de) weiterhin ausschließlich verwenden für bestehende automatische System-E-Mails:
+
+* Registrierung
+* E-Mail-Verifikation
+* Passwort-Reset
+* Benutzername-Reminder
+* sonstige automatische Systemnachrichten
+
+WICHTIG:
+
+Die bestehende SMTP-/E-Mail-Logik NICHT verändern.
+
+Insbesondere NICHT verändern:
+
+* SMTP_HOST
+* SMTP_PORT
+* SMTP_USERNAME
+* SMTP_PASSWORD
+* SMTP_FROM
+* bestehende email_service.py Logik
+
+Passwort-Reset und andere automatische E-Mails müssen unverändert weiter funktionieren.
+
+==================================================
+4. PRIVATE E-MAIL ENTFERNEN
+===========================
+
+Suche im sichtbaren produktiven Bereich nach:
+
+[broska_daroish@hotmail.de](mailto:broska_daroish@hotmail.de)
+
+Diese private Adresse darf nicht mehr als:
+
+* Support
+* Entwicklerkontakt
+* Info-Kontakt
+* Hilfe-Kontakt
+
+verwendet werden.
+
+Ersetzen durch:
+
+[support@aphsystem.de](mailto:support@aphsystem.de)
+
+==================================================
+5. INFO-SEITE
+=============
+
+Bestehende Info-Seite überarbeiten oder neu erstellen.
+
+Aufbau:
+
+ATHLETIC PERFORMANCE HUB
+
+Leistungsdiagnostik & Athletiktraining im Fußball
+
+Version:
+bestehende aktuelle App-Version dynamisch verwenden
+
+Entwickelt von:
+Broska Daroish
+
+Support:
+[support@aphsystem.de](mailto:support@aphsystem.de)
+
+Button:
+
+[Support kontaktieren]
+
+Ziel:
+
+mailto:support@aphsystem.de
+
+Betreff:
+
+Athletic Performance Hub – Supportanfrage
+
+Keine Spieler-, Diagnose- oder personenbezogenen Daten automatisch in die E-Mail übernehmen.
+
+==================================================
+6. KURZBESCHREIBUNG INFO
+========================
+
+Anzeigen:
+
+„Athletic Performance Hub unterstützt Trainer und Vereine bei der strukturierten Leistungsdiagnostik, Trainingsplanung und langfristigen Entwicklung von Fußballspielern.“
+
+==================================================
+7. MEDIZINISCHER / FACHLICHER HINWEIS IN INFO
+=============================================
+
+Abschnitt:
+
+Hinweis
+
+Text:
+
+„Athletic Performance Hub dient der sportlichen Leistungsdiagnostik und Trainingsplanung. Die dargestellten Auswertungen, Auffälligkeiten und Trainingsempfehlungen stellen keine medizinische Diagnose dar und ersetzen keine ärztliche oder physiotherapeutische Untersuchung.“
+
+Dezent darstellen, nicht als dramatische Fehlermeldung.
+
+==================================================
+8. RECHTLICHE LINKS IN INFO
+===========================
+
+Auf der Info-Seite Links bzw. Buttons:
+
+* Impressum
+* Datenschutz
+* AGB / Nutzungsbedingungen
+* Support kontaktieren
+
+Jeder rechtliche Bereich soll eine eigene Seite bzw. saubere eigene Ansicht haben.
+
+==================================================
+9. RECHTLICHE LINKS AUF LOGIN-SEITE
+===================================
+
+Auch ohne Login erreichbar machen:
+
+* Impressum
+* Datenschutz
+* AGB / Nutzungsbedingungen
+
+Diese Links sollen auf der Login-Seite sichtbar sein.
+
+Kein Login erforderlich.
+
+==================================================
+10. FOOTER
+==========
+
+Auf öffentlich sichtbaren Seiten bzw. soweit passend im Footer anzeigen:
+
+© 2026 Athletic Performance Hub · Impressum · Datenschutz · AGB · Support
+
+Falls bereits dynamische Jahreslogik vorhanden ist:
+weiterverwenden.
+
+Keine doppelte Copyright-Anzeige erzeugen.
+
+==================================================
+11. IMPRESSUM
+=============
+
+Erstelle folgende Impressumsseite:
+
+# Impressum
+
+Angaben gemäß § 5 DDG
+
+Broska Daroish
+Athletic Performance Hub
+Am Remswasen 57
+73527 Schwäbisch Gmünd
+Deutschland
+
+Kontakt
+
+E-Mail:
+[support@aphsystem.de](mailto:support@aphsystem.de)
+
+Verantwortlich für den Inhalt
+
+Broska Daroish
+Am Remswasen 57
+73527 Schwäbisch Gmünd
+Deutschland
+
+Athletic Performance Hub
+
+Athletic Performance Hub ist eine digitale Plattform zur Unterstützung von Trainern und Vereinen bei sportlicher Leistungsdiagnostik, Trainingsplanung, Trainingssteuerung und Dokumentation der sportlichen Entwicklung von Athleten.
+
+Hinweis zu sportlichen Auswertungen
+
+Die über Athletic Performance Hub bereitgestellten Testergebnisse, Scores, Auswertungen, Auffälligkeiten, Trainingsschwerpunkte und Trainingsempfehlungen dienen ausschließlich der sportlichen Leistungsdiagnostik und Trainingsplanung.
+
+Sie stellen keine medizinische Diagnose dar und ersetzen keine ärztliche, physiotherapeutische oder sonstige medizinische Untersuchung oder Behandlung.
+
+Bei Schmerzen, Verletzungen oder gesundheitlichen Beschwerden sollte eine entsprechend qualifizierte medizinische Fachperson hinzugezogen werden.
+
+Haftung für Inhalte
+
+Die Inhalte und Funktionen von Athletic Performance Hub werden mit Sorgfalt entwickelt und bereitgestellt.
+
+Eine Gewähr dafür, dass sämtliche sportlichen Auswertungen und Trainingsempfehlungen für jeden Athleten und jede individuelle Situation geeignet sind, wird nicht übernommen.
+
+Die fachliche Entscheidung über die konkrete Anwendung von Trainingsmaßnahmen verbleibt beim verantwortlichen Trainer bzw. der jeweils zuständigen Fachperson.
+
+Urheberrecht
+
+Die vom Anbieter erstellten Inhalte, Texte, Strukturen, Auswertungslogiken, Trainingslogiken, Darstellungen und sonstigen Bestandteile von Athletic Performance Hub unterliegen, soweit gesetzlich geschützt, dem deutschen Urheberrecht.
+
+Eine Vervielfältigung, Bearbeitung, Verbreitung oder sonstige Nutzung außerhalb der gesetzlich zulässigen Grenzen bedarf der vorherigen Zustimmung des Rechteinhabers.
+
+© 2026 Broska Daroish – Athletic Performance Hub.
+Alle Rechte vorbehalten.
+
+==================================================
+12. DATENSCHUTZERKLÄRUNG
+========================
+
+Erstelle folgende vollständige Datenschutzerklärung:
+
+# Datenschutzerklärung
+
+## 1. Verantwortlicher
+
+Verantwortlich für die Verarbeitung personenbezogener Daten im Zusammenhang mit Athletic Performance Hub ist:
+
+Broska Daroish
+Athletic Performance Hub
+Am Remswasen 57
+73527 Schwäbisch Gmünd
+Deutschland
+
+E-Mail:
+[support@aphsystem.de](mailto:support@aphsystem.de)
+
+## 2. Allgemeine Hinweise
+
+Der Schutz personenbezogener Daten ist uns wichtig.
+
+Athletic Performance Hub verarbeitet personenbezogene Daten ausschließlich im Rahmen der geltenden datenschutzrechtlichen Vorschriften, insbesondere der Datenschutz-Grundverordnung (DSGVO), des Bundesdatenschutzgesetzes (BDSG) und der einschlägigen Vorschriften für digitale Dienste.
+
+Diese Datenschutzerklärung informiert darüber, welche personenbezogenen Daten bei der Nutzung von Athletic Performance Hub verarbeitet werden, zu welchen Zwecken dies erfolgt und welche Rechte betroffene Personen besitzen.
+
+## 3. Hosting und technische Bereitstellung
+
+Athletic Performance Hub wird produktiv auf Server-Infrastruktur der IONOS SE, Elgendorfer Straße 57, 56410 Montabaur, Deutschland, betrieben.
+
+Im Rahmen des Hostings können personenbezogene Daten verarbeitet werden, die bei der Nutzung der Anwendung entstehen oder innerhalb der Anwendung gespeichert werden.
+
+Dazu können insbesondere gehören:
+
+* IP-Adresse
+* Zeitpunkt des Zugriffs
+* technische Verbindungsinformationen
+* Server- und Fehlerprotokolle
+* Benutzer- und Accountdaten
+* innerhalb der Anwendung gespeicherte Daten
+
+Die Verarbeitung erfolgt zur sicheren, stabilen und funktionsfähigen Bereitstellung von Athletic Performance Hub.
+
+Soweit IONOS personenbezogene Daten in unserem Auftrag verarbeitet, erfolgt dies auf Grundlage einer Auftragsverarbeitung gemäß Art. 28 DSGVO.
+
+## 4. Entwicklung und Softwarebereitstellung
+
+Für die Entwicklung von Athletic Performance Hub werden Entwicklungs- und Versionsverwaltungssysteme eingesetzt.
+
+Der Anwendungscode wird unter anderem mit Replit entwickelt und über GitHub verwaltet bzw. für die Bereitstellung auf der Produktivumgebung verwendet.
+
+Die produktiven Benutzer-, Spieler-, Diagnose- und Trainingsdaten werden nach dem vorgesehenen Systemaufbau nicht als Bestandteil des Quellcode-Repositories gespeichert.
+
+Produktive Datenbanken, Zugangsdaten, Passwörter, SMTP-Passwörter, Session-Tokens und sonstige Secrets dürfen insbesondere nicht im für die Quellcodeverwaltung bestimmten Repository gespeichert werden.
+
+## 5. Registrierung und Benutzerkonto
+
+Für die Nutzung von Athletic Performance Hub kann die Erstellung eines Benutzerkontos erforderlich sein.
+
+Dabei können insbesondere folgende Daten verarbeitet werden:
+
+* Vorname
+* Nachname
+* Benutzername
+* E-Mail-Adresse
+* Passwort in technisch gesicherter Form
+* Trainer- oder Vereinszuordnung
+* Vereins- bzw. Organisationsname
+* Rechnungsanschrift
+* Vertragsdaten
+* Paket- und Lizenzinformationen
+* Registrierungsdatum
+* E-Mail-Verifizierungsstatus
+* Accountstatus
+* Zeitpunkt des letzten Logins
+
+Die Verarbeitung erfolgt insbesondere zur Durchführung des Nutzungs- bzw. Vertragsverhältnisses, zur Benutzerverwaltung, zur Authentifizierung und zur Sicherheit der Anwendung.
+
+Rechtsgrundlage ist insbesondere Art. 6 Abs. 1 lit. b DSGVO, soweit die Verarbeitung zur Durchführung eines Vertrags oder vorvertraglicher Maßnahmen erforderlich ist.
+
+Soweit gesetzliche Pflichten bestehen, kann die Verarbeitung außerdem auf Art. 6 Abs. 1 lit. c DSGVO beruhen.
+
+## 6. E-Mail-Verifikation
+
+Nach der Registrierung kann eine Bestätigung der angegebenen E-Mail-Adresse erforderlich sein.
+
+Hierfür wird ein zeitlich begrenzter Verifizierungslink bzw. Verifizierungstoken erzeugt und an die hinterlegte E-Mail-Adresse versendet.
+
+Die Verarbeitung dient insbesondere der Überprüfung der angegebenen E-Mail-Adresse und dem Schutz vor missbräuchlichen Registrierungen.
+
+## 7. Passwort vergessen und Benutzername vergessen
+
+Athletic Performance Hub bietet Funktionen zur Wiederherstellung des Zugangs.
+
+Beim Zurücksetzen eines Passworts wird ein zeitlich begrenzter Sicherheitslink bzw. Token an die hinterlegte und berechtigte E-Mail-Adresse versendet.
+
+Passwörter werden nicht im Klartext per E-Mail versendet.
+
+Bei einer zulässigen Benutzername-Erinnerung kann der zum Konto gehörende Benutzername an die hinterlegte E-Mail-Adresse übermittelt werden.
+
+## 8. E-Mail-Versand
+
+Für System- und Supportkommunikation werden E-Mail-Dienste von IONOS verwendet.
+
+Automatische System-E-Mails können insbesondere über:
+
+[noreply@aphsystem.de](mailto:noreply@aphsystem.de)
+
+versendet werden.
+
+Dazu gehören beispielsweise:
+
+* Registrierungsbestätigung
+* E-Mail-Verifikation
+* Passwort-Reset
+* Benutzername-Erinnerung
+* sicherheits- oder kontobezogene Nachrichten
+
+Für Supportanfragen wird verwendet:
+
+[support@aphsystem.de](mailto:support@aphsystem.de)
+
+Wenn Sie uns per E-Mail kontaktieren, werden die von Ihnen übermittelten Daten zur Bearbeitung der Anfrage verarbeitet.
+
+## 9. Spieler- und Athletendaten
+
+Trainer und Vereine können innerhalb von Athletic Performance Hub Spieler bzw. Athleten verwalten.
+
+Je nach Nutzung der Funktionen können insbesondere folgende Daten verarbeitet werden:
+
+* Vorname und Nachname
+* Geburtsdatum bzw. Geburtsjahr
+* Alter
+* Verein
+* Mannschaft
+* Spielposition
+* Spielbein
+* sportbezogene Profildaten
+* Körpergröße
+* Gewicht
+* sportliche Leistungsdaten
+* Trainingsdaten
+* Testhistorien
+* Entwicklungsdaten
+* Trainerbeobachtungen und Notizen
+
+Die Daten dienen insbesondere der Organisation, sportlichen Leistungsdiagnostik, Trainingsplanung, Trainingssteuerung und Dokumentation der sportlichen Entwicklung.
+
+## 10. Leistungsdiagnostische Daten
+
+Athletic Performance Hub ermöglicht die Erfassung und Auswertung verschiedener sportlicher Tests.
+
+Dazu können insbesondere gehören:
+
+FMS-Daten:
+
+* Ergebnisse einzelner Bewegungsaufgaben
+* Gesamtwerte
+* Seitenunterschiede
+* sportbezogene Auffälligkeiten
+
+Y-Balance-Daten:
+
+* Reichweiten
+* Seitenunterschiede
+* Composite Scores
+* sportbezogene Auffälligkeiten
+
+Sprintdaten:
+
+* Sprintzeiten
+* Zwischenzeiten
+* Geschwindigkeit
+* Beschleunigungswerte
+* Leistungsentwicklung
+
+Weitere sportliche Test- und Leistungsdaten können verarbeitet werden, soweit entsprechende Funktionen von Athletic Performance Hub genutzt werden.
+
+## 11. Trainingsdaten und Trainingspläne
+
+Athletic Performance Hub verarbeitet Daten zur Erstellung und Verwaltung von Trainingsplänen.
+
+Dazu können insbesondere gehören:
+
+* Trainingsschwerpunkte
+* Übungen
+* Trainingsdauer
+* Belastungsparameter
+* Trainingshäufigkeit
+* absolvierte Einheiten
+* Notizen
+* Trainingshistorie
+* Änderungen und Ergänzungen von Trainingsplänen
+
+Die Verarbeitung dient der sportlichen Trainingsplanung und Dokumentation.
+
+## 12. Verletzungen und gesundheitsbezogene Angaben
+
+Soweit innerhalb von Athletic Performance Hub Angaben über Verletzungen, Schmerzen, gesundheitliche Einschränkungen oder vergleichbare Informationen gespeichert werden, können Gesundheitsdaten und damit besondere Kategorien personenbezogener Daten im Sinne des Art. 9 DSGVO betroffen sein.
+
+Für solche Daten gelten erhöhte datenschutzrechtliche Anforderungen.
+
+Trainer und Vereine dürfen solche Informationen nur erfassen, wenn hierfür eine geeignete Rechtsgrundlage nach Art. 9 DSGVO besteht.
+
+Athletic Performance Hub stellt keine medizinischen Diagnosen.
+
+## 13. Minderjährige Athleten
+
+Athletic Performance Hub kann für die sportliche Betreuung minderjähriger Athleten eingesetzt werden.
+
+Trainer und Vereine, die personenbezogene Daten Minderjähriger in Athletic Performance Hub eintragen, sind dafür verantwortlich, dass die Verarbeitung dieser Daten rechtmäßig erfolgt und erforderliche Informationen, Zustimmungen oder Einwilligungen eingeholt werden.
+
+Dies gilt insbesondere bei besonders schutzbedürftigen bzw. gesundheitsbezogenen Daten.
+
+## 14. Verantwortlichkeit von Trainern und Vereinen
+
+Soweit Trainer oder Vereine eigenständig personenbezogene Daten ihrer Spieler bzw. Athleten in Athletic Performance Hub eingeben und über Zwecke und wesentliche Mittel der Verarbeitung entscheiden, sind die jeweiligen datenschutzrechtlichen Rollen nach den Umständen des konkreten Nutzungsverhältnisses zu bestimmen.
+
+Soweit Athletic Performance Hub personenbezogene Daten im Auftrag eines Trainers oder Vereins verarbeitet, ist eine Vereinbarung zur Auftragsverarbeitung gemäß Art. 28 DSGVO abzuschließen.
+
+Für Vereins- und Geschäftskunden sollte daher bei entsprechender Auftragsverarbeitung eine entsprechende AVV bereitgestellt werden.
+
+## 15. Mandantentrennung
+
+Athletic Performance Hub ist als mandantenfähige Anwendung aufgebaut.
+
+Daten verschiedener Trainer und Vereine werden logisch voneinander getrennt.
+
+Ein Trainer oder Verein soll grundsätzlich ausschließlich auf die Daten zugreifen können, die seinem eigenen Kunden- bzw. Organisationsbereich zugeordnet sind und für die entsprechende Berechtigungen bestehen.
+
+Dazu gehören insbesondere:
+
+* Spieler
+* Tests
+* Trainingspläne
+* Trainingsdaten
+* Berichte
+* Notizen
+* Vertrags- und Kontodaten
+
+Administrative Zugriffe können im erforderlichen Umfang für Betrieb, Support, Sicherheit, Fehlerbehebung und Kundenverwaltung erfolgen.
+
+## 16. Session-Cookie
+
+Athletic Performance Hub verwendet einen technisch notwendigen Session-Cookie, um einen angemeldeten Benutzer während seiner Sitzung zu authentifizieren und die Anmeldung bei internen Seitenwechseln aufrechtzuerhalten.
+
+Hierfür wird insbesondere die Sitzungskennung:
+
+ath_sid
+
+verwendet.
+
+Der Cookie dient der Authentifizierung und Sicherheit der Anwendung.
+
+Er wird nicht für Werbe- oder Trackingzwecke eingesetzt.
+
+## 17. Keine Werbe- oder Tracking-Cookies
+
+Nach dem derzeit vorgesehenen Aufbau verwendet Athletic Performance Hub keine eigenen Cookies für personalisierte Werbung oder Marketingtracking.
+
+Sollte zukünftig beispielsweise ein Analyse-, Marketing- oder vergleichbarer nicht technisch notwendiger Dienst integriert werden, wird diese Datenschutzerklärung entsprechend angepasst und, soweit erforderlich, eine Einwilligung eingeholt.
+
+## 18. Server- und Sicherheitsprotokolle
+
+Zur Sicherstellung eines stabilen und sicheren Betriebs können technische Protokolldaten verarbeitet werden.
+
+Hierzu können insbesondere gehören:
+
+* IP-Adresse
+* Datum und Uhrzeit
+* aufgerufene Ressource
+* technische Fehler
+* Login- und Sicherheitsereignisse
+* Browser- und Geräteinformationen
+
+Die Verarbeitung dient insbesondere der technischen Bereitstellung, Fehleranalyse, IT-Sicherheit und Missbrauchsprävention.
+
+## 19. Datensicherheit
+
+Athletic Performance Hub setzt technische und organisatorische Maßnahmen ein, um personenbezogene Daten vor Verlust, unberechtigtem Zugriff und Manipulation zu schützen.
+
+Hierzu gehören nach dem vorgesehenen System insbesondere:
+
+* Benutzer- und Rollenverwaltung
+* Mandantentrennung
+* E-Mail-Verifikation
+* sichere Passwortspeicherung
+* Sessionverwaltung
+* Zugriffsbeschränkungen
+* HTTPS-verschlüsselte Übertragung
+* serverseitige Zugriffskontrollen
+* Datensicherungen
+
+Die Sicherheitsmaßnahmen werden entsprechend der technischen Entwicklung überprüft und weiterentwickelt.
+
+## 20. Datensicherung
+
+Zur Vermeidung unbeabsichtigten Datenverlusts können Sicherungskopien der produktiven Daten erstellt werden.
+
+Sicherungen dienen ausschließlich der Wiederherstellung nach technischen Störungen, Datenverlust oder vergleichbaren Ereignissen.
+
+Der Zugriff auf Sicherungen ist auf berechtigte administrative Zwecke zu beschränken.
+
+## 21. Speicherdauer
+
+Personenbezogene Daten werden nur so lange gespeichert, wie sie für den jeweiligen Verarbeitungszweck erforderlich sind oder gesetzliche Aufbewahrungspflichten bestehen.
+
+Account-, Vertrags- und Rechnungsdaten können aufgrund handels- oder steuerrechtlicher Anforderungen über das Ende des Vertrags hinaus gespeichert werden.
+
+Eine Kündigung führt daher nicht zwingend zur sofortigen Löschung sämtlicher Daten.
+
+Nicht mehr erforderliche personenbezogene Daten werden gelöscht oder, soweit eine Löschung aufgrund gesetzlicher Aufbewahrungspflichten noch nicht zulässig ist, für andere Verarbeitungszwecke gesperrt.
+
+## 22. Kündigung und Löschung
+
+Die Kündigung eines Athletic-Performance-Hub-Vertrags und die datenschutzrechtliche Löschung personenbezogener Daten sind voneinander zu unterscheiden.
+
+Durch eine Kündigung kann der Zugang zum Dienst entsprechend dem Vertragsverhältnis beendet oder eingeschränkt werden.
+
+Löschanfragen werden unter Berücksichtigung gesetzlicher Aufbewahrungspflichten und bestehender Rechte und Pflichten bearbeitet.
+
+## 23. Empfänger personenbezogener Daten
+
+Personenbezogene Daten werden nur weitergegeben, wenn hierfür eine gesetzliche Grundlage besteht, dies zur Vertragserfüllung erforderlich ist oder ein Dienstleister im Rahmen einer zulässigen Auftragsverarbeitung eingesetzt wird.
+
+Zu den derzeit für den Produktivbetrieb relevanten technischen Dienstleistern gehört insbesondere:
+
+IONOS SE
+Elgendorfer Straße 57
+56410 Montabaur
+Deutschland
+
+insbesondere für Server-/Hosting-Infrastruktur und E-Mail-Dienste.
+
+## 24. Drittlandübermittlung
+
+Produktive Spieler- und Kundendaten sollen nach der derzeitigen Architektur auf der hierfür vorgesehenen IONOS-Infrastruktur verarbeitet werden.
+
+Werden zukünftig Dienste eingesetzt, bei denen personenbezogene Daten außerhalb des Europäischen Wirtschaftsraums verarbeitet werden, werden die gesetzlichen Anforderungen an internationale Datenübermittlungen berücksichtigt und diese Datenschutzerklärung entsprechend angepasst.
+
+## 25. Automatisierte Auswertungen
+
+Athletic Performance Hub kann auf Grundlage eingegebener Test- und Trainingsdaten automatisiert Scores, Auffälligkeiten, Trainingsschwerpunkte und Trainingsvorschläge erzeugen.
+
+Diese Funktionen dienen als Unterstützung für Trainer und Vereine.
+
+Die endgültige fachliche Trainingsentscheidung verbleibt beim verantwortlichen Nutzer.
+
+Die Auswertungen stellen keine medizinische Diagnose dar.
+
+## 26. Rechte betroffener Personen
+
+Betroffene Personen haben bei Vorliegen der gesetzlichen Voraussetzungen insbesondere das Recht auf:
+
+* Auskunft gemäß Art. 15 DSGVO
+* Berichtigung gemäß Art. 16 DSGVO
+* Löschung gemäß Art. 17 DSGVO
+* Einschränkung der Verarbeitung gemäß Art. 18 DSGVO
+* Datenübertragbarkeit gemäß Art. 20 DSGVO
+* Widerspruch gemäß Art. 21 DSGVO
+* Widerruf einer Einwilligung mit Wirkung für die Zukunft
+
+Zur Ausübung dieser Rechte kann eine Anfrage gerichtet werden an:
+
+[support@aphsystem.de](mailto:support@aphsystem.de)
+
+## 27. Beschwerderecht
+
+Betroffene Personen haben außerdem das Recht, sich bei einer Datenschutzaufsichtsbehörde über die Verarbeitung ihrer personenbezogenen Daten zu beschweren.
+
+## 28. Änderung der Datenschutzerklärung
+
+Athletic Performance Hub wird weiterentwickelt.
+
+Diese Datenschutzerklärung kann deshalb angepasst werden, wenn sich Funktionen, technische Dienstleister, Verarbeitungen oder gesetzliche Anforderungen ändern.
+
+Es gilt die jeweils aktuelle innerhalb von Athletic Performance Hub bzw. auf der Website veröffentlichte Fassung.
+
+Stand:
+12. August 2026
+
+==================================================
+13. AGB / NUTZUNGSBEDINGUNGEN
+=============================
+
+Erstelle folgende Seite:
+
+# Allgemeine Geschäfts- und Nutzungsbedingungen
+
+## Athletic Performance Hub
+
+Anbieter:
+
+Broska Daroish
+Athletic Performance Hub
+Am Remswasen 57
+73527 Schwäbisch Gmünd
+Deutschland
+
+E-Mail:
+[support@aphsystem.de](mailto:support@aphsystem.de)
+
+## 1. Geltungsbereich
+
+Diese Allgemeinen Geschäfts- und Nutzungsbedingungen gelten für Verträge über die Nutzung der Softwareplattform Athletic Performance Hub.
+
+Athletic Performance Hub richtet sich insbesondere an Trainer, Vereine und andere berechtigte Organisationen bzw. Personen aus dem Sportbereich.
+
+## 2. Leistungsgegenstand
+
+Athletic Performance Hub ist eine digitale Plattform zur sportlichen Leistungsdiagnostik, Athletenverwaltung, Trainingsplanung, Trainingssteuerung und Dokumentation.
+
+Je nach gebuchtem Paket können insbesondere Funktionen zur Spielerverwaltung, FMS-, Y-Balance- und Sprintdiagnostik, Trainingsplanung, Entwicklungsdokumentation, Berichterstellung und weitere sportbezogene Funktionen bereitgestellt werden.
+
+Der konkrete Leistungsumfang richtet sich nach dem bei Vertragsschluss vereinbarten Paket.
+
+## 3. Registrierung
+
+Für die Nutzung ist grundsätzlich ein Benutzerkonto erforderlich.
+
+Der Kunde ist verpflichtet, vollständige und zutreffende Angaben zu machen.
+
+Die angegebene E-Mail-Adresse kann vor Freischaltung verifiziert werden.
+
+## 4. Zugangsdaten
+
+Benutzer sind verpflichtet, ihre Zugangsdaten vertraulich zu behandeln und gegen unberechtigten Zugriff zu schützen.
+
+Eine unberechtigte Weitergabe von Zugangsdaten ist nicht zulässig.
+
+Bei Verdacht auf Missbrauch ist der Support unverzüglich unter:
+
+[support@aphsystem.de](mailto:support@aphsystem.de)
+
+zu informieren.
+
+## 5. Trainer- und Vereinskonten
+
+Athletic Performance Hub kann unterschiedliche Kontotypen und Berechtigungsstufen bereitstellen.
+
+Hierzu gehören insbesondere Trainer- und Vereinskonten sowie innerhalb von Vereinskonten gegebenenfalls weitere berechtigte Benutzer.
+
+## 6. Pakete und Lizenzen
+
+Umfang, Benutzeranzahl, Spieleranzahl und verfügbare Funktionen richten sich nach dem jeweils vereinbarten Paket bzw. der zugewiesenen Lizenz.
+
+## 7. Preise und Zahlung
+
+Es gelten die zum Zeitpunkt des Vertragsschlusses vereinbarten Preise.
+
+Zahlungsweise, Abrechnungszeitraum und Fälligkeit richten sich nach dem jeweiligen Vertrag bzw. Paket.
+
+## 8. Vertragslaufzeit
+
+Beginn, Mindestlaufzeit und gegebenenfalls Verlängerung des Vertrags richten sich nach dem bei Vertragsschluss ausgewählten bzw. vereinbarten Tarif.
+
+## 9. Kündigung
+
+Verträge können unter Einhaltung der jeweils vereinbarten Kündigungsbedingungen gekündigt werden.
+
+Soweit Athletic Performance Hub eine Online-Kündigungsfunktion bereitstellt, kann die Kündigung darüber erklärt werden.
+
+Der Eingang einer elektronischen Kündigung wird entsprechend bestätigt.
+
+## 10. Auswirkungen einer Kündigung
+
+Eine Kündigung führt nicht automatisch zur sofortigen technischen Löschung sämtlicher gespeicherter Daten.
+
+Nach Vertragsende kann der Zugang zu Athletic Performance Hub eingeschränkt oder deaktiviert werden.
+
+Die weitere Speicherung bzw. Löschung personenbezogener Daten richtet sich nach gesetzlichen Anforderungen und der Datenschutzerklärung.
+
+## 11. Nutzung der Plattform
+
+Athletic Performance Hub darf ausschließlich im Rahmen der vertraglich eingeräumten Nutzungsrechte verwendet werden.
+
+Insbesondere untersagt sind:
+
+* unberechtigte Zugriffe auf fremde Konten oder Daten
+* Umgehung technischer Beschränkungen
+* Weitergabe von Zugängen an unberechtigte Personen
+* vorsätzliche Beeinträchtigung des Systems
+* Einbringen von Schadsoftware
+* rechtswidrige Nutzung der Plattform
+
+## 12. Verantwortung für Athletendaten
+
+Der Kunde ist dafür verantwortlich, dass personenbezogene Daten von Spielern, Athleten, Eltern oder anderen Personen rechtmäßig in Athletic Performance Hub eingegeben und verarbeitet werden dürfen.
+
+Dies gilt insbesondere für Daten Minderjähriger und gesundheitsbezogene Informationen.
+
+## 13. Datenschutz und Auftragsverarbeitung
+
+Soweit Athletic Performance Hub personenbezogene Daten im Auftrag des Kunden verarbeitet und die gesetzlichen Voraussetzungen einer Auftragsverarbeitung vorliegen, schließen die Parteien eine Vereinbarung zur Auftragsverarbeitung gemäß Art. 28 DSGVO.
+
+## 14. Leistungsdiagnostik
+
+Athletic Performance Hub unterstützt Trainer bei der strukturierten Auswertung sportlicher Leistungsdaten.
+
+Testergebnisse und Scores müssen im sportlichen Gesamtkontext betrachtet werden.
+
+Die Plattform kann Trainingsschwerpunkte und Auffälligkeiten darstellen.
+
+## 15. Keine medizinische Diagnose
+
+Athletic Performance Hub ist kein medizinisches Diagnose- oder Behandlungssystem.
+
+Scores, Auffälligkeiten, Risikohinweise und Trainingsempfehlungen stellen keine medizinische Diagnose dar.
+
+Bei Verletzungen, Schmerzen oder gesundheitlichen Beschwerden ist eine entsprechend qualifizierte medizinische Fachperson hinzuzuziehen.
+
+## 16. Trainingsvorschläge
+
+Automatisch oder regelbasiert erzeugte Trainingsvorschläge dienen als Unterstützung.
+
+Der verantwortliche Trainer entscheidet, ob Übungen, Trainingsumfang und Belastung für den jeweiligen Athleten geeignet sind.
+
+Alter, Leistungsstand, Trainingszustand, Belastbarkeit, Beschwerden und sonstige relevante individuelle Faktoren sind dabei zu berücksichtigen.
+
+## 17. Verfügbarkeit
+
+Der Anbieter bemüht sich um eine hohe Verfügbarkeit von Athletic Performance Hub.
+
+Eine jederzeit vollständig unterbrechungsfreie Verfügbarkeit kann technisch nicht garantiert werden.
+
+Vorübergehende Einschränkungen können insbesondere aufgrund von Wartung, Updates, Sicherheitsmaßnahmen, technischen Störungen oder Ausfällen externer Infrastruktur auftreten.
+
+## 18. Updates
+
+Athletic Performance Hub wird fortlaufend weiterentwickelt.
+
+Der Anbieter darf Fehlerbehebungen, Sicherheitsupdates und technische Verbesserungen durchführen.
+
+Wesentliche vertraglich geschuldete Leistungen werden nicht ohne rechtlichen bzw. vertraglichen Grund entzogen.
+
+## 19. Datensicherheit und Datensicherung
+
+Der Anbieter trifft angemessene technische und organisatorische Maßnahmen zum Schutz der gespeicherten Daten.
+
+Hierzu können insbesondere Zugriffskontrollen, Mandantentrennung und Datensicherungen gehören.
+
+Eine absolute Sicherheit gegen sämtliche technisch möglichen Risiken kann nicht gewährleistet werden.
+
+## 20. Mandantentrennung
+
+Daten verschiedener Kunden werden logisch voneinander getrennt.
+
+Ein Trainer oder Verein darf grundsätzlich nur auf die seinem Kundenbereich zugeordneten Daten zugreifen.
+
+## 21. Haftung
+
+Die Haftung des Anbieters richtet sich nach den gesetzlichen Vorschriften.
+
+Gesetzlich zwingende Haftungsansprüche, insbesondere wegen Vorsatz, grober Fahrlässigkeit sowie bei Verletzung von Leben, Körper oder Gesundheit, bleiben unberührt.
+
+## 22. Verantwortung für Trainingsentscheidungen
+
+Athletic Performance Hub ist ein unterstützendes Softwarewerkzeug.
+
+Die fachliche Verantwortung für die konkrete Trainingsgestaltung, Belastungssteuerung und Beurteilung der Einsatzfähigkeit eines Athleten verbleibt beim verantwortlichen Trainer bzw. der zuständigen Fachperson.
+
+## 23. Rechte an der Software
+
+Software, Design, Struktur, Texte, Grafiken, Auswertungslogiken und sonstige vom Anbieter entwickelte Bestandteile von Athletic Performance Hub dürfen nur im Rahmen der eingeräumten Nutzungsrechte verwendet werden.
+
+Eine nicht gestattete Vervielfältigung, Weitergabe, Veröffentlichung oder kommerzielle Verwertung ist nicht zulässig.
+
+## 24. Sperrung
+
+Bei konkretem Verdacht auf Missbrauch, erhebliche Sicherheitsgefährdungen oder schwerwiegende Vertragsverstöße kann der Zugang im erforderlichen Umfang vorübergehend gesperrt werden.
+
+## 25. Support
+
+Supportanfragen können gerichtet werden an:
+
+[support@aphsystem.de](mailto:support@aphsystem.de)
+
+Die Adresse:
+
+[noreply@aphsystem.de](mailto:noreply@aphsystem.de)
+
+dient ausschließlich dem automatisierten Systemversand und ist nicht als Supportadresse vorgesehen.
+
+## 26. Änderungen dieser Bedingungen
+
+Änderungen dieser Bedingungen erfolgen unter Beachtung der gesetzlichen Voraussetzungen.
+
+Soweit für eine Änderung die Zustimmung des Kunden erforderlich ist, wird diese entsprechend eingeholt.
+
+## 27. Anwendbares Recht
+
+Es gilt das Recht der Bundesrepublik Deutschland unter Beachtung zwingender gesetzlicher Vorschriften.
+
+## 28. Schlussbestimmungen
+
+Sollten einzelne Bestimmungen unwirksam sein oder werden, richten sich die Rechtsfolgen nach den gesetzlichen Vorschriften.
+
+Stand:
+12. August 2026
+
+==================================================
+14. MOBILE DARSTELLUNG
+======================
+
+Alle rechtlichen Seiten müssen auf Smartphone gut lesbar sein.
+
+Anforderungen:
+
+* keine breite Tabelle
+* ausreichend große Schrift
+* sinnvolle Absätze
+* klare Überschriften
+* links/rechts ca. 16–20 px Abstand
+* keine horizontalen Scrollbars
+
+==================================================
+15. DESKTOP DARSTELLUNG
+=======================
+
+Auf Desktop/Laptop:
+
+* Textbreite sinnvoll begrenzen
+* gute Lesbarkeit
+* nicht über gesamte extrem breite Bildschirmfläche ziehen
+* Abschnitte klar strukturieren
+
+==================================================
+16. SUPPORT-BUTTON
+==================
+
+Bevorzugte Bezeichnung:
+
+„Support kontaktieren“
+
+statt:
+
+„Entwickler kontaktieren“
+
+Wenn bestehender Button „Entwickler kontaktieren“ vorhanden ist:
+in sichtbarer Benutzeroberfläche auf:
+
+„Support kontaktieren“
+
+ändern.
+
+Ziel:
+
+[support@aphsystem.de](mailto:support@aphsystem.de)
+
+==================================================
+17. KEINE AUTOMATISCHE ÜBERSETZUNG VON EIGENNAMEN
+=================================================
+
+Nicht automatisch übersetzen:
+
+* Athletic Performance Hub
+* Broska Daroish
+* [support@aphsystem.de](mailto:support@aphsystem.de)
+* [noreply@aphsystem.de](mailto:noreply@aphsystem.de)
+* IONOS
+* GitHub
+* Replit
+
+==================================================
+18. KEINE SENSIBLEN TECHNISCHEN DATEN ANZEIGEN
+==============================================
+
+Nicht öffentlich anzeigen:
+
+* SMTP_PASSWORD
+* Session-Tokens
+* ath_sid-Wert
+* Datenbankpasswort
+* Datenbankpfad
+* Replit Secrets
+* GitHub Tokens
+* SSH-Schlüssel
+* Server-Zugangsdaten
+* interne API-Schlüssel
+
+==================================================
+19. BESTEHENDE FUNKTIONEN TESTEN
+================================
+
+Nach Umsetzung testen:
+
+1. Login
+2. Passwort vergessen
+3. Benutzername vergessen
+4. E-Mail-Verifikation
+5. Session
+6. Mobile Navigation
+7. Desktop Navigation
+8. Support kontaktieren
+9. Impressum ohne Login
+10. Datenschutz ohne Login
+11. AGB ohne Login
+
+WICHTIG:
+
+Passwort vergessen muss weiterhin E-Mails über [noreply@aphsystem.de](mailto:noreply@aphsystem.de) versenden können.
+
+==================================================
+20. ABSCHLUSSBERICHT
+====================
+
+Nach Umsetzung berichten:
+
+1. Welche rechtlichen Seiten waren bereits vorhanden?
+2. Was wurde neu erstellt?
+3. Wo wurde [broska_daroish@hotmail.de](mailto:broska_daroish@hotmail.de) gefunden?
+4. Wurde sie vollständig durch [support@aphsystem.de](mailto:support@aphsystem.de) ersetzt?
+5. Wird [noreply@aphsystem.de](mailto:noreply@aphsystem.de) weiterhin nur für System-E-Mails verwendet?
+6. Funktioniert Passwort-Reset weiterhin?
+7. Funktioniert Benutzername-Reminder weiterhin?
+8. Ist Impressum ohne Login erreichbar?
+9. Ist Datenschutz ohne Login erreichbar?
+10. Sind AGB ohne Login erreichbar?
+11. Ist Support kontaktieren auf [support@aphsystem.de](mailto:support@aphsystem.de) umgestellt?
+12. Welche Dateien wurden geändert?
+13. Wurden Authentifizierung, Datenbank, Pakete, Preise oder Trainingslogik verändert? Erwartet: NEIN.
+
+Danach STOPPEN.
+
+Keine weiteren Funktionen automatisch hinzufügen.
