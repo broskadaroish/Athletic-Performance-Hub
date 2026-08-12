@@ -339,6 +339,20 @@ def init_db():
             status         TEXT DEFAULT 'offen'
         );
 
+        CREATE TABLE IF NOT EXISTS trainingsplan_versionen (
+            id               INTEGER PRIMARY KEY AUTOINCREMENT,
+            spieler_id       INTEGER REFERENCES spieler(id),
+            version_nr       INTEGER NOT NULL DEFAULT 1,
+            datum            TEXT NOT NULL,
+            erstellt_von     TEXT DEFAULT '',
+            status           TEXT DEFAULT 'AKTIV',
+            modus            TEXT DEFAULT 'Basis',
+            schwerpunkt      TEXT DEFAULT '',
+            trainingszeit_min INTEGER DEFAULT 60,
+            notizen          TEXT DEFAULT '',
+            diagnose_snapshot TEXT DEFAULT ''
+        );
+
         CREATE TABLE IF NOT EXISTS periodisierung (
             id           INTEGER PRIMARY KEY AUTOINCREMENT,
             spieler_id   INTEGER REFERENCES spieler(id),
@@ -793,11 +807,48 @@ def _migrate_db():
             ("energie_system", "TEXT    DEFAULT 'Gemischt'"),
             ("equipment",      "TEXT    DEFAULT 'Körpergewicht'"),
             ("begruendung",    "TEXT    DEFAULT ''"),
+            # SCHRITT 4: Versionierung + Bearbeitung
+            ("plan_id",        "INTEGER DEFAULT NULL"),
+            ("position",       "INTEGER DEFAULT 0"),
+            ("notiz",          "TEXT    DEFAULT ''"),
+            ("trainerhinweis", "TEXT    DEFAULT ''"),
+            ("spielerhinweis", "TEXT    DEFAULT ''"),
+            ("abgehakt",       "INTEGER DEFAULT 0"),
         ]:
             try:
                 conn.execute(f"ALTER TABLE trainingsplan ADD COLUMN {_col} {_typ}")
             except Exception:
                 pass
+
+        # ── SCHRITT 4: Datenmigration — bestehende Pläne in AKTIV-Version einbetten ──
+        try:
+            _spieler_ohne_version = conn.execute("""
+                SELECT DISTINCT t.spieler_id FROM trainingsplan t
+                WHERE t.plan_id IS NULL AND t.spieler_id IS NOT NULL
+            """).fetchall()
+            for (_s_id,) in _spieler_ohne_version:
+                _min_datum = (conn.execute(
+                    "SELECT MIN(datum) FROM trainingsplan WHERE spieler_id=? AND plan_id IS NULL",
+                    (_s_id,)
+                ).fetchone() or [None])[0] or "2024-01-01"
+                _max_v = (conn.execute(
+                    "SELECT COALESCE(MAX(version_nr),0) FROM trainingsplan_versionen WHERE spieler_id=?",
+                    (_s_id,)
+                ).fetchone() or [0])[0]
+                if _max_v == 0:  # Nur wenn noch keine Version existiert
+                    _cur = conn.execute(
+                        "INSERT INTO trainingsplan_versionen "
+                        "(spieler_id,version_nr,datum,erstellt_von,status,modus,trainingszeit_min,notizen) "
+                        "VALUES (?,?,?,?,?,?,?,?)",
+                        (_s_id, 1, _min_datum, "Migration", "AKTIV", "Basis", 60, ""),
+                    )
+                    _v_id = _cur.lastrowid
+                    conn.execute(
+                        "UPDATE trainingsplan SET plan_id=?,position=id WHERE spieler_id=? AND plan_id IS NULL",
+                        (_v_id, _s_id),
+                    )
+        except Exception:
+            pass
 
         # ── Duplikate in trainerbeobachtung bereinigen ───────────────────────
         conn.execute("""
@@ -1884,6 +1935,7 @@ def spiro_test_loeschen(test_id: int) -> None:
 # ─── Trainingsplan ─────────────────────────────────────────────────────────
 
 def trainingsplan_loeschen(spieler_id):
+    """Löscht alle Trainingsplan-Einträge eines Spielers (wird vom Generator nicht mehr direkt genutzt)."""
     with get_conn() as conn:
         conn.execute("DELETE FROM trainingsplan WHERE spieler_id=?", (spieler_id,))
 
@@ -1895,31 +1947,212 @@ def trainingsplan_eintrag_speichern(spieler_id, datum, woche, bereich, uebung, s
                                     rpe: int = 7,
                                     energie_system: str = "Gemischt",
                                     equipment: str = "Körpergewicht",
-                                    begruendung: str = ""):
+                                    begruendung: str = "",
+                                    plan_id: int | None = None,
+                                    position: int = 0,
+                                    notiz: str = ""):
     with get_conn() as conn:
         conn.execute(
             "INSERT INTO trainingsplan (spieler_id,datum,woche,bereich,uebung,saetze,wiederholungen,"
-            "haeufigkeit,status,tag,pause_sekunden,ausfuehrung,rpe,energie_system,equipment,begruendung)"
-            " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            "haeufigkeit,status,tag,pause_sekunden,ausfuehrung,rpe,energie_system,equipment,begruendung,"
+            "plan_id,position,notiz)"
+            " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (spieler_id, datum, woche, bereich, uebung, saetze, wdh, haeufigkeit, "offen",
-             tag, pause_sekunden, ausfuehrung, rpe, energie_system, equipment, begruendung),
+             tag, pause_sekunden, ausfuehrung, rpe, energie_system, equipment, begruendung,
+             plan_id, position, notiz),
         )
 
 
 def trainingsplan_laden(spieler_id):
+    """Lädt den aktiven Trainingsplan (mit id-Spalte für Bearbeitung)."""
     with get_conn() as conn:
+        # Aktive Version suchen
+        v_row = conn.execute(
+            "SELECT id FROM trainingsplan_versionen WHERE spieler_id=? AND status='AKTIV' ORDER BY id DESC LIMIT 1",
+            (spieler_id,),
+        ).fetchone()
+        if v_row:
+            where = "plan_id=?"
+            param = (v_row[0],)
+        else:
+            where = "spieler_id=?"
+            param = (spieler_id,)
         return _rows(conn.execute(
-            "SELECT bereich,uebung,saetze,wiederholungen,haeufigkeit,woche,"
+            f"SELECT id,bereich,uebung,saetze,wiederholungen,haeufigkeit,woche,"
+            f"COALESCE(tag,1) as tag,"
+            f"COALESCE(pause_sekunden,90) as pause_sekunden,"
+            f"COALESCE(ausfuehrung,'kontrolliert') as ausfuehrung,"
+            f"COALESCE(rpe,7) as rpe,"
+            f"COALESCE(energie_system,'Gemischt') as energie_system,"
+            f"COALESCE(equipment,'Körpergewicht') as equipment,"
+            f"COALESCE(begruendung,'') as begruendung,"
+            f"COALESCE(position,0) as position,"
+            f"COALESCE(notiz,'') as notiz,"
+            f"COALESCE(abgehakt,0) as abgehakt "
+            f"FROM trainingsplan WHERE {where} ORDER BY woche,tag,COALESCE(position,0),id",
+            param,
+        ).fetchall())
+
+
+# ─── SCHRITT 4: Trainingsplan-Versionierung ───────────────────────────────────
+
+def plan_version_erstellen(spieler_id: int, datum: str, erstellt_von: str = "",
+                           modus: str = "Basis", schwerpunkt: str = "",
+                           trainingszeit_min: int = 60, notizen: str = "",
+                           diagnose_snapshot: str = "") -> int:
+    """Erstellt eine neue AKTIV-Version und gibt deren ID zurück."""
+    with get_conn() as conn:
+        max_v = (conn.execute(
+            "SELECT COALESCE(MAX(version_nr),0) FROM trainingsplan_versionen WHERE spieler_id=?",
+            (spieler_id,),
+        ).fetchone() or [0])[0]
+        cur = conn.execute(
+            "INSERT INTO trainingsplan_versionen "
+            "(spieler_id,version_nr,datum,erstellt_von,status,modus,schwerpunkt,trainingszeit_min,notizen,diagnose_snapshot) "
+            "VALUES (?,?,?,?,?,?,?,?,?,?)",
+            (spieler_id, max_v + 1, datum, erstellt_von, "AKTIV", modus,
+             schwerpunkt, trainingszeit_min, notizen, diagnose_snapshot),
+        )
+        return cur.lastrowid
+
+
+def plan_version_archivieren_aktiv(spieler_id: int):
+    """Archiviert die aktuell aktive Version eines Spielers."""
+    with get_conn() as conn:
+        conn.execute(
+            "UPDATE trainingsplan_versionen SET status='ARCHIVIERT' WHERE spieler_id=? AND status='AKTIV'",
+            (spieler_id,),
+        )
+
+
+def plan_aktive_version(spieler_id: int) -> dict | None:
+    """Gibt die aktive Planversion als Dict zurück oder None."""
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT id,version_nr,datum,erstellt_von,status,modus,schwerpunkt,trainingszeit_min,notizen "
+            "FROM trainingsplan_versionen WHERE spieler_id=? AND status='AKTIV' ORDER BY id DESC LIMIT 1",
+            (spieler_id,),
+        ).fetchone()
+        if not row:
+            return None
+        return dict(zip(["id","version_nr","datum","erstellt_von","status","modus",
+                          "schwerpunkt","trainingszeit_min","notizen"], row))
+
+
+def plan_aktive_version_id(spieler_id: int) -> int | None:
+    v = plan_aktive_version(spieler_id)
+    return v["id"] if v else None
+
+
+def plan_versionen_laden(spieler_id: int) -> list:
+    """Alle Versionen (AKTIV + ARCHIVIERT) für Historien-Anzeige."""
+    with get_conn() as conn:
+        rows = conn.execute(
+            "SELECT id,version_nr,datum,erstellt_von,status,modus,trainingszeit_min,notizen "
+            "FROM trainingsplan_versionen WHERE spieler_id=? ORDER BY id DESC",
+            (spieler_id,),
+        ).fetchall()
+        cols = ["id","version_nr","datum","erstellt_von","status","modus","trainingszeit_min","notizen"]
+        return [dict(zip(cols, r)) for r in rows]
+
+
+def plan_laden_nach_version(version_id: int) -> list:
+    """Lädt alle Übungen einer bestimmten Version (mit id für Bearbeitung)."""
+    with get_conn() as conn:
+        rows = conn.execute(
+            "SELECT id,bereich,uebung,saetze,wiederholungen,haeufigkeit,woche,"
             "COALESCE(tag,1) as tag,"
             "COALESCE(pause_sekunden,90) as pause_sekunden,"
             "COALESCE(ausfuehrung,'kontrolliert') as ausfuehrung,"
             "COALESCE(rpe,7) as rpe,"
             "COALESCE(energie_system,'Gemischt') as energie_system,"
             "COALESCE(equipment,'Körpergewicht') as equipment,"
-            "COALESCE(begruendung,'') as begruendung "
-            "FROM trainingsplan WHERE spieler_id=? ORDER BY woche,tag,id",
-            (spieler_id,),
-        ).fetchall())
+            "COALESCE(begruendung,'') as begruendung,"
+            "COALESCE(position,0) as position,"
+            "COALESCE(notiz,'') as notiz,"
+            "COALESCE(abgehakt,0) as abgehakt "
+            "FROM trainingsplan WHERE plan_id=? ORDER BY woche,tag,COALESCE(position,0),id",
+            (version_id,),
+        ).fetchall()
+        cols = ["id","bereich","uebung","saetze","wiederholungen","haeufigkeit","woche","tag",
+                "pause_sekunden","ausfuehrung","rpe","energie_system","equipment","begruendung",
+                "position","notiz","abgehakt"]
+        return [dict(zip(cols, r)) for r in rows]
+
+
+def plan_eintrag_loeschen(eintrag_id: int):
+    """Löscht eine einzelne Übung aus dem Trainingsplan (Bibliotheksübung bleibt unberührt)."""
+    with get_conn() as conn:
+        conn.execute("DELETE FROM trainingsplan WHERE id=?", (eintrag_id,))
+
+
+def plan_eintrag_aktualisieren(eintrag_id: int, **felder):
+    """Aktualisiert einzelne Felder einer Übung. Bibliotheksübungen bleiben unverändert."""
+    _erlaubt = {"uebung","bereich","saetze","wiederholungen","haeufigkeit","pause_sekunden",
+                "ausfuehrung","rpe","equipment","begruendung","notiz",
+                "trainerhinweis","spielerhinweis","abgehakt","position","tag","woche"}
+    updates = {k: v for k, v in felder.items() if k in _erlaubt}
+    if not updates:
+        return
+    with get_conn() as conn:
+        set_clause = ", ".join(f"{k}=?" for k in updates)
+        conn.execute(f"UPDATE trainingsplan SET {set_clause} WHERE id=?",
+                     list(updates.values()) + [eintrag_id])
+
+
+def plan_eintraege_position_tauschen(id1: int, id2: int):
+    """Tauscht die Reihenfolge zweier Übungen."""
+    with get_conn() as conn:
+        p1 = conn.execute("SELECT COALESCE(position,id) FROM trainingsplan WHERE id=?", (id1,)).fetchone()
+        p2 = conn.execute("SELECT COALESCE(position,id) FROM trainingsplan WHERE id=?", (id2,)).fetchone()
+        if p1 and p2:
+            conn.execute("UPDATE trainingsplan SET position=? WHERE id=?", (p2[0], id1))
+            conn.execute("UPDATE trainingsplan SET position=? WHERE id=?", (p1[0], id2))
+
+
+def plan_notizen_speichern(version_id: int, notizen: str):
+    """Speichert Trainer-Notizen zur Planversion."""
+    with get_conn() as conn:
+        conn.execute("UPDATE trainingsplan_versionen SET notizen=? WHERE id=?", (notizen, version_id))
+
+
+def plan_trainingszeit_setzen(version_id: int, trainingszeit_min: int):
+    """Aktualisiert die Trainingszeit einer Planversion."""
+    with get_conn() as conn:
+        conn.execute("UPDATE trainingsplan_versionen SET trainingszeit_min=? WHERE id=?",
+                     (trainingszeit_min, version_id))
+
+
+def plan_duplizieren(spieler_id: int, source_version_id: int, datum: str,
+                     erstellt_von: str = "") -> int:
+    """Dupliziert einen bestehenden Plan als neue AKTIV-Version (Original bleibt unverändert)."""
+    src_rows = plan_laden_nach_version(source_version_id)
+    with get_conn() as conn:
+        r = conn.execute(
+            "SELECT modus,schwerpunkt,trainingszeit_min FROM trainingsplan_versionen WHERE id=?",
+            (source_version_id,),
+        ).fetchone()
+    src_meta = {"modus": r[0], "schwerpunkt": r[1], "trainingszeit_min": r[2]} if r else \
+               {"modus": "Basis", "schwerpunkt": "", "trainingszeit_min": 60}
+    plan_version_archivieren_aktiv(spieler_id)
+    new_id = plan_version_erstellen(
+        spieler_id, datum, erstellt_von,
+        src_meta["modus"], src_meta["schwerpunkt"], src_meta["trainingszeit_min"],
+    )
+    with get_conn() as conn:
+        for i, row in enumerate(src_rows):
+            conn.execute(
+                "INSERT INTO trainingsplan "
+                "(spieler_id,datum,woche,bereich,uebung,saetze,wiederholungen,haeufigkeit,status,"
+                "tag,pause_sekunden,ausfuehrung,rpe,energie_system,equipment,begruendung,plan_id,position,notiz) "
+                "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                (spieler_id, datum, row["woche"], row["bereich"], row["uebung"],
+                 row["saetze"], row["wiederholungen"], row["haeufigkeit"], "offen",
+                 row["tag"], row["pause_sekunden"], row["ausfuehrung"], row["rpe"],
+                 row["energie_system"], row["equipment"], row["begruendung"],
+                 new_id, i, row.get("notiz", "")),
+            )
+    return new_id
 
 
 # ─── Periodisierung ────────────────────────────────────────────────────────

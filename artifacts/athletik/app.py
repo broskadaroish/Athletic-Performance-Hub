@@ -46,6 +46,10 @@ from database import (
     fms_speichern, fms_letzter, fms_history, fms_history_full,
     y_balance_speichern, y_balance_letzter, y_balance_history, y_balance_history_full,
     trainingsplan_loeschen, trainingsplan_eintrag_speichern, trainingsplan_laden,
+    plan_version_erstellen, plan_version_archivieren_aktiv, plan_aktive_version,
+    plan_aktive_version_id, plan_versionen_laden, plan_laden_nach_version,
+    plan_eintrag_loeschen, plan_eintrag_aktualisieren, plan_eintraege_position_tauschen,
+    plan_notizen_speichern, plan_trainingszeit_setzen, plan_duplizieren,
     sprint_speichern, sprint_letzter, sprint_history,
     sprung_speichern, sprung_letzter, sprung_history,
     agilitaet_speichern, agilitaet_letzter, agilitaet_history,
@@ -141,7 +145,8 @@ from analytics import (
 )
 from periodisierung import (zyklus_erstellen, zyklus_laden, trainingsplan_multi_erstellen,
                              defizit_tabelle, _alter_zu_plangruppe, _PLANGRUPPEN_CONFIG, _POOL,
-                             _ALTERS_ERSATZ, verletzung_aktive_bereiche)
+                             _ALTERS_ERSATZ, verletzung_aktive_bereiche,
+                             schaetze_tag_dauer_min, _ZEITBUDGET_CONFIG)
 from trainingsphilosophie import (
     PHILOSOPHIEN, empfehle_philosophie, philosophie_erklaerung,
 )
@@ -3409,24 +3414,79 @@ def page_trainingsplan():
             unsafe_allow_html=True,
         )
 
-        if st.button("⚡ Trainingsplan erstellen", use_container_width=True, key="auto_gen_btn"):
-            # Gewählte Philosophie speichern (persistiert pro Spieler)
-            _philosophie_speichern(sid, selected_philosophie_key)
-            n = trainingsplan_multi_erstellen(
-                sid, schwerpunkt,
-                wochen=plan_laenge,
-                alter=_tp_alter,
-                verletzung_bereiche=_aktive_bereiche,
-                saison_phase=saison_phase,
-                verfuegbares_equipment=verfuegbares_equipment,
-                philosophie_key=selected_philosophie_key,
+        # ── Trainingszeit pro Einheit (Spec §7) ──────────────────────────────
+        _ZEIT_OPT = {20:"20 Min", 30:"30 Min", 45:"45 Min",
+                     60:"60 Min", 75:"75 Min", 90:"90 Min", 0:"Benutzerdefiniert"}
+        _tz_c1, _tz_c2 = st.columns([3, 2])
+        _tz_sel = _tz_c1.selectbox(
+            "Trainingszeit pro Einheit",
+            list(_ZEIT_OPT.keys()), index=3,
+            format_func=lambda k: _ZEIT_OPT[k], key="trainingszeit_sel",
+        )
+        if _tz_sel == 0:
+            trainingszeit_min = int(_tz_c2.number_input(
+                "Minuten (individuell)", min_value=10, max_value=180,
+                value=60, step=5, key="trainingszeit_custom",
+            ))
+        else:
+            trainingszeit_min = _tz_sel
+        # Zeitbudget-Vorschau
+        _zb_key = max(k for k in _ZEITBUDGET_CONFIG if k <= trainingszeit_min)
+        _zb_prev = _ZEITBUDGET_CONFIG[_zb_key]
+        st.caption(
+            f"⏱️ Zeitbudget: max. **{_zb_prev['max_ueb_tag']} Übungen/Tag** · "
+            f"max. **{_zb_prev['satz_cap']} Sätze** · "
+            f"Warm-Up ~{_zb_prev['warmup_min']} min"
+        )
+
+        st.markdown("---")
+
+        # ── Schutz vor ungewolltem Überschreiben (Spec §4) ───────────────────
+        _aktive_v_auto = plan_aktive_version(sid)
+        _confirm_key   = f"plan_create_confirm_{sid}"
+        if _aktive_v_auto and not st.session_state.get(_confirm_key):
+            st.warning(
+                f"⚠️ Für diesen Spieler besteht bereits ein aktiver Trainingsplan "
+                f"(Version {_aktive_v_auto['version_nr']}, erstellt am {_aktive_v_auto['datum']}, "
+                f"Modus: {_aktive_v_auto['modus']})."
             )
-            _phase_hinweis   = f" ({saison_phase})" if saison_phase != "Normal" else ""
-            _verletz_hinweis = f" · {len(_aktive_bereiche)} Bereich(e) verletzungsbedingt ausgeschlossen" if _aktive_bereiche else ""
-            _equip_hinweis   = f" · Equipment: {', '.join(verfuegbares_equipment[:3])}{'…' if len(verfuegbares_equipment) > 3 else ''}" if verfuegbares_equipment else ""
-            _philo_hinweis   = f" · Philosophie: {PHILOSOPHIEN.get(selected_philosophie_key, {}).get('label', selected_philosophie_key)}"
-            _save_ok(f"Trainingsplan erstellt — {n} Übungen über {plan_laenge} Wochen ({_tp_pg}){_phase_hinweis}{_verletz_hinweis}{_equip_hinweis}{_philo_hinweis}.")
-            st.rerun()
+            _ga, _gb = st.columns(2)
+            _ga.button("📋 Bestehenden Plan weiter bearbeiten", use_container_width=True,
+                       key="plan_behalten_btn")
+            if _gb.button("🔄 Neuen Plan erstellen (alter wird archiviert)",
+                          use_container_width=True, type="primary", key="plan_neu_btn"):
+                st.session_state[_confirm_key] = True
+                st.rerun()
+        else:
+            if st.button("⚡ Trainingsplan erstellen", use_container_width=True,
+                         key="auto_gen_btn", type="primary"):
+                # Bisherige Version archivieren + neue erstellen
+                plan_version_archivieren_aktiv(sid)
+                _new_pid = plan_version_erstellen(
+                    sid, str(date.today()),
+                    erstellt_von=st.session_state.get("username", ""),
+                    modus=_plan_modus,
+                    schwerpunkt=schwerpunkt[:500] if schwerpunkt else "",
+                    trainingszeit_min=trainingszeit_min,
+                )
+                _philosophie_speichern(sid, selected_philosophie_key)
+                n = trainingsplan_multi_erstellen(
+                    sid, schwerpunkt,
+                    wochen=plan_laenge,
+                    alter=_tp_alter,
+                    verletzung_bereiche=_aktive_bereiche,
+                    saison_phase=saison_phase,
+                    verfuegbares_equipment=verfuegbares_equipment,
+                    philosophie_key=selected_philosophie_key,
+                    trainingszeit_min=trainingszeit_min,
+                    plan_id=_new_pid,
+                )
+                st.session_state.pop(_confirm_key, None)
+                _phase_hinweis   = f" ({saison_phase})" if saison_phase != "Normal" else ""
+                _verletz_hinweis = f" · {len(_aktive_bereiche)} Bereich(e) ausgeschlossen" if _aktive_bereiche else ""
+                _equip_hinweis   = f" · {', '.join(verfuegbares_equipment[:3])}{'…' if len(verfuegbares_equipment)>3 else ''}" if verfuegbares_equipment else ""
+                _save_ok(f"Trainingsplan erstellt — {n} Übungen, {plan_laenge} Wochen, {trainingszeit_min} min/Einheit ({_tp_pg}){_phase_hinweis}{_verletz_hinweis}.")
+                st.rerun()
 
     with tab_manual:
         st.markdown("### Übung manuell hinzufügen")
@@ -3459,74 +3519,84 @@ def page_trainingsplan():
         haeufigkeit = mc1.text_input("Häufigkeit", "2×/Woche", key="manual_haeuf")
         woche       = mc2.number_input("Woche", 1, 12, 1,   key="manual_woche")
         if st.button("➕ Übung speichern", type="primary", use_container_width=True):
-            trainingsplan_eintrag_speichern(sid, str(date.today()), woche,
-                                            bereich, uebung, saetze, wdh, haeufigkeit)
-            _save_ok("Übung gespeichert.")
+            _aktive_vid_manual = plan_aktive_version_id(sid)
+            trainingsplan_eintrag_speichern(
+                sid, str(date.today()), woche,
+                bereich, uebung, saetze, wdh, haeufigkeit,
+                plan_id=_aktive_vid_manual,
+            )
+            _save_ok("Übung zum Trainingsplan hinzugefügt.")
             st.rerun()
 
     with tab_view:
-        plan = trainingsplan_laden(sid)
-        if not plan:
+        # ── Aktive Version laden ──────────────────────────────────────────────
+        _av = plan_aktive_version(sid)
+        if not _av:
             st.info("Noch kein Trainingsplan vorhanden. Bitte zuerst automatisch generieren oder manuell Übungen hinzufügen.")
             return
+        _vid = _av["id"]
+        plan = plan_laden_nach_version(_vid)
+        if not plan:
+            st.info("Der aktive Plan enthält noch keine Übungen. Bitte über '🤖 Automatisch generieren' oder '✍️ Manuell hinzufügen' Übungen ergänzen.")
+            return
 
-        # ── Neue Diagnosedaten nach bestehendem Plan? (Spec §19) ─────────────
+        # ── Versions-Banner ───────────────────────────────────────────────────
+        _v_modus_clr = {"Basis":"#8b949e","Erhaltung":"#3fb950","Diagnostik":"#f85149"}.get(_av["modus"],"#8b949e")
+        st.markdown(
+            f'<div style="background:#161b22;border:1px solid {_v_modus_clr};border-radius:8px;'
+            f'padding:9px 14px;margin-bottom:10px;display:flex;gap:16px;align-items:center;flex-wrap:wrap">'
+            f'<span style="color:{_v_modus_clr};font-weight:700;font-size:13px">'
+            f'📋 Version {_av["version_nr"]} — {_av["modus"]}-Modus</span>'
+            f'<span style="color:#8b949e;font-size:12px">Erstellt {_av["datum"]}</span>'
+            f'<span style="color:#8b949e;font-size:12px">· ⏱️ {_av["trainingszeit_min"]} min/Einheit</span>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+
+        # ── Neue Diagnosedaten (Spec §22) — 3 Optionen ───────────────────────
         try:
-            _plan_max_datum = max(r.get("datum","") for r in plan if r.get("datum"))
-            _test_daten     = [
-                fms.get("datum") or fms.get("erstellt_am")  if fms else None,
-                y.get("datum")   or y.get("erstellt_am")    if y   else None,
+            _td = [
+                fms.get("datum") or fms.get("erstellt_am")     if fms   else None,
+                y.get("datum")   or y.get("erstellt_am")       if y     else None,
                 sprint.get("datum") or sprint.get("erstellt_am") if sprint else None,
                 sprung.get("datum") or sprung.get("erstellt_am") if sprung else None,
-                agil.get("datum")   or agil.get("erstellt_am")   if agil   else None,
-                aus.get("datum")    or aus.get("erstellt_am")     if aus    else None,
-                spiro.get("datum")  or spiro.get("erstellt_am")   if spiro  else None,
+                agil.get("datum")   or agil.get("erstellt_am")   if agil  else None,
+                aus.get("datum")    or aus.get("erstellt_am")    if aus   else None,
+                spiro.get("datum")  or spiro.get("erstellt_am")  if spiro else None,
             ]
-            _neueste_diagnose = max((d for d in _test_daten if d), default=None)
-            if _neueste_diagnose and _neueste_diagnose > _plan_max_datum:
-                st.info(
-                    "📊 **Neue Diagnosedaten sind verfügbar.** "
-                    "Der bestehende Plan wurde nicht automatisch geändert. "
-                    "Möchtest du einen aktualisierten Plan erstellen? "
-                    "→ Tab **🤖 Automatisch generieren**."
+            _newest_diag = max((d for d in _td if d), default=None)
+            if _newest_diag and _newest_diag > _av["datum"]:
+                st.warning(
+                    f"📊 **Neue Diagnosedaten verfügbar** (letzter Test: {_newest_diag}). "
+                    f"Der bestehende Plan (V{_av['version_nr']}, {_av['datum']}) wurde nicht verändert."
                 )
+                _diag_c1, _diag_c2, _diag_c3 = st.columns(3)
+                _diag_c1.button("✅ Bestehenden Plan behalten", use_container_width=True,
+                                key="diag_keep_btn")
+                if _diag_c2.button("🔀 Plan anpassen", use_container_width=True,
+                                   key="diag_adjust_btn"):
+                    plan_version_archivieren_aktiv(sid)
+                    _adj_pid = plan_duplizieren(sid, _vid, str(date.today()),
+                                               st.session_state.get("username",""))
+                    _save_ok(f"Plan als neue Version dupliziert — bitte jetzt anpassen.")
+                    st.rerun()
+                if _diag_c3.button("🆕 Neuen Plan erstellen", use_container_width=True,
+                                   key="diag_new_btn"):
+                    st.session_state[f"plan_create_confirm_{sid}"] = True
+                    st.rerun()
         except Exception:
             pass
 
-        df = pd.DataFrame(plan)
-        # New schema: bereich, uebung, saetze, wiederholungen, haeufigkeit, woche, tag, pause_sekunden, ausfuehrung
-        # Spaltenbezeichnungen für 9- (alt) und 13-Spalten-Schema (neu)
-        _cols9  = ["Bereich","Übung","Sätze","Wdh.","Häufigkeit","Woche","Tag","Pause (s)","Ausführung"]
-        _cols13 = _cols9 + ["RPE","Energie-System","Equipment","Begründung"]
-        if len(df.columns) == 13:
-            df.columns = _cols13
-        elif len(df.columns) == 9:
-            df.columns = _cols9
-            df["RPE"]           = 7
-            df["Energie-System"] = "Gemischt"
-            df["Equipment"]     = "Körpergewicht"
-            df["Begründung"]    = ""
-        elif len(df.columns) == 6:
-            df.columns = ["Bereich","Übung","Sätze","Wdh.","Häufigkeit","Woche"]
-            df["Tag"]           = 1
-            df["Pause (s)"]     = 90
-            df["Ausführung"]    = "kontrolliert"
-            df["RPE"]           = 7
-            df["Energie-System"] = "Gemischt"
-            df["Equipment"]     = "Körpergewicht"
-            df["Begründung"]    = ""
-        else:
-            df.columns = _cols13[:len(df.columns)]
-        expected_cols = _cols13
-
-        _total_wochen   = int(df["Woche"].max())
-        _total_uebungen = len(df["Übung"].unique()) if "Übung" in df.columns else len(df)
-        _total_einheiten = int(df["Tag"].max()) if "Tag" in df.columns else 0
+        # ── KPI-Zeile ─────────────────────────────────────────────────────────
+        _total_wochen   = max(r["woche"] for r in plan)
+        _total_uebungen = len(set(r["uebung"] for r in plan))
+        _total_bereiche = len(set(r["bereich"] for r in plan))
+        _total_tags     = max(r["tag"] for r in plan)
         _ci1, _ci2, _ci3, _ci4 = st.columns(4)
         _ci1.metric("Wochen", _total_wochen)
-        _ci2.metric("Übungen (einzigartig)", _total_uebungen)
-        _ci3.metric("Bereiche", df["Bereich"].nunique())
-        _ci4.metric("Trainingstage/Woche", _total_einheiten)
+        _ci2.metric("Übungen", _total_uebungen)
+        _ci3.metric("Bereiche", _total_bereiche)
+        _ci4.metric("Einheiten/Woche", _total_tags)
 
         # ── PDF-Druck-Button ──────────────────────────────────────────────────
         _tv_alter   = berechne_alter(auswahl.get("geburtsdatum"))
@@ -3582,82 +3652,346 @@ def page_trainingsplan():
                 except Exception as _tv_exc:
                     _save_err(f"PDF konnte nicht erstellt werden: {_tv_exc}")
 
+        # ── Plan-Aktionen ─────────────────────────────────────────────────────
+        st.markdown("---")
+        _pac1, _pac2 = st.columns(2)
+        if _pac1.button("📎 Plan duplizieren", key="dup_plan_btn", use_container_width=True,
+                        help="Erstellt eine Kopie als neue Version. Original bleibt archiviert."):
+            _dup_id = plan_duplizieren(sid, _vid, str(date.today()),
+                                      st.session_state.get("username", ""))
+            _save_ok("Plan dupliziert — neue Version ist jetzt aktiv.")
+            st.rerun()
+        if _pac2.button("🗂️ Als neue Version speichern", key="new_ver_btn", use_container_width=True,
+                        help="Archiviert die aktuelle Version und startet eine neue mit denselben Übungen."):
+            _nver_id = plan_duplizieren(sid, _vid, str(date.today()),
+                                       st.session_state.get("username", ""))
+            _save_ok("Neue Version erstellt — der bisherige Stand ist archiviert.")
+            st.rerun()
+
         st.markdown("---")
 
+        # ── Shared Konstanten ─────────────────────────────────────────────────
         _farbe_bereich = {
             "Hüfte": "#3b82f6", "Knie": "#3fb950", "Rumpf": "#d29922",
             "Sprunggelenk": "#a371f7", "Oberschenkel": "#f85149",
             "Schnelligkeit": "#58a6ff", "Explosivität": "#e3b341",
             "Agilität": "#56d364", "Fußball": "#ff7b72",
         }
-
-        # Standard-Warm-Up (fußballspezifisch, ~8–10 Minuten)
-        _WARMUP = [
-            ("🏃", "Aktivierungslauf",           "5 min",       "Leichtes Joggen, Seitwärtsläufe, Rückwärtsläufe"),
-            ("🔄", "Hüftkreisen beidbeinig",      "2×10",        "Kontrolliert, langsam"),
-            ("🌍", "World's Greatest Stretch",    "2×5/Seite",   "Tief und kontrolliert"),
-            ("🦵", "Leg Swings vor/rück",         "2×10/Seite",  "Freies Pendeln, zunehmende Amplitude"),
-            ("↔️", "Leg Swings seitlich",          "2×10/Seite",  "Lateral, gestreckt"),
-            ("🟢", "Glute Bridge",                "2×10",        "Langsam, Becken oben halten 2 s"),
-            ("🎯", "Mini-Band Walk",              "2×10 m",      "Lateral, Knie leicht gebeugt"),
+        _WARMUP_TV = [
+            ("🏃", "Aktivierungslauf",        "5 min",      "Leichtes Joggen, Seitwärtsläufe, Rückwärtsläufe"),
+            ("🔄", "Hüftkreisen beidbeinig",   "2×10",       "Kontrolliert, langsam"),
+            ("🌍", "World's Greatest Stretch", "2×5/Seite",  "Tief und kontrolliert"),
+            ("🦵", "Leg Swings vor/rück",      "2×10/Seite", "Freies Pendeln, zunehmende Amplitude"),
+            ("↔️", "Leg Swings seitlich",       "2×10/Seite", "Lateral, gestreckt"),
+            ("🟢", "Glute Bridge",             "2×10",       "Langsam, Becken oben halten 2 s"),
+            ("🎯", "Mini-Band Walk",           "2×10 m",     "Lateral, Knie leicht gebeugt"),
         ]
+        _tag_namen = {1:"Tag 1 — Montag", 2:"Tag 2 — Mittwoch", 3:"Tag 3 — Freitag",
+                      4:"Tag 4 — Samstag", 0:"Alle Tage"}
+        _BEREICHE_ALL = ["Sprunggelenk","Knie","Hüfte","Rumpf","Oberschenkel",
+                         "Schnelligkeit","Explosivität","Agilität","Fußball"]
+        _zeit_soll = _av["trainingszeit_min"]
+        _wu_min    = _ZEITBUDGET_CONFIG.get(max(k for k in _ZEITBUDGET_CONFIG if k <= _zeit_soll),
+                                            {"warmup_min":10})["warmup_min"]
 
-        _tag_namen = {1: "Tag 1 — Montag", 2: "Tag 2 — Mittwoch", 3: "Tag 3 — Freitag",
-                      4: "Tag 4 — Samstag", 0: "Alle Tage"}
-
-        for woche_nr in sorted(df["Woche"].unique()):
+        # ── Übungsplan mit interaktiver Bearbeitung ───────────────────────────
+        alle_wochen = sorted(set(r["woche"] for r in plan))
+        for woche_nr in alle_wochen:
             _is_deload = (woche_nr % 4 == 0)
             _woche_label = f"Woche {int(woche_nr)}" + (" — 🔄 Deload" if _is_deload else "")
+            sub_w = [r for r in plan if r["woche"] == woche_nr]
+
             with st.expander(_woche_label, expanded=(woche_nr <= 2)):
                 if _is_deload:
                     st.info("⬇️ **Deload-Woche:** Reduziertes Volumen und Intensität zur Regeneration. Technikfokus.")
-                sub_w = df[df["Woche"] == woche_nr]
-                tags_in_woche = sorted(sub_w["Tag"].unique())
 
-                for tag_nr in tags_in_woche:
+                for tag_nr in sorted(set(r["tag"] for r in sub_w)):
                     _tag_label = _tag_namen.get(int(tag_nr), f"Tag {int(tag_nr)}")
+                    sub_t = [r for r in sub_w if r["tag"] == tag_nr]
+
+                    # ── Dauer-Schätzung + Plausibilitätsprüfung ───────────────
+                    _est_main = schaetze_tag_dauer_min(sub_t)
+                    _est_total = round(_est_main + _wu_min + 5, 1)  # +5 min Cool-Down
+                    _diff = round(_est_total - _zeit_soll, 1)
+                    _dur_clr = "#3fb950" if abs(_diff) <= 5 else "#d29922" if abs(_diff) <= 15 else "#f85149"
+                    _dur_icon = "✅" if abs(_diff) <= 5 else "⚠️" if abs(_diff) <= 15 else "🔴"
+
                     st.markdown(
                         f'<div style="background:#161b22;border-left:4px solid #1f6feb;'
-                        f'border-radius:0 8px 8px 0;padding:8px 14px;margin:12px 0 6px">' +
-                        f'<span style="color:#58a6ff;font-weight:700;font-size:14px">🗓️ {_tag_label}</span></div>',
+                        f'border-radius:0 8px 8px 0;padding:8px 14px;margin:12px 0 4px;'
+                        f'display:flex;justify-content:space-between;align-items:center">'
+                        f'<span style="color:#58a6ff;font-weight:700;font-size:14px">🗓️ {_tag_label}</span>'
+                        f'<span style="color:{_dur_clr};font-size:12px">'
+                        f'{_dur_icon} ~{_est_total:.0f} min (Ziel: {_zeit_soll} min'
+                        f'{f", +{_diff:.0f}" if _diff>5 else f", {_diff:.0f}" if _diff<-5 else ""}'
+                        f')</span></div>',
                         unsafe_allow_html=True,
                     )
+                    if _diff > 10:
+                        st.caption(f"💡 Hinweis: Geplante Einheit überschreitet Trainingsziel um ca. {_diff:.0f} Minuten.")
+                    elif _diff < -15:
+                        st.caption(f"💡 Hinweis: Es sind noch ca. {-_diff:.0f} Minuten verfügbar.")
 
-                    # ── Warm-Up Block ──────────────────────────────────────────
-                    with st.expander("🔥 Warm-Up (8–10 min) — Standard-Aktivierung", expanded=False):
-                        _wu_rows = []
-                        for _icon, _wu_name, _wu_vol, _wu_hinw in _WARMUP:
-                            _wu_rows.append({"Übung": f"{_icon} {_wu_name}", "Volumen": _wu_vol,
-                                             "Pause": "30 s", "Hinweis": _wu_hinw})
-                        st.dataframe(pd.DataFrame(_wu_rows), use_container_width=True, hide_index=True)
+                    # ── Warm-Up Block ─────────────────────────────────────────
+                    with st.expander(f"🔥 Warm-Up (~{_wu_min} min) — Standard-Aktivierung", expanded=False):
+                        st.dataframe(
+                            pd.DataFrame([{"Übung": f"{i} {n}", "Volumen": v, "Pause": "30 s", "Hinweis": h}
+                                          for i,n,v,h in _WARMUP_TV]),
+                            use_container_width=True, hide_index=True,
+                        )
 
-                    # ── Hauptteil ──────────────────────────────────────────────
-                    sub_t = sub_w[sub_w["Tag"] == tag_nr].copy()
-                    _bereiche_tag = sub_t["Bereich"].unique()
-                    for breich in sorted(_bereiche_tag):
+                    # ── Hauptteil: Bereiche + per-Übung Editing ───────────────
+                    for breich in sorted(set(r["bereich"] for r in sub_t)):
                         _clr = _farbe_bereich.get(breich, "#8b949e")
                         st.markdown(
                             f'<div style="font-size:12px;font-weight:700;color:{_clr};'
-                            f'margin:8px 0 3px;border-left:3px solid {_clr};padding-left:8px">' +
+                            f'margin:10px 0 4px;border-left:3px solid {_clr};padding-left:8px">'
                             f'{breich}</div>',
                             unsafe_allow_html=True,
                         )
-                        _view_cols = ["Übung","Sätze","Wdh.","Pause (s)","RPE","Energie-System","Equipment","Ausführung"]
-                        _avail = [c for c in _view_cols if c in sub_t.columns]
-                        _sub_b = sub_t[sub_t["Bereich"] == breich][_avail].copy()
-                        _sub_b = _sub_b.rename(columns={"Wdh.": "Wdh. / Dauer"})
-                        # RPE-Farbcodierung als Text-Ergänzung
-                        if "RPE" in _sub_b.columns:
-                            _sub_b["RPE"] = _sub_b["RPE"].apply(
-                                lambda r: f"RPE {r} {'🟢' if r<=5 else '🟡' if r<=7 else '🔴'}"
-                            )
-                        st.dataframe(_sub_b, use_container_width=True, hide_index=True)
+                        entries_b = [r for r in sub_t if r["bereich"] == breich]
 
-                    # ── Cool-Down Hinweis ──────────────────────────────────────
+                        for idx_e, entry in enumerate(entries_b):
+                            eid        = entry["id"]
+                            _edit_key  = f"tv_edit_{eid}"
+                            _del_key   = f"tv_del_{eid}"
+                            _swap_key  = f"tv_swap_{eid}"
+
+                            # ── Lösch-Bestätigung ──────────────────────────────
+                            if st.session_state.get(_del_key):
+                                st.warning(
+                                    f"🗑️ Übung **'{entry['uebung']}'** aus diesem Trainingsplan entfernen? "
+                                    f"*(Die Übung bleibt in der Trainingsbibliothek.)*"
+                                )
+                                _dc1, _dc2 = st.columns(2)
+                                if _dc1.button("✅ Ja, entfernen", key=f"del_yes_{eid}",
+                                               type="primary", use_container_width=True):
+                                    plan_eintrag_loeschen(eid)
+                                    st.session_state.pop(_del_key, None)
+                                    st.rerun()
+                                if _dc2.button("✕ Abbrechen", key=f"del_no_{eid}",
+                                               use_container_width=True):
+                                    st.session_state.pop(_del_key, None)
+                                    st.rerun()
+
+                            # ── Bearbeitungsformular ───────────────────────────
+                            elif st.session_state.get(_edit_key):
+                                with st.form(f"form_edit_{eid}", border=True):
+                                    _ef1, _ef2 = st.columns(2)
+                                    _e_uebung = _ef1.text_input("Übungsname", value=entry["uebung"])
+                                    _e_bereich = _ef2.selectbox(
+                                        "Bereich",
+                                        _BEREICHE_ALL,
+                                        index=_BEREICHE_ALL.index(breich) if breich in _BEREICHE_ALL else 0,
+                                    )
+                                    _ef3, _ef4, _ef5 = st.columns(3)
+                                    _e_saetze = _ef3.text_input("Sätze", value=str(entry["saetze"]))
+                                    _e_wdh    = _ef4.text_input("Wdh. / Dauer", value=str(entry["wiederholungen"]))
+                                    _e_haeuf  = _ef5.text_input("Häufigkeit", value=str(entry["haeufigkeit"]))
+                                    _ef6, _ef7, _ef8 = st.columns(3)
+                                    _e_pause  = _ef6.number_input("Pause (s)", min_value=0, max_value=600,
+                                                                   value=int(entry["pause_sekunden"]))
+                                    _e_rpe    = _ef7.number_input("RPE", min_value=1, max_value=10,
+                                                                   value=int(entry["rpe"]))
+                                    _e_equip  = _ef8.text_input("Equipment", value=str(entry["equipment"]))
+                                    _e_notiz  = st.text_area("Notiz (Plan-spezifisch)", value=entry.get("notiz",""),
+                                                             height=60,
+                                                             help="Diese Notiz gilt nur für diesen Plan — die Bibliotheksübung bleibt unverändert.")
+                                    _fe_save, _fe_cancel = st.columns(2)
+                                    if _fe_save.form_submit_button("💾 Speichern", type="primary",
+                                                                    use_container_width=True):
+                                        plan_eintrag_aktualisieren(
+                                            eid,
+                                            uebung=_e_uebung, bereich=_e_bereich,
+                                            saetze=_e_saetze, wiederholungen=_e_wdh,
+                                            haeufigkeit=_e_haeuf,
+                                            pause_sekunden=int(_e_pause),
+                                            rpe=int(_e_rpe), equipment=_e_equip,
+                                            notiz=_e_notiz,
+                                        )
+                                        st.session_state.pop(_edit_key, None)
+                                        _save_ok(f"Übung '{_e_uebung}' aktualisiert.")
+                                        st.rerun()
+                                    if _fe_cancel.form_submit_button("✕ Abbrechen",
+                                                                      use_container_width=True):
+                                        st.session_state.pop(_edit_key, None)
+                                        st.rerun()
+
+                            # ── Übung austauschen ──────────────────────────────
+                            elif st.session_state.get(_swap_key):
+                                st.markdown(f"**↕️ Übung austauschen** — aktuell: *{entry['uebung']}*")
+                                _sw_b_sel = st.selectbox("Bereich für Alternative",
+                                                         _BEREICHE_ALL,
+                                                         index=_BEREICHE_ALL.index(breich) if breich in _BEREICHE_ALL else 0,
+                                                         key=f"swap_bereich_{eid}")
+                                _sw_pool: list[str] = []
+                                for _pk in ["stabilisation","kraft","power"]:
+                                    for _u, *_ in _POOL.get(_sw_b_sel,{}).get(_pk,[]):
+                                        if _u not in _sw_pool:
+                                            _sw_pool.append(_u)
+                                _EIGENE_SW = "✏️ Eigene Übung eingeben…"
+                                _sw_sel = st.selectbox(
+                                    "Alternative auswählen", _sw_pool + [_EIGENE_SW],
+                                    key=f"swap_sel_{eid}",
+                                    help="Ähnliche Übungen aus dem gleichen Bereich stehen oben.",
+                                )
+                                if _sw_sel == _EIGENE_SW:
+                                    _sw_custom = st.text_input("Eigene Übung eingeben",
+                                                               key=f"swap_custom_{eid}")
+                                    _sw_uebung = _sw_custom
+                                else:
+                                    _sw_uebung = _sw_sel
+                                _sw_c1, _sw_c2 = st.columns(2)
+                                if _sw_c1.button("✅ Übernehmen", key=f"swap_ok_{eid}",
+                                                 type="primary", use_container_width=True):
+                                    if _sw_uebung:
+                                        plan_eintrag_aktualisieren(eid, uebung=_sw_uebung,
+                                                                   bereich=_sw_b_sel)
+                                        st.session_state.pop(_swap_key, None)
+                                        _save_ok(f"Übung ausgetauscht: '{entry['uebung']}' → '{_sw_uebung}'")
+                                        st.rerun()
+                                if _sw_c2.button("✕ Abbrechen", key=f"swap_cancel_{eid}",
+                                                 use_container_width=True):
+                                    st.session_state.pop(_swap_key, None)
+                                    st.rerun()
+
+                            # ── Normalansicht mit Aktions-Buttons ─────────────
+                            else:
+                                _rpe_v    = int(entry.get("rpe", 7))
+                                _rpe_icon = "🟢" if _rpe_v<=5 else "🟡" if _rpe_v<=7 else "🔴"
+                                _abgehakt = bool(entry.get("abgehakt", 0))
+                                _rc1, _rc2, _rc3 = st.columns([1, 5, 4])
+
+                                # Abgehakt-Checkbox
+                                _new_ahk = _rc1.checkbox("", value=_abgehakt,
+                                                          key=f"ahk_{eid}",
+                                                          help="Durchgeführt")
+                                if _new_ahk != _abgehakt:
+                                    plan_eintrag_aktualisieren(eid, abgehakt=int(_new_ahk))
+                                    st.rerun()
+
+                                _uebung_anzeige = ("~~" + entry["uebung"] + "~~"
+                                                   if _abgehakt else entry["uebung"])
+                                _rc2.markdown(
+                                    f"**{_uebung_anzeige}**  \n"
+                                    f"<span style='color:#8b949e;font-size:11px'>"
+                                    f"{entry['saetze']} Sätze · {entry['wiederholungen']} · "
+                                    f"Pause {entry['pause_sekunden']}s · RPE {_rpe_v} {_rpe_icon} · "
+                                    f"{entry['equipment']}</span>"
+                                    + (f"<br><span style='color:#58a6ff;font-size:11px'>💬 {entry['notiz']}</span>"
+                                       if entry.get("notiz") else ""),
+                                    unsafe_allow_html=True,
+                                )
+
+                                with _rc3:
+                                    _bc1, _bc2, _bc3, _bc4, _bc5 = st.columns(5)
+                                    if _bc1.button("✏️", key=f"edit_btn_{eid}", help="Bearbeiten"):
+                                        st.session_state[_edit_key] = True
+                                        st.rerun()
+                                    if _bc2.button("🗑️", key=f"del_btn_{eid}", help="Löschen"):
+                                        st.session_state[_del_key] = True
+                                        st.rerun()
+                                    if _bc3.button("↕️", key=f"swap_btn_{eid}", help="Austauschen"):
+                                        st.session_state[_swap_key] = True
+                                        st.rerun()
+                                    # Reihenfolge: Hoch/Runter
+                                    _prev_entry = entries_b[idx_e-1] if idx_e > 0 else None
+                                    _next_entry = entries_b[idx_e+1] if idx_e < len(entries_b)-1 else None
+                                    if _bc4.button("⬆", key=f"up_btn_{eid}", help="Nach oben",
+                                                   disabled=_prev_entry is None):
+                                        if _prev_entry:
+                                            plan_eintraege_position_tauschen(eid, _prev_entry["id"])
+                                            st.rerun()
+                                    if _bc5.button("⬇", key=f"dn_btn_{eid}", help="Nach unten",
+                                                   disabled=_next_entry is None):
+                                        if _next_entry:
+                                            plan_eintraege_position_tauschen(eid, _next_entry["id"])
+                                            st.rerun()
+
+                    # ── Übung aus Bibliothek hinzufügen (pro Tag) ─────────────
+                    with st.expander(f"➕ Übung zu {_tag_label} hinzufügen", expanded=False):
+                        _add_c1, _add_c2 = st.columns(2)
+                        _add_bereich = _add_c1.selectbox("Bereich", _BEREICHE_ALL,
+                                                         key=f"add_b_{woche_nr}_{tag_nr}")
+                        _add_pool: list[str] = []
+                        for _pk in ["stabilisation","kraft","power"]:
+                            for _u, *_ in _POOL.get(_add_bereich,{}).get(_pk,[]):
+                                if _u not in _add_pool:
+                                    _add_pool.append(_u)
+                        _EIGENE_ADD = "✏️ Eigene Übung eingeben…"
+                        _add_ub_sel = _add_c2.selectbox("Übung", _add_pool + [_EIGENE_ADD],
+                                                         key=f"add_ub_{woche_nr}_{tag_nr}")
+                        if _add_ub_sel == _EIGENE_ADD:
+                            _add_uebung = st.text_input("Eigene Übung", placeholder="z. B. Lateral Band Walk",
+                                                        key=f"add_custom_{woche_nr}_{tag_nr}")
+                        else:
+                            _add_uebung = _add_ub_sel
+                        _add_d1, _add_d2, _add_d3 = st.columns(3)
+                        _add_saetze = _add_d1.text_input("Sätze", "3", key=f"add_s_{woche_nr}_{tag_nr}")
+                        _add_wdh    = _add_d2.text_input("Wdh.", "10", key=f"add_w_{woche_nr}_{tag_nr}")
+                        _add_haeuf  = _add_d3.text_input("Häufigkeit", "2×/Woche",
+                                                          key=f"add_h_{woche_nr}_{tag_nr}")
+                        if st.button("➕ Hinzufügen", key=f"add_btn_{woche_nr}_{tag_nr}",
+                                     use_container_width=True, type="primary"):
+                            if _add_uebung:
+                                trainingsplan_eintrag_speichern(
+                                    sid, str(date.today()), woche_nr,
+                                    _add_bereich, _add_uebung, _add_saetze, _add_wdh, _add_haeuf,
+                                    tag=tag_nr, plan_id=_vid,
+                                )
+                                _save_ok(f"Übung '{_add_uebung}' zu {_tag_label} hinzugefügt.")
+                                st.rerun()
+
+                    # ── Cool-Down ─────────────────────────────────────────────
                     st.caption(
-                        "🧘 **Cool-Down:** 5–10 min Stretching der trainierten Muskelgruppen. "
-                        "Besonderes Augenmerk auf Hüftbeuger, Oberschenkel und Rumpf."
+                        "🧘 **Cool-Down (5 min):** Stretching der trainierten Muskelgruppen — "
+                        "Hüftbeuger, Oberschenkel, Rumpf."
                     )
+
+        # ── Trainer-Notizen ───────────────────────────────────────────────────
+        st.markdown("---")
+        st.markdown("### 📝 Trainer-Notizen")
+        _notizen_val = _av.get("notizen","")
+        _notizen_new = st.text_area("Notizen zu diesem Trainingsplan", value=_notizen_val,
+                                    height=120, key="plan_notizen_ta",
+                                    placeholder="Trainingsziele, Beobachtungen, besondere Hinweise…")
+        _ns1, _ns2 = st.columns(2)
+        if _ns1.button("💾 Notizen speichern", key="save_notizen_btn", use_container_width=True):
+            plan_notizen_speichern(_vid, _notizen_new)
+            _save_ok("Notizen gespeichert.")
+            st.rerun()
+        if _ns2.button("✕ Verwerfen", key="discard_notizen_btn", use_container_width=True):
+            st.rerun()
+
+        # ── Plan-Historie (Spec §6) ───────────────────────────────────────────
+        _versionen = plan_versionen_laden(sid)
+        _archiviert = [v for v in _versionen if v["status"] == "ARCHIVIERT"]
+        if _archiviert:
+            st.markdown("---")
+            with st.expander(f"🗂️ Frühere Trainingspläne ({len(_archiviert)} archiviert)", expanded=False):
+                for _av_hist in _archiviert:
+                    _hist_plan = plan_laden_nach_version(_av_hist["id"])
+                    _hist_n    = len(_hist_plan)
+                    _hist_w    = max((r["woche"] for r in _hist_plan), default=0)
+                    _h_c1, _h_c2 = st.columns([3, 2])
+                    _h_c1.markdown(
+                        f"**Plan #{_av_hist['version_nr']:03d}** — {_av_hist['datum']}  \n"
+                        f"<span style='color:#8b949e;font-size:11px'>"
+                        f"{_av_hist['modus']}-Modus · {_hist_n} Übungen · {_hist_w} Wochen · "
+                        f"{_av_hist['trainingszeit_min']} min/Einheit</span>",
+                        unsafe_allow_html=True,
+                    )
+                    if _h_c2.button("📋 Anzeigen / Als Basis nutzen",
+                                    key=f"hist_dup_{_av_hist['id']}",
+                                    use_container_width=True):
+                        plan_duplizieren(sid, _av_hist["id"], str(date.today()),
+                                        st.session_state.get("username",""))
+                        _save_ok(f"Plan #{_av_hist['version_nr']:03d} wurde als neue aktive Version dupliziert.")
+                        st.rerun()
+                    if _av_hist.get("notizen"):
+                        st.caption(f"📝 {_av_hist['notizen'][:120]}…" if len(_av_hist["notizen"])>120
+                                   else f"📝 {_av_hist['notizen']}")
+                    st.markdown('<hr style="border-color:#30363d;margin:6px 0">', unsafe_allow_html=True)
 
 
 # ──────────────────────────────────────────────────────────────────────────────

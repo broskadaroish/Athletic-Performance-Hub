@@ -1090,13 +1090,58 @@ _BASIS_MODUS_BEREICHE: dict[str, dict[str, int]] = {
 }
 
 
+# ─── Zeitbudget-Konfiguration ─────────────────────────────────────────────────
+# Bestimmt maximale Übungsanzahl pro Tag + Satz-Cap je verfügbarer Trainingszeit.
+# Spec §8: Die Zeit muss die Planerstellung fachlich beeinflussen, nicht nur kürzen.
+_ZEITBUDGET_CONFIG: dict[int, dict] = {
+    20: {"max_ueb_tag": 4,  "satz_cap": 2, "warmup_min": 5,  "cooldown_min": 3},
+    30: {"max_ueb_tag": 6,  "satz_cap": 2, "warmup_min": 5,  "cooldown_min": 3},
+    45: {"max_ueb_tag": 9,  "satz_cap": 3, "warmup_min": 8,  "cooldown_min": 5},
+    60: {"max_ueb_tag": 13, "satz_cap": 3, "warmup_min": 10, "cooldown_min": 5},
+    75: {"max_ueb_tag": 17, "satz_cap": 4, "warmup_min": 10, "cooldown_min": 5},
+    90: {"max_ueb_tag": 22, "satz_cap": 4, "warmup_min": 10, "cooldown_min": 5},
+}
+
+
+def _zeitbudget_cfg(trainingszeit_min: int) -> dict:
+    """Nächstkleinere Konfiguration für die gewählte Trainingszeit."""
+    for t in sorted(_ZEITBUDGET_CONFIG.keys(), reverse=True):
+        if trainingszeit_min >= t:
+            return _ZEITBUDGET_CONFIG[t]
+    return _ZEITBUDGET_CONFIG[20]
+
+
+def schaetze_uebungs_dauer_min(saetze_str: str, wdh_str: str,
+                                pause_sekunden: int = 90) -> float:
+    """Schätzt Übungsdauer in Minuten (aktive Zeit + Pausen)."""
+    try:
+        saetze = int(str(saetze_str).split("–")[0].strip().split("×")[0].strip())
+    except (ValueError, AttributeError, IndexError):
+        saetze = 3
+    satz_aktiv_sek = 40   # ~40 s aktive Belastung pro Satz
+    pause_total = pause_sekunden * max(0, saetze - 1)
+    return round((saetze * satz_aktiv_sek + pause_total) / 60, 1)
+
+
+def schaetze_tag_dauer_min(eintraege: list[dict]) -> float:
+    """Schätzt Gesamtdauer aller Übungen eines Trainingstages in Minuten."""
+    return round(sum(
+        schaetze_uebungs_dauer_min(
+            e.get("saetze", "3"), e.get("wiederholungen", "10"),
+            int(e.get("pause_sekunden", 90))
+        ) for e in eintraege
+    ), 1)
+
+
 def trainingsplan_multi_erstellen(spieler_id: int, schwerpunkt_text: str,
                                   wochen: int = 8,
                                   alter: float | None = None,
                                   verletzung_bereiche: set | list | None = None,
                                   saison_phase: str = "Normal",
                                   verfuegbares_equipment: list | None = None,
-                                  philosophie_key: str | None = None) -> int:
+                                  philosophie_key: str | None = None,
+                                  trainingszeit_min: int = 60,
+                                  plan_id: int | None = None) -> int:
     """
     Altersbasierter Trainingsplan mit klarer 4-Phasen-Progression.
     Spec §1–§8: Belastungsnormative, Trainingsreihenfolge, Trainingsprinzipien,
@@ -1133,11 +1178,17 @@ def trainingsplan_multi_erstellen(spieler_id: int, schwerpunkt_text: str,
     cfg          = _PLANGRUPPEN_CONFIG[plangruppe]
     woche_config = _WOCHE_PLAN[wochen]
 
-    from database import trainingsplan_loeschen, trainingsplan_eintrag_speichern
+    from database import trainingsplan_eintrag_speichern
     from datetime import date
-    trainingsplan_loeschen(spieler_id)
 
-    total = 0
+    # Zeitbudget-Konfiguration für diesen Plan
+    _zb = _zeitbudget_cfg(trainingszeit_min)
+    _zb_satz_cap = _zb["max_ueb_tag"]   # maximale Übungen pro Tag
+    # Der Satz-Cap aus dem Zeitbudget begrenzt additional den Altersgruppen-Cap
+    _zb_eff_satz = _zb["satz_cap"]
+
+    total     = 0
+    _position = 0   # globaler Positions-Zähler für Bearbeitbarkeit
 
     for w_idx, (pool_key, phase_name, phase_ziel, is_deload, vol_mult, offset) in enumerate(woche_config):
         woche = w_idx + 1
@@ -1216,8 +1267,8 @@ def trainingsplan_multi_erstellen(spieler_id: int, schwerpunkt_text: str,
             _, aust   = _pause_und_ausfuehrung(area, effective_pk, is_deload, plangruppe)
             rpe       = bnorm["rpe"]
 
-            # Philosophie: maximaler Satz-Cap
-            _eff_satz_cap = philosophie_satz_cap(_philo, cfg["max_saetze"])
+            # Philosophie: maximaler Satz-Cap + Zeitbudget-Cap (das Kleinere gewinnt)
+            _eff_satz_cap = min(philosophie_satz_cap(_philo, cfg["max_saetze"]), _zb_eff_satz)
 
             # Philosophie: Häufigkeits-Override
             _philo_haeuf = philosophie_haeuf_cap(_philo)
@@ -1257,7 +1308,18 @@ def trainingsplan_multi_erstellen(spieler_id: int, schwerpunkt_text: str,
         # §2 + §3 Trainingsreihenfolge erzwingen: erst nach Tag, dann nach Sequenz-Slot
         week_entries.sort(key=lambda e: (e[1], e[0]))
 
-        for seq_ord, tag, area, uebung, saetze, volumen, haeufigkeit, pause_sek, aust, rpe, energie, equipment, begruend in week_entries:
+        # Zeitbudget-Cap: max N Übungen pro Trainingstag (Spec §8 — fachliche Verteilung)
+        # Zähle Übungen pro Tag und verwerfe niedrigst-priorisierte wenn Limit überschritten
+        _tag_counts: dict[int, int] = {}
+        _filtered_entries = []
+        for entry in week_entries:
+            _t = entry[1]  # tag-Index
+            _c = _tag_counts.get(_t, 0)
+            if _c < _zb_satz_cap:   # _zb_satz_cap = max_ueb_tag aus Zeitbudget-Config
+                _filtered_entries.append(entry)
+                _tag_counts[_t] = _c + 1
+
+        for seq_ord, tag, area, uebung, saetze, volumen, haeufigkeit, pause_sek, aust, rpe, energie, equipment, begruend in _filtered_entries:
             trainingsplan_eintrag_speichern(
                 spieler_id, str(date.today()), woche,
                 area, uebung, saetze, volumen, haeufigkeit,
@@ -1268,8 +1330,11 @@ def trainingsplan_multi_erstellen(spieler_id: int, schwerpunkt_text: str,
                 energie_system=energie,
                 equipment=equipment,
                 begruendung=begruend,
+                plan_id=plan_id,
+                position=_position,
             )
-            total += 1
+            total     += 1
+            _position += 1
 
     return total
 

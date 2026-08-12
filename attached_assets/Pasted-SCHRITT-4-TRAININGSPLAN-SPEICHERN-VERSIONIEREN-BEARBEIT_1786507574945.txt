@@ -1,0 +1,879 @@
+SCHRITT 4 – TRAININGSPLAN SPEICHERN, VERSIONIEREN, BEARBEITEN UND TRAININGSZEIT STEUERN
+
+Arbeite auf Basis von SCHRITT 1, SCHRITT 2 und SCHRITT 3 weiter.
+
+WICHTIG:
+
+* Bestehende Benutzerkonten nicht verändern.
+* Bestehende Kunden-/Lizenzverwaltung nicht verändern.
+* Bestehende Diagnosewerte nicht verändern.
+* Bestehende Defizitlogik aus Schritt 3 weiterverwenden.
+* Bestehende Trainingsbibliothek weiterverwenden.
+* Bestehende Trainingsplan-Engine bevorzugt erweitern.
+* Keine zweite parallele Trainingsplan-Engine erstellen.
+* Keine bestehenden Trainingspläne löschen.
+* Keine bestehenden Übungen aus der Bibliothek löschen.
+* Noch keine Sprint-Muskel-Studienlogik implementieren.
+* Noch keine allgemeine Mobile-Design-Phase durchführen.
+
+==================================================
+0. VERBINDLICHE ARBEITSREGEL
+============================
+
+Prüfe für jeden Punkt zuerst, was bereits vorhanden ist.
+
+A) vollständig vorhanden
+→ behalten und testen
+
+B) teilweise vorhanden
+→ bestehende Funktion ergänzen
+
+C) nicht vorhanden
+→ neu erstellen und in bestehendes System integrieren
+
+Keine funktionierende Logik unnötig ersetzen.
+
+==================================================
+
+1. HAUPTZIEL
+   ==================================================
+
+Ein einmal erstellter Trainingsplan soll dauerhaft gespeichert bleiben.
+
+Er darf nicht automatisch verschwinden oder überschrieben werden.
+
+Der Nutzer soll einen bestehenden Trainingsplan:
+
+* ansehen
+* einzelne Übungen löschen
+* Übungen austauschen
+* Übungen bearbeiten
+* Übungen ergänzen
+* Übungen verschieben
+* aus der Trainingsbibliothek Übungen hinzufügen
+* Trainingszeit ändern
+* ergänzen
+* als neue Version speichern
+
+können.
+
+==================================================
+2. TRAININGSPLAN DARF NICHT AUTOMATISCH GELÖSCHT WERDEN
+=======================================================
+
+Ein erstellter Trainingsplan muss gespeichert bleiben bei:
+
+* Seitenreload
+* Login/Logout
+* Browser schließen und erneut öffnen
+* Spielerwechsel
+* neuer Diagnose
+* FMS-Test
+* Y-Balance-Test
+* Sprinttest
+* erneuter Öffnung der Trainingsseite
+
+Ein bestehender Plan darf niemals automatisch durch einen neu generierten Plan ersetzt werden.
+
+==================================================
+3. AKTIVER TRAININGSPLAN
+========================
+
+Pro Spieler soll eindeutig ein:
+
+AKTIVER TRAININGSPLAN
+
+existieren können.
+
+Dieser Plan wird beim Öffnen der Trainingsseite zuerst angezeigt.
+
+Falls noch kein Plan vorhanden ist:
+
+"Für diesen Spieler wurde noch kein Trainingsplan erstellt."
+
+Button:
+
+[Trainingsplan erstellen]
+
+==================================================
+4. NEUEN TRAININGSPLAN ERSTELLEN
+================================
+
+Wenn bereits ein aktiver Plan existiert und der Nutzer auf:
+
+"Neuen Trainingsplan erstellen"
+
+klickt, darf der bestehende Plan NICHT gelöscht werden.
+
+Vorher anzeigen:
+
+"Für diesen Spieler besteht bereits ein aktiver Trainingsplan."
+
+Optionen:
+
+[Bestehenden Plan weiter bearbeiten]
+
+[Neuen Plan erstellen]
+
+Wenn "Neuen Plan erstellen":
+
+* alten Plan archivieren
+* neuen Plan als neue Version erstellen
+* alten Plan weiterhin abrufbar halten
+
+==================================================
+5. TRAININGSPLAN-VERSIONEN
+==========================
+
+Jeder Trainingsplan soll eine eindeutige Version erhalten.
+
+Beispiel:
+
+Trainingsplan 1
+Version 1
+
+Trainingsplan 2
+Version 2
+
+oder:
+
+Plan #001
+Plan #002
+
+Zusätzlich speichern:
+
+* Spieler
+* Erstellungsdatum
+* Ersteller
+* Version
+* Zeitraum von/bis, falls vorhanden
+* Status
+* Modus: Basis / Diagnostik
+* zugrunde liegende Diagnosedaten
+* Schwerpunkte
+* Trainingszeit pro Einheit
+
+Status zum Beispiel:
+
+AKTIV
+ARCHIVIERT
+
+Vorhandene Statuslogik bevorzugen.
+
+==================================================
+6. PLAN-HISTORIE / ARCHIV
+=========================
+
+Auf der Trainingsseite einen Bereich ergänzen:
+
+"Frühere Trainingspläne"
+
+Beispiel:
+
+Plan #004
+03.08.2026
+Aktiv
+
+Plan #003
+15.07.2026
+Archiviert
+
+Plan #002
+01.07.2026
+Archiviert
+
+Beim Öffnen eines archivierten Plans:
+
+* Plan anzeigen
+* Übungen anzeigen
+* damalige Schwerpunkte anzeigen
+* damalige Diagnosedaten anzeigen
+* damalige Trainingszeit anzeigen
+
+Archivierte Pläne nicht automatisch verändern.
+
+==================================================
+7. TRAININGSZEIT PRO EINHEIT
+============================
+
+Vor Erstellung eines Trainingsplans soll der Nutzer auswählen:
+
+"Trainingszeit pro Einheit"
+
+Vorschläge:
+
+* 20 Minuten
+* 30 Minuten
+* 45 Minuten
+* 60 Minuten
+* 75 Minuten
+* 90 Minuten
+* Benutzerdefiniert
+
+Bei Benutzerdefiniert:
+Minuten manuell eingeben.
+
+==================================================
+8. TRAININGSZEIT MUSS PLAN STEUERN
+==================================
+
+Die gewählte Trainingszeit darf nicht nur als Text gespeichert werden.
+
+Sie muss die Planerstellung beeinflussen.
+
+Der Generator soll abhängig von der verfügbaren Zeit:
+
+* Anzahl Übungen
+* Anzahl Sätze
+* Wiederholungen
+* Belastungsdauer
+* Pausenzeiten
+* Umfang der Trainingsblöcke
+
+sinnvoll anpassen.
+
+WICHTIG:
+
+Nicht einfach am Ende Übungen abschneiden.
+
+Die Einheit muss fachlich neu auf die verfügbare Zeit verteilt werden.
+
+==================================================
+9. GESAMTDAUER BERECHNEN
+========================
+
+Bei jedem Trainingstag anzeigen:
+
+Geplante Trainingsdauer:
+z.B. 60 Minuten
+
+Zusätzlich möglichst berechnen:
+
+* Aufwärmen: 10 Min
+* Sprint/Explosivität: 12 Min
+* Kraft/Stabilität: 25 Min
+* Ergänzung: 8 Min
+* Abschluss: 5 Min
+
+Gesamt:
+60 Min
+
+Falls bestehendes System andere Trainingsblöcke verwendet:
+diese weiterverwenden.
+
+==================================================
+10. TRAININGSTAGE
+=================
+
+Wenn ein Trainingsplan mehrere Einheiten / Tage enthält:
+
+Für jeden Trainingstag individuell speichern:
+
+* Datum oder Tagnummer
+* Schwerpunkt
+* Trainingszeit
+* Übungen
+* Reihenfolge
+* Belastungsparameter
+* Notizen
+
+Beispiel:
+
+Tag 1 – Dienstag
+60 Minuten
+
+Tag 2 – Donnerstag
+45 Minuten
+
+Die Trainingsdauer darf pro Trainingstag unterschiedlich sein.
+
+==================================================
+11. ÜBUNGEN EINZELN BEARBEITEN
+==============================
+
+Bei jeder Übung im erstellten Trainingsplan Funktionen anbieten:
+
+[Bearbeiten]
+
+[Löschen]
+
+[Austauschen]
+
+[Nach oben]
+
+[Nach unten]
+
+oder eine sinnvolle Drag-and-Drop-/Reihenfolge-Lösung, falls bereits vorhanden.
+
+Bestehendes Design verwenden.
+
+==================================================
+12. ÜBUNG LÖSCHEN
+=================
+
+Beim Klick auf:
+
+"Löschen"
+
+Bestätigung anzeigen:
+
+"Übung wirklich aus diesem Trainingsplan entfernen?"
+
+WICHTIG:
+
+Nur die Übung aus DIESEM Trainingsplan entfernen.
+
+Die Übung darf NICHT aus der Trainingsbibliothek gelöscht werden.
+
+==================================================
+13. ÜBUNG BEARBEITEN
+====================
+
+Für eine bestehende Planübung sollen – soweit vorhanden – bearbeitbar sein:
+
+* Übungsname
+* Sätze
+* Wiederholungen
+* Dauer
+* Strecke
+* Pause
+* Intensität
+* Seite links/rechts
+* Gewicht/Widerstand
+* Trainerhinweis
+* Spielerhinweis
+
+WICHTIG:
+
+Die Originalübung in der Trainingsbibliothek nicht automatisch verändern.
+
+Änderungen gelten grundsätzlich nur für diese Instanz im Trainingsplan.
+
+==================================================
+14. ÜBUNG AUSTAUSCHEN
+=====================
+
+Beim Klick auf:
+
+"Übung austauschen"
+
+Trainingsbibliothek öffnen.
+
+Dabei möglichst passende Alternativen zuerst anzeigen.
+
+Beispiel:
+
+Aktuelle Übung:
+Single Leg RDL
+
+Schwerpunkt:
+Hüft-/einbeinige Stabilität
+
+Dann zuerst Übungen mit gleichem oder ähnlichem Trainingsziel anbieten.
+
+Der Nutzer darf aber auch die gesamte Bibliothek durchsuchen.
+
+==================================================
+15. ÜBUNG HINZUFÜGEN
+====================
+
+Button:
+
+"+ Übung hinzufügen"
+
+öffnet die bestehende Trainingsbibliothek.
+
+Suchmöglichkeiten:
+
+* Suchfeld
+* Kategorie
+* Schwerpunkt
+* Muskelgruppe
+* Trainingsziel
+* Equipment
+* Schwierigkeit
+* Altersgruppe, falls vorhanden
+
+Bestehende Bibliotheksfilter weiterverwenden.
+
+==================================================
+16. TRAININGSBIBLIOTHEK NICHT DUPLIZIEREN
+=========================================
+
+WICHTIG:
+
+Keine zweite Übungsbibliothek erstellen.
+
+Die bereits vorhandene Trainingsbibliothek verwenden.
+
+Falls eine Übung dem Plan hinzugefügt wird:
+Referenz bzw. bestehende Übungsdaten verwenden.
+
+Plan-spezifische Anpassungen dürfen separat gespeichert werden.
+
+==================================================
+17. MANUELLE ÜBUNG ERGÄNZEN
+===========================
+
+Falls noch nicht vorhanden, zusätzlich Möglichkeit:
+
+"Eigene Übung hinzufügen"
+
+Damit Trainer eine Übung nur für diesen Plan anlegen können.
+
+Felder z.B.:
+
+* Name
+* Beschreibung
+* Sätze
+* Wiederholungen
+* Dauer
+* Pause
+* Trainingsziel
+* Hinweis
+
+Diese eigene Übung darf nicht automatisch in die globale Trainingsbibliothek übernommen werden.
+
+Optional später separat:
+
+"In Bibliothek speichern"
+
+aber nicht automatisch.
+
+==================================================
+18. REIHENFOLGE DER ÜBUNGEN
+===========================
+
+Nach manueller Bearbeitung weiterhin die bestehende Trainingsphilosophie berücksichtigen.
+
+Standard-Reihenfolge:
+
+1. Sprint / Schnelligkeit
+2. Explosivität / Plyometrie
+3. technisch anspruchsvolle Kraftübungen
+4. Mehrgelenksübungen
+5. weniger anspruchsvolle Kraftübungen
+6. ergänzende Stabilität / Core
+7. Ausdauer, wenn vorgesehen
+8. Cool-down / Mobilität, wenn vorgesehen
+
+Wenn der Nutzer die Reihenfolge bewusst manuell verändert:
+nicht ungefragt wieder zurücksetzen.
+
+Optional Hinweis:
+
+"Die manuelle Reihenfolge weicht von der empfohlenen Trainingsstruktur ab."
+
+==================================================
+19. SPEICHERN
+=============
+
+Nach Änderungen klarer Button:
+
+"Änderungen speichern"
+
+Nach erfolgreichem Speichern:
+
+"Trainingsplan erfolgreich gespeichert."
+
+Keine Änderung darf nur im aktuellen Streamlit-State existieren und nach Reload verschwinden.
+
+Änderungen müssen persistent in der Datenbank gespeichert werden.
+
+==================================================
+20. ÄNDERUNGEN VERWERFEN
+========================
+
+Falls der Nutzer Änderungen vorgenommen, aber noch nicht gespeichert hat:
+
+Button:
+
+"Änderungen verwerfen"
+
+Bei Navigation weg von der Seite möglichst Warnung:
+
+"Es gibt noch nicht gespeicherte Änderungen."
+
+Keine automatische Speicherung, sofern bestehendes System dies nicht bereits bewusst so vorsieht.
+
+==================================================
+21. PLAN DUPLIZIEREN
+====================
+
+Falls nicht vorhanden:
+
+Funktion:
+
+"Trainingsplan duplizieren"
+
+Damit kann ein bestehender Plan als Grundlage für einen neuen Plan verwendet werden.
+
+Dabei:
+
+* Originalplan unverändert lassen
+* neue Plan-ID/Version erstellen
+* Übungen kopieren
+* danach Änderungen am neuen Plan erlauben
+
+==================================================
+22. NEUE DIAGNOSEDATEN
+======================
+
+Wenn seit Erstellung des aktiven Plans neue Diagnosedaten vorliegen:
+
+Hinweis anzeigen:
+
+"Neue Diagnosedaten sind verfügbar."
+
+Optionen:
+
+[Bestehenden Plan behalten]
+
+[Plan anpassen]
+
+[Neuen Plan erstellen]
+
+Kein automatisches Überschreiben.
+
+==================================================
+23. PLAN ANPASSEN
+=================
+
+Wenn der Nutzer:
+
+"Plan anpassen"
+
+wählt:
+
+Bestehenden Plan als Grundlage verwenden.
+
+Neue Schwerpunkte nur ergänzen/anpassen.
+
+Nicht automatisch alle bisherigen Übungen löschen.
+
+Wenn Übungen aufgrund neuer Diagnostik ersetzt werden sollen:
+transparent anzeigen.
+
+Beispiel:
+
+"Neue Auffälligkeit: einbeinige Stabilität"
+
+Vorschlag:
+2 Übungen ergänzen / austauschen.
+
+Nutzer entscheidet.
+
+==================================================
+24. TRAININGSPLAN ERGÄNZEN
+==========================
+
+Es muss möglich sein, einen bestehenden Plan zu ergänzen, ohne eine komplett neue Version erzeugen zu müssen.
+
+Beispiel:
+
+* eine Übung
+* neuer Trainingstag
+* zusätzliche Notiz
+* weiterer Trainingsblock
+
+Diese Änderungen werden in der aktuellen Version gespeichert.
+
+==================================================
+25. NEUE VERSION BEI GRÖSSERER ÄNDERUNG
+=======================================
+
+Optional einen Button anbieten:
+
+"Als neue Version speichern"
+
+Dadurch:
+
+* bisherige Version archivieren
+* Kopie erstellen
+* neue Version aktiv setzen
+
+Beispiel:
+
+Version 3 → archiviert
+Version 4 → aktiv
+
+==================================================
+26. TRAININGSPLAN-NOTIZEN
+=========================
+
+Für jeden Plan:
+
+"Trainer-Notizen"
+
+Freitextfeld.
+
+Zusätzlich optional pro Trainingstag und pro Übung.
+
+Notizen müssen persistent gespeichert werden.
+
+==================================================
+27. ÜBUNG ABHAKEN
+=================
+
+Falls bereits vorhanden:
+weiterverwenden.
+
+Falls nicht vorhanden:
+pro Übung optional Checkbox:
+
+"Durchgeführt"
+
+oder:
+
+✓ erledigt
+
+Status soll plan-/tagbezogen gespeichert werden.
+
+Nicht die globale Übung verändern.
+
+==================================================
+28. TRAININGSTAG ABSCHLIESSEN
+=============================
+
+Optional:
+
+"Trainingseinheit abschließen"
+
+Dann speichern:
+
+* Datum
+* abgeschlossen ja/nein
+* ggf. tatsächlich benötigte Dauer
+* Trainer-Notiz
+
+Keine automatische Leistungsbewertung daraus ableiten.
+
+==================================================
+29. TRAININGSPLAN LÖSCHEN
+=========================
+
+Ein vollständiger Trainingsplan darf NICHT leichtfertig gelöscht werden.
+
+Falls eine Löschfunktion vorhanden ist:
+
+Bestätigungsdialog mit deutlicher Warnung:
+
+"Trainingsplan wirklich löschen?"
+
+Wenn möglich bevorzugen:
+
+ARCHIVIEREN
+
+statt endgültig löschen.
+
+Superadmin-/Trainerrechte entsprechend bestehendem Rollensystem beachten.
+
+==================================================
+30. SPIELER-ZUORDNUNG
+=====================
+
+Jeder Trainingsplan muss eindeutig dem richtigen Spieler zugeordnet sein.
+
+Prüfen:
+
+* Spieler A sieht nur seine Pläne
+* Spieler B sieht nur seine Pläne
+* kein Plan darf beim Spielerwechsel vermischt werden
+
+Bei SaaS-Mandanten zusätzlich bestehende Mandantentrennung weiterverwenden.
+
+==================================================
+31. BELASTUNGSPARAMETER
+=======================
+
+Bestehende Belastungsnormative weiterhin berücksichtigen.
+
+Falls bereits vorhanden:
+
+* Belastungsintensität
+* Belastungsdauer
+* Belastungsumfang
+* Belastungshäufigkeit
+* Belastungsdichte
+
+Diese Werte beim Bearbeiten einer Übung bzw. Einheit nicht verlieren.
+
+==================================================
+32. ZEITPLAUSIBILITÄT
+=====================
+
+Wenn der Nutzer den Plan manuell verändert und die geplante Dauer überschritten wird:
+
+Hinweis:
+
+"Die aktuelle Planung überschreitet die gewünschte Trainingszeit um ca. X Minuten."
+
+Wenn sie deutlich unterschritten wird:
+
+"Es sind noch ca. X Minuten verfügbar."
+
+Nicht automatisch Übungen löschen.
+
+==================================================
+33. BASIS- UND DIAGNOSTIK-MODUS
+===============================
+
+Die Logik aus Schritt 3 erhalten.
+
+Ein Plan muss weiterhin gekennzeichnet sein als:
+
+BASIS-MODUS
+
+oder
+
+DIAGNOSTIK-MODUS
+
+Bei manuellen Änderungen darf diese Information nicht verloren gehen.
+
+==================================================
+34. DATENBASIS DES PLANS BEIBEHALTEN
+====================================
+
+Für jede Planversion speichern bzw. referenzieren:
+
+* welche FMS-Daten verwendet wurden
+* welche Y-Balance-Daten verwendet wurden
+* welche Sprintdaten verwendet wurden
+* welche Defizite/Schwerpunkte zum Erstellungszeitpunkt bestanden
+
+Spätere Änderungen an Diagnosedaten dürfen die historische Darstellung eines alten Plans nicht verfälschen.
+
+==================================================
+35. TESTFÄLLE
+=============
+
+TEST A:
+Spieler ohne Plan
+→ neuen Plan erstellen
+→ speichern
+→ Reload
+→ Plan weiterhin vorhanden
+
+TEST B:
+Bestehender Plan
+→ Übung löschen
+→ speichern
+→ Reload
+→ Übung bleibt entfernt
+→ Bibliotheksübung existiert weiterhin
+
+TEST C:
+Bestehenden Plan
+→ Übung bearbeiten
+→ Wiederholungen ändern
+→ speichern
+→ Reload
+→ Änderung vorhanden
+
+TEST D:
+Übung austauschen
+→ Bibliothek öffnen
+→ Alternative auswählen
+→ speichern
+
+TEST E:
+Übung hinzufügen
+→ Bibliothek durchsuchen
+→ Übung hinzufügen
+→ speichern
+
+TEST F:
+Trainingszeit 30 Minuten
+→ Plan muss passend auf 30 Minuten strukturiert sein
+
+TEST G:
+Trainingszeit 60 Minuten
+→ Plan sinnvoll umfangreicher als 30-Minuten-Plan
+
+TEST H:
+Mehrere Trainingstage mit unterschiedlichen Zeiten
+→ Zeiten korrekt speichern
+
+TEST I:
+Neuer Plan bei vorhandenem Plan
+→ alter Plan archiviert
+→ neuer Plan aktiv
+→ alter weiterhin abrufbar
+
+TEST J:
+Neue Diagnose bei bestehendem Plan
+→ kein automatisches Überschreiben
+
+TEST K:
+Plan duplizieren
+→ Original unverändert
+→ neue Version unabhängig bearbeitbar
+
+TEST L:
+Spielerwechsel
+→ Pläne nicht vermischt
+
+TEST M:
+Logout/Login
+→ Plan und Änderungen weiterhin vorhanden
+
+==================================================
+36. REGRESSIONSTEST
+===================
+
+Zusätzlich prüfen:
+
+* Login funktioniert
+* Session funktioniert
+* Superadmin funktioniert
+* Kundenverwaltung funktioniert
+* Lizenzverwaltung funktioniert
+* Spieleranlage funktioniert
+* FMS funktioniert
+* Y-Balance funktioniert
+* Sprint funktioniert
+* Defizitlogik aus Schritt 3 funktioniert
+* Basis-Modus funktioniert
+* Diagnostik-Modus funktioniert
+* Trainingsbibliothek funktioniert
+* keine Datenverluste
+
+==================================================
+37. ABSCHLUSSBERICHT
+====================
+
+Nach Abschluss keine weiteren Funktionen automatisch hinzufügen.
+
+Berichte:
+
+1. Wie wurden Trainingspläne bisher gespeichert?
+2. Was musste geändert werden?
+3. Wie wird ein aktiver Plan gespeichert?
+4. Wie funktioniert die Planhistorie?
+5. Wie funktionieren Versionen?
+6. Wie wird Trainingszeit gespeichert und berücksichtigt?
+7. Wie wird die Gesamtdauer berechnet?
+8. Wie können Übungen gelöscht werden?
+9. Wie können Übungen bearbeitet werden?
+10. Wie können Übungen ausgetauscht werden?
+11. Wie können Übungen aus der bestehenden Bibliothek ergänzt werden?
+12. Wie werden plan-spezifische Änderungen gespeichert?
+13. Wie verhindert das System, dass Bibliotheksübungen versehentlich verändert werden?
+14. Wie werden neue Diagnosedaten bei bestehendem Plan behandelt?
+15. Wie werden Spielerpläne voneinander getrennt?
+16. Welche Dateien wurden geändert?
+17. Welche Datenbankänderungen wurden durchgeführt?
+18. Welche bestehenden Funktionen wurden bewusst nicht verändert?
+19. Welche Tests wurden durchgeführt?
+20. Welche 10 Punkte soll ich selbst testen?
+
+Für jeden Hauptbereich zusätzlich kennzeichnen:
+
+* BEREITS VORHANDEN
+* ERGÄNZT
+  oder
+* NEU ERSTELLT
+
+Danach STOPPEN.
+
+Keine Funktionen aus SCHRITT 5, dem späteren Sprint-Wissenschaftsmodul oder der Mobile-Design-Phase automatisch vorwegnehmen.

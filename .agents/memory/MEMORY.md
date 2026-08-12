@@ -13,3 +13,4 @@
 - [Auth Schritt-1 overhaul](auth-schritt1.md) — SCHRITT-1 spec fully implemented: email_service.py, sessions table, rechnungsadressen table, 5-tab login gate, cookie-based persistence, normalize_email everywhere
 - [Kundenverwaltung Schritt-2](kundenverwaltung-schritt2.md) — SCHRITT-2: kundennummer APH-XXXXXX on vereine+benutzer, vertragsdaten cols, audit_log table, modules/kundenverwaltung.py, login deaktiviert message
 - [Defizitlogik Schritt-3](defizitlogik-schritt3.md) — SCHRITT-3: NO_DATA≠Defizit; defizit_score returns {} for empty; Basis-Modus; bereich-based dedup; testdaten_uebersicht(); plan preservation via §19 hint
+- [Trainingsplan Schritt-4](trainingsplan-schritt4.md) — SCHRITT-4: versioned plans (trainingsplan_versionen table), Zeitbudget cap, per-exercise editing in tab_view, plan history, Trainer-Notizen
