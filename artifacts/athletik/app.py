@@ -231,8 +231,52 @@ st.set_page_config(
 # ─── Inject central design system ────────────────────────────────────────────
 st.markdown(APP_CSS, unsafe_allow_html=True)
 
+# ─── Cookie-Controller (Session-Persistenz über Browser-Reload) ──────────────
+try:
+    from streamlit_cookies_controller import CookieController as _CookieController
+    _cookie_ctrl = _CookieController(key="ath_sess_ctrl")
+    _COOKIES_OK = True
+except Exception:
+    _cookie_ctrl = None
+    _COOKIES_OK = False
+
+_SESSION_IDLE_SEC = int(os.environ.get("SESSION_IDLE_TIMEOUT", "3600"))   # 1 Stunde
+_SESSION_MAX_SEC  = int(os.environ.get("SESSION_MAX_LIFETIME", "86400"))  # 24 Stunden
+
+
+def _app_base_url() -> str:
+    """Ermittelt die Basis-URL der App für E-Mail-Links (Verifikation, Passwort-Reset)."""
+    custom = os.environ.get("APP_BASE_URL", "")
+    if custom:
+        return custom.rstrip("/")
+    dev = os.environ.get("REPLIT_DEV_DOMAIN", "")
+    if dev:
+        return f"https://{dev}/athletik/app"
+    return "http://localhost:8082/app"
+
+
+# ─── URL-Parameter lesen (E-Mail-Verifikation, Passwort-Reset) ────────────────
+_qp_verify = st.query_params.get("verify")
+_qp_reset  = st.query_params.get("reset")
+
 # ─── Login-Gate: Benutzer muss angemeldet sein ────────────────────────────────
 if "user" not in st.session_state:
+
+    # 1. Cookie-basierte Session-Wiederherstellung (nach Browser-Reload)
+    if _cookie_ctrl and not _qp_verify and not _qp_reset:
+        try:
+            _stored_sid = _cookie_ctrl.get("ath_sid")
+            if _stored_sid:
+                from database import session_validieren as _sv
+                _restored = _sv(_stored_sid, idle_sek=_SESSION_IDLE_SEC)
+                if _restored:
+                    st.session_state["user"]           = _restored
+                    st.session_state["_session_token"] = _stored_sid
+                    st.rerun()
+        except Exception:
+            pass
+
+    # ── Zentrierter Container ─────────────────────────────────────────────────
     _lc1, _lc2, _lc3 = st.columns([1, 2, 1])
     with _lc2:
         if os.path.exists(_APP_ICON_PATH):
@@ -244,7 +288,50 @@ if "user" not in st.session_state:
             'Performance Diagnostics</p>',
             unsafe_allow_html=True,
         )
-        # Erste Einrichtung — noch kein Benutzer vorhanden
+
+        # Logout-Bestätigungsmeldung (gesetzt vom Logout-Button)
+        if st.session_state.pop("__logout_ok__", False):
+            st.success("✅ Sie wurden erfolgreich abgemeldet.")
+
+        # 2. E-Mail-Verifikation via URL-Parameter (?verify=TOKEN)
+        if _qp_verify:
+            from database import email_token_validieren as _etv
+            _vbid = _etv(_qp_verify)
+            if _vbid:
+                st.success("✅ **E-Mail-Adresse erfolgreich bestätigt!** Du kannst dich jetzt anmelden.")
+            else:
+                st.error("❌ Der Bestätigungslink ist ungültig oder abgelaufen. Bitte fordere einen neuen an.")
+            st.query_params.clear()
+            if st.button("🔐 Zur Anmeldung", key="to_login_btn"):
+                st.rerun()
+            st.stop()
+
+        # 3. Passwort-Reset via URL-Parameter (?reset=TOKEN)
+        if _qp_reset:
+            from database import pw_reset_token_validieren as _prtv, pw_reset_anwenden as _pra
+            _reset_bid = _prtv(_qp_reset)
+            if not _reset_bid:
+                st.error("❌ Der Reset-Link ist ungültig oder abgelaufen. Bitte fordere einen neuen an.")
+                st.query_params.clear()
+            else:
+                st.markdown("### 🔑 Neues Passwort vergeben")
+                _rp1 = st.text_input("Neues Passwort",       type="password", key="rp_new1")
+                _rp2 = st.text_input("Passwort wiederholen", type="password", key="rp_new2")
+                if st.button("✅ Passwort speichern", type="primary",
+                             use_container_width=True, key="rp_save"):
+                    if len(_rp1) < 6:
+                        st.error("Das Passwort muss mindestens 6 Zeichen lang sein.")
+                    elif _rp1 != _rp2:
+                        st.error("Die Passwörter stimmen nicht überein.")
+                    else:
+                        if _pra(_qp_reset, _rp1):
+                            st.success("✅ Passwort geändert — bitte jetzt anmelden.")
+                            st.query_params.clear()
+                        else:
+                            st.error("❌ Reset-Link ungültig oder bereits verwendet.")
+            st.stop()
+
+        # 4. Erste Einrichtung — noch kein Benutzer vorhanden
         _alle_benutzer_login = benutzer_laden()
         if not _alle_benutzer_login:
             st.info("🚀 **Erste Einrichtung** — Lege den ersten Superadmin an.")
@@ -262,20 +349,30 @@ if "user" not in st.session_state:
                 else:
                     _vid = verein_speichern("Standard-Verein")
                     _aid = benutzer_speichern(_vid, "Super", "Admin",
-                                             _setup_email.strip(), _setup_pw1, "Superadmin")
-                    # Bestehende Spieler (Upgrade von Single- auf Multi-Tenant)
-                    # sofort dem neuen Standard-Verein zuweisen.
+                                             _setup_email.strip(), _setup_pw1, "Superadmin",
+                                             email_verifiziert=1)
                     _n = spieler_null_zuweisen(_vid, _aid)
                     if _n:
                         st.info(f"ℹ️ {_n} bestehende Spieler wurden dem Standard-Verein zugewiesen.")
                     st.success("✅ Superadmin angelegt — bitte jetzt anmelden.")
                     st.rerun()
-        else:
-            _login_tab, _reg_tab, _trainer_tab = st.tabs(["🔐 Anmelden", "🆕 Verein registrieren", "👤 Trainer registrieren"])
 
+        else:
+            # 5. Login / Registrierung / Passwort vergessen / Benutzername vergessen
+            _login_tab, _reg_tab, _trainer_tab, _pw_tab, _bn_tab = st.tabs([
+                "🔐 Anmelden",
+                "🏟️ Verein registrieren",
+                "👤 Trainer registrieren",
+                "🔑 Passwort vergessen",
+                "👤 Benutzername vergessen",
+            ])
+
+            # ── Anmelden ─────────────────────────────────────────────────────
             with _login_tab:
-                _login_email    = st.text_input("E-Mail / Benutzername", key="login_email",
-                                                placeholder="trainer@verein.de")
+                _login_email    = st.text_input(
+                    "E-Mail oder Benutzername", key="login_email",
+                    placeholder="trainer@verein.de"
+                )
                 _login_passwort = st.text_input("Passwort", key="login_pw", type="password")
                 if st.button("🔐 Anmelden", type="primary",
                              use_container_width=True, key="login_btn"):
@@ -286,59 +383,156 @@ if "user" not in st.session_state:
                             f"🔒 Konto vorübergehend gesperrt — zu viele Fehlversuche. "
                             f"Bitte in ca. **{_min_rest} Minute(n)** erneut versuchen."
                         )
+                    elif isinstance(_user_obj, dict) and _user_obj.get("email_nicht_verifiziert"):
+                        _ev_bid   = _user_obj["benutzer_id"]
+                        _ev_email = _user_obj["email"]
+                        st.warning(
+                            "📧 **Bitte bestätige zuerst deine E-Mail-Adresse.** "
+                            "Wir haben dir beim Registrieren eine Bestätigungs-E-Mail geschickt."
+                        )
+                        if st.button("📧 Bestätigungs-E-Mail erneut senden", key="resend_verify_btn"):
+                            from database import (
+                                email_token_erzeugen as _ete,
+                                email_token_resend_erlaubt as _etra,
+                                benutzer_by_id as _bbi,
+                            )
+                            if _etra(_ev_bid):
+                                _ntoken = _ete(_ev_bid)
+                                _bu = _bbi(_ev_bid) or {}
+                                try:
+                                    from email_service import send_verification_email as _sve
+                                    _sve(_ev_email, _bu.get("vorname") or "Benutzer",
+                                         _ntoken, _app_base_url())
+                                    st.success("✅ Bestätigungs-E-Mail erneut gesendet.")
+                                except Exception as _ee:
+                                    st.warning(f"E-Mail konnte nicht gesendet werden: {_ee}")
+                            else:
+                                st.info("Bitte warte mindestens 5 Minuten vor der nächsten Anforderung.")
                     elif _user_obj:
                         st.session_state["user"] = _user_obj
+                        # DB-Session erstellen + Cookie setzen
+                        try:
+                            from database import session_erstellen as _se
+                            _new_sid = _se(_user_obj["id"],
+                                          idle_sek=_SESSION_IDLE_SEC,
+                                          max_sek=_SESSION_MAX_SEC)
+                            st.session_state["_session_token"] = _new_sid
+                            if _cookie_ctrl:
+                                _cookie_ctrl.set("ath_sid", _new_sid,
+                                                max_age=_SESSION_MAX_SEC,
+                                                secure=True, same_site="Strict")
+                        except Exception:
+                            pass
                         st.rerun()
                     else:
-                        st.error("❌ E-Mail oder Passwort falsch.")
+                        st.error("❌ E-Mail/Benutzername oder Passwort falsch.")
 
+            # ── Verein registrieren ───────────────────────────────────────────
             with _reg_tab:
                 st.markdown(
                     '<p style="color:#8b949e;font-size:12px;margin-bottom:12px">'
                     "Erstelle deinen Verein und starte sofort — 30 Tage kostenlos testen.</p>",
                     unsafe_allow_html=True,
                 )
-                _r_verein  = st.text_input("Vereinsname", key="reg_verein",
-                                           placeholder="FC Musterstadt")
-                _r_vor, _r_nach = st.columns(2)
-                with _r_vor:
-                    _r_vorname = st.text_input("Vorname", key="reg_vorname")
-                with _r_nach:
-                    _r_nachname = st.text_input("Nachname", key="reg_nachname")
-                _r_email = st.text_input("E-Mail", key="reg_email",
-                                         placeholder="admin@verein.de")
-                _r_pw1   = st.text_input("Passwort", key="reg_pw1", type="password")
-                _r_pw2   = st.text_input("Passwort bestätigen", key="reg_pw2", type="password")
+                _r_verein   = st.text_input("Vereinsname *",                key="reg_verein",
+                                            placeholder="FC Musterstadt")
+                _rr1, _rr2  = st.columns(2)
+                _r_vorname  = _rr1.text_input("Vorname Ansprechpartner *",  key="reg_vorname")
+                _r_nachname = _rr2.text_input("Nachname Ansprechpartner *", key="reg_nachname")
+                _r_email    = st.text_input("E-Mail-Adresse *",             key="reg_email",
+                                            placeholder="admin@verein.de")
+                _r_uname    = st.text_input("Benutzername *",               key="reg_benutzername",
+                                            placeholder="mein_benutzername")
+                _rp1, _rp2  = st.columns(2)
+                _r_pw1      = _rp1.text_input("Passwort *",                 key="reg_pw1", type="password")
+                _r_pw2      = _rp2.text_input("Passwort bestätigen *",      key="reg_pw2", type="password")
+
+                with st.expander("📄 Rechnungsadresse (Pflichtangabe)", expanded=True):
+                    _rb1, _rb2 = st.columns(2)
+                    _r_ra_firma    = _rb1.text_input("Firma/Verein (optional)",  key="reg_ra_firma")
+                    _r_ra_tel      = _rb2.text_input("Telefon (optional)",       key="reg_ra_tel")
+                    _rb3, _rb4 = st.columns(2)
+                    _r_ra_vorname  = _rb3.text_input("Vorname *",                key="reg_ra_vorname")
+                    _r_ra_nachname = _rb4.text_input("Nachname *",               key="reg_ra_nachname")
+                    _rb5, _rb6 = st.columns([3, 1])
+                    _r_ra_strasse  = _rb5.text_input("Straße *",                 key="reg_ra_strasse")
+                    _r_ra_hnr      = _rb6.text_input("Nr. *",                    key="reg_ra_hnr")
+                    _rb7, _rb8 = st.columns([1, 2])
+                    _r_ra_plz      = _rb7.text_input("PLZ *",                    key="reg_ra_plz")
+                    _r_ra_ort      = _rb8.text_input("Ort *",                    key="reg_ra_ort")
+                    _rb9, _rb10 = st.columns(2)
+                    _r_ra_land     = _rb9.text_input("Land *",                   key="reg_ra_land",
+                                                     value="Deutschland")
+                    _r_ra_remail   = _rb10.text_input("Rechnungs-E-Mail *",      key="reg_ra_remail",
+                                                      placeholder="rechnung@verein.de")
+                    _r_ra_ustid    = st.text_input("Umsatzsteuer-ID (optional)", key="reg_ra_ustid")
+
                 if st.button("🚀 Jetzt registrieren", type="primary",
                              use_container_width=True, key="reg_btn"):
-                    _reg_ok = True
-                    if not _r_verein.strip():
-                        st.error("Bitte gib den Vereinsnamen ein."); _reg_ok = False
-                    elif not _r_vorname.strip() or not _r_nachname.strip():
-                        st.error("Bitte gib Vor- und Nachname ein."); _reg_ok = False
-                    elif not _r_email.strip() or "@" not in _r_email:
-                        st.error("Bitte gib eine gültige E-Mail-Adresse ein."); _reg_ok = False
-                    elif len(_r_pw1) < 6:
-                        st.error("Das Passwort muss mindestens 6 Zeichen lang sein."); _reg_ok = False
-                    elif _r_pw1 != _r_pw2:
-                        st.error("Die Passwörter stimmen nicht überein."); _reg_ok = False
-                    if _reg_ok:
+                    _rerr = []
+                    if not _r_verein.strip():            _rerr.append("Vereinsname fehlt.")
+                    if not _r_vorname.strip() or not _r_nachname.strip():
+                        _rerr.append("Vor- und Nachname des Ansprechpartners fehlen.")
+                    if not _r_email.strip() or "@" not in _r_email:
+                        _rerr.append("Bitte gültige E-Mail-Adresse eingeben.")
+                    if not _r_uname.strip():             _rerr.append("Benutzername fehlt.")
+                    if len(_r_pw1) < 6:                  _rerr.append("Passwort mind. 6 Zeichen.")
+                    elif _r_pw1 != _r_pw2:               _rerr.append("Passwörter stimmen nicht überein.")
+                    if not _r_ra_vorname.strip() or not _r_ra_nachname.strip():
+                        _rerr.append("Rechnungsadresse: Vor-/Nachname fehlen.")
+                    if not _r_ra_strasse.strip() or not _r_ra_hnr.strip():
+                        _rerr.append("Rechnungsadresse: Straße und Hausnummer fehlen.")
+                    if not _r_ra_plz.strip() or not _r_ra_ort.strip():
+                        _rerr.append("Rechnungsadresse: PLZ und Ort fehlen.")
+                    if not _r_ra_land.strip():           _rerr.append("Rechnungsadresse: Land fehlt.")
+                    if not _r_ra_remail.strip() or "@" not in _r_ra_remail:
+                        _rerr.append("Rechnungsadresse: Rechnungs-E-Mail fehlt oder ungültig.")
+                    if _rerr:
+                        for _e in _rerr: st.error(_e)
+                    else:
                         try:
-                            from database import verein_registrieren
+                            from database import verein_registrieren, rechnungsadresse_speichern as _ras
                             _vid, _bid = verein_registrieren(
                                 _r_verein.strip(), _r_vorname.strip(),
                                 _r_nachname.strip(), _r_email.strip(), _r_pw1,
+                                benutzername=_r_uname.strip(),
                             )
-                            st.success(
-                                "✅ Verein erfolgreich registriert! "
-                                "Du kannst dich jetzt anmelden. "
-                                "Deine 30-Tage-Testphase beginnt sofort."
-                            )
+                            _ras(_bid,
+                                 firma=_r_ra_firma.strip() or None,
+                                 vorname=_r_ra_vorname.strip(),
+                                 nachname=_r_ra_nachname.strip(),
+                                 strasse=_r_ra_strasse.strip(),
+                                 hausnummer=_r_ra_hnr.strip(),
+                                 plz=_r_ra_plz.strip(),
+                                 ort=_r_ra_ort.strip(),
+                                 land=_r_ra_land.strip(),
+                                 rechnung_email=_r_ra_remail.strip(),
+                                 telefon=_r_ra_tel.strip() or None,
+                                 ust_id=_r_ra_ustid.strip() or None)
+                            from database import email_token_erzeugen as _ete
+                            _vtoken = _ete(_bid)
+                            try:
+                                from email_service import send_verification_email as _sve
+                                _sve(_r_email.strip(), _r_vorname.strip(),
+                                     _vtoken, _app_base_url())
+                                st.success(
+                                    "✅ Verein erfolgreich registriert! "
+                                    "Bitte bestätige deine E-Mail-Adresse — "
+                                    "wir haben dir eine Bestätigungs-E-Mail gesendet."
+                                )
+                            except Exception:
+                                st.success(
+                                    "✅ Verein erfolgreich registriert! "
+                                    "Bitte bestätige deine E-Mail-Adresse "
+                                    "(E-Mail-Versand noch nicht konfiguriert — "
+                                    "wende dich an den Administrator)."
+                                )
                         except ValueError as _ve:
                             st.error(str(_ve))
                         except Exception as _ex:
                             st.error(f"Fehler bei der Registrierung: {_ex}")
 
+            # ── Trainer registrieren ──────────────────────────────────────────
             with _trainer_tab:
                 st.markdown(
                     '<p style="color:#8b949e;font-size:12px;margin-bottom:12px">'
@@ -346,51 +540,151 @@ if "user" not in st.session_state:
                     "und weist dir deinen Verein zu.</p>",
                     unsafe_allow_html=True,
                 )
-                _t_vor, _t_nach = st.columns(2)
-                with _t_vor:
-                    _t_vorname = st.text_input("Vorname", key="trainer_vorname")
-                with _t_nach:
-                    _t_nachname = st.text_input("Nachname", key="trainer_nachname")
-                _t_email = st.text_input(
-                    "E-Mail", key="trainer_email", placeholder="trainer@verein.de"
-                )
-                _t_pw1 = st.text_input("Passwort", key="trainer_pw1", type="password")
-                _t_pw2 = st.text_input(
-                    "Passwort bestätigen", key="trainer_pw2", type="password"
-                )
-                if st.button(
-                    "👤 Als Trainer registrieren",
-                    type="primary",
-                    use_container_width=True,
-                    key="trainer_reg_btn",
-                ):
-                    _t_ok = True
+                _tt1, _tt2 = st.columns(2)
+                _t_vorname  = _tt1.text_input("Vorname *",      key="trainer_vorname")
+                _t_nachname = _tt2.text_input("Nachname *",     key="trainer_nachname")
+                _t_email    = st.text_input("E-Mail-Adresse *", key="trainer_email",
+                                            placeholder="trainer@verein.de")
+                _t_uname    = st.text_input("Benutzername *",   key="trainer_benutzername",
+                                            placeholder="mein_benutzername")
+                _tp1, _tp2 = st.columns(2)
+                _t_pw1 = _tp1.text_input("Passwort *",          key="trainer_pw1", type="password")
+                _t_pw2 = _tp2.text_input("Passwort bestätigen *", key="trainer_pw2", type="password")
+
+                with st.expander("📄 Rechnungsadresse (Pflichtangabe)", expanded=True):
+                    _tb1, _tb2 = st.columns(2)
+                    _t_ra_firma    = _tb1.text_input("Firma/Verein (optional)",  key="tr_ra_firma")
+                    _t_ra_tel      = _tb2.text_input("Telefon (optional)",       key="tr_ra_tel")
+                    _tb3, _tb4 = st.columns(2)
+                    _t_ra_vorname  = _tb3.text_input("Vorname *",                key="tr_ra_vorname")
+                    _t_ra_nachname = _tb4.text_input("Nachname *",               key="tr_ra_nachname")
+                    _tb5, _tb6 = st.columns([3, 1])
+                    _t_ra_strasse  = _tb5.text_input("Straße *",                 key="tr_ra_strasse")
+                    _t_ra_hnr      = _tb6.text_input("Nr. *",                    key="tr_ra_hnr")
+                    _tb7, _tb8 = st.columns([1, 2])
+                    _t_ra_plz      = _tb7.text_input("PLZ *",                    key="tr_ra_plz")
+                    _t_ra_ort      = _tb8.text_input("Ort *",                    key="tr_ra_ort")
+                    _tb9, _tb10 = st.columns(2)
+                    _t_ra_land     = _tb9.text_input("Land *",                   key="tr_ra_land",
+                                                     value="Deutschland")
+                    _t_ra_remail   = _tb10.text_input("Rechnungs-E-Mail *",      key="tr_ra_remail",
+                                                      placeholder="rechnung@trainer.de")
+                    _t_ra_ustid    = st.text_input("Umsatzsteuer-ID (optional)", key="tr_ra_ustid")
+
+                if st.button("👤 Als Trainer registrieren", type="primary",
+                             use_container_width=True, key="trainer_reg_btn"):
+                    _terr = []
                     if not _t_vorname.strip() or not _t_nachname.strip():
-                        st.error("Bitte gib Vor- und Nachname ein."); _t_ok = False
-                    elif not _t_email.strip() or "@" not in _t_email:
-                        st.error("Bitte gib eine gültige E-Mail-Adresse ein."); _t_ok = False
-                    elif len(_t_pw1) < 6:
-                        st.error("Das Passwort muss mindestens 6 Zeichen lang sein."); _t_ok = False
-                    elif _t_pw1 != _t_pw2:
-                        st.error("Die Passwörter stimmen nicht überein."); _t_ok = False
-                    if _t_ok:
+                        _terr.append("Vor- und Nachname fehlen.")
+                    if not _t_email.strip() or "@" not in _t_email:
+                        _terr.append("Bitte gültige E-Mail-Adresse eingeben.")
+                    if not _t_uname.strip():             _terr.append("Benutzername fehlt.")
+                    if len(_t_pw1) < 6:                  _terr.append("Passwort mind. 6 Zeichen.")
+                    elif _t_pw1 != _t_pw2:               _terr.append("Passwörter stimmen nicht überein.")
+                    if not _t_ra_vorname.strip() or not _t_ra_nachname.strip():
+                        _terr.append("Rechnungsadresse: Vor-/Nachname fehlen.")
+                    if not _t_ra_strasse.strip() or not _t_ra_hnr.strip():
+                        _terr.append("Rechnungsadresse: Straße und Hausnummer fehlen.")
+                    if not _t_ra_plz.strip() or not _t_ra_ort.strip():
+                        _terr.append("Rechnungsadresse: PLZ und Ort fehlen.")
+                    if not _t_ra_land.strip():           _terr.append("Rechnungsadresse: Land fehlt.")
+                    if not _t_ra_remail.strip() or "@" not in _t_ra_remail:
+                        _terr.append("Rechnungsadresse: Rechnungs-E-Mail fehlt oder ungültig.")
+                    if _terr:
+                        for _e in _terr: st.error(_e)
+                    else:
                         try:
-                            from database import trainer_registrieren
-                            trainer_registrieren(
-                                _t_vorname.strip(),
-                                _t_nachname.strip(),
-                                _t_email.strip(),
-                                _t_pw1,
+                            from database import trainer_registrieren, rechnungsadresse_speichern as _ras
+                            _tbid = trainer_registrieren(
+                                _t_vorname.strip(), _t_nachname.strip(),
+                                _t_email.strip(), _t_pw1,
+                                benutzername=_t_uname.strip(),
                             )
-                            st.success(
-                                "✅ Registrierung erfolgreich! "
-                                "Ein Administrator schaltet dein Konto frei — "
-                                "danach kannst du dich anmelden."
-                            )
+                            _ras(_tbid,
+                                 firma=_t_ra_firma.strip() or None,
+                                 vorname=_t_ra_vorname.strip(),
+                                 nachname=_t_ra_nachname.strip(),
+                                 strasse=_t_ra_strasse.strip(),
+                                 hausnummer=_t_ra_hnr.strip(),
+                                 plz=_t_ra_plz.strip(),
+                                 ort=_t_ra_ort.strip(),
+                                 land=_t_ra_land.strip(),
+                                 rechnung_email=_t_ra_remail.strip(),
+                                 telefon=_t_ra_tel.strip() or None,
+                                 ust_id=_t_ra_ustid.strip() or None)
+                            from database import email_token_erzeugen as _ete
+                            _tvtoken = _ete(_tbid)
+                            try:
+                                from email_service import send_verification_email as _sve
+                                _sve(_t_email.strip(), _t_vorname.strip(),
+                                     _tvtoken, _app_base_url())
+                                st.success(
+                                    "✅ Registrierung erfolgreich! "
+                                    "Bitte bestätige deine E-Mail. "
+                                    "Danach schaltet ein Administrator dein Konto frei."
+                                )
+                            except Exception:
+                                st.success(
+                                    "✅ Registrierung erfolgreich! "
+                                    "Ein Administrator schaltet dein Konto frei."
+                                )
                         except ValueError as _ve:
                             st.error(str(_ve))
                         except Exception as _ex:
                             st.error(f"Fehler bei der Registrierung: {_ex}")
+
+            # ── Passwort vergessen ────────────────────────────────────────────
+            with _pw_tab:
+                st.markdown(
+                    '<p style="color:#8b949e;font-size:12px;margin-bottom:12px">'
+                    "Gib deine E-Mail-Adresse oder deinen Benutzernamen ein.</p>",
+                    unsafe_allow_html=True,
+                )
+                _pw_input = st.text_input(
+                    "E-Mail-Adresse oder Benutzername", key="pw_forget_input",
+                    placeholder="trainer@verein.de"
+                )
+                if st.button("🔑 Reset-Link anfordern", type="primary",
+                             use_container_width=True, key="pw_forget_btn"):
+                    # Immer dieselbe Meldung — verhindert Benutzer-Enumeration
+                    st.info("Falls ein passendes Konto existiert, haben wir eine E-Mail mit weiteren Anweisungen gesendet.")
+                    if _pw_input.strip():
+                        try:
+                            from database import pw_reset_token_erzeugen as _prte
+                            _rt = _prte(_pw_input.strip())
+                            if _rt:
+                                _rt_token, _rt_name, _rt_email = _rt
+                                from email_service import send_password_reset as _spr
+                                _spr(_rt_email, _rt_name, _rt_token, _app_base_url())
+                        except Exception:
+                            pass  # Stille Fehler — kein Info-Leakage
+
+            # ── Benutzername vergessen ────────────────────────────────────────
+            with _bn_tab:
+                st.markdown(
+                    '<p style="color:#8b949e;font-size:12px;margin-bottom:12px">'
+                    "Gib deine hinterlegte E-Mail-Adresse ein.</p>",
+                    unsafe_allow_html=True,
+                )
+                _bn_input = st.text_input(
+                    "E-Mail-Adresse", key="bn_forget_input",
+                    placeholder="trainer@verein.de"
+                )
+                if st.button("👤 Benutzername anfordern", type="primary",
+                             use_container_width=True, key="bn_forget_btn"):
+                    # Immer dieselbe Meldung — kein Info-Leakage
+                    st.info("Falls ein passendes Konto existiert, erhalten Sie eine E-Mail.")
+                    if _bn_input.strip():
+                        try:
+                            from database import benutzername_reminder_laden as _brl
+                            _br = _brl(_bn_input.strip())
+                            if _br:
+                                _br_uname, _br_name = _br
+                                from email_service import send_username_reminder as _sur
+                                _sur(_bn_input.strip(), _br_name, _br_uname)
+                        except Exception:
+                            pass
+
     st.stop()
 
 # ─── Session-Timeout: inaktive Sitzungen automatisch abmelden ────────────────
@@ -8741,8 +9035,25 @@ with st.sidebar:
         unsafe_allow_html=True,
     )
     if st.button("🚪 Abmelden", key="logout_btn", use_container_width=True):
-        for _lk in list(st.session_state.keys()):
+        # DB-Session beenden
+        _logout_token = st.session_state.get("_session_token")
+        if _logout_token:
+            try:
+                from database import session_beenden as _sb
+                _sb(_logout_token)
+            except Exception:
+                pass
+        # Cookie löschen
+        if _cookie_ctrl:
+            try:
+                _cookie_ctrl.remove("ath_sid")
+            except Exception:
+                pass
+        # Logout-Flag setzen, restliche Keys löschen
+        _keys_del = [k for k in st.session_state.keys() if k != "__logout_ok__"]
+        for _lk in _keys_del:
             del st.session_state[_lk]
+        st.session_state["__logout_ok__"] = True
         st.rerun()
 
     # ── Copyright-Footer ──────────────────────────────────────────────────────

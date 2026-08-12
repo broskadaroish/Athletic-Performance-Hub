@@ -1,139 +1,160 @@
 """
-E-Mail-Versand-Dienst — zentraler SMTP-Wrapper für Systembenachrichtigungen.
+E-Mail-Versand über IONOS SMTP (SSL/TLS, Port 465).
 
-Konfiguration über Umgebungsvariablen (config.py):
-  SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD, SMTP_FROM
+Umgebungsvariablen (via Replit Secrets):
+  SMTP_HOST      – Standard: smtp.ionos.de
+  SMTP_PORT      – Standard: 465
+  SMTP_USERNAME  – Standard: noreply@aphsystem.de
+  SMTP_PASSWORD  – PFLICHT (nie im Code speichern oder loggen!)
+  SMTP_FROM      – Standard: noreply@aphsystem.de
+  SUPPORT_EMAIL  – Standard: support@aphsystem.de
 
-Wenn SMTP_USER leer ist, wird kein E-Mail versendet und eine Warnung geloggt.
+SMTP_PASSWORD darf niemals geloggt, angezeigt oder in Fehlermeldungen sichtbar sein.
 """
-
+from __future__ import annotations
+import os
 import logging
 import smtplib
-from email.mime.multipart import MIMEMultipart
+import ssl
 from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 
-import config
+log = logging.getLogger("athletik.email")
 
-_log = logging.getLogger(__name__)
+_SMTP_HOST     = os.environ.get("SMTP_HOST",     "smtp.ionos.de")
+_SMTP_PORT     = int(os.environ.get("SMTP_PORT", "465"))
+_SMTP_USER     = os.environ.get("SMTP_USERNAME", "noreply@aphsystem.de")
+_SMTP_FROM     = os.environ.get("SMTP_FROM",     "noreply@aphsystem.de")
+_SUPPORT_EMAIL = os.environ.get("SUPPORT_EMAIL", "support@aphsystem.de")
+_APP_NAME      = "Athletic Performance Hub"
 
 
-def _smtp_configured() -> bool:
-    return bool(config.SMTP_USER and config.SMTP_PASSWORD and config.SMTP_HOST)
+def _get_smtp_password() -> str | None:
+    """Liest SMTP_PASSWORD aus der Umgebung. Darf niemals geloggt oder angezeigt werden."""
+    return os.environ.get("SMTP_PASSWORD")
 
 
-def send_email(to: str, subject: str, body_html: str, body_text: str = "") -> bool:
+def _send(to: str, subject: str, body_text: str, body_html: str | None = None) -> None:
+    """Intern: sendet eine E-Mail via IONOS SMTP SSL/TLS Port 465.
+
+    Wirft RuntimeError wenn SMTP_PASSWORD nicht konfiguriert ist.
+    Wirft smtplib.SMTPException bei Verbindungsfehlern.
+    SMTP_PASSWORD wird niemals geloggt.
     """
-    Versendet eine E-Mail per SMTP (STARTTLS).
-
-    Gibt True zurück wenn erfolgreich, False bei Fehler oder fehlender Konfiguration.
-    """
-    if not _smtp_configured():
-        _log.warning(
-            "E-Mail-Versand deaktiviert: SMTP_USER/SMTP_PASSWORD nicht konfiguriert. "
-            "Empfänger: %s | Betreff: %s", to, subject
+    pw = _get_smtp_password()
+    if not pw:
+        raise RuntimeError(
+            "SMTP_PASSWORD ist nicht konfiguriert. "
+            "Bitte in Replit Secrets unter 'SMTP_PASSWORD' eintragen."
         )
-        return False
 
     msg = MIMEMultipart("alternative")
     msg["Subject"] = subject
-    msg["From"]    = config.SMTP_FROM or config.SMTP_USER
+    msg["From"]    = f"{_APP_NAME} <{_SMTP_FROM}>"
     msg["To"]      = to
+    msg["Reply-To"] = _SUPPORT_EMAIL
 
-    if body_text:
-        msg.attach(MIMEText(body_text, "plain", "utf-8"))
-    msg.attach(MIMEText(body_html, "html", "utf-8"))
+    msg.attach(MIMEText(body_text, "plain", "utf-8"))
+    if body_html:
+        msg.attach(MIMEText(body_html, "html", "utf-8"))
 
-    try:
-        with smtplib.SMTP(config.SMTP_HOST, config.SMTP_PORT, timeout=15) as srv:
-            srv.ehlo()
-            srv.starttls()
-            srv.login(config.SMTP_USER, config.SMTP_PASSWORD)
-            srv.sendmail(msg["From"], [to], msg.as_string())
-        _log.info("E-Mail versendet an %s | Betreff: %s", to, subject)
-        return True
-    except Exception as exc:
-        _log.error("E-Mail-Versand fehlgeschlagen an %s: %s", to, exc)
-        return False
+    context = ssl.create_default_context()
+    with smtplib.SMTP_SSL(_SMTP_HOST, _SMTP_PORT, context=context) as smtp:
+        smtp.login(_SMTP_USER, pw)   # pw absichtlich nicht geloggt
+        smtp.sendmail(_SMTP_FROM, [to], msg.as_bytes())
+
+    log.info("E-Mail gesendet an %s — Betreff: %s", to, subject)
 
 
-def send_lizenz_ablauf_warnung(
-    to: str,
-    ablaufende_vereine: list[dict],
-) -> bool:
-    """
-    Sendet eine Lizenz-Ablauf-Warnung an den Superadmin.
+# ── Öffentliche Sende-Funktionen ──────────────────────────────────────────────
 
-    ablaufende_vereine: Liste von dicts mit Schlüsseln:
-        name (str), lizenz_bis (str 'YYYY-MM-DD'), tage_bis_ablauf (int)
-    """
-    if not ablaufende_vereine:
-        return False
-
-    n = len(ablaufende_vereine)
-    subject = (
-        f"⚠️ Lizenz-Ablauf-Warnung: {n} Verein{'e' if n != 1 else ''} "
-        f"läuft{'laufen' if n != 1 else ''} in ≤ 30 Tagen ab"
+def send_verification_email(to: str, name: str, token: str, base_url: str) -> None:
+    """Sendet die E-Mail-Bestätigungsmail nach der Registrierung."""
+    verify_url = f"{base_url.rstrip('/')}/?verify={token}"
+    subject = f"{_APP_NAME} – E-Mail-Adresse bestätigen"
+    text = (
+        f"Hallo {name},\n\n"
+        "bitte bestätige deine E-Mail-Adresse durch Klick auf den folgenden Link:\n\n"
+        f"{verify_url}\n\n"
+        "Der Link ist 24 Stunden gültig und kann nur einmal verwendet werden.\n\n"
+        "Falls du dich nicht registriert hast, kannst du diese E-Mail ignorieren.\n\n"
+        f"Support: {_SUPPORT_EMAIL}\n\n"
+        f"Viele Grüße\n{_APP_NAME}"
     )
-
-    zeilen_html = "\n".join(
-        f"<tr>"
-        f"<td style='padding:8px 16px;border-bottom:1px solid #e0e0e0'>"
-        f"<strong>{v['name']}</strong></td>"
-        f"<td style='padding:8px 16px;border-bottom:1px solid #e0e0e0'>"
-        f"{v['lizenz_bis']}</td>"
-        f"<td style='padding:8px 16px;border-bottom:1px solid #e0e0e0;"
-        f"color:{'#c0392b' if v['tage_bis_ablauf'] <= 7 else '#e67e22'}'>"
-        f"<strong>{v['tage_bis_ablauf']} Tag{'e' if v['tage_bis_ablauf'] != 1 else ''}</strong></td>"
-        f"</tr>"
-        for v in ablaufende_vereine
+    html = (
+        f"<p>Hallo <strong>{name}</strong>,</p>"
+        "<p>bitte bestätige deine E-Mail-Adresse:</p>"
+        f'<p><a href="{verify_url}" style="background:#238636;color:#fff;'
+        f'padding:10px 24px;border-radius:6px;text-decoration:none;display:inline-block;font-weight:bold">'
+        f"E-Mail-Adresse bestätigen</a></p>"
+        "<p>Der Link ist <strong>24 Stunden</strong> gültig und kann nur einmal verwendet werden.</p>"
+        "<p>Falls du dich nicht registriert hast, ignoriere diese E-Mail.</p>"
+        f"<hr><p style='font-size:12px;color:#666'>Support: "
+        f"<a href='mailto:{_SUPPORT_EMAIL}'>{_SUPPORT_EMAIL}</a></p>"
+        f"<p style='font-size:12px;color:#666'>Viele Grüße<br><strong>{_APP_NAME}</strong></p>"
     )
+    _send(to, subject, text, html)
 
-    zeilen_text = "\n".join(
-        f"  • {v['name']}: läuft ab am {v['lizenz_bis']} "
-        f"(noch {v['tage_bis_ablauf']} Tag{'e' if v['tage_bis_ablauf'] != 1 else ''})"
-        for v in ablaufende_vereine
+
+def send_password_reset(to: str, name: str, token: str, base_url: str) -> None:
+    """Sendet den Passwort-Reset-Link. Kein Klartextpasswort in der E-Mail."""
+    reset_url = f"{base_url.rstrip('/')}/?reset={token}"
+    subject = f"{_APP_NAME} – Passwort zurücksetzen"
+    text = (
+        f"Hallo {name},\n\n"
+        "du hast das Zurücksetzen deines Passworts angefordert.\n\n"
+        f"{reset_url}\n\n"
+        "Der Link ist 1 Stunde gültig und kann nur einmal verwendet werden.\n\n"
+        "Falls du keine Anfrage gestellt hast, kannst du diese E-Mail ignorieren. "
+        "Dein Passwort bleibt in diesem Fall unverändert.\n\n"
+        f"Support: {_SUPPORT_EMAIL}\n\n"
+        f"Viele Grüße\n{_APP_NAME}"
     )
-
-    body_html = f"""<!DOCTYPE html>
-<html lang="de">
-<head><meta charset="utf-8"></head>
-<body style="font-family:Arial,sans-serif;color:#333;max-width:640px;margin:0 auto">
-  <div style="background:#1e3a5f;padding:24px 32px;border-radius:8px 8px 0 0">
-    <h2 style="color:#fff;margin:0">⚠️ Lizenz-Ablauf-Warnung</h2>
-    <p style="color:#cce0ff;margin:8px 0 0">Bruce Football Performance Diagnostics</p>
-  </div>
-  <div style="background:#fff;padding:24px 32px;border:1px solid #ddd;border-top:none;border-radius:0 0 8px 8px">
-    <p>Hallo,</p>
-    <p>die folgenden <strong>{n} Verein{'e haben' if n != 1 else ' hat'}</strong> eine Lizenz,
-       die in den nächsten <strong>30 Tagen</strong> ausläuft:</p>
-    <table style="border-collapse:collapse;width:100%;margin:16px 0">
-      <thead>
-        <tr style="background:#f5f5f5">
-          <th style="padding:8px 16px;text-align:left;border-bottom:2px solid #ddd">Verein</th>
-          <th style="padding:8px 16px;text-align:left;border-bottom:2px solid #ddd">Ablaufdatum</th>
-          <th style="padding:8px 16px;text-align:left;border-bottom:2px solid #ddd">Verbleibend</th>
-        </tr>
-      </thead>
-      <tbody>
-{zeilen_html}
-      </tbody>
-    </table>
-    <p>Bitte erneuere die Lizenzen rechtzeitig, um eine Unterbrechung des Dienstes zu vermeiden.</p>
-    <p style="color:#888;font-size:13px;margin-top:32px">
-      Diese E-Mail wurde automatisch vom Lizenzverwaltungssystem generiert.<br>
-      Antworten auf diese E-Mail werden nicht bearbeitet.
-    </p>
-  </div>
-</body>
-</html>"""
-
-    body_text = (
-        f"Lizenz-Ablauf-Warnung — Bruce Football Performance Diagnostics\n"
-        f"{'=' * 60}\n\n"
-        f"Die folgenden {n} Verein(e) haben eine Lizenz, die in den nächsten 30 Tagen ausläuft:\n\n"
-        f"{zeilen_text}\n\n"
-        f"Bitte erneuere die Lizenzen rechtzeitig.\n\n"
-        f"(Diese E-Mail wurde automatisch generiert.)\n"
+    html = (
+        f"<p>Hallo <strong>{name}</strong>,</p>"
+        "<p>du hast das Zurücksetzen deines Passworts angefordert:</p>"
+        f'<p><a href="{reset_url}" style="background:#0969da;color:#fff;'
+        f'padding:10px 24px;border-radius:6px;text-decoration:none;display:inline-block;font-weight:bold">'
+        f"Passwort zurücksetzen</a></p>"
+        "<p>Der Link ist <strong>1 Stunde</strong> gültig und kann nur einmal verwendet werden.</p>"
+        "<p>Falls du keine Anfrage gestellt hast, ignoriere diese E-Mail. "
+        "Dein Passwort bleibt unverändert.</p>"
+        f"<hr><p style='font-size:12px;color:#666'>Support: "
+        f"<a href='mailto:{_SUPPORT_EMAIL}'>{_SUPPORT_EMAIL}</a></p>"
+        f"<p style='font-size:12px;color:#666'>Viele Grüße<br><strong>{_APP_NAME}</strong></p>"
     )
+    _send(to, subject, text, html)
 
-    return send_email(to, subject, body_html, body_text)
+
+def send_username_reminder(to: str, name: str, benutzername: str) -> None:
+    """Sendet den Benutzernamen per E-Mail (kein Passwort-Klartextversand)."""
+    subject = f"{_APP_NAME} – Dein Benutzername"
+    text = (
+        f"Hallo {name},\n\n"
+        f"dein Benutzername lautet: {benutzername}\n\n"
+        "Du kannst dich mit deiner E-Mail-Adresse oder deinem Benutzernamen anmelden.\n\n"
+        f"Support: {_SUPPORT_EMAIL}\n\n"
+        f"Viele Grüße\n{_APP_NAME}"
+    )
+    html = (
+        f"<p>Hallo <strong>{name}</strong>,</p>"
+        f"<p>dein Benutzername lautet: <strong>{benutzername}</strong></p>"
+        "<p>Du kannst dich mit deiner E-Mail-Adresse oder deinem Benutzernamen anmelden.</p>"
+        f"<hr><p style='font-size:12px;color:#666'>Support: "
+        f"<a href='mailto:{_SUPPORT_EMAIL}'>{_SUPPORT_EMAIL}</a></p>"
+        f"<p style='font-size:12px;color:#666'>Viele Grüße<br><strong>{_APP_NAME}</strong></p>"
+    )
+    _send(to, subject, text, html)
+
+
+def send_test_mail(to: str) -> None:
+    """Testmail für Superadmin — prüft ob SMTP-Konfiguration funktioniert."""
+    subject = f"{_APP_NAME} – E-Mail-Test"
+    text = (
+        "Hallo,\n\n"
+        f"der E-Mail-Versand von {_APP_NAME} funktioniert erfolgreich.\n\n"
+        f"Automatischer Absender:\n{_SMTP_FROM}\n\n"
+        f"Support:\n{_SUPPORT_EMAIL}\n\n"
+        f"Viele Grüße\n{_APP_NAME}"
+    )
+    _send(to, subject, text)

@@ -12,3 +12,6 @@ psycopg2-binary>=2.9
 
 # Env-Datei-Unterstützung (optional — Render/Railway setzen Vars direkt)
 python-dotenv>=1.0
+
+# Cookie-basiertes Session-Management (Session-Persistenz nach Seiten-Reload)
+streamlit-cookies-controller>=0.4

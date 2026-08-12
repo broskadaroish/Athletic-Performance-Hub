@@ -2149,6 +2149,58 @@ def _migrate_multitenant():
                 conn.execute(f"ALTER TABLE benutzer ADD COLUMN {col} {typ}")
             except Exception:
                 pass
+        # ── Auth-Erweiterungsfelder (E-Mail-Verifikation, Passwort-Reset, Benutzername) ──
+        neue_benutzer_auth_cols = [
+            ("benutzername",            "TEXT"),
+            ("email_verifiziert",       "INTEGER DEFAULT 0"),
+            ("email_token",             "TEXT"),
+            ("email_token_ablauf",      "TEXT"),
+            ("email_token_gesendet_am", "TEXT"),
+            ("pw_reset_token",          "TEXT"),
+            ("pw_reset_ablauf",         "TEXT"),
+        ]
+        for col, typ in neue_benutzer_auth_cols:
+            try:
+                conn.execute(f"ALTER TABLE benutzer ADD COLUMN {col} {typ}")
+            except Exception:
+                pass
+        # Bestehende Benutzer sofort als verifiziert markieren — verhindert Lockout
+        conn.execute(
+            "UPDATE benutzer SET email_verifiziert=1 "
+            "WHERE email_verifiziert IS NULL OR email_verifiziert=0"
+        )
+        # Sessions-Tabelle (server-seitige Session-Persistenz)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS sessions (
+                token             TEXT    PRIMARY KEY,
+                benutzer_id       INTEGER NOT NULL,
+                erstellt_am       TEXT    NOT NULL,
+                letzte_aktivitaet TEXT    NOT NULL,
+                ablauf_am         TEXT    NOT NULL,
+                aktiv             INTEGER NOT NULL DEFAULT 1,
+                FOREIGN KEY (benutzer_id) REFERENCES benutzer(id)
+            )
+        """)
+        # Rechnungsadressen-Tabelle
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS rechnungsadressen (
+                id             INTEGER PRIMARY KEY AUTOINCREMENT,
+                benutzer_id    INTEGER NOT NULL UNIQUE,
+                firma          TEXT,
+                vorname        TEXT    NOT NULL DEFAULT '',
+                nachname       TEXT    NOT NULL DEFAULT '',
+                strasse        TEXT    NOT NULL DEFAULT '',
+                hausnummer     TEXT    NOT NULL DEFAULT '',
+                plz            TEXT    NOT NULL DEFAULT '',
+                ort            TEXT    NOT NULL DEFAULT '',
+                land           TEXT    NOT NULL DEFAULT 'Deutschland',
+                rechnung_email TEXT    NOT NULL DEFAULT '',
+                telefon        TEXT,
+                ust_id         TEXT,
+                erstellt_am    TEXT    NOT NULL DEFAULT (datetime('now')),
+                FOREIGN KEY (benutzer_id) REFERENCES benutzer(id)
+            )
+        """)
 
         # ── Rechnungen-Tabelle ─────────────────────────────────────────────
         conn.execute("""
@@ -2284,22 +2336,28 @@ def verein_registrieren(
     nachname: str,
     email: str,
     passwort: str,
+    *,
+    benutzername: str | None = None,
 ) -> tuple[int, int]:
     """Erstellt einen neuen Verein mit Vereinsadmin und startet 30-Tage-Testphase.
-    Gibt (verein_id, benutzer_id) zurück."""
+    Gibt (verein_id, benutzer_id) zurück.
+    Setzt email_verifiziert=0 — Bestätigungs-E-Mail wird separat gesendet."""
     import datetime as _dt
+    email_norm = normalize_email(email)
     testphase_bis = (_dt.date.today() + _dt.timedelta(days=30)).isoformat()
 
-    # Prüfen ob E-Mail bereits vergeben
+    # Eindeutigkeit prüfen
     with get_conn() as conn:
-        existing = conn.execute(
-            "SELECT id FROM benutzer WHERE email=?", (email.strip().lower(),)
-        ).fetchone()
-        if existing:
+        if conn.execute(
+            "SELECT id FROM benutzer WHERE LOWER(email)=?", (email_norm,)
+        ).fetchone():
             raise ValueError("Diese E-Mail-Adresse ist bereits registriert.")
+        if benutzername and conn.execute(
+            "SELECT id FROM benutzer WHERE LOWER(benutzername)=LOWER(?)", (benutzername,)
+        ).fetchone():
+            raise ValueError(f"Der Benutzername '{benutzername}' ist bereits vergeben.")
 
     verein_id = verein_speichern(vereinsname)
-    # Testphase explizit setzen (verein_speichern setzt sie bereits)
     with get_conn() as conn:
         conn.execute(
             "UPDATE vereine SET testphase_bis=?, lizenz_status='trial', lizenztyp='BASIC' WHERE id=?",
@@ -2307,7 +2365,8 @@ def verein_registrieren(
         )
 
     benutzer_id = benutzer_speichern(
-        verein_id, vorname, nachname, email.strip().lower(), passwort, "Vereinsadmin"
+        verein_id, vorname, nachname, email_norm, passwort, "Vereinsadmin",
+        benutzername=benutzername, email_verifiziert=0,
     )
     return verein_id, benutzer_id
 
@@ -2609,23 +2668,39 @@ def trainer_registrieren(
     nachname: str,
     email: str,
     passwort: str,
+    *,
+    benutzername: str | None = None,
 ) -> int:
     """Trainer-Selbstregistrierung ohne Vereinszuordnung.
-    Der Trainer startet als inaktiv=0 — ein Admin schaltet das Konto frei
-    und weist es einem Verein zu."""
+    Startet mit aktiv=0 und email_verifiziert=0.
+    Ein Admin schaltet das Konto nach E-Mail-Bestätigung frei."""
+    import sqlite3 as _sqlite3
+    email_norm = normalize_email(email)
     with get_conn() as conn:
-        existing = conn.execute(
-            "SELECT id FROM benutzer WHERE LOWER(email)=LOWER(?)", (email,)
-        ).fetchone()
-        if existing:
+        if conn.execute(
+            "SELECT id FROM benutzer WHERE LOWER(email)=?", (email_norm,)
+        ).fetchone():
             raise ValueError("Diese E-Mail-Adresse ist bereits registriert.")
-        cur = conn.execute(
-            """INSERT INTO benutzer
-                   (verein_id, vorname, nachname, email, passwort_hash, rolle, aktiv)
-               VALUES (NULL, ?, ?, ?, ?, 'Trainer', 0)""",
-            (vorname, nachname, email, _pw_hash(passwort)),
-        )
-        return cur.lastrowid
+        if benutzername and conn.execute(
+            "SELECT id FROM benutzer WHERE LOWER(benutzername)=LOWER(?)", (benutzername,)
+        ).fetchone():
+            raise ValueError(f"Der Benutzername '{benutzername}' ist bereits vergeben.")
+        try:
+            cur = conn.execute(
+                """INSERT INTO benutzer
+                       (verein_id, vorname, nachname, email, passwort_hash,
+                        rolle, aktiv, benutzername, email_verifiziert)
+                   VALUES (NULL, ?, ?, ?, ?, 'Trainer', 0, ?, 0)""",
+                (vorname, nachname, email_norm, _pw_hash(passwort), benutzername),
+            )
+            return cur.lastrowid
+        except _sqlite3.IntegrityError as e:
+            msg = str(e)
+            if "UNIQUE" in msg and "email" in msg:
+                raise ValueError(f"Die E-Mail-Adresse '{email_norm}' ist bereits vergeben.") from e
+            if "UNIQUE" in msg and "benutzername" in msg:
+                raise ValueError(f"Der Benutzername '{benutzername}' ist bereits vergeben.") from e
+            raise
 
 
 def registrier_code_laden(verein_id: int) -> str | None:
@@ -2648,34 +2723,51 @@ def registrier_code_regenerieren(verein_id: int) -> str:
     return neuer_code
 
 
-def benutzer_speichern(verein_id, vorname, nachname, email, passwort, rolle) -> int:
+def normalize_email(email: str) -> str:
+    """E-Mail-Normalisierung: nur Kleinschreibung.
+    Keine Punkte entfernen, keine +Zusätze entfernen, keine Provider-Änderungen.
+    Muss überall gleich verwendet werden: Registrierung, Login, Token, Passwort-Reset."""
+    return email.strip().lower()
+
+
+def benutzer_speichern(
+    verein_id, vorname, nachname, email, passwort, rolle,
+    *, benutzername: str | None = None, email_verifiziert: int = 1,
+) -> int:
     import sqlite3 as _sqlite3
+    email_norm = normalize_email(email)
     with get_conn() as conn:
         try:
             cur = conn.execute("""
                 INSERT INTO benutzer (verein_id, vorname, nachname, email,
-                                      passwort_hash, rolle, aktiv)
-                VALUES (?, ?, ?, ?, ?, ?, 1)
-            """, (verein_id, vorname, nachname, email, _pw_hash(passwort), rolle))
+                                      passwort_hash, rolle, aktiv,
+                                      benutzername, email_verifiziert)
+                VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?)
+            """, (verein_id, vorname, nachname, email_norm,
+                  _pw_hash(passwort), rolle, benutzername, email_verifiziert))
             return cur.lastrowid
         except _sqlite3.IntegrityError as e:
-            if "UNIQUE" in str(e) and "email" in str(e):
-                raise ValueError(f"Die E-Mail-Adresse '{email}' ist bereits vergeben.") from e
+            msg = str(e)
+            if "UNIQUE" in msg and "email" in msg:
+                raise ValueError(f"Die E-Mail-Adresse '{email_norm}' ist bereits vergeben.") from e
+            if "UNIQUE" in msg and "benutzername" in msg:
+                raise ValueError(f"Der Benutzername '{benutzername}' ist bereits vergeben.") from e
             raise
 
 
 def benutzer_aktualisieren(benutzer_id, verein_id, vorname, nachname, email, rolle) -> None:
     import sqlite3 as _sqlite3
+    email_norm = normalize_email(email)
     with get_conn() as conn:
         try:
             conn.execute("""
                 UPDATE benutzer
                 SET verein_id=?, vorname=?, nachname=?, email=?, rolle=?
                 WHERE id=?
-            """, (verein_id, vorname, nachname, email, rolle, benutzer_id))
+            """, (verein_id, vorname, nachname, email_norm, rolle, benutzer_id))
         except _sqlite3.IntegrityError as e:
             if "UNIQUE" in str(e) and "email" in str(e):
-                raise ValueError(f"Die E-Mail-Adresse '{email}' ist bereits vergeben.") from e
+                raise ValueError(f"Die E-Mail-Adresse '{email_norm}' ist bereits vergeben.") from e
             raise
 
 
@@ -2763,10 +2855,11 @@ def benutzer_login_zuruecksetzen(benutzer_id: int) -> None:
         )
 
 
-def benutzer_sperre_pruefen(email: str) -> dict:
-    """Gibt Sperr-Status für eine E-Mail zurück.
+def benutzer_sperre_pruefen(email_oder_benutzername: str) -> dict:
+    """Gibt Sperr-Status für eine E-Mail oder einen Benutzernamen zurück.
 
     Alle Zeitvergleiche laufen in SQLite (UTC), sodass der Servertimezone keine Rolle spielt.
+    Login ist case-insensitiv (E-Mail und Benutzername).
 
     Rückgabe: {
         'gesperrt': bool,
@@ -2775,6 +2868,7 @@ def benutzer_sperre_pruefen(email: str) -> dict:
         'login_versuche': int,
     }
     """
+    ein_lower = normalize_email(email_oder_benutzername)
     with get_conn() as conn:
         row = conn.execute(
             """SELECT id,
@@ -2793,8 +2887,11 @@ def benutzer_sperre_pruefen(email: str) -> dict:
                                AND datetime('now') < gesperrt_bis
                           THEN 1 ELSE 0
                       END AS ist_gesperrt
-               FROM benutzer WHERE email = ? AND aktiv = 1""",
-            (email,),
+               FROM benutzer
+               WHERE (LOWER(email)=?
+                      OR (benutzername IS NOT NULL AND LOWER(benutzername)=?))
+                 AND aktiv = 1""",
+            (ein_lower, ein_lower),
         ).fetchone()
 
     if row is None:
@@ -3292,3 +3389,272 @@ def lizenz_warn_protokollieren(verein_id: int) -> None:
             )
     except Exception:
         pass
+
+
+# ==========================================================================
+# E-Mail-Verifikation
+# ==========================================================================
+
+def email_token_erzeugen(benutzer_id: int) -> str:
+    """Erzeugt einen neuen E-Mail-Verifikationstoken (24h gültig, einmalig)."""
+    import datetime as _dt
+    token  = _secrets.token_urlsafe(32)
+    ablauf = (_dt.datetime.utcnow() + _dt.timedelta(hours=24)).isoformat()
+    jetzt  = _dt.datetime.utcnow().isoformat()
+    with get_conn() as conn:
+        conn.execute(
+            """UPDATE benutzer
+               SET email_token=?, email_token_ablauf=?, email_token_gesendet_am=?
+             WHERE id=?""",
+            (token, ablauf, jetzt, benutzer_id),
+        )
+    return token
+
+
+def email_token_resend_erlaubt(benutzer_id: int, min_abstand_min: int = 5) -> bool:
+    """Rate-Limit: True wenn seit der letzten Sendung mindestens min_abstand_min Minuten vergangen."""
+    import datetime as _dt
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT email_token_gesendet_am FROM benutzer WHERE id=?", (benutzer_id,)
+        ).fetchone()
+    if not row or not row[0]:
+        return True
+    try:
+        gesendet = _dt.datetime.fromisoformat(row[0])
+        return (_dt.datetime.utcnow() - gesendet).total_seconds() >= min_abstand_min * 60
+    except (ValueError, TypeError):
+        return True
+
+
+def email_token_validieren(token: str) -> int | None:
+    """Prüft Token, markiert E-Mail als verifiziert. Gibt benutzer_id zurück oder None.
+    Token wird nach Verwendung invalidiert — kann nur einmal verwendet werden."""
+    import datetime as _dt
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT id, email_token_ablauf, email_verifiziert FROM benutzer WHERE email_token=?",
+            (token,),
+        ).fetchone()
+        if not row:
+            return None
+        bid, ablauf, bereits = row[0], row[1], row[2]
+        if bereits:
+            return None  # Token bereits verwendet
+        if ablauf:
+            try:
+                if _dt.datetime.utcnow() > _dt.datetime.fromisoformat(ablauf):
+                    return None  # abgelaufen
+            except (ValueError, TypeError):
+                return None
+        conn.execute(
+            "UPDATE benutzer SET email_verifiziert=1, email_token=NULL, email_token_ablauf=NULL WHERE id=?",
+            (bid,),
+        )
+        return bid
+
+
+# ==========================================================================
+# Passwort-Reset
+# ==========================================================================
+
+def pw_reset_token_erzeugen(email_oder_benutzername: str) -> tuple[str, str, str] | None:
+    """Erzeugt Reset-Token für E-Mail oder Benutzername (1h gültig, einmalig).
+    Gibt (token, vorname, email) zurück oder None wenn kein Konto gefunden."""
+    import datetime as _dt
+    ein = normalize_email(email_oder_benutzername)
+    with get_conn() as conn:
+        row = conn.execute(
+            """SELECT id, vorname, email FROM benutzer
+               WHERE (LOWER(email)=? OR (benutzername IS NOT NULL AND LOWER(benutzername)=?))
+                 AND aktiv=1""",
+            (ein, ein),
+        ).fetchone()
+        if not row:
+            return None
+        bid, vorname, email = row[0], row[1], row[2]
+        token  = _secrets.token_urlsafe(32)
+        ablauf = (_dt.datetime.utcnow() + _dt.timedelta(hours=1)).isoformat()
+        conn.execute(
+            "UPDATE benutzer SET pw_reset_token=?, pw_reset_ablauf=? WHERE id=?",
+            (token, ablauf, bid),
+        )
+        return token, vorname or "Benutzer", email
+
+
+def pw_reset_token_validieren(token: str) -> int | None:
+    """Prüft Reset-Token. Gibt benutzer_id zurück oder None (abgelaufen/ungültig)."""
+    import datetime as _dt
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT id, pw_reset_ablauf FROM benutzer WHERE pw_reset_token=?", (token,)
+        ).fetchone()
+        if not row:
+            return None
+        bid, ablauf = row[0], row[1]
+        if ablauf:
+            try:
+                if _dt.datetime.utcnow() > _dt.datetime.fromisoformat(ablauf):
+                    return None
+            except (ValueError, TypeError):
+                return None
+        return bid
+
+
+def pw_reset_anwenden(token: str, neues_passwort: str) -> bool:
+    """Setzt Passwort via Reset-Token und invalidiert Token danach. Gibt True bei Erfolg."""
+    bid = pw_reset_token_validieren(token)
+    if not bid:
+        return False
+    with get_conn() as conn:
+        conn.execute(
+            "UPDATE benutzer SET passwort_hash=?, pw_reset_token=NULL, pw_reset_ablauf=NULL WHERE id=?",
+            (_pw_hash(neues_passwort), bid),
+        )
+    return True
+
+
+def benutzername_reminder_laden(email: str) -> tuple[str, str] | None:
+    """Gibt (benutzername, vorname) zurück wenn E-Mail verifiziert + Konto aktiv, sonst None."""
+    email_norm = normalize_email(email)
+    with get_conn() as conn:
+        row = conn.execute(
+            """SELECT benutzername, vorname FROM benutzer
+               WHERE LOWER(email)=? AND email_verifiziert=1 AND aktiv=1""",
+            (email_norm,),
+        ).fetchone()
+    if not row or not row[0]:
+        return None
+    return row[0], row[1] or "Benutzer"
+
+
+# ==========================================================================
+# Server-seitige Sessions (Cookie-Persistenz)
+# ==========================================================================
+
+def session_erstellen(benutzer_id: int, idle_sek: int = 3600, max_sek: int = 86400) -> str:
+    """Erstellt eine neue DB-Session. Session-ID nach erfolgreichem Login erneuern."""
+    import datetime as _dt
+    token  = _secrets.token_urlsafe(32)
+    jetzt  = _dt.datetime.utcnow()
+    ablauf = (jetzt + _dt.timedelta(seconds=max_sek)).isoformat()
+    with get_conn() as conn:
+        conn.execute(
+            """INSERT INTO sessions (token, benutzer_id, erstellt_am, letzte_aktivitaet, ablauf_am, aktiv)
+               VALUES (?, ?, ?, ?, ?, 1)""",
+            (token, benutzer_id, jetzt.isoformat(), jetzt.isoformat(), ablauf),
+        )
+    return token
+
+
+def session_validieren(token: str, idle_sek: int = 3600) -> dict | None:
+    """Validiert Session-Token, aktualisiert letzte_aktivitaet.
+    Gibt vollständiges user-dict zurück oder None (abgelaufen/ungültig)."""
+    import datetime as _dt
+    jetzt = _dt.datetime.utcnow()
+    with get_conn() as conn:
+        row = conn.execute(
+            """SELECT s.benutzer_id, s.letzte_aktivitaet, s.ablauf_am, b.aktiv, b.email_verifiziert
+               FROM sessions s
+               JOIN benutzer b ON b.id = s.benutzer_id
+               WHERE s.token=? AND s.aktiv=1""",
+            (token,),
+        ).fetchone()
+        if not row:
+            return None
+        bid, letzte, ablauf_str, b_aktiv, b_verif = row[0], row[1], row[2], row[3], row[4]
+        # Max-Lifetime prüfen
+        if ablauf_str:
+            try:
+                if jetzt > _dt.datetime.fromisoformat(ablauf_str):
+                    conn.execute("UPDATE sessions SET aktiv=0 WHERE token=?", (token,))
+                    return None
+            except (ValueError, TypeError):
+                pass
+        # Idle-Timeout prüfen
+        if letzte:
+            try:
+                if (_dt.datetime.utcnow() - _dt.datetime.fromisoformat(letzte)).total_seconds() > idle_sek:
+                    conn.execute("UPDATE sessions SET aktiv=0 WHERE token=?", (token,))
+                    return None
+            except (ValueError, TypeError):
+                pass
+        if not b_aktiv or not b_verif:
+            return None
+        # Letzte Aktivität aktualisieren
+        conn.execute(
+            "UPDATE sessions SET letzte_aktivitaet=? WHERE token=?",
+            (jetzt.isoformat(), token),
+        )
+        user = _row(conn.execute(
+            """SELECT b.*, v.name AS verein_name
+               FROM benutzer b
+               LEFT JOIN vereine v ON b.verein_id = v.id
+               WHERE b.id=?""",
+            (bid,),
+        ).fetchone())
+        return user
+
+
+def session_beenden(token: str) -> None:
+    """Markiert Session als inaktiv (Logout)."""
+    try:
+        with get_conn() as conn:
+            conn.execute("UPDATE sessions SET aktiv=0 WHERE token=?", (token,))
+    except Exception:
+        pass
+
+
+def session_bereinigen() -> None:
+    """Löscht abgelaufene und inaktive Sessions (Housekeeping)."""
+    import datetime as _dt
+    jetzt = _dt.datetime.utcnow().isoformat()
+    try:
+        with get_conn() as conn:
+            conn.execute(
+                "DELETE FROM sessions WHERE ablauf_am < ? OR aktiv=0", (jetzt,)
+            )
+    except Exception:
+        pass
+
+
+# ==========================================================================
+# Rechnungsadressen
+# ==========================================================================
+
+def rechnungsadresse_speichern(
+    benutzer_id: int,
+    firma: str | None,
+    vorname: str,
+    nachname: str,
+    strasse: str,
+    hausnummer: str,
+    plz: str,
+    ort: str,
+    land: str,
+    rechnung_email: str,
+    telefon: str | None = None,
+    ust_id: str | None = None,
+) -> None:
+    """Speichert oder aktualisiert die Rechnungsadresse eines Benutzers (UPSERT)."""
+    with get_conn() as conn:
+        conn.execute("""
+            INSERT INTO rechnungsadressen
+                (benutzer_id, firma, vorname, nachname, strasse, hausnummer,
+                 plz, ort, land, rechnung_email, telefon, ust_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(benutzer_id) DO UPDATE SET
+                firma=excluded.firma, vorname=excluded.vorname, nachname=excluded.nachname,
+                strasse=excluded.strasse, hausnummer=excluded.hausnummer, plz=excluded.plz,
+                ort=excluded.ort, land=excluded.land, rechnung_email=excluded.rechnung_email,
+                telefon=excluded.telefon, ust_id=excluded.ust_id
+        """, (benutzer_id, firma, vorname, nachname, strasse, hausnummer,
+              plz, ort, land, rechnung_email, telefon, ust_id))
+
+
+def rechnungsadresse_laden(benutzer_id: int) -> dict | None:
+    """Gibt die Rechnungsadresse eines Benutzers zurück oder None."""
+    with get_conn() as conn:
+        return _row(conn.execute(
+            "SELECT * FROM rechnungsadressen WHERE benutzer_id=?", (benutzer_id,)
+        ).fetchone())

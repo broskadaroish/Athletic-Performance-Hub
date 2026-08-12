@@ -1,0 +1,440 @@
+SCHRITT 1 – BENUTZERREGISTRIERUNG, LOGIN, E-MAIL-BESTÄTIGUNG UND SESSION
+
+Arbeite in meinem bestehenden Projekt weiter.
+
+WICHTIG:
+- Bestehenden Code nicht löschen.
+- Bestehende Spieler nicht löschen.
+- Bestehende Diagnosewerte nicht verändern.
+- Bestehende Trainingspläne nicht verändern.
+- Bestehende Rollen wie Superadmin, Verein und Trainer erhalten.
+- Bestehende Datenbank möglichst nur erweitern.
+- Keine Tabellen löschen, wenn dadurch vorhandene Daten verloren gehen könnten.
+- Vor Datenbankänderungen ein Backup bzw. eine sichere Migration vorsehen.
+- Noch keine Design-/Mobile-Optimierung durchführen.
+- Noch keine Änderungen an FMS, Y-Balance, Sprintlogik oder Trainingsplanlogik durchführen.
+
+ZIEL:
+Das Benutzer- und Login-System soll zuverlässig und für den späteren produktiven Betrieb vorbereitet werden.
+
+==================================================
+1. REGISTRIERUNG ERWEITERN
+==================================================
+
+Bei einer Neuregistrierung muss der Kunde zuerst auswählen:
+
+- Trainer
+oder
+- Verein
+
+Für TRAINER Pflichtfelder:
+
+- Vorname
+- Nachname
+- E-Mail-Adresse
+- Benutzername
+- Passwort
+- Passwort bestätigen
+
+Für VEREIN Pflichtfelder:
+
+- Vereinsname
+- Ansprechpartner Vorname
+- Ansprechpartner Nachname
+- E-Mail-Adresse
+- Benutzername
+- Passwort
+- Passwort bestätigen
+
+Zusätzlich bei jeder Registrierung eine vollständige Rechnungsadresse verlangen:
+
+- Firma/Verein, falls vorhanden
+- Vorname
+- Nachname
+- Straße
+- Hausnummer
+- PLZ
+- Ort
+- Land
+- Rechnungs-E-Mail-Adresse
+
+Optional:
+- Telefonnummer
+- Umsatzsteuer-ID
+
+Bestehende Kundenkonten müssen weiterhin funktionieren.
+
+==================================================
+2. E-MAIL-ADRESSE MUSS BESTÄTIGT WERDEN
+==================================================
+
+Nach Registrierung darf der Benutzer noch keinen normalen Zugang erhalten.
+
+Ablauf:
+
+1. Benutzer registriert sich.
+2. Benutzerkonto wird angelegt.
+3. Status zunächst:
+   EMAIL_VERIFICATION_PENDING
+4. Erzeuge einen sicheren zufälligen Verifizierungs-Token.
+5. Token muss zeitlich begrenzt sein.
+6. Token darf nur einmal verwendet werden.
+7. Sende eine Bestätigungs-E-Mail an die angegebene Adresse.
+8. Benutzer klickt auf:
+   "E-Mail-Adresse bestätigen"
+9. Erst danach:
+   email_verified = true
+10. Erst dann darf sich der Benutzer normal anmelden.
+
+Wenn der Benutzer vorher versucht sich anzumelden:
+
+"Bitte bestätigen Sie zuerst Ihre E-Mail-Adresse."
+
+Zusätzlich anbieten:
+
+"Bestätigungs-E-Mail erneut senden"
+
+Mit einem sinnvollen Rate-Limit, damit nicht unbegrenzt E-Mails verschickt werden können.
+
+==================================================
+3. IONOS E-MAIL-VERSAND VORBEREITEN
+==================================================
+
+Meine automatischen E-Mail-Adressen sind:
+
+noreply@aphsystem.de
+support@aphsystem.de
+
+Verwendung:
+
+noreply@aphsystem.de
+für:
+- Registrierungsbestätigung
+- E-Mail-Verifizierung
+- Passwort zurücksetzen
+- Benutzername vergessen
+- automatische Systemnachrichten
+
+support@aphsystem.de
+für:
+- Supporthinweise
+- Kontaktmöglichkeiten für Kunden
+- Reply-To, wenn sinnvoll
+
+Verwende IONOS SMTP.
+
+Die SMTP-Zugangsdaten dürfen NICHT im Code gespeichert werden.
+
+Verwende ausschließlich Environment Variables / Replit Secrets.
+
+Erwarte folgende Variablen:
+
+SMTP_HOST
+SMTP_PORT
+SMTP_USERNAME
+SMTP_PASSWORD
+SMTP_FROM
+SUPPORT_EMAIL
+
+Verwende als Standard:
+
+SMTP_HOST = smtp.ionos.de
+SMTP_PORT = 465
+SMTP_USERNAME = noreply@aphsystem.de
+SMTP_FROM = noreply@aphsystem.de
+SUPPORT_EMAIL = support@aphsystem.de
+
+SMTP_PASSWORD wird von mir später selbst in Replit Secrets eingetragen.
+
+WICHTIG:
+- SMTP_PASSWORD niemals im Quellcode speichern.
+- SMTP_PASSWORD niemals in Logs ausgeben.
+- SMTP_PASSWORD niemals in Fehlermeldungen anzeigen.
+- SMTP_PASSWORD niemals in Git speichern.
+- Passwort niemals vom Benutzer oder vom Replit-Agent im Chat verlangen.
+
+Verwende SSL/TLS für SMTP Port 465.
+
+==================================================
+4. TESTMAIL-FUNKTION
+==================================================
+
+Erstelle für Superadmin eine einfache Testfunktion:
+
+"E-Mail-Versand testen"
+
+Der Superadmin soll eine Ziel-E-Mail-Adresse eingeben können.
+
+Beim Klick wird eine Testmail gesendet:
+
+Betreff:
+Athletic Performance Hub – E-Mail-Test
+
+Text:
+
+Hallo,
+
+der E-Mail-Versand von Athletic Performance Hub funktioniert erfolgreich.
+
+Automatischer Absender:
+noreply@aphsystem.de
+
+Support:
+support@aphsystem.de
+
+Viele Grüße
+Athletic Performance Hub
+
+Zeige anschließend nur:
+
+"E-Mail erfolgreich versendet."
+
+oder eine verständliche Fehlermeldung.
+
+Keine SMTP-Passwörter oder sensiblen technischen Details anzeigen.
+
+==================================================
+5. E-MAIL LOGIN NICHT CASE-SENSITIVE
+==================================================
+
+Beim Login darf Groß-/Kleinschreibung der E-Mail-Adresse keine Rolle spielen.
+
+Diese Eingaben müssen denselben Account finden:
+
+test@aphsystem.de
+TEST@APHSYSTEM.DE
+Test@AphSystem.de
+
+Verwende für Vergleiche eine zentrale E-Mail-Normalisierung.
+
+WICHTIG:
+- Nur Groß-/Kleinschreibung normalisieren.
+- Keine Punkte entfernen.
+- Keine +Zusätze entfernen.
+- Keine provider-spezifischen Veränderungen durchführen.
+
+Diese Normalisierung muss überall gleich verwendet werden:
+
+- Registrierung
+- Login
+- E-Mail-Verifikation
+- Passwort vergessen
+- Benutzername vergessen
+
+==================================================
+6. LOGIN MUSS BEI SEITENAKTUALISIERUNG ERHALTEN BLEIBEN
+==================================================
+
+Aktuelles Problem:
+
+Wenn die Seite aktualisiert wird, wird der Benutzer teilweise erneut auf die Login-Seite geschickt.
+
+Das soll behoben werden.
+
+Nach erfolgreichem Login:
+
+- sichere Session erzeugen
+- Session serverseitig verwalten
+- Cookie verwenden
+- HttpOnly aktivieren
+- Secure bei HTTPS
+- sinnvolles SameSite verwenden
+- Session-ID nach erfolgreichem Login erneuern
+
+Ein normaler Browser-Reload darf NICHT zum Logout führen.
+
+Logout nur:
+
+A) Benutzer klickt auf "Abmelden"
+
+oder
+
+B) Session läuft nach Zeitüberschreitung ab.
+
+Verwende konfigurierbare Werte:
+
+SESSION_IDLE_TIMEOUT
+SESSION_MAX_LIFETIME
+
+Die Werte nicht an vielen Stellen hart im Code verteilen.
+
+Beim Logout:
+
+- serverseitige Session ungültig machen
+- Cookie löschen
+- Benutzer auf Login-Seite bringen
+
+==================================================
+7. ABMELDEN-TEXT KORRIGIEREN
+==================================================
+
+Im bestehenden System steht an mindestens einer Stelle beim Logout offenbar:
+
+"sündigen"
+
+Das ist falsch.
+
+Durchsuche die Anwendung nach diesem falschen Text.
+
+Richtig ist:
+
+"Abmelden"
+
+Nach erfolgreichem Logout:
+
+"Sie wurden erfolgreich abgemeldet."
+
+==================================================
+8. PASSWORT VERGESSEN
+==================================================
+
+Auf der Login-Seite hinzufügen:
+
+"Passwort vergessen?"
+
+Ablauf:
+
+1. Benutzer gibt E-Mail-Adresse oder Benutzername ein.
+2. Immer dieselbe Meldung anzeigen:
+
+"Falls ein passendes Konto existiert, haben wir eine E-Mail mit weiteren Anweisungen gesendet."
+
+3. Bei vorhandenem Konto sicheren Reset-Token erzeugen.
+4. Token:
+   - sicher zufällig
+   - zeitlich begrenzt
+   - einmal verwendbar
+5. Reset-Link per E-Mail schicken.
+6. Benutzer öffnet den Link.
+7. Benutzer gibt ein neues Passwort ein.
+8. Passwort zweimal bestätigen.
+9. Passwort sicher hashen.
+10. Reset-Token danach ungültig machen.
+
+WICHTIG:
+
+KEIN neues Passwort per E-Mail schicken.
+
+KEIN temporäres Klartextpasswort per E-Mail schicken.
+
+Der Benutzer setzt sein Passwort selbst über einen sicheren Reset-Link.
+
+==================================================
+9. BENUTZERNAME VERGESSEN
+==================================================
+
+Auf der Login-Seite ebenfalls:
+
+"Benutzername vergessen?"
+
+Ablauf:
+
+1. Benutzer gibt seine hinterlegte E-Mail-Adresse ein.
+2. Immer anzeigen:
+
+"Falls ein passendes Konto existiert, erhalten Sie eine E-Mail."
+
+3. Wenn Konto vorhanden und E-Mail verifiziert:
+   Benutzername per E-Mail senden.
+
+Keine Information auf der Webseite anzeigen, ob die E-Mail tatsächlich im System existiert.
+
+==================================================
+10. PASSWORTSPEICHERUNG
+==================================================
+
+Passwörter niemals im Klartext speichern.
+
+Bestehende sichere Passwort-Hashing-Lösung beibehalten, wenn bereits vorhanden.
+
+Falls aktuell unsicher implementiert:
+auf eine sichere Passwort-Hashing-Lösung migrieren, ohne bestehende Benutzer unnötig auszusperren.
+
+Superadmin darf niemals Passwörter im Klartext sehen.
+
+==================================================
+11. SUPERADMIN – AUTH STATUS
+==================================================
+
+Im Superadmin sollen bei Benutzern zusätzlich sichtbar sein:
+
+- E-Mail bestätigt: Ja/Nein
+- Registrierungsdatum
+- letzter Login
+- Accountstatus
+- Lizenzstatus
+
+Noch keine komplette neue Lizenzverwaltung bauen.
+Das kommt in einem späteren Arbeitspaket.
+
+==================================================
+12. SPIELERNAMEN NICHT ÜBERSETZEN
+==================================================
+
+Benutzernamen und Spielernamen sind Eigennamen.
+
+Sie dürfen niemals automatisch übersetzt werden.
+
+Beispiel:
+
+"Lion" muss immer "Lion" bleiben.
+
+Nicht:
+"Löwe"
+
+Prüfe in diesem Arbeitspaket nur, ob eine globale Übersetzungsfunktion versehentlich Eigennamen verändert.
+
+Wenn ja:
+Eigennamen von dieser Übersetzungslogik ausschließen.
+
+Keine Spielerdaten manuell umbenennen.
+
+==================================================
+13. TESTS NACH DER UMSETZUNG
+==================================================
+
+Teste mindestens:
+
+1. Bestehender Superadmin-Login
+2. Bestehender Trainer-Login
+3. Bestehender Vereins-Login
+4. Neue Trainer-Registrierung
+5. Neue Vereins-Registrierung
+6. Rechnungsadresse vollständig
+7. Registrierung ohne Pflichtfeld
+8. Bestätigungs-E-Mail
+9. Login vor E-Mail-Bestätigung
+10. Login nach E-Mail-Bestätigung
+11. Bestätigungslink zweimal öffnen
+12. abgelaufener Bestätigungslink
+13. E-Mail Groß-/Kleinschreibung
+14. Reload nach Login
+15. mehrere Seiten aufrufen
+16. Browser aktualisieren
+17. Logout
+18. Session Timeout
+19. Passwort vergessen
+20. Benutzername vergessen
+21. Testmail über Superadmin
+22. bestehende Diagnose-/Spielerdaten weiterhin vorhanden
+
+==================================================
+14. ABSCHLUSS
+==================================================
+
+Keine weiteren Funktionen automatisch hinzufügen.
+
+Nach Abschluss gib mir einen Bericht:
+
+1. Welche Dateien wurden geändert?
+2. Welche Datenbankfelder oder Migrationen wurden ergänzt?
+3. Wie funktioniert die E-Mail-Verifikation?
+4. Wie funktioniert die Session nach Reload?
+5. Wie funktioniert Passwort vergessen?
+6. Wie funktioniert Benutzername vergessen?
+7. Welche Secrets muss ich jetzt in Replit eintragen?
+8. Wo finde ich die Testmail-Funktion?
+9. Wurde der Lion/Löwe-Fehler gefunden?
+10. Welche Punkte soll ich selbst testen?
+
+STOPPE danach und warte auf meine Freigabe für Schritt 2.
