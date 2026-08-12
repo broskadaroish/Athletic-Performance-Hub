@@ -3328,6 +3328,37 @@ def benutzer_profil_aktualisieren(
         """, (vorname, nachname, email, telefon, lizenz, benutzer_id))
 
 
+def benutzer_benutzername_setzen(
+    benutzer_id: int,
+    benutzername: str | None,
+) -> tuple[bool, str]:
+    """
+    Setzt oder löscht den Benutzernamen eines Benutzers.
+    Leerer String oder None → Benutzername wird auf NULL gesetzt.
+    Eindeutigkeitsprüfung erfolgt case-insensitiv; der eigene Eintrag
+    wird korrekt ausgeschlossen (Benutzername bleibt bei gleicher Eingabe).
+    Gibt (True, "") bei Erfolg zurück, (False, fehlermeldung) bei Fehler.
+    """
+    bn = benutzername.strip() if benutzername else None
+    if not bn:
+        bn = None  # explizit auf NULL setzen (Benutzername entfernen)
+
+    with get_conn() as conn:
+        if bn:
+            clash = conn.execute(
+                "SELECT id FROM benutzer "
+                "WHERE LOWER(benutzername)=LOWER(?) AND id != ?",
+                (bn, benutzer_id),
+            ).fetchone()
+            if clash:
+                return False, f"Der Benutzername \"{bn}\" ist bereits vergeben."
+        conn.execute(
+            "UPDATE benutzer SET benutzername=? WHERE id=?",
+            (bn, benutzer_id),
+        )
+    return True, ""
+
+
 def trainer_statistiken(benutzer_id: int) -> dict:
     """Zählt Spieler und Diagnostiken für einen Trainer."""
     _DIAG_TBLS = [

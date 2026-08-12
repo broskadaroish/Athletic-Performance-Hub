@@ -1,15 +1,19 @@
 """Trainerportal — vollständige Trainerverwaltung + eigenes Profil."""
 
 import datetime
+import re
 import streamlit as st
 from database import (
     benutzer_laden, benutzer_by_id, benutzer_speichern,
     benutzer_aktualisieren, benutzer_profil_aktualisieren,
     benutzer_aktivieren, benutzer_passwort, benutzer_loeschen,
     benutzer_foto_speichern, trainer_statistiken,
+    benutzer_benutzername_setzen,
     vereine_laden,
 )
 from auth import hash_password
+
+_BN_RE = re.compile(r'^[a-zA-Z0-9_\-]+$')
 
 _LIZENZEN = [
     "UEFA C", "UEFA B", "UEFA A", "UEFA Pro",
@@ -554,3 +558,57 @@ def page_mein_profil():
             else:
                 benutzer_passwort(uid, neu_pw1)
                 st.success("✅ Passwort erfolgreich geändert.")
+
+    # ── Benutzername ──────────────────────────────────────────────────────────
+    st.divider()
+    st.subheader("🏷 Benutzername")
+    st.caption(
+        "Optionale Alternative zur E-Mail beim Login. "
+        "Nur Buchstaben, Ziffern, _ und - erlaubt. Muss eindeutig sein."
+    )
+
+    current_bn = b.get("benutzername") or ""
+    if current_bn:
+        st.markdown(
+            f'<div style="display:inline-block;background:#0d3b2e;border:1px solid #3fb950;'
+            f'border-radius:8px;padding:6px 14px;margin-bottom:12px">'
+            f'<span style="font-size:11px;color:#8b949e;letter-spacing:.8px">BENUTZERNAME&nbsp;&nbsp;</span>'
+            f'<span style="font-size:14px;font-weight:700;color:#3fb950">@{current_bn}</span>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+    else:
+        st.info(
+            "Noch kein Benutzername festgelegt — du meldest dich mit deiner E-Mail an.",
+            icon="ℹ️",
+        )
+
+    with st.form("mp_bn_form"):
+        bn_c1, bn_c2 = st.columns([3, 1])
+        new_bn = bn_c1.text_input(
+            "Benutzername",
+            value=current_bn,
+            placeholder="z. B. trainer_mueller",
+            max_chars=30,
+            help="3–30 Zeichen. Nur a–z, A–Z, 0–9, _ und - erlaubt. Leer lassen, um den Benutzernamen zu entfernen.",
+        )
+        bn_c2.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
+        submitted = st.form_submit_button(
+            "💾 Speichern", type="primary", use_container_width=True
+        )
+        if submitted:
+            nb = new_bn.strip()
+            if nb and len(nb) < 3:
+                st.error("❌ Benutzername muss mindestens 3 Zeichen lang sein.")
+            elif nb and not _BN_RE.match(nb):
+                st.error("❌ Nur Buchstaben (a–z, A–Z), Ziffern, _ und - erlaubt.")
+            else:
+                ok, err = benutzer_benutzername_setzen(uid, nb or None)
+                if ok:
+                    if nb:
+                        st.success(f"✅ Benutzername «{nb}» gespeichert — du kannst dich ab sofort damit anmelden.")
+                    else:
+                        st.success("✅ Benutzername entfernt.")
+                    st.rerun()
+                else:
+                    st.error(f"❌ {err}")
