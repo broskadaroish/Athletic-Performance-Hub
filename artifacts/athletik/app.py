@@ -9945,7 +9945,9 @@ with st.sidebar:
 _check_save_ok()
 
 # Mobile: "Mehr" overlay — position:fixed, covers main content on ≤768px
-inject_mobile_mehr_overlay(_MAIN_SECTIONS)
+if inject_mobile_mehr_overlay(_MAIN_SECTIONS):
+    render_mobile_nav(section)
+    st.stop()
 
 # Helper: look up active player object for mobile player header
 def _mob_player():

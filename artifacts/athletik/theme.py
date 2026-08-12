@@ -346,59 +346,75 @@ html, body { overflow-x: hidden; max-width: 100vw; }
     }
 }
 
-/* ══ Bottom navigation bar ═══════════════════════════════════════════════════ */
-.aph-bottom-nav { display: none; }
+/* ══ Mobile bottom navigation — st.segmented_control ════════════════════════ */
+/* One native Streamlit widget, position:fixed at bottom on mobile.
+   No hidden trigger buttons. No JS event tricks.
+   Safe to target all stSegmentedControl: no other page uses this widget. */
 
 @media (max-width: 768px) {
-    .aph-bottom-nav {
-        display: flex;
-        position: fixed;
-        bottom: 0; left: 0; right: 0;
-        z-index: 9999;
-        background: #0d1117;
-        border-top: 1px solid #21262d;
-        height: 62px;
-        align-items: stretch;
-        justify-content: space-around;
-        box-shadow: 0 -2px 16px rgba(0,0,0,0.65);
-        padding-bottom: env(safe-area-inset-bottom, 0px);
+    [data-testid="stSegmentedControl"] {
+        position: fixed !important;
+        bottom: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        z-index: 9999 !important;
+        background: #0d1117 !important;
+        border-top: 1px solid #21262d !important;
+        box-shadow: 0 -2px 16px rgba(0,0,0,.65) !important;
+        margin: 0 !important;
+        padding: 4px 0 env(safe-area-inset-bottom, 0) !important;
+        border-radius: 0 !important;
+        width: 100vw !important;
     }
-    .aph-bn-item {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        flex: 1;
-        /* button reset */
-        background: none;
-        border: none;
-        cursor: pointer;
-        font-family: inherit;
-        /* visual */
-        color: #8b949e;
-        padding: 6px 4px;
-        min-width: 0;
-        -webkit-tap-highlight-color: transparent;
-        transition: color 0.12s;
-        user-select: none;
+    /* Pill/option container — full width, evenly distributed */
+    [data-testid="stSegmentedControl"] > div:first-child {
+        display: flex !important;
+        width: 100% !important;
+        gap: 0 !important;
+        background: transparent !important;
+        border: none !important;
+        padding: 0 !important;
+        border-radius: 0 !important;
     }
-    .aph-bn-item.aph-bn-active { color: #58a6ff; }
-    .aph-bn-item:active         { opacity: 0.7; }
-    .aph-bn-icon  { font-size: 20px; line-height: 1.2; display: block; }
-    .aph-bn-label {
-        font-size: 10px;
-        font-weight: 600;
-        margin-top: 2px;
-        display: block;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        max-width: 100%;
+    /* Each option button */
+    [data-testid="stSegmentedControl"] button {
+        flex: 1 !important;
+        border-radius: 0 !important;
+        border: none !important;
+        background: none !important;
+        color: #8b949e !important;
+        font-size: 11px !important;
+        font-weight: 600 !important;
+        padding: 8px 2px !important;
+        min-height: 50px !important;
+        min-width: 0 !important;
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        justify-content: center !important;
+        -webkit-tap-highlight-color: transparent !important;
+        white-space: normal !important;
+        word-break: break-word !important;
+        box-shadow: none !important;
     }
-    /* Ensure bottom content is not hidden behind the fixed nav */
-    .main .block-container {
+    /* Selected / active option */
+    [data-testid="stSegmentedControl"] button[aria-checked="true"],
+    [data-testid="stSegmentedControl"] button[aria-pressed="true"],
+    [data-testid="stSegmentedControl"] button[data-selected="true"] {
+        color: #58a6ff !important;
+        background: none !important;
+        border: none !important;
+        box-shadow: none !important;
+    }
+    /* Ensure main content is not hidden behind the fixed nav */
+    [data-testid="stMainBlockContainer"] {
         padding-bottom: 80px !important;
     }
+}
+
+@media (min-width: 769px) {
+    /* Hide mobile nav entirely on desktop — sidebar handles navigation */
+    [data-testid="stSegmentedControl"] { display: none !important; }
 }
 
 /* ══ Mobile active-player header pill ════════════════════════════════════════ */
@@ -544,63 +560,19 @@ html, body { overflow-x: hidden; max-width: 100vw; }
     .aph-kunden-karte:hover .aph-kunden-btn { background: #388bfd; border-color: #388bfd; }
 }
 
-/* ══ "Mehr" overlay ══════════════════════════════════════════════════════════ */
-.aph-mehr-overlay { display: none; }
+/* ══ "Mehr" navigation screen ════════════════════════════════════════════════ */
+/* Rendered via native st.button elements — no CSS overlay, no onclick HTML. */
 
 @media (max-width: 768px) {
-    .aph-mehr-overlay {
-        display: block;
-        position: fixed;
-        top: 0; left: 0; right: 0; bottom: 0;
-        z-index: 9998;
-        background: #0d1117;
-        overflow-y: auto;
-        -webkit-overflow-scrolling: touch;
-        padding-bottom: 70px;
-    }
     .aph-mehr-header {
         display: flex;
         align-items: center;
-        justify-content: space-between;
         padding: 16px 16px 14px;
         border-bottom: 1px solid #21262d;
-        position: sticky;
-        top: 0;
         background: #0d1117;
-        z-index: 1;
+        margin-bottom: 8px;
     }
-    .aph-mehr-title    { font-size: 18px; font-weight: 700; color: #e6edf3; }
-    .aph-mehr-close    {
-        font-size: 22px; color: #8b949e; padding: 6px 2px; line-height: 1;
-        /* button reset */
-        background: none; border: none; cursor: pointer; font-family: inherit;
-    }
-    .aph-mehr-close:hover { color: #e6edf3; }
-    .aph-mehr-section-label {
-        font-size: 11px; font-weight: 700; letter-spacing: 1px;
-        color: #8b949e; padding: 14px 16px 6px; text-transform: uppercase;
-    }
-    .aph-mehr-item {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 15px 16px;
-        border-bottom: 1px solid #161b22;
-        color: #e6edf3;
-        font-size: 15px;
-        -webkit-tap-highlight-color: transparent;
-        width: 100%;
-        /* button reset */
-        background: none; border: none; cursor: pointer;
-        font-family: inherit; text-align: left;
-    }
-    .aph-mehr-item:hover        { background: #161b22; }
-    .aph-mehr-item:active       { opacity: 0.7; }
-    .aph-mehr-item-text         { color: #e6edf3; }
-    .aph-mehr-item-arrow        { color: #8b949e; font-size: 18px; flex-shrink: 0; }
-    .aph-mehr-divider           { height: 1px; background: #21262d; margin: 8px 0; }
-    .aph-mehr-logout .aph-mehr-item-text  { color: #f85149; }
-    .aph-mehr-logout .aph-mehr-item-arrow { color: #f85149; }
+    .aph-mehr-title { font-size: 18px; font-weight: 700; color: #e6edf3; }
 }
 </style>
 """

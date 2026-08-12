@@ -1,0 +1,432 @@
+KRITISCHE KORREKTUR – MOBILE NAVIGATION VEREINFACHEN UND ALLE 0–20 TRIGGER-BUTTONS ENTFERNEN
+
+Der Fehler besteht im realen Test weiterhin.
+
+Nach Login erscheint weiterhin teilweise:
+
+"Your Football Athletik App artifact encountered an error"
+
+Zusätzlich wurden bzw. werden auf Seiten interne Buttons 0–20 mit ⬡-Symbolen sichtbar.
+
+Aus dem bisherigen Diagnosebericht ist klar:
+
+Diese 0–20 Elemente stammen aus internen Trigger-Buttons, die für die Mobile-Navigation verwendet werden.
+
+Die bisherige Lösung:
+
+CSS :has(button[aria-label^="⬡"])
+
+zum Verstecken dieser Buttons ist NICHT akzeptabel und funktioniert im realen Browser nicht zuverlässig.
+
+VERBINDLICHE NEUE REGEL:
+
+DIESE TRIGGER-BUTTON-ARCHITEKTUR KOMPLETT ENTFERNEN.
+
+==================================================
+
+1. KEINE VERSTECKTEN 0–20 BUTTONS MEHR
+   ==================================================
+
+Entferne vollständig alle Navigations-Hilfsbuttons wie:
+
+⬡0
+⬡1
+⬡2
+...
+⬡20
+
+bzw. entsprechende:
+
+st.button(...)
+range(...)
+Trigger-Button-Schleifen
+Hidden-Button-Bridges
+
+Sie dürfen:
+
+* nicht gerendert werden
+* nicht per CSS versteckt werden
+* nicht im DOM existieren
+* nicht für Navigation benötigt werden
+
+Keine Lösung mehr über:
+
+:has(button[aria-label...])
+
+verwenden.
+
+==================================================
+2. KEINE HTML-/JAVASCRIPT-BRIDGE
+================================
+
+Für die Mobile Bottom Navigation nicht mehr verwenden:
+
+* versteckte st.button-Trigger
+* img-onload
+* img-onerror
+* künstliche DOM-Events
+* JavaScript-click auf versteckte Buttons
+* query-param href Navigation
+* CSS-Tricks zum Verstecken technischer Steuerelemente
+
+Die Navigation soll möglichst vollständig mit nativen Streamlit-Funktionen umgesetzt werden.
+
+==================================================
+3. MOBILE NAVIGATION MIT NATIVER STREAMLIT-KOMPONENTE
+=====================================================
+
+Baue die Mobile Bottom Navigation mit EINER nativen Streamlit-Auswahlkomponente.
+
+Bevorzugte Reihenfolge:
+
+1. st.segmented_control, falls in der aktuell verwendeten Streamlit-Version stabil verfügbar
+
+oder alternativ:
+
+2. st.radio(horizontal=True)
+
+Die Navigation soll fünf sichtbare Optionen besitzen:
+
+🏠 Start
+👤 Spieler
+🧪 Tests
+📅 Training
+⋯ Mehr
+
+Technisch nur EINE Widget-Komponente.
+
+Keine 21 versteckten Widgets.
+
+==================================================
+4. INTERNES ROUTING
+===================
+
+Die Auswahl soll die bereits bestehende interne Routinglogik verwenden.
+
+Beispielprinzip:
+
+mobile_nav = st.segmented_control(
+...,
+options=["Start", "Spieler", "Tests", "Training", "Mehr"]
+)
+
+Bei Änderung:
+
+route = entsprechende bestehende Route
+
+Dann:
+
+st.session_state["current_page"] = route
+
+und falls erforderlich:
+
+st.rerun()
+
+Keine vollständige Browsernavigation.
+
+Kein:
+
+<a href="?nav=...">
+
+==================================================
+5. DESKTOP-ROUTER WIEDERVERWENDEN
+=================================
+
+Prüfe, welche zentrale Routingfunktion Desktop bereits verwendet.
+
+Mobile Navigation soll genau dieselbe Route-/Page-Definition verwenden.
+
+Wenn möglich eine zentrale Funktion:
+
+navigate_to(route)
+
+verwenden.
+
+Beispiel:
+
+navigate_to("start")
+navigate_to("spieler")
+navigate_to("diagnostik")
+navigate_to("training")
+navigate_to("mehr")
+
+Desktop und Mobile dürfen nicht zwei unterschiedliche Routingsysteme besitzen.
+
+==================================================
+6. MOBILE NAVIGATION FIXIEREN
+=============================
+
+Die einzelne native Mobile-Navigation soll optisch als Bottom Navigation dargestellt werden.
+
+Auf <= 768px:
+
+* position fixed
+* bottom 0
+* volle Breite
+* hoher z-index
+* Dark Theme
+* aktiver Eintrag hervorgehoben
+* große Touchflächen
+* Inhalt unten ausreichend padding
+
+ABER:
+
+CSS nur für das Layout und Styling verwenden.
+
+Nicht für das Verstecken technischer Triggerbuttons.
+
+==================================================
+7. DESKTOP
+==========
+
+Ab >768px:
+
+Mobile Bottom Navigation ausblenden.
+
+Bestehende Desktop-Sidebar weiterverwenden.
+
+Keine Desktop-Funktion ändern.
+
+==================================================
+8. SESSION
+==========
+
+Bestehende ath_sid-/Sessionlogik NICHT ändern.
+
+Bei interner Navigation:
+
+Start
+→ Spieler
+→ Tests
+→ Training
+→ Mehr
+
+muss dieselbe Streamlit-Session bestehen bleiben.
+
+Kein erneuter Login.
+
+==================================================
+9. COOKIE-RESTORE
+=================
+
+Cookie-Restore weiterhin nur für echte neue Verbindungen verwenden:
+
+* Browser-Reload
+* Browser neu öffnen
+* WebSocket-Neustart
+
+Normale Mobile-Navigation darf keinen Cookie-Restore benötigen.
+
+==================================================
+10. _nav_goto / nav_section PRÜFEN
+==================================
+
+Im bisherigen Fix wurde offenbar eine _nav_goto / Pending-Key-Lösung eingeführt.
+
+Prüfe diese genau.
+
+Falls sie nur wegen der versteckten Trigger-Buttons erforderlich war:
+
+entfernen bzw. vereinfachen.
+
+WICHTIG:
+
+Nicht versuchen, den Wert eines bereits instanziierten Streamlit-Widgets nachträglich direkt in st.session_state zu überschreiben.
+
+Bei Widgets mit Key:
+
+* Callback verwenden
+  oder
+* Zielwert VOR Widget-Erstellung setzen.
+
+Keine StreamlitAPIException mehr erzeugen.
+
+==================================================
+11. REACT ERROR #231
+====================
+
+Alle zuvor eingeführten HTML-Tricks mit:
+
+<img>
+onload
+onerror
+
+vollständig entfernt lassen.
+
+Keine neue React-Synthetic-Event-Lösung bauen.
+
+Die Navigation soll keine React-Hacks benötigen.
+
+==================================================
+12. ARTIFACT ERROR NACH LOGIN
+=============================
+
+Zusätzlich den realen Fehler untersuchen:
+
+"Your Football Athletik App artifact encountered an error"
+
+Nicht nur Python-Serverlogs ansehen.
+
+Prüfe auch:
+
+* Streamlit Frontend
+* Browser-Konsole
+* Component-Fehler
+* JavaScript-Fehler
+* React-Fehler
+* StreamlitAPIException
+* Widget-State-Fehler
+
+Reproduziere ausdrücklich:
+
+1. App öffnen
+2. Login
+3. Startseite laden
+4. Mobile Navigation benutzen
+
+Es reicht NICHT zu sagen:
+
+"Logs zeigen keine Fehler."
+
+Ein Frontend-Fehler kann auftreten, obwohl der Python-Prozess keine Exception loggt.
+
+==================================================
+13. KEINE AUTOMATISCHE ÜBERSETZUNG
+==================================
+
+Bei dieser Änderung sicherstellen:
+
+Die Navigation verwendet feste Labels:
+
+Start
+Spieler
+Tests
+Training
+Mehr
+
+und:
+
+Abmelden
+
+Keine automatische Wortübersetzung dynamischer Werte.
+
+Insbesondere nie:
+
+Abmelden → sündigen
+
+Lion → Löwe
+
+==================================================
+14. ALTE NAVIGATIONSKOMPONENTEN ENTFERNEN
+=========================================
+
+Nach erfolgreicher Umstellung alle veralteten Mobile-Navigationsbestandteile entfernen:
+
+* alte <a href="?nav=..."> Navigation
+* versteckte ⬡ Triggerbuttons
+* 0–20 Button-Schleifen
+* CSS :has zum Verstecken dieser Buttons
+* img Event-Hacks
+* dazugehöriges unnötiges JavaScript
+* doppelte Mobile-Router
+
+Nicht ungenutzten Legacy-Code im Projekt belassen.
+
+==================================================
+15. REALER DOM-TEST
+===================
+
+Nach Änderung prüfen:
+
+Im gerenderten DOM dürfen KEINE Buttons mit Labels:
+
+⬡0
+⬡1
+...
+⬡20
+
+mehr vorhanden sein.
+
+Nicht nur unsichtbar.
+
+Sie müssen vollständig nicht mehr existieren.
+
+==================================================
+16. REALER SMARTPHONE-TEST
+==========================
+
+Teste bei:
+
+360 px
+390 px
+412 px
+
+Nach einmaligem Login:
+
+Start
+→ Spieler
+→ Tests
+→ Training
+→ Mehr
+→ Start
+
+Erwartung:
+
+* Bottom Navigation sichtbar
+* keine 0–20 Buttons
+* kein erneuter Login
+* kein "Sitzung wird geprüft"-Zwischenschritt bei normaler Navigation
+* kein Artifact Error
+* kein React Error
+* kein horizontaler Scrollfehler
+
+==================================================
+17. RELOAD-TEST
+===============
+
+Danach echten Browser-Reload durchführen.
+
+Erwartung:
+
+* ath_sid stellt Session wieder her
+* kein erneuter Login
+* Bottom Navigation erscheint anschließend korrekt
+
+==================================================
+18. DESKTOP-REGRESSIONSTEST
+===========================
+
+Desktop testen.
+
+Erwartung:
+
+* Sidebar funktioniert
+* keine 0–20 Buttons
+* Navigation funktioniert
+* Login bleibt erhalten
+
+==================================================
+19. ABSCHLUSSBERICHT
+====================
+
+Berichte anschließend exakt:
+
+1. Wo wurden die 0–20 Trigger-Buttons erzeugt?
+2. Wurden sie vollständig aus dem Code entfernt? JA / NEIN
+3. Existieren sie noch im DOM? Erwartet: NEIN
+4. Wurde CSS :has für diese Buttons entfernt? JA / NEIN
+5. Wurde der alte href-Nav-Mechanismus entfernt? JA / NEIN
+6. Welche native Streamlit-Komponente verwendet Mobile jetzt?
+7. Welche zentrale Routingfunktion verwendet Mobile?
+8. Verwenden Desktop und Mobile dieselbe Routinglogik? JA / NEIN
+9. Bleibt Login beim Navigieren erhalten? JA / NEIN
+10. Funktioniert Browser-Reload weiterhin? JA / NEIN
+11. Tritt React Error #231 noch auf? JA / NEIN
+12. Tritt "artifact encountered an error" nach Login noch auf? JA / NEIN
+13. Wurde im Browser-Frontend getestet und nicht nur anhand Python-Logs? JA / NEIN
+14. Welche Legacy-Navigationskomponenten wurden entfernt?
+15. Welche Dateien wurden geändert?
+
+Danach STOPPEN.
+
+Keine weiteren Features oder Designänderungen vornehmen.

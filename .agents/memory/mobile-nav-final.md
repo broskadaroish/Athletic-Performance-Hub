@@ -1,60 +1,57 @@
 ---
 name: Mobile nav final architecture
-description: How the bottom nav works — hidden st.button triggers clicked by inline JS onclick. Replaces failed declare_component and <a href> approaches.
+description: How the mobile bottom navigation works after the full rewrite — segmented_control, no JS tricks
 ---
 
-## Rule
-The mobile bottom nav uses `<button onclick>` elements in a visually rendered `<nav class="aph-bottom-nav">`. Each onclick finds a hidden `st.button` labelled `⬡IDX` (U+2B21 White Hexagon) by `textContent` and calls `.click()` programmatically. This triggers Streamlit's WebSocket rerun — same session, no cookie restore needed.
+# Mobile bottom nav — final architecture (post-rewrite)
 
-**Why:** Two previous approaches failed:
-1. `<a href="?nav=xxx">` caused full page reload → new WebSocket session → st.session_state lost → cookie re-read race condition.
-2. `st.components.v1.declare_component(path=...)` times out in Replit's mTLS proxy because `/_stcore/component/` cannot be served from local file paths through the proxy.
+## The rule
+Use ONE native `st.segmented_control` widget for the mobile bottom nav.
+No hidden trigger buttons. No HTML `onclick`. No `img onerror/onload`. No CSS `:has()` tricks.
 
-**How to apply:**
-- All nav targets are in `_ALL_TARGETS` list in `mobile.py`, indexed 0–N.
-- `render_mobile_nav()` renders the visual `<nav>` AND `st.columns(N)` of hidden trigger buttons at the END of the page.
-- MutationObserver (started by `<img onerror>`) hides trigger columns off-screen via `position:absolute;top:-9999px`.
-- When JS clicks a hidden button: Streamlit receives widget event → `_apply_nav_signal(target)` runs → `st.session_state` updated → `st.rerun()`.
-- `<a href>` / `st.page_link` / `declare_component` must never be used for this nav.
+## Why
+Previous approaches all caused hard failures in Streamlit 1.60 / React:
+- `<a href="?nav=...">` → full page reload → new WebSocket → session lost
+- `declare_component` → timed out in Replit mTLS proxy
+- Hidden `st.button ⬡0–⬡20` + JS click → StreamlitAPIException (writing to widget key after instantiation)
+- `<img onerror/onload>` → React Error #231 (Streamlit's React runtime intercepts ALL resource events via capture-phase listeners, even inside dangerouslySetInnerHTML)
 
-## Chrome auto-translate fix (the "sündigen" bug)
-Chrome Mobile auto-translates pages without `lang="de"` on the `<html>` element. The `<img src="x" onerror="...">` (rendered every rerun by `st.markdown`) sets:
-```javascript
-document.documentElement.lang = 'de';
-document.documentElement.setAttribute('translate', 'no');
+## How to apply
+
+### mobile.py
+- `render_mobile_nav(current_section)`: renders `st.segmented_control` with key `_mobile_nav_sc`, 5 options, `on_change=_on_nav_change`.
+- `_on_nav_change()`: sets `st.session_state["_nav_goto"]` (pending key) or `mobile_mehr_open = True`. Never writes to `nav_section` (owned by sidebar radio).
+- `inject_mobile_mehr_overlay(alle_sektionen)`: returns True when `mobile_mehr_open` is True; renders native `st.button` list. Caller calls `render_mobile_nav()` then `st.stop()`.
+- `inject_mobile_player_header()`: display-only HTML pill (no onclick). "Wechseln" button removed.
+
+### app.py call pattern
+```python
+# line ~9948 — before page routing:
+if inject_mobile_mehr_overlay(_MAIN_SECTIONS):
+    render_mobile_nav(section)   # must appear before st.stop() so nav is always visible
+    st.stop()
+
+# line ~10005 — after page routing (normal path):
+render_mobile_nav(section)
 ```
-All nav HTML also carries `translate="no"` attribute as belt-and-suspenders.
 
-**Why onerror:** `<script>` blocks in `st.markdown` do NOT execute (React strips them for security). Only event handler attributes (`onclick`, `onerror`) and `<style>` blocks work in `unsafe_allow_html`.
+### theme.py CSS
+- `[data-testid="stSegmentedControl"]` → `position:fixed; bottom:0` on ≤768px
+- Hidden with `display:none` on ≥769px (desktop uses sidebar radio)
+- No `.aph-bottom-nav` or `.aph-bn-item` classes (removed)
+- `.aph-mehr-header` + `.aph-mehr-title` remain for the Mehr screen header
+- `.aph-mehr-overlay`, `.aph-mehr-item`, `.aph-mehr-close` removed (no longer needed)
 
-## Streamlit React Event Handler Constraint (CRITICAL)
-Streamlit's React runtime intercepts **resource events** (`load`, `error`) on `<img>`, `<video>`, `<audio>` via capture-phase listeners at the root. This happens even for elements inside `dangerouslySetInnerHTML` (`unsafe_allow_html`). Result: React Error #231 ("The onLoad/onError handler threw an error") crashes the WebSocket → "artifact encountered an error" screen.
+### Navigation flow
+1. User taps option → `on_change` fires → sets `_nav_goto` → auto-rerun
+2. app.py line ~9812: `_nav_goto` consumed, written to `nav_section` radio (BEFORE widget instantiation) → no StreamlitAPIException
+3. Page renders new section
+4. `render_mobile_nav()` shows widget with correct option highlighted
 
-**Affected**: `onload`, `onerror` attributes on resource-loading elements.  
-**Safe**: `onclick` on `<button>` (user-interaction events work fine via native attribute).  
-**Workaround**: Never use `<img onerror>` or `<img onload>` tricks in `st.markdown`. Use CSS `:has()` or other non-event approaches instead.
+### Key constraint: widget key write timing
+`nav_section` is the sidebar `st.radio` key (app.py line ~9836).
+NEVER write to `nav_section` after line 9836. Always use `_nav_goto` pending key (applied at line ~9812, before the radio widget).
 
-## CSS :has() for hiding Streamlit elements
-Streamlit renders `st.button(label)` with `aria-label=label`. Use this to target specific buttons via CSS:
-```css
-[data-testid="stColumn"]:has(button[aria-label^="\2B21"]) {
-    position: absolute !important; top: -9999px !important;
-    overflow: hidden !important; height: 1px !important; width: 1px !important;
-}
-```
-U+2B21 (⬡) = `\2B21` in CSS. Requires Chrome 105+, Firefox 121+, Safari 15.4+.
-
-## st.session_state widget-key constraint
-After a widget with `key="nav_section"` is instantiated, writing `st.session_state["nav_section"] = x` raises `StreamlitAPIException`. Use a pending key (`_nav_goto`) instead — app.py reads it BEFORE the widget and transfers the value. Pattern already established at app.py line ~9812.
-
-## Key files
-- `mobile.py` — `_ALL_TARGETS`, `_TARGET_TO_IDX`, `_bn_onclick()`, `_apply_nav_signal()`, `render_mobile_nav()`, `inject_mobile_mehr_overlay()`
-- `theme.py` — `.aph-bottom-nav` (position:fixed) + `.aph-bn-item` (button reset styles) + `.aph-mehr-item`/`.aph-mehr-close`/`.aph-mph-switch` (all `<button>` reset styles)
-- `app.py` — calls `render_mobile_nav(section)` at end of page (line ~10005)
-
-## CSS button reset pattern
-Any interactive element that was `<a href>` must become `<button type="button">` with CSS:
-```css
-background: none; border: none; cursor: pointer; font-family: inherit;
--webkit-tap-highlight-color: transparent;
-```
+### Segmented control CSS target safety
+No other page in the app uses `st.segmented_control` → targeting `[data-testid="stSegmentedControl"]` globally is safe.
+Selected state uses multiple selectors: `[aria-checked="true"]`, `[aria-pressed="true"]`, `[data-selected="true"]` (Streamlit version may vary).

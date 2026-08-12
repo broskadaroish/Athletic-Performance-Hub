@@ -1,38 +1,42 @@
 """
 Mobile-responsive helpers for Athletic Performance Hub.
 
-Provides:
-  - handle_mobile_nav_params()    — reads ?player_id= query param only;
-                                    ?nav= as legacy deep-link fallback only
-  - render_mobile_nav()           — fixed bottom nav bar (≤768 px only).
-                                    Uses <button onclick> + hidden st.button
-                                    triggers — NO <a href>, no page reload,
-                                    same Streamlit WebSocket session preserved.
-  - inject_mobile_player_header() — compact player pill on player pages
-  - inject_mobile_player_selector() — inline <select> for player switching
-  - inject_mobile_mehr_overlay()  — full-screen "Mehr" menu overlay
+Bottom navigation uses ONE native st.segmented_control widget.
+No hidden trigger buttons, no HTML/JS bridges, no event-handler tricks,
+no CSS :has() for hiding buttons.
+
+Architecture:
+  render_mobile_nav()          — single st.segmented_control, 5 options,
+                                  position:fixed bottom via CSS in theme.py
+  inject_mobile_mehr_overlay() — native st.button list for non-primary sections
+  inject_mobile_player_header()— compact player pill (HTML, display-only)
+  inject_mobile_player_selector()— native HTML <select> for player switching
+  handle_mobile_nav_params()   — reads ?player_id= query param
 """
-import urllib.parse
 import streamlit as st
 
-# ── Bottom nav: (icon, label, target_section_key | None=Mehr) ─────────────────
-_BOT_NAV = [
-    ("🏠", "Start",    "🏠  Startseite"),
-    ("👤", "Spieler",  "👤  Spieler"),
-    ("🧪", "Tests",    "🔬  Diagnostik"),
-    ("📅", "Training", "📅  Training"),
-    ("⋯",  "Mehr",     None),
-]
+# ── Bottom nav options (5 items, fixed set) ───────────────────────────────────
+_BOT_NAV_OPTS = ["🏠 Start", "👤 Spieler", "🧪 Tests", "📅 Training", "⋯ Mehr"]
 
-# Primary sections shown directly in the bottom nav (excluded from "Mehr" list)
-_BOT_NAV_PRIMARY = frozenset({
-    "🏠  Startseite",
-    "👤  Spieler",
-    "🔬  Diagnostik",
-    "📅  Training",
-})
+# Maps mobile nav label → full section key used by desktop nav_section radio.
+# None = "⋯ Mehr" (opens the Mehr overlay instead of navigating).
+_BOT_NAV_TO_SECTION: dict[str, str | None] = {
+    "🏠 Start":    "🏠  Startseite",
+    "👤 Spieler":  "👤  Spieler",
+    "🧪 Tests":    "🔬  Diagnostik",
+    "📅 Training": "📅  Training",
+    "⋯ Mehr":      None,
+}
 
-# Sections where the active-player header is relevant
+# Reverse lookup: primary section key → mobile nav label
+_SECTION_TO_BOT_NAV: dict[str, str] = {
+    v: k for k, v in _BOT_NAV_TO_SECTION.items() if v is not None
+}
+
+# Primary sections shown directly in the bottom nav (excluded from Mehr list)
+_BOT_NAV_PRIMARY = frozenset(_SECTION_TO_BOT_NAV.keys())
+
+# Sections where the active-player header pill is relevant
 _PLAYER_SECTIONS = frozenset({
     "🔬  Diagnostik",
     "📅  Training",
@@ -41,89 +45,14 @@ _PLAYER_SECTIONS = frozenset({
     "📄  Dokumente",
 })
 
-# ── Trigger button registry ───────────────────────────────────────────────────
-# Every possible nav target gets a hidden st.button with label ⬡IDX.
-# onclick JS in the visual nav/overlay finds the right button by its label
-# and calls .click() — this triggers a Streamlit rerun via WebSocket (no
-# full page reload, same session, st.session_state preserved).
-#
-# ⬡ = U+2B21 (White Hexagon) — unlikely to appear elsewhere in the UI.
-
-_ALL_TARGETS = [
-    # Controls (indices 0-2)
-    "__mehr__",
-    "__close_mehr__",
-    "__logout__",
-    # Sections (indices 3+)
-    "🏠  Startseite",
-    "👤  Spieler",
-    "🔬  Diagnostik",
-    "📅  Training",
-    "📈  Entwicklung",
-    "⚖️  Vergleich",
-    "👥  Mannschaft",
-    "📄  Dokumente",
-    "⚙️  Einstellungen",
-    "👤  Mein Profil",
-    "ℹ️  Über",
-    "🧑‍💼  Trainerportal",
-    "🔑  Benutzerverwaltung",
-    "📋  Mein Vertrag",
-    "💳  Lizenz",
-    "🏢  Vereinsverwaltung",
-    "💳  Lizenzverwaltung",
-    "👥  Kundenverwaltung",
-]
-_TARGET_TO_IDX: dict[str, int] = {t: i for i, t in enumerate(_ALL_TARGETS)}
-
-
-def _bn_onclick(target: str) -> str:
-    """
-    Return an inline onclick that finds the hidden trigger button ⬡IDX
-    in the DOM and programmatically clicks it.
-    No page reload — only Streamlit's internal widget mechanism fires.
-    """
-    idx = _TARGET_TO_IDX.get(target)
-    if idx is None:
-        return ""
-    # JS: find button whose textContent === '⬡' + idx and call .click()
-    return (
-        f"(function(i){{"
-        f"var bs=document.querySelectorAll('button');"
-        f"for(var j=0;j<bs.length;j++){{"
-        f"if(bs[j].textContent.trim()==='\u2B21'+i){{bs[j].click();return;}}"
-        f"}}}})('{idx}')"
-    )
-
-
-def _apply_nav_signal(target: str) -> None:
-    """
-    Apply navigation: update st.session_state and call st.rerun().
-    No page reload — the existing Streamlit WebSocket session continues.
-    """
-    if target == "__mehr__":
-        st.session_state["mobile_mehr_open"] = True
-    elif target == "__close_mehr__":
-        st.session_state["mobile_mehr_open"] = False
-    elif target == "__logout__":
-        st.session_state["__mobile_logout_request__"] = True
-    else:
-        # Use the existing _nav_goto pending key — app.py applies it
-        # BEFORE the nav_section widget is instantiated (line ~9812),
-        # which avoids StreamlitAPIException when writing to a widget key.
-        st.session_state["_nav_goto"] = target
-        st.session_state["mobile_mehr_open"] = False
-    st.rerun()
-
 
 # ── Query-param navigation handler ───────────────────────────────────────────
 
 def handle_mobile_nav_params() -> None:
     """
-    Read ?player_id= query param; update session state.
-    ?nav= is kept as a legacy deep-link fallback only (not used by the
-    bottom nav — that now uses hidden st.button triggers instead).
-    Must be called *before* the nav_section radio widget is instantiated.
+    Read ?player_id= query param; update session state without page reload.
+    ?nav= is kept as legacy deep-link fallback (sets _nav_goto).
+    Must be called BEFORE nav_section widget is instantiated.
     """
     try:
         player_id_val = st.query_params.get("player_id", "")
@@ -136,7 +65,6 @@ def handle_mobile_nav_params() -> None:
                 pass
             st.rerun()
 
-        # Legacy deep-link support
         nav_val = st.query_params.get("nav", "")
         if not nav_val:
             return
@@ -148,7 +76,7 @@ def handle_mobile_nav_params() -> None:
         elif nav_val == "__logout__":
             st.session_state["__mobile_logout_request__"] = True
         else:
-            st.session_state["nav_section"] = nav_val
+            st.session_state["_nav_goto"] = nav_val
             st.session_state["mobile_mehr_open"] = False
         st.rerun()
     except Exception:
@@ -159,103 +87,128 @@ def handle_mobile_nav_params() -> None:
 
 def render_mobile_nav(current_section: str) -> None:
     """
-    Inject a fixed bottom nav bar visible only on mobile (≤768 px).
+    Render the mobile bottom navigation as a single st.segmented_control.
 
-    Architecture:
-      1. Visual nav: <nav class="aph-bottom-nav"> via st.markdown.
-         CSS in theme.py applies position:fixed; bottom:0; z-index:9999.
-         Each item is a <button onclick="..."> (NOT <a href>).
+    Layout
+    ──────
+    The widget appears position:fixed at the bottom on ≤768px via CSS
+    declared in theme.py ([data-testid="stSegmentedControl"]).
+    On desktop (≥769px) the widget is hidden entirely (display:none).
 
-      2. <img onerror>: executes on every Streamlit rerun (onerror fires
-         when the img is added to the DOM). It:
-           • Sets document.documentElement.lang='de' — prevents Chrome
-             mobile auto-translate (which caused "sündigen" instead of
-             "Abmelden").
-           • Sets translate='no' on the HTML element.
-           • Starts a MutationObserver that hides trigger button columns
-             off-screen as soon as they appear in the DOM.
+    Navigation flow
+    ───────────────
+    1. User taps an option → on_change callback fires with the new value.
+    2. Callback sets st.session_state["_nav_goto"] (the existing pending-key
+       consumed at app.py line ~9812, BEFORE the nav_section radio widget).
+       This avoids StreamlitAPIException when writing to a widget key.
+    3. Streamlit auto-reruns after the widget change (no explicit st.rerun()
+       needed in the callback).
+    4. On the next rerun, _nav_goto is applied → section changes.
 
-      3. Hidden trigger buttons: st.button widgets labeled ⬡0…⬡N,
-         rendered in st.columns at the end of the page. The MutationObserver
-         moves their column containers to position:absolute;top:-9999px so
-         users never see them. JavaScript .click() on off-screen elements
-         works because the browser does not restrict programmatic clicks by
-         CSS position — the React onClick handler fires normally.
+    "⋯ Mehr"
+    ────────
+    Setting "⋯ Mehr" sets mobile_mehr_open = True.
+    In app.py, inject_mobile_mehr_overlay() detects this and renders a
+    native Streamlit Mehr menu (st.button list) → caller calls st.stop().
+    render_mobile_nav() is called before st.stop() so the nav is always visible.
 
-      4. When a trigger button is clicked (via JS), it returns True in the
-         next Streamlit rerun → _apply_nav_signal() updates session_state
-         → st.rerun() → correct page renders. No new WebSocket session,
-         no cookie restore needed, all session_state preserved.
+    No hidden buttons. No JS event tricks. No HTML bridges.
     """
-    mehr_open = bool(st.session_state.get("mobile_mehr_open"))
-
-    # ── 1. Visual nav items ───────────────────────────────────────────────────
-    items_html = ""
-    for icon, label, key in _BOT_NAV:
-        if key is None:
-            nav_target = "__close_mehr__" if mehr_open else "__mehr__"
-            is_active  = mehr_open
+    def _on_nav_change() -> None:
+        choice = st.session_state.get("_mobile_nav_sc")
+        if choice is None:
+            return
+        sec = _BOT_NAV_TO_SECTION.get(choice)
+        if sec is None:          # "⋯ Mehr" selected
+            st.session_state["mobile_mehr_open"] = True
         else:
-            nav_target = key
-            is_active  = (current_section == key) and not mehr_open
+            st.session_state["_nav_goto"] = sec
+            st.session_state["mobile_mehr_open"] = False
 
-        active_cls = " aph-bn-active" if is_active else ""
-        oc = _bn_onclick(nav_target)
-        items_html += (
-            f'<button type="button" class="aph-bn-item{active_cls}"'
-            f' onclick="{oc}" translate="no">'
-            f'<span class="aph-bn-icon">{icon}</span>'
-            f'<span class="aph-bn-label">{label}</span>'
-            f'</button>'
-        )
+    mehr_open = bool(st.session_state.get("mobile_mehr_open"))
+    if mehr_open or current_section not in _BOT_NAV_PRIMARY:
+        # Non-primary sections (e.g. Entwicklung, Vergleich) accessed via Mehr
+        # → highlight "⋯ Mehr" in the nav bar (standard mobile UX)
+        current_default = "⋯ Mehr"
+    else:
+        current_default = _SECTION_TO_BOT_NAV.get(current_section, "🏠 Start")
 
-    # ── 2. Render nav + CSS to hide trigger columns ───────────────────────────
-    # Streamlit's React runtime intercepts ALL resource events (load, error)
-    # on <img> elements via capture-phase listeners, causing React Error #231
-    # regardless of try/catch.  No inline event handlers are used here.
-    #
-    # Trigger columns are hidden via CSS :has(button[aria-label^="⬡"]).
-    # Streamlit renders every st.button(label) with aria-label=label, so
-    # aria-label^="⬡" (starts with ⬡, U+2B21) uniquely identifies them.
-    # :has() is supported in Chrome 105+, Firefox 121+, Safari 15.4+.
-    #
-    # translate="no" on nav elements provides belt-and-suspenders protection
-    # against Chrome Mobile auto-translate (the "sündigen" bug).
+    st.segmented_control(
+        label="Navigation",
+        options=_BOT_NAV_OPTS,
+        default=current_default,
+        key="_mobile_nav_sc",
+        on_change=_on_nav_change,
+        label_visibility="collapsed",
+    )
+
+
+# ── "Mehr" full-screen navigation menu ───────────────────────────────────────
+
+def inject_mobile_mehr_overlay(alle_sektionen: list[str]) -> bool:
+    """
+    When mobile_mehr_open is True, render the "Mehr" navigation screen
+    using native Streamlit st.button elements (no HTML onclick, no CSS overlay).
+
+    Returns True when the Mehr screen is active.
+
+    Caller (app.py) pattern:
+        if inject_mobile_mehr_overlay(_MAIN_SECTIONS):
+            render_mobile_nav(section)   # show nav bar even on Mehr screen
+            st.stop()                    # skip main page content
+
+    Button clicks set _nav_goto + close Mehr, then rerun.
+    The _nav_goto pending key is consumed at app.py line ~9812 (before the
+    nav_section widget) → no StreamlitAPIException.
+    """
+    if not st.session_state.get("mobile_mehr_open"):
+        return False
+
+    # Header (HTML for styling, no interactive elements)
     st.markdown(
-        f'<style>'
-        f'[data-testid="stColumn"]:has(button[aria-label^="\u2B21"]){{'
-        f'position:absolute!important;top:-9999px!important;'
-        f'overflow:hidden!important;height:1px!important;width:1px!important;'
-        f'}}'
-        f'</style>'
-        f'<nav class="aph-bottom-nav" aria-label="Hauptnavigation" translate="no">'
-        f'{items_html}'
-        f'</nav>',
+        '<div class="aph-mehr-header" translate="no">'
+        '<span class="aph-mehr-title">Weitere Bereiche</span>'
+        '</div>',
         unsafe_allow_html=True,
     )
 
-    # ── 3. Hidden trigger buttons (one per nav target) ────────────────────────
-    # Rendered as columns; hidden off-screen by the MutationObserver above.
-    # JavaScript calls .click() on these — no user interaction needed.
-    n = len(_ALL_TARGETS)
-    trg_cols = st.columns(n)
-    for i, target in enumerate(_ALL_TARGETS):
-        with trg_cols[i]:
-            if st.button(
-                f"\u2B21{i}",            # ⬡0, ⬡1, ..., ⬡N
-                key=f"_aph_tbn_{i}",
-                use_container_width=True,
-            ):
-                _apply_nav_signal(target)
+    # Non-primary section buttons — pure native st.button
+    for sek in alle_sektionen:
+        sek_s = sek.strip()
+        if sek_s in _BOT_NAV_PRIMARY:
+            continue
+        if st.button(
+            sek_s,
+            key=f"_mob_mehr_{sek_s}",
+            width="stretch",
+        ):
+            st.session_state["_nav_goto"] = sek_s
+            st.session_state["mobile_mehr_open"] = False
+            st.rerun()
+
+    st.divider()
+
+    if st.button(
+        "🚪 Abmelden",
+        key="_mob_mehr_logout",
+        width="stretch",
+        type="secondary",
+    ):
+        st.session_state["__mobile_logout_request__"] = True
+        st.session_state["mobile_mehr_open"] = False
+        st.rerun()
+
+    return True
 
 
-# ── Mobile active-player header ───────────────────────────────────────────────
+# ── Mobile active-player header pill ─────────────────────────────────────────
 
 def inject_mobile_player_header(player: dict | None, section: str) -> None:
     """
-    On player-specific pages show a compact player pill (mobile only).
-    On desktop the element is hidden via @media CSS.
-    "Wechseln" uses onclick (no <a href>, no page reload).
+    On player-specific pages show a compact player info pill (mobile only).
+    Hidden on desktop via CSS (.aph-mph { display:none } / @media override).
+    Display-only: no onclick events, no navigation buttons.
+    Users can tap '👤 Spieler' in the bottom nav to switch players.
     """
     if not player or section not in _PLAYER_SECTIONS:
         return
@@ -263,7 +216,6 @@ def inject_mobile_player_header(player: dict | None, section: str) -> None:
     pos  = player.get("hauptposition") or player.get("position") or ""
     team = player.get("mannschaft") or ""
     sub  = " · ".join(x for x in [pos, team] if x) or "Kein Team"
-    oc   = _bn_onclick("👤  Spieler")
     st.markdown(
         f'<div class="aph-mph" translate="no">'
         f'<span class="aph-mph-icon">👤</span>'
@@ -271,8 +223,6 @@ def inject_mobile_player_header(player: dict | None, section: str) -> None:
         f'<div class="aph-mph-name">{name}</div>'
         f'<div class="aph-mph-sub">{sub}</div>'
         f'</div>'
-        f'<button class="aph-mph-switch" type="button" onclick="{oc}">'
-        f'Wechseln&nbsp;›</button>'
         f'</div>',
         unsafe_allow_html=True,
     )
@@ -283,7 +233,7 @@ def inject_mobile_player_header(player: dict | None, section: str) -> None:
 def inject_mobile_player_selector(alle_spieler: list | None, current_pid) -> None:
     """
     Mobile-only player switcher — native HTML <select> that navigates via
-    ?player_id= query param (handled by handle_mobile_nav_params()).
+    ?player_id= query param (read by handle_mobile_nav_params()).
     Hidden on desktop (≥769px) via CSS .aph-mob-sel-wrap { display:none }.
     Does nothing when fewer than 2 players are available.
     """
@@ -303,72 +253,14 @@ def inject_mobile_player_selector(alle_spieler: list | None, current_pid) -> Non
         sel     = " selected" if pid == current_pid else ""
         opts.append(f'<option value="{pid}"{sel}>{display}</option>')
 
-    opts_html = "\n".join(opts)
     st.markdown(
         f'<div class="aph-mob-sel-wrap">'
         f'<div class="aph-mob-sel-label">👤 Spieler wechseln</div>'
         f'<select class="aph-mob-sel" '
-        f'onchange="window.location.href=\'?player_id=\'+encodeURIComponent(this.value)">'
-        f'{opts_html}'
+        f'onchange="window.location.href=\'?player_id=\''
+        f'+encodeURIComponent(this.value)">'
+        + "\n".join(opts) +
         f'</select>'
         f'</div>',
         unsafe_allow_html=True,
     )
-
-
-# ── "Mehr" full-screen overlay ────────────────────────────────────────────────
-
-def inject_mobile_mehr_overlay(alle_sektionen: list[str]) -> bool:
-    """
-    If mobile_mehr_open is True, render the full-screen "Mehr" overlay.
-    The overlay is position:fixed so it covers main content on mobile.
-    On desktop display:none — no visual impact.
-
-    All items use onclick → hidden trigger button → Streamlit rerun.
-    No <a href>, no page reload, session preserved.
-
-    Returns True if the overlay is active (caller can skip heavy rendering).
-    """
-    if not st.session_state.get("mobile_mehr_open"):
-        return False
-
-    items_html = ""
-    for sek in alle_sektionen:
-        sek_s = sek.strip()
-        if sek_s in _BOT_NAV_PRIMARY:
-            continue
-        oc = _bn_onclick(sek_s)
-        if not oc:
-            continue
-        items_html += (
-            f'<button class="aph-mehr-item" type="button" onclick="{oc}" translate="no">'
-            f'<span class="aph-mehr-item-text">{sek_s}</span>'
-            f'<span class="aph-mehr-item-arrow">›</span>'
-            f'</button>'
-        )
-
-    oc_close  = _bn_onclick("__close_mehr__")
-    oc_logout = _bn_onclick("__logout__")
-
-    logout_html = (
-        '<div class="aph-mehr-divider"></div>'
-        f'<button class="aph-mehr-item aph-mehr-logout" type="button"'
-        f' onclick="{oc_logout}" translate="no">'
-        '<span class="aph-mehr-item-text">🚪&nbsp;Abmelden</span>'
-        '<span class="aph-mehr-item-arrow">›</span>'
-        '</button>'
-    )
-
-    st.markdown(
-        f'<div class="aph-mehr-overlay" translate="no">'
-        f'<div class="aph-mehr-header">'
-        f'<span class="aph-mehr-title">Weitere Bereiche</span>'
-        f'<button class="aph-mehr-close" type="button" onclick="{oc_close}">✕</button>'
-        f'</div>'
-        f'<div class="aph-mehr-section-label">Navigation</div>'
-        f'{items_html}'
-        f'{logout_html}'
-        f'</div>',
-        unsafe_allow_html=True,
-    )
-    return True
