@@ -510,6 +510,95 @@ def send_kuendigung_admin_benachrichtigung(
         return False
 
 
+def send_widerruf_admin_benachrichtigung(
+    to: str,
+    kundennummer: str,
+    kundentyp: str,
+    kundenname: str = "",
+    kundenemail: str = "",
+    zeitstempel: str = "",
+) -> bool:
+    """Benachrichtigt den Superadmin sofort, wenn ein Kunde seine Kündigung zurückzieht.
+
+    Verhindert, dass der Admin eine bereits widerrufene Kündigung bearbeitet.
+    Alle kundenkontrollierten Werte werden vor der HTML-Interpolation escapiert.
+    """
+    import html as _html
+
+    # Alle dynamischen Werte kontextgerecht escapen — verhindert HTML-Injection
+    h_kn   = _html.escape(kundennummer or "—")
+    h_name = _html.escape(kundenname   or "—")
+    h_mail = _html.escape(kundenemail  or "—")   # kein mailto-Attribut — nur Text
+    h_typ  = _html.escape(kundentyp    or "—")
+    h_ts   = _html.escape(zeitstempel  or "—")
+
+    subject = f"{_APP_NAME} – ✅ Kündigung zurückgezogen ({kundennummer})"
+
+    text = (
+        f"[{_APP_NAME}] KÜNDIGUNG ZURÜCKGEZOGEN\n\n"
+        f"Kundennummer:   {kundennummer or '—'}\n"
+        f"Kundenname:     {kundenname   or '—'}\n"
+        f"Kunden-E-Mail:  {kundenemail  or '—'}\n"
+        f"Kundentyp:      {kundentyp    or '—'}\n"
+        f"Zurückgezogen:  {zeitstempel  or '—'}\n\n"
+        f"Der Kunde hat seine Kündigung selbst widerrufen. "
+        f"Kein weiterer Bearbeitungsaufwand erforderlich — "
+        f"der Vertrag läuft unverändert weiter.\n"
+    )
+    html_body = (
+        "<!DOCTYPE html><html><body style='font-family:Arial,sans-serif;"
+        "background:#f6f8fa;padding:24px;margin:0'>"
+        "<div style='max-width:600px;margin:0 auto;background:#ffffff;"
+        "border:1px solid #d0d7de;border-radius:8px;padding:40px 32px'>"
+        f"<h2 style='color:#24292f;margin:0 0 4px'>{_APP_NAME}</h2>"
+        "<p style='color:#57606a;font-size:13px;margin:0 0 24px'>"
+        "Football Performance &amp; Diagnostics</p>"
+        "<hr style='border:none;border-top:1px solid #d0d7de;margin:0 0 24px'>"
+        "<p style='color:#24292f;font-size:15px;font-weight:600;margin:0 0 16px'>"
+        "✅ Kündigung zurückgezogen</p>"
+        "<table style='width:100%;border-collapse:collapse;margin:0 0 28px;"
+        "background:#f6f8fa;border-radius:6px'>"
+        "<tbody>"
+        f"<tr><td style='padding:8px 12px;color:#57606a;font-size:13px;"
+        f"white-space:nowrap'>Kundennummer</td>"
+        f"<td style='padding:8px 12px;color:#24292f;font-size:13px;"
+        f"font-weight:600'>{h_kn}</td></tr>"
+        f"<tr style='background:#ffffff'><td style='padding:8px 12px;"
+        f"color:#57606a;font-size:13px'>Kundenname</td>"
+        f"<td style='padding:8px 12px;color:#24292f;font-size:13px'>{h_name}</td></tr>"
+        f"<tr><td style='padding:8px 12px;color:#57606a;font-size:13px;"
+        f"white-space:nowrap'>Kunden-E-Mail</td>"
+        f"<td style='padding:8px 12px;color:#24292f;font-size:13px'>{h_mail}</td></tr>"
+        f"<tr style='background:#ffffff'><td style='padding:8px 12px;"
+        f"color:#57606a;font-size:13px'>Kundentyp</td>"
+        f"<td style='padding:8px 12px;color:#24292f;font-size:13px'>{h_typ}</td></tr>"
+        f"<tr><td style='padding:8px 12px;color:#57606a;font-size:13px;"
+        f"white-space:nowrap'>Zurückgezogen am</td>"
+        f"<td style='padding:8px 12px;color:#24292f;font-size:13px;"
+        f"font-weight:600'>{h_ts}</td></tr>"
+        "</tbody></table>"
+        "<p style='color:#1a7f37;font-size:13px;background:#dcffe4;border:1px solid #a7f3b0;"
+        "border-radius:6px;padding:12px 16px;margin:0 0 16px'>"
+        "Der Kunde hat die Kündigung eigenständig zurückgezogen. "
+        "Der Vertrag läuft unverändert weiter — "
+        "kein weiterer Bearbeitungsaufwand erforderlich.</p>"
+        "<hr style='border:none;border-top:1px solid #d0d7de;margin:24px 0'>"
+        f"<p style='color:#57606a;font-size:12px;margin-bottom:0'>"
+        f"Automatische Benachrichtigung — {_APP_NAME}</p>"
+        "</div></body></html>"
+    )
+    try:
+        _send(to, subject, text, html_body)
+        log.info("Widerruf-Admin-Benachrichtigung an %s... gesendet", to[:6])
+        return True
+    except Exception as exc:
+        log.error(
+            "send_widerruf_admin_benachrichtigung fehlgeschlagen (%s)",
+            type(exc).__name__,
+        )
+        return False
+
+
 def send_test_mail(to: str) -> None:
     """Testmail für Superadmin — prüft ob SMTP-Konfiguration funktioniert."""
     subject = f"{_APP_NAME} – E-Mail-Test"

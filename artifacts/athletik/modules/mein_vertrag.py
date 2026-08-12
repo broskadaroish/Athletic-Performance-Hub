@@ -149,7 +149,7 @@ def page_mein_vertrag() -> None:
             ):
                 ok, _ = kuendigung_widerrufen(eid, ist_verein)
                 if ok:
-                    _sende_widerruf_email(user, data)
+                    _sende_widerruf_email(user, data, ist_verein=ist_verein)
                     st.success(
                         "✅ Deine Kündigung wurde zurückgezogen. "
                         "Dein Vertrag läuft weiter."
@@ -291,22 +291,54 @@ def _kuendigung_flow(user: dict, eid: int, ist_verein: bool, data: dict) -> None
             st.rerun()
 
 
-def _sende_widerruf_email(user: dict, data: dict) -> None:
-    """Sendet Widerrufs-Bestätigung an den Kunden; fehlertolerante Ausführung."""
+def _sende_widerruf_email(user: dict, data: dict, ist_verein: bool = False) -> None:
+    """Sendet Widerrufs-Bestätigung an den Kunden und Admin-Benachrichtigung an Superadmin."""
+    import datetime as _dt
+    import os as _os
+
+    kundennummer = data.get("kundennummer") or "—"
+    lizenztyp    = data.get("lizenztyp") or data.get("lizenz_typ") or "—"
+    kundenname   = user.get("vorname") or user.get("name") or ""
+    kundenemail  = user.get("email") or ""
+    zeitstempel  = _dt.datetime.now().strftime("%d.%m.%Y %H:%M Uhr")
+
+    # ── 1. Bestätigungs-E-Mail an den Kunden ────────────────────────────────
     try:
         from email_service import send_kuendigung_widerrufen
-        email = user.get("email") or ""
-        if not email:
-            return
-        send_kuendigung_widerrufen(
-            to=email,
-            name=user.get("vorname") or user.get("name") or "Kunde",
-            kundennummer=data.get("kundennummer") or "—",
-            lizenztyp=data.get("lizenztyp") or data.get("lizenz_typ") or "—",
-        )
-        _log.info("Widerrufs-Bestätigung an %s... gesendet", email[:4])
+        if kundenemail:
+            send_kuendigung_widerrufen(
+                to=kundenemail,
+                name=kundenname or "Kunde",
+                kundennummer=kundennummer,
+                lizenztyp=lizenztyp,
+            )
+            _log.info("Widerrufs-Bestätigung an %s... gesendet", kundenemail[:4])
     except Exception as exc:
-        _log.error("Widerrufs-E-Mail fehlgeschlagen: %s", type(exc).__name__)
+        _log.error("Widerrufs-Kunden-E-Mail fehlgeschlagen: %s", type(exc).__name__)
+
+    # ── 2. Sofort-Benachrichtigung an Superadmin ─────────────────────────────
+    # Nur senden wenn SUPERADMIN_EMAIL konfiguriert ist — kein PII-Fallback.
+    try:
+        from email_service import send_widerruf_admin_benachrichtigung
+        admin_email = _os.environ.get("SUPERADMIN_EMAIL", "").strip()
+        if not admin_email:
+            _log.warning(
+                "SUPERADMIN_EMAIL nicht konfiguriert — "
+                "Widerruf-Admin-Benachrichtigung übersprungen"
+            )
+        else:
+            kundentyp = "Verein" if ist_verein else "Einzeltrainer"
+            send_widerruf_admin_benachrichtigung(
+                to=admin_email,
+                kundennummer=kundennummer,
+                kundentyp=kundentyp,
+                kundenname=kundenname,
+                kundenemail=kundenemail,
+                zeitstempel=zeitstempel,
+            )
+            _log.info("Widerruf-Admin-Benachrichtigung gesendet")
+    except Exception as exc:
+        _log.error("Widerruf-Admin-Benachrichtigung fehlgeschlagen: %s", type(exc).__name__)
 
 
 def _sende_email(
