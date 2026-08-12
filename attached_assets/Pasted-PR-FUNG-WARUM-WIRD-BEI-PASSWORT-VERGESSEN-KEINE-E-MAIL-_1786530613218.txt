@@ -1,0 +1,234 @@
+PRÜFUNG – WARUM WIRD BEI „PASSWORT VERGESSEN“ KEINE E-MAIL VERSENDET?
+
+WICHTIG:
+NOCH NICHTS ÄNDERN.
+
+Zuerst ausschließlich analysieren und mir einen Diagnosebericht geben.
+
+Aktuelles Problem:
+
+Wenn ein Benutzer auf:
+
+„Passwort vergessen?“
+
+klickt und seine hinterlegte E-Mail-Adresse bzw. seinen Benutzernamen eingibt, wird keine E-Mail zugestellt.
+
+SMTP_PASSWORD wurde von mir bereits als Replit Secret hinterlegt.
+
+Prüfe jetzt systematisch, warum keine E-Mail versendet wird.
+
+==================================================
+
+1. REPLIT SECRETS / ENVIRONMENT VARIABLES PRÜFEN
+   ==================================================
+
+Prüfe, ob folgende Environment Variables im laufenden Prozess tatsächlich verfügbar sind:
+
+* SMTP_HOST
+* SMTP_PORT
+* SMTP_USERNAME
+* SMTP_PASSWORD
+* SMTP_FROM
+* SUPPORT_EMAIL
+* APP_BASE_URL
+
+WICHTIG:
+
+NIEMALS den Wert von SMTP_PASSWORD ausgeben.
+
+Nur melden:
+
+SMTP_PASSWORD vorhanden: JA / NEIN
+
+Zusätzlich prüfen:
+
+* Ist der Secret-Name exakt „SMTP_PASSWORD“ geschrieben?
+* Enthält der Name versehentlich Leerzeichen?
+* Wird SMTP_PASSWORD im Python-Prozess tatsächlich über os.environ / os.getenv geladen?
+* Läuft eventuell noch ein alter Prozess, der den neu gesetzten Secret nicht geladen hat?
+
+==================================================
+2. SMTP-KONFIGURATION PRÜFEN
+============================
+
+Prüfe die aktuell verwendeten Werte, aber ohne Passwort anzuzeigen.
+
+Erwartet:
+
+SMTP_HOST = smtp.ionos.de
+SMTP_PORT = 465
+SMTP_USERNAME = [noreply@aphsystem.de](mailto:noreply@aphsystem.de)
+SMTP_FROM = [noreply@aphsystem.de](mailto:noreply@aphsystem.de)
+SUPPORT_EMAIL = [support@aphsystem.de](mailto:support@aphsystem.de)
+
+Prüfe:
+
+* Wird Port 465 verwendet?
+* Wird SMTP_SSL verwendet?
+* Wird tatsächlich smtp.ionos.de angesprochen?
+* Wird SMTP_USERNAME korrekt geladen?
+* Wird SMTP_PASSWORD an SMTP.login() übergeben?
+* Wird SMTP_FROM korrekt verwendet?
+
+==================================================
+3. SMTP-LOGIN DIREKT TESTEN
+===========================
+
+Führe einen isolierten SMTP-Verbindungstest durch.
+
+Ablauf technisch:
+
+1. Verbindung zu smtp.ionos.de:465 herstellen
+2. SSL-Verbindung aufbauen
+3. Login mit SMTP_USERNAME und SMTP_PASSWORD versuchen
+4. Verbindung sauber schließen
+
+Keine E-Mail versenden, wenn für diese Diagnose nicht notwendig.
+
+Berichte nur:
+
+* Verbindung zum SMTP-Server möglich: JA / NEIN
+* SMTP-Authentifizierung erfolgreich: JA / NEIN
+
+Falls Fehler:
+nur Fehlertyp und sichere Fehlermeldung anzeigen.
+
+NIEMALS:
+
+* Passwort ausgeben
+* Passwort teilweise ausgeben
+* Secret dumpen
+* Environment komplett anzeigen
+
+==================================================
+4. PASSWORT-RESET-FLOW PRÜFEN
+=============================
+
+Prüfe den tatsächlichen Codepfad von:
+
+„Passwort vergessen?“
+
+bis zum E-Mail-Versand.
+
+Prüfe der Reihe nach:
+
+1. Wird die eingegebene E-Mail / Benutzername korrekt verarbeitet?
+2. Wird normalize_email() verwendet?
+3. Wird der Benutzer in der Datenbank gefunden?
+4. Ist der Benutzer aktiv?
+5. Ist die E-Mail-Adresse bestätigt?
+6. Wird pw_reset_token_erzeugen() tatsächlich aufgerufen?
+7. Wird ein Reset-Token erzeugt?
+8. Wird der Token in der Datenbank gespeichert?
+9. Wird eine Ablaufzeit gesetzt?
+10. Wird send_password_reset() tatsächlich aufgerufen?
+11. Gibt send_password_reset() Erfolg oder Fehler zurück?
+12. Wird ein SMTP-Fehler eventuell abgefangen und anschließend ignoriert?
+
+==================================================
+5. E-MAIL-ADRESSE DES TESTKONTOS PRÜFEN
+=======================================
+
+Prüfe beim konkret verwendeten Testkonto:
+
+* existiert das Konto?
+* welche E-Mail-Adresse ist hinterlegt?
+* email_verifiziert = JA / NEIN?
+* Account aktiv = JA / NEIN?
+* Benutzername korrekt?
+* wird exakt dieses Konto beim Passwort-Reset gefunden?
+
+E-Mail-Adresse darf im Diagnosebericht angezeigt werden.
+
+Passwörter und Passwort-Hashes NICHT anzeigen.
+
+==================================================
+6. TESTMAIL-FUNKTION PRÜFEN
+===========================
+
+Prüfe die bereits implementierte Superadmin-Funktion:
+
+„E-Mail-Versand testen“
+
+Falls möglich, führe darüber einen Test an eine definierte Testadresse durch.
+
+Berichte:
+
+* Testmail-Funktion aufgerufen: JA / NEIN
+* SMTP-Verbindung erfolgreich: JA / NEIN
+* SMTP-Login erfolgreich: JA / NEIN
+* sendmail/send_message erfolgreich: JA / NEIN
+
+Wenn die Testmail funktioniert, aber Passwort-Reset nicht:
+→ Fehler liegt wahrscheinlich im Passwort-Reset-Codepfad.
+
+Wenn bereits die Testmail nicht funktioniert:
+→ Fehler liegt wahrscheinlich in SMTP/IONOS/Secrets.
+
+==================================================
+7. LOGS PRÜFEN
+==============
+
+Prüfe vorhandene Logs rund um:
+
+* SMTP
+* password reset
+* send_password_reset
+* email_service.py
+
+Suche insbesondere nach:
+
+* SMTPAuthenticationError
+* SMTPConnectError
+* SSLError
+* ConnectionRefusedError
+* TimeoutError
+* Recipient refused
+* Sender refused
+* Authentication failed
+* Missing environment variable
+
+Keine Secrets in Bericht übernehmen.
+
+==================================================
+8. KEINE ÄNDERUNG VORNEHMEN
+===========================
+
+In diesem Schritt KEINEN Code ändern.
+
+Keine SMTP-Einstellung ändern.
+
+Kein Passwort ersetzen.
+
+Keine Datenbank ändern.
+
+Keine Tokenlogik ändern.
+
+Nur prüfen.
+
+==================================================
+9. DIAGNOSEBERICHT
+==================
+
+Danach exakt berichten:
+
+1. SMTP_PASSWORD vorhanden: JA / NEIN
+2. Wird SMTP_PASSWORD vom laufenden Prozess geladen: JA / NEIN
+3. SMTP_HOST aktuell:
+4. SMTP_PORT aktuell:
+5. SMTP_USERNAME aktuell:
+6. Verbindung zu IONOS SMTP erfolgreich: JA / NEIN
+7. SMTP-Authentifizierung erfolgreich: JA / NEIN
+8. Funktioniert die Superadmin-Testmail: JA / NEIN
+9. Wird das Passwort-Reset-Testkonto gefunden: JA / NEIN
+10. Ist dessen E-Mail bestätigt: JA / NEIN
+11. Wird ein Reset-Token erzeugt: JA / NEIN
+12. Wird send_password_reset() aufgerufen: JA / NEIN
+13. Wird die Nachricht vom SMTP-Server akzeptiert: JA / NEIN
+14. Welche konkrete Fehlerursache wurde gefunden?
+15. An welcher Datei und Zeile liegt das Problem?
+16. Welche Änderung wäre erforderlich?
+
+NOCH KEINE ÄNDERUNG UMSETZEN.
+
+Danach STOPPEN und auf meine Freigabe warten.
