@@ -105,7 +105,7 @@ def send_password_reset(to: str, name: str, token: str, base_url: str) -> None:
         f"du hast angefordert, dein Passwort f\u00fcr {_APP_NAME} zur\u00fcckzusetzen.\n\n"
         "Klicke auf den folgenden Link, um ein neues Passwort festzulegen:\n\n"
         f"{reset_url}\n\n"
-        "Der Link ist nur f\u00fcr einen begrenzten Zeitraum g\u00fcltig (1 Stunde) "
+        "Der Link ist nur f\u00fcr einen begrenzten Zeitraum g\u00fcltig (24 Stunden) "
         "und kann nur einmal verwendet werden.\n\n"
         "Wenn du diese Anfrage nicht gestellt hast, kannst du diese E-Mail ignorieren. "
         "Dein Passwort bleibt in diesem Fall unver\u00e4ndert.\n\n"
@@ -132,7 +132,7 @@ def send_password_reset(to: str, name: str, token: str, base_url: str) -> None:
         f"{reset_url}</a></p>"
         "<hr style='border:none;border-top:1px solid #d0d7de;margin:24px 0'>"
         "<p style='color:#57606a;font-size:13px'>"
-        "Der Link ist <strong>1 Stunde</strong> g\u00fcltig und kann nur einmal verwendet werden.</p>"
+        "Der Link ist <strong>24 Stunden</strong> g\u00fcltig und kann nur einmal verwendet werden.</p>"
         "<p style='color:#57606a;font-size:13px'>"
         "Wenn du diese Anfrage nicht gestellt hast, kannst du diese E-Mail ignorieren. "
         "Dein Passwort bleibt unver\u00e4ndert.</p>"
@@ -145,16 +145,41 @@ def send_password_reset(to: str, name: str, token: str, base_url: str) -> None:
     _send(to, subject, text, html)
 
 
-def send_username_reminder(to: str, name: str, benutzername: str,
+def send_username_reminder(to: str, name: str, benutzername: str | None,
                            login_url: str = "https://aphsystem.de") -> None:
-    """Sendet den Benutzernamen per E-Mail (kein Passwort-Klartextversand)."""
+    """Sendet den Benutzernamen per E-Mail.
+    Wenn benutzername=None: erklärt, dass das Konto keinen Benutzernamen hat."""
     subject = f"{_APP_NAME} \u2013 Dein Benutzername"
+
+    if benutzername:
+        uname_text = (
+            f"Dein Benutzername lautet:\n\n    {benutzername}\n\n"
+            f"Du kannst dich hier anmelden:\n{login_url}\n\n"
+        )
+        uname_html = (
+            "<p style='color:#24292f'>Dein Benutzername lautet:</p>"
+            f"<p style='background:#f6f8fa;border:1px solid #d0d7de;border-radius:6px;"
+            f"padding:12px 20px;font-size:18px;font-weight:bold;letter-spacing:1px;"
+            f"color:#24292f'>{benutzername}</p>"
+        )
+    else:
+        uname_text = (
+            "F\u00fcr dein Konto wurde kein separater Benutzername angelegt.\n"
+            "Du kannst dich mit deiner E-Mail-Adresse und deinem Passwort anmelden:\n\n"
+            f"    {login_url}\n\n"
+        )
+        uname_html = (
+            "<p style='color:#24292f'>F\u00fcr dein Konto wurde kein separater "
+            "Benutzername angelegt.</p>"
+            "<p style='color:#24292f'>Du kannst dich direkt mit deiner "
+            "<strong>E-Mail-Adresse</strong> und deinem Passwort anmelden.</p>"
+        )
+
     text = (
         f"Hallo {name},\n\n"
         f"du hast deinen Benutzernamen f\u00fcr {_APP_NAME} angefordert.\n\n"
-        f"Dein Benutzername lautet:\n\n    {benutzername}\n\n"
-        f"Du kannst dich hier anmelden:\n{login_url}\n\n"
-        "Wenn du diese Anfrage nicht gestellt hast, kannst du diese E-Mail ignorieren.\n\n"
+        + uname_text
+        + "Wenn du diese Anfrage nicht gestellt hast, kannst du diese E-Mail ignorieren.\n\n"
         f"Bei Fragen: {_SUPPORT_EMAIL}\n\n"
         f"Viele Gr\u00fc\u00dfe\n{_APP_NAME}"
     )
@@ -167,11 +192,8 @@ def send_username_reminder(to: str, name: str, benutzername: str,
         f"<p style='color:#24292f'>Hallo <strong>{name}</strong>,</p>"
         f"<p style='color:#24292f'>du hast deinen Benutzernamen f\u00fcr "
         f"<strong>{_APP_NAME}</strong> angefordert.</p>"
-        "<p style='color:#24292f'>Dein Benutzername lautet:</p>"
-        f"<p style='background:#f6f8fa;border:1px solid #d0d7de;border-radius:6px;"
-        f"padding:12px 20px;font-size:18px;font-weight:bold;letter-spacing:1px;"
-        f"color:#24292f'>{benutzername}</p>"
-        f'<p><a href="{login_url}" style="background:#238636;color:#ffffff;'
+        + uname_html
+        + f'<p style="margin-top:20px"><a href="{login_url}" style="background:#238636;color:#ffffff;'
         "padding:12px 28px;border-radius:6px;text-decoration:none;"
         "display:inline-block;font-weight:bold;font-size:15px\">"
         "Jetzt anmelden</a></p>"
@@ -211,6 +233,59 @@ def send_freischaltung_email(to: str, name: str, base_url: str) -> None:
         f"<p style='font-size:12px;color:#666'>Viele Grüße<br><strong>{_APP_NAME}</strong></p>"
     )
     _send(to, subject, text, html)
+
+
+def send_lizenz_ablauf_warnung(to: str, vereine: list[dict]) -> bool:
+    """Sendet Superadmin-Warnung über ablaufende Lizenzen. Gibt True bei Erfolg zurück."""
+    subject = f"{_APP_NAME} \u2013 Ablaufende Lizenzen"
+    anzahl = len(vereine)
+    zeilen = "\n".join(
+        f"  - {v.get('name','?')} (bis {v.get('lizenz_bis','?')})"
+        for v in vereine
+    )
+    text = (
+        f"Hallo,\n\n"
+        f"bei {anzahl} Verein(en) l\u00e4uft die Lizenz in K\u00fcrze ab:\n\n"
+        f"{zeilen}\n\n"
+        "Bitte pr\u00fcfe die Kundenverwaltung und nehme ggf. Kontakt auf.\n\n"
+        f"Bei Fragen: {_SUPPORT_EMAIL}\n\n"
+        f"Viele Gr\u00fc\u00dfe\n{_APP_NAME}"
+    )
+    rows_html = "".join(
+        f"<tr><td style='padding:6px 12px;border-bottom:1px solid #d0d7de'>"
+        f"{v.get('name','?')}</td>"
+        f"<td style='padding:6px 12px;border-bottom:1px solid #d0d7de'>"
+        f"{v.get('lizenz_bis','?')}</td></tr>"
+        for v in vereine
+    )
+    html = (
+        "<!DOCTYPE html><html><body style='font-family:Arial,sans-serif;"
+        "background:#f6f8fa;padding:24px'>"
+        "<div style='max-width:600px;margin:0 auto;background:#ffffff;"
+        "border:1px solid #d0d7de;border-radius:8px;padding:32px'>"
+        f"<h2 style='color:#24292f;margin-top:0'>{_APP_NAME} \u2013 Lizenz-Warnung</h2>"
+        f"<p style='color:#24292f'>Bei <strong>{anzahl} Verein(en)</strong> l\u00e4uft die Lizenz in K\u00fcrze ab:</p>"
+        "<table style='width:100%;border-collapse:collapse;margin:16px 0'>"
+        "<thead><tr style='background:#f6f8fa'>"
+        "<th style='padding:8px 12px;text-align:left;border-bottom:2px solid #d0d7de'>Verein</th>"
+        "<th style='padding:8px 12px;text-align:left;border-bottom:2px solid #d0d7de'>Lizenz bis</th>"
+        "</tr></thead><tbody>"
+        + rows_html
+        + "</tbody></table>"
+        "<p style='color:#57606a;font-size:13px'>"
+        "Bitte pr\u00fcfe die Kundenverwaltung und nehme ggf. Kontakt auf.</p>"
+        f"<p style='color:#57606a;font-size:12px'>Bei Fragen: "
+        f"<a href='mailto:{_SUPPORT_EMAIL}' style='color:#0969da'>{_SUPPORT_EMAIL}</a></p>"
+        f"<p style='color:#57606a;font-size:12px'>Viele Gr\u00fc\u00dfe<br>"
+        f"<strong>{_APP_NAME}</strong></p>"
+        "</div></body></html>"
+    )
+    try:
+        _send(to, subject, text, html)
+        return True
+    except Exception as exc:
+        log.error("send_lizenz_ablauf_warnung fehlgeschlagen (%s)", type(exc).__name__)
+        return False
 
 
 def send_test_mail(to: str) -> None:

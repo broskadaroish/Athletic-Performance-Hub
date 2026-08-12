@@ -3844,7 +3844,7 @@ def pw_reset_token_erzeugen(email_oder_benutzername: str) -> tuple[str, str, str
             return None
         bid, vorname, email = row[0], row[1], row[2]
         token  = _secrets.token_urlsafe(32)
-        ablauf = (_dt.datetime.utcnow() + _dt.timedelta(hours=1)).isoformat()
+        ablauf = (_dt.datetime.utcnow() + _dt.timedelta(hours=24)).isoformat()
         conn.execute(
             "UPDATE benutzer SET pw_reset_token=?, pw_reset_ablauf=? WHERE id=?",
             (token, ablauf, bid),
@@ -3895,8 +3895,9 @@ def benutzername_reminder_laden(email: str) -> tuple[str, str, str] | None:
                WHERE LOWER(email)=? AND email_verifiziert=1""",
             (email_norm,),
         ).fetchone()
-    if not row or not row[0]:
+    if not row:
         return None
+    # row[0] (benutzername) kann None sein — Aufrufer behandelt diesen Fall
     return row[0], row[1] or "Benutzer", row[2]
 
 
