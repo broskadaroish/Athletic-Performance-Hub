@@ -1,0 +1,378 @@
+KORREKTUR – TRAININGSPLAN DRUCK-/PDF-DARSTELLUNG IM QUERFORMAT
+
+Der bestehende Trainingsplan soll optisch so angepasst werden, dass er bei PDF-/Druckausgabe deutlich besser lesbar ist.
+
+WICHTIG:
+- Keine Trainingsplanlogik verändern.
+- Keine Übungsauswahl verändern.
+- Keine Reihenfolge verändern.
+- Keine Sätze/Wiederholungen/Pausen verändern.
+- Keine Diagnostiklogik verändern.
+- Keine Datenbanklogik verändern.
+- Nur Darstellung / Export / Drucklayout ändern.
+
+ZIEL:
+Der Trainingsplan soll im PDF bzw. Drucklayout im QUERFORMAT dargestellt werden.
+
+==================================================
+1. SEITENFORMAT
+==================================================
+
+Verwende für Trainingsplan-PDFs:
+
+A4 Querformat / Landscape
+
+anstatt Hochformat.
+
+Ziel:
+Mehr horizontale Breite für Tabellen und insbesondere für die Spalte:
+
+„Ausführung“
+
+==================================================
+2. BESTEHENDES DESIGN BEIBEHALTEN
+==================================================
+
+Das vorhandene blaue/weiße Design soll beibehalten werden.
+
+Struktur ungefähr:
+
+WOCHE 1
+
+Tag 1 – Montag
+
+WARM-UP
+
+Tabelle:
+Übung | Volumen | Hinweis
+
+HAUPTTEIL
+
+Tabelle:
+Bereich | Übung | Sätze | Wdh./Dauer | Pause (s) | Ausführung
+
+COOL-DOWN
+
+Keine komplette optische Neugestaltung.
+
+==================================================
+3. SPALTENBREITEN HAUPTTEIL
+==================================================
+
+Die Haupttabelle soll die verfügbare Querformat-Breite sinnvoll nutzen.
+
+Bevorzugte ungefähre Verteilung:
+
+Bereich:
+12–14 %
+
+Übung:
+18–20 %
+
+Sätze:
+6–7 %
+
+Wdh./Dauer:
+9–11 %
+
+Pause (s):
+8–9 %
+
+Ausführung:
+40–45 %
+
+Die Spalte „Ausführung“ soll deutlich am breitesten sein.
+
+==================================================
+4. AUSFÜHRUNG NICHT ABSCHNEIDEN
+==================================================
+
+Aktuelles Problem:
+
+Texte in „Ausführung“ werden abgeschnitten, z.B.:
+
+„Technisch kontrolliert · Rea...“
+
+Das darf nicht passieren.
+
+Die komplette Ausführung soll lesbar sein.
+
+Beispiele:
+
+„Technisch kontrolliert · Reaktive Landung · Fokus auf kurze Bodenkontaktzeit“
+
+„Technisch kontrolliert · Maximale Frequenz · Aufrechte Haltung · Aktive Fußarbeit“
+
+„Technisch kontrolliert · Maximale Geschwindigkeit am Ende · Vollständige Erholung“
+
+Keine Ellipsis / ... verwenden.
+
+==================================================
+5. TEXTUMBRUCH
+==================================================
+
+Wenn ein Ausführungstext trotz Querformat zu lang ist:
+
+automatischen Zeilenumbruch innerhalb der Tabellenzelle verwenden.
+
+Die Tabellenzeile darf dadurch höher werden.
+
+Nicht Text abschneiden.
+
+Nicht Schrift extrem verkleinern.
+
+==================================================
+6. SCHRIFTGRÖSSE
+==================================================
+
+Gut lesbare Schrift verwenden.
+
+Richtwerte:
+
+Wochenüberschrift:
+ca. 16–20 pt
+
+Tag:
+ca. 13–16 pt
+
+Abschnittsüberschriften:
+ca. 10–12 pt
+
+Tabellenkopf:
+ca. 9–10 pt
+
+Tabelleninhalt:
+ca. 8,5–10 pt
+
+Nicht unter ca. 8 pt gehen, nur damit alles auf eine Seite passt.
+
+Lesbarkeit hat Vorrang.
+
+==================================================
+7. WARM-UP-TABELLE
+==================================================
+
+Warm-up-Tabelle ebenfalls sauber an Querformat anpassen.
+
+Spalten ungefähr:
+
+Übung:
+33 %
+
+Volumen:
+15 %
+
+Hinweis:
+52 %
+
+Der Hinweis soll vollständig lesbar sein.
+
+==================================================
+8. TABELLENZEILEN
+==================================================
+
+Weiterhin abwechselnd:
+
+weiß
+hellgrau
+
+verwenden.
+
+Tabellenkopf dunkelblau mit weißer Schrift.
+
+Keine unnötig hohen Zeilen.
+
+Aber ausreichend Platz für Textumbruch.
+
+==================================================
+9. WOCHEN- UND TAGHEADER
+==================================================
+
+Oben weiterhin:
+
+WOCHE 1
+
+großer blauer Balken.
+
+Darunter:
+
+Tag 1 – Montag
+
+hellblauer Bereich.
+
+Das soll dem bestehenden Design entsprechen.
+
+==================================================
+10. COOL-DOWN
+==================================================
+
+Cool-Down weiterhin unter dem Hauptteil anzeigen.
+
+Beispiel:
+
+Cool-Down: 5–10 min Stretching der trainierten Muskelgruppen (Hüftbeuger, Oberschenkel, Rumpf).
+
+Nicht abschneiden.
+
+==================================================
+11. SEITENUMBRUCH
+==================================================
+
+Wenn ein Trainingstag nicht vollständig auf eine Seite passt:
+
+nicht mitten in einer einzelnen Übungszeile umbrechen.
+
+Tabellenzeilen zusammenhalten.
+
+Falls nötig:
+Trainingstag auf nächste Seite fortsetzen.
+
+Neue Seite weiterhin im Querformat.
+
+==================================================
+12. MEHRERE WOCHEN
+==================================================
+
+Wenn der Trainingsplan mehrere Wochen enthält:
+
+jede Woche klar mit:
+
+WOCHE 1
+WOCHE 2
+WOCHE 3
+...
+
+kennzeichnen.
+
+Keine Inhalte verschiedener Wochen visuell vermischen.
+
+==================================================
+13. MEHRERE TRAININGSTAGE
+==================================================
+
+Für jeden Tag:
+
+Tag 1 – Montag
+Tag 2 – Mittwoch
+Tag 3 – Freitag
+
+oder vorhandene Tage verwenden.
+
+Jeder Trainingstag bekommt seine eigenen:
+
+- Warm-up
+- Hauptteil
+- Cool-down
+
+Bereiche.
+
+==================================================
+14. DRUCKRÄNDER
+==================================================
+
+Im A4-Querformat die Ränder sinnvoll reduzieren.
+
+Ungefähr:
+
+10–15 mm
+
+links/rechts/oben/unten.
+
+Nicht zu große weiße Ränder verwenden.
+
+==================================================
+15. PDF / PRINT CSS
+==================================================
+
+Falls HTML/CSS für PDF bzw. Druck verwendet wird:
+
+verwende für Print ungefähr:
+
+@page {
+    size: A4 landscape;
+    margin: 10mm 12mm;
+}
+
+und passende Print-CSS-Regeln.
+
+Falls eine Python-PDF-Library verwendet wird:
+dort direkt A4 Landscape konfigurieren.
+
+Nicht blind neue PDF-Library installieren, wenn bereits eine funktionierende Exportlösung existiert.
+
+==================================================
+16. KEIN HORIZONTALES ABSCHNEIDEN
+==================================================
+
+Keine Tabelle darf rechts über den Seitenrand hinausragen.
+
+Keine Spalte darf unsichtbar werden.
+
+Keine horizontale Scrollleiste in PDF-/Druckansicht.
+
+==================================================
+17. WEBANSICHT NICHT ZERSTÖREN
+==================================================
+
+Die normale Trainingsplanansicht in der App darf unverändert funktionieren.
+
+Diese Änderung betrifft primär:
+
+- PDF
+- Drucken
+- Exportansicht
+
+Wenn Webansicht dieselbe Tabelle verwendet:
+nur so anpassen, dass Desktop weiterhin gut aussieht.
+
+==================================================
+18. MOBILE WEBANSICHT
+==================================================
+
+Auf Smartphone darf die normale Webansicht weiterhin vertikal / responsive bleiben.
+
+NICHT die ganze Handy-App ins Querformat zwingen.
+
+Querformat ist speziell für:
+
+PDF / Druck / Export.
+
+==================================================
+19. TEST
+==================================================
+
+Teste mindestens einen Trainingsplan mit langen Ausführungstexten.
+
+Prüfe:
+
+- A4 Querformat
+- alle Spalten sichtbar
+- „Ausführung“ vollständig lesbar
+- keine ...
+- keine abgeschnittenen Texte
+- Warm-up vollständig
+- Hauptteil vollständig
+- Cool-down vollständig
+- saubere Seitenumbrüche
+- mehrere Wochen funktionieren
+
+==================================================
+20. ABSCHLUSSBERICHT
+==================================================
+
+Nach Umsetzung berichten:
+
+1. Welches PDF-/Export-System wird aktuell verwendet?
+2. Wurde A4 Querformat eingestellt? JA / NEIN
+3. Welche Spaltenbreite hat „Ausführung“ jetzt?
+4. Werden lange Ausführungstexte umgebrochen? JA / NEIN
+5. Werden Texte noch mit ... abgeschnitten? Erwartet: NEIN
+6. Ist die Warm-up-Tabelle ebenfalls angepasst? JA / NEIN
+7. Funktionieren mehrere Wochen / Trainingstage?
+8. Wurde die normale App-Ansicht verändert? Wenn ja, wie?
+9. Welche Dateien wurden geändert?
+10. Wurde irgendeine Trainingslogik verändert? Erwartet: NEIN
+
+Danach STOPPEN.
+
+Keine Trainingsinhalte, Übungen, Sätze, Wiederholungen, Pausen oder Diagnostiklogik verändern.

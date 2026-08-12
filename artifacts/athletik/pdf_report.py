@@ -86,7 +86,7 @@ class AthletikReport(FPDF):
 
     def header(self):
         self.set_fill_color(*self.BRAND)
-        self.rect(0, 0, 210, 18, "F")
+        self.rect(0, 0, self.w, 18, "F")
         self.set_y(4)
         self.set_font("Helvetica", "B", 10)
         self.set_text_color(*self.WHITE)
@@ -101,7 +101,7 @@ class AthletikReport(FPDF):
         self.set_y(-14)
         self.set_draw_color(*self.BRAND)
         self.set_line_width(0.4)
-        self.line(10, self.get_y(), 200, self.get_y())
+        self.line(10, self.get_y(), self.w - 10, self.get_y())
         self.set_font("Helvetica", "I", 7)
         self.set_text_color(*self.MID)
         copyright_note = "(c) 2026 Broska Daroish. Alle Rechte vorbehalten."
@@ -188,11 +188,11 @@ class AthletikReport(FPDF):
             self.ln(5)
         self.set_text_color(*self.DARK)
 
-    def table_header(self, cols: list):
-        """cols = [(label, width), ...]"""
+    def table_header(self, cols: list, font_size: int = 7):
+        """cols = [(label, width), ...]; font_size optional override."""
         self.set_fill_color(*self.BRAND)
         self.set_text_color(*self.WHITE)
-        self.set_font("Helvetica", "B", 7)
+        self.set_font("Helvetica", "B", font_size)
         for label, w in cols:
             self.cell(w, 6, _safe(label), border=0, fill=True)
         self.ln()
@@ -204,6 +204,48 @@ class AthletikReport(FPDF):
         for v, w in zip(vals, widths):
             self.cell(w, 5, _safe(v)[:35], fill=True)
         self.ln()
+
+    def table_row_tp(self, vals: list, widths: list, fill: bool = False,
+                     font_size: float = 8.5):
+        """
+        Trainingsplan-Tabellenzeile mit automatischem Zeilenumbruch in der letzten
+        Spalte (Ausfuhrung). Der Hintergrund wird vorab als Rect gezeichnet, damit
+        die vollstaendige Zeilenhoehe abgedeckt wird, auch wenn der Text umgebrochen
+        wird. Alle anderen Spalten bleiben einzeilig.
+        """
+        import math as _tp_math
+        self.set_font("Helvetica", "", font_size)
+        line_h = 5
+
+        # Zeilenhoehe anhand der letzten Spalte schaetzen
+        last_text = _safe(vals[-1]) if vals else ""
+        last_w    = widths[-1] if widths else 1
+        sw        = self.get_string_width(last_text)
+        num_lines = max(1, _tp_math.ceil(sw / last_w)) if last_w > 0 else 1
+        row_h     = num_lines * line_h
+
+        # Hintergrundflaeche fuer die gesamte Zeile vorzeichnen
+        self.set_fill_color(*(self.LIGHT if fill else self.WHITE))
+        x0, y0  = self.get_x(), self.get_y()
+        total_w = sum(widths)
+        self.rect(x0, y0, total_w, row_h, "F")
+
+        # Alle Spalten ausser der letzten: einfaches cell() mit Zeilenhoehe
+        self.set_font("Helvetica", "", font_size)
+        x_cur = x0
+        for v, w in zip(vals[:-1], widths[:-1]):
+            self.set_xy(x_cur, y0)
+            self.cell(w, row_h, _safe(v), fill=False)
+            x_cur += w
+
+        # Letzte Spalte: multi_cell() mit automatischem Zeilenumbruch
+        self.set_xy(x_cur, y0)
+        self.multi_cell(last_w, line_h, last_text, fill=False,
+                        new_x="LMARGIN", new_y="NEXT")
+
+        # Y mindestens auf Ende der geschaetzten Zeilenhoehe setzen
+        if self.get_y() < y0 + row_h:
+            self.set_y(y0 + row_h)
 
     def check_page_break(self, needed_mm=30):
         if self.get_y() > 270 - needed_mm:
@@ -1562,9 +1604,14 @@ def generate_trainingsplan_pdf(
     """
     alters_ersatz = alters_ersatz or {}
 
-    pdf = AthletikReport()
-    pdf.set_auto_page_break(auto=True, margin=18)
+    # ── A4 Querformat (Landscape) ─────────────────────────────────────────────
+    pdf = AthletikReport(orientation='L', unit='mm', format='A4')
+    pdf.set_margins(12, 12, 12)           # links, oben, rechts — je 12 mm
+    pdf.set_auto_page_break(auto=True, margin=12)
     pdf.add_page()
+    # Nutzbare Inhaltsbreite: 297 - 12 - 12 = 273 mm
+    _CW = pdf.epw    # float — content width fuer alle Tabellen und Rahmen
+    _cw = int(_CW)   # int    — fuer Spaltenbreiten-Berechnungen
 
     # ── Kopf ─────────────────────────────────────────────────────────────────
     vorname  = spieler.get("vorname") or ""
@@ -1576,7 +1623,7 @@ def generate_trainingsplan_pdf(
 
     # Blauer Cover-Block (kompakter als Vollbericht)
     pdf.set_fill_color(*pdf.BRAND)
-    pdf.rect(0, 0, 210, 48, "F")
+    pdf.rect(0, 0, pdf.w, 48, "F")
 
     pdf.set_xy(15, 8)
     pdf.set_font("Helvetica", "B", 9)
@@ -1585,7 +1632,7 @@ def generate_trainingsplan_pdf(
 
     pdf.set_xy(15, 15)
     pdf.set_font("Helvetica", "B", 22)
-    pdf.cell(180, 11, _safe(fullname)[:36])
+    pdf.cell(pdf.w - 30, 11, _safe(fullname)[:60])
 
     pdf.set_xy(15, 28)
     pdf.set_font("Helvetica", "", 9)
@@ -1668,7 +1715,8 @@ def generate_trainingsplan_pdf(
                     substitutionen.append((original_uebung, ersatz_name))
 
     if substitutionen:
-        pdf.check_page_break(20)
+        if pdf.get_y() > pdf.h - pdf.b_margin - 20:
+            pdf.add_page()
         pdf.section_title("ALTERSANPASSUNGEN (ERSATZ-UBUNGEN)")
         pdf.set_font("Helvetica", "", 8)
         pdf.set_text_color(*pdf.DARK)
@@ -1676,8 +1724,9 @@ def generate_trainingsplan_pdf(
                  "Folgende Ubungen wurden fuer die Altersgruppe %s automatisch angepasst:" % _safe(plangruppe),
                  new_x="LMARGIN", new_y="NEXT")
         pdf.ln(1)
-        cols_sub = [("Original-Ubung", 80), ("Ersatz-Ubung (altersangepasst)", 90), ("Hinweis", 20)]
-        pdf.table_header(cols_sub)
+        cols_sub = [("Original-Ubung", 90), ("Ersatz-Ubung (altersangepasst)", 110),
+                    ("Hinweis", _cw - 200)]
+        pdf.table_header(cols_sub, font_size=9)
         fill = False
         for original, ersatz_name in substitutionen:
             if ersatz_name is None:
@@ -1716,9 +1765,18 @@ def generate_trainingsplan_pdf(
         is_deload = (woche_nr % 4 == 0)
         woche_label = "WOCHE %d%s" % (woche_nr, " - DELOAD" if is_deload else "")
 
-        pdf.check_page_break(30)
-        pdf.add_page() if pdf.get_y() > 200 else None
-        pdf.section_title(woche_label)
+        # Landscape-sichere Seitenumbruchpruefung (Seitenhoehe 210 mm)
+        if pdf.get_y() > pdf.h - pdf.b_margin - 30:
+            pdf.add_page()
+        # Wochenueberschrift — groessere Schrift fuer bessere Lesbarkeit im Querformat
+        pdf.ln(3)
+        pdf.set_fill_color(*pdf.BRAND)
+        pdf.set_text_color(*pdf.WHITE)
+        pdf.set_font("Helvetica", "B", 15)
+        pdf.cell(0, 8, "  " + _safe(woche_label), fill=True,
+                 new_x="LMARGIN", new_y="NEXT")
+        pdf.set_text_color(*pdf.DARK)
+        pdf.ln(2)
 
         if is_deload:
             pdf.set_font("Helvetica", "I", 8)
@@ -1733,59 +1791,65 @@ def generate_trainingsplan_pdf(
         for tag_nr in tags_in_woche:
             tag_label = _NAMEN_SICHER.get(tag_nr, "Tag %d" % tag_nr)
 
-            pdf.check_page_break(30)
+            # Landscape-sichere Seitenumbruchpruefung vor jedem Tag
+            if pdf.get_y() > pdf.h - pdf.b_margin - 30:
+                pdf.add_page()
 
-            # Tag-Header
+            # Tag-Header (Querformat-optimiert)
             pdf.set_fill_color(220, 232, 248)
             tx, ty = pdf.get_x(), pdf.get_y()
-            pdf.rect(tx, ty, 190, 7, "F")
+            pdf.rect(tx, ty, _CW, 8, "F")
             pdf.set_fill_color(*pdf.BRAND)
-            pdf.rect(tx, ty, 3, 7, "F")
-            pdf.set_xy(tx + 6, ty + 0.5)
-            pdf.set_font("Helvetica", "B", 9)
+            pdf.rect(tx, ty, 3, 8, "F")
+            pdf.set_xy(tx + 6, ty + 1)
+            pdf.set_font("Helvetica", "B", 12)
             pdf.set_text_color(*pdf.BRAND)
             pdf.cell(0, 6, _safe(tag_label))
             pdf.set_text_color(*pdf.DARK)
-            pdf.ln(8)
+            pdf.ln(10)
 
-            # Warm-Up (kompakt)
-            pdf.set_font("Helvetica", "B", 7)
+            # Warm-Up (Querformat-optimiert, volle Breite)
+            pdf.set_font("Helvetica", "B", 10)
             pdf.set_text_color(*pdf.MID)
             pdf.cell(0, 5, "WARM-UP (8-10 min, fussballspezifisch):", new_x="LMARGIN", new_y="NEXT")
-            wu_cols = [("Ubung", 65), ("Volumen", 25), ("Hinweis", 100)]
-            pdf.table_header(wu_cols)
+            # Ubung 33 %, Volumen 14 %, Hinweis 53 % → Summe = _cw
+            wu_cols = [("Ubung", 90), ("Volumen", 38), ("Hinweis", _cw - 128)]
+            pdf.table_header(wu_cols, font_size=9)
             wu_fill = False
             for wu_name, wu_vol, wu_hint in _WARMUP_ROWS:
-                pdf.table_row([_safe(wu_name), _safe(wu_vol), _safe(wu_hint)],
-                               [c[1] for c in wu_cols], wu_fill)
+                pdf.table_row_tp([_safe(wu_name), _safe(wu_vol), _safe(wu_hint)],
+                                 [c[1] for c in wu_cols], wu_fill, font_size=9)
                 wu_fill = not wu_fill
-            pdf.ln(2)
+            pdf.ln(3)
 
-            # Hauptteil-Ubungen
-            pdf.set_font("Helvetica", "B", 7)
+            # Hauptteil-Ubungen (Querformat-optimiert, volle Breite)
+            pdf.set_font("Helvetica", "B", 10)
             pdf.set_text_color(*pdf.MID)
             pdf.cell(0, 5, "HAUPTTEIL:", new_x="LMARGIN", new_y="NEXT")
-            cols_ueb = [("Bereich", 28), ("Ubung", 68), ("Satze", 14), ("Wdh./Dauer", 28),
-                        ("Pause (s)", 20), ("Ausfuhrung", 32)]
-            pdf.table_header(cols_ueb)
+            # Spaltenbreiten (Summe = _cw = 273 mm):
+            #   Bereich 12.5 %, Ubung 19 %, Satze 6.2 %,
+            #   Wdh. 9.5 %, Pause 8.8 %, Ausfuhrung ~44 %
+            cols_ueb = [("Bereich", 34), ("Ubung", 52), ("Satze", 17),
+                        ("Wdh./Dauer", 26), ("Pause (s)", 24),
+                        ("Ausfuhrung", _cw - 153)]
+            pdf.table_header(cols_ueb, font_size=9)
             ueb_fill = False
             tag_rows = wochen[woche_nr][tag_nr]
             # Sort by Bereich
             for row in sorted(tag_rows, key=lambda r: str(r.get("bereich", ""))):
-                bereich    = str(row.get("bereich", "-"))
-                uebung     = str(row.get("uebung", "-"))
-                saetze     = str(row.get("saetze", "-"))
-                wdh        = str(row.get("wiederholungen", row.get("haeufigkeit", "-")))
-                pause      = str(row.get("pause_sekunden", "-"))
-                ausfuehr   = str(row.get("ausfuehrung", "-"))
-                # Trim Ausfuhrungsprefix for PDF (keep to max 30 chars)
-                if len(ausfuehr) > 30:
-                    ausfuehr = ausfuehr[:28] + ".."
-                pdf.table_row(
+                bereich  = str(row.get("bereich", "-"))
+                uebung   = str(row.get("uebung", "-"))
+                saetze   = str(row.get("saetze", "-"))
+                wdh      = str(row.get("wiederholungen", row.get("haeufigkeit", "-")))
+                pause    = str(row.get("pause_sekunden", "-"))
+                # Vollstaendiger Ausfuehrungstext — kein Abschneiden
+                ausfuehr = str(row.get("ausfuehrung", "-"))
+                pdf.table_row_tp(
                     [_safe(bereich), _safe(uebung), _safe(saetze),
                      _safe(wdh), _safe(pause), _safe(ausfuehr)],
                     [c[1] for c in cols_ueb],
                     ueb_fill,
+                    font_size=8.5,
                 )
                 ueb_fill = not ueb_fill
 
@@ -1801,11 +1865,12 @@ def generate_trainingsplan_pdf(
             pdf.ln(3)
 
     # ── Quellen ──────────────────────────────────────────────────────────────
-    pdf.check_page_break(20)
+    if pdf.get_y() > pdf.h - pdf.b_margin - 20:
+        pdf.add_page()
     pdf.ln(3)
     pdf.set_draw_color(*pdf.BRAND)
     pdf.set_line_width(0.3)
-    pdf.line(pdf.get_x(), pdf.get_y(), pdf.get_x() + 190, pdf.get_y())
+    pdf.line(pdf.get_x(), pdf.get_y(), pdf.get_x() + _CW, pdf.get_y())
     pdf.ln(2)
     pdf.set_font("Helvetica", "I", 7)
     pdf.set_text_color(*pdf.MID)
