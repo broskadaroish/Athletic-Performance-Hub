@@ -349,10 +349,12 @@ html, body { overflow-x: hidden; max-width: 100vw; }
 /* ══ Mobile bottom navigation — st.segmented_control ════════════════════════ */
 /* One native Streamlit widget, position:fixed at bottom on mobile.
    No hidden trigger buttons. No JS event tricks.
-   Safe to target all stSegmentedControl: no other page uses this widget. */
+   Safe to target all stSegmentedControl: no other page uses this widget.
+   Python-level guard (render_mobile_nav) also suppresses on desktop after
+   first-rerun screen-width detection. CSS is the primary fallback. */
 
 @media (max-width: 768px) {
-    /* ── Nav container — full-width fixed bar ── */
+    /* ── Nav container — full-width fixed bar, native-app feel ── */
     [data-testid="stSegmentedControl"] {
         position: fixed !important;
         bottom: 0 !important;
@@ -363,10 +365,10 @@ html, body { overflow-x: hidden; max-width: 100vw; }
         border-top: 1px solid #21262d !important;
         box-shadow: 0 -2px 20px rgba(0,0,0,.70) !important;
         margin: 0 !important;
-        padding: 0 0 env(safe-area-inset-bottom, 0) !important;
+        padding: 0 0 calc(8px + env(safe-area-inset-bottom)) !important;
         border-radius: 0 !important;
         width: 100vw !important;
-        min-height: 84px !important;
+        min-height: 92px !important;
     }
     /* ── Inner container — CSS grid: 5 equal columns, no wrap ── */
     [data-testid="stSegmentedControl"] > div:first-child {
@@ -378,26 +380,26 @@ html, body { overflow-x: hidden; max-width: 100vw; }
         border: none !important;
         padding: 0 !important;
         border-radius: 0 !important;
-        min-height: 84px !important;
+        min-height: 92px !important;
     }
-    /* ── Each option button — icon above text ── */
+    /* ── Each option button — large tap target, icon above text ── */
     [data-testid="stSegmentedControl"] button {
         border-radius: 0 !important;
         border: none !important;
         border-top: 3px solid transparent !important;
         background: none !important;
         color: #8b949e !important;
-        font-size: 13px !important;
+        font-size: 15px !important;
         font-weight: 600 !important;
-        padding: 8px 2px 6px !important;
-        min-height: 84px !important;
+        padding: 10px 2px 8px !important;
+        min-height: 92px !important;
         width: 100% !important;
         min-width: 0 !important;
         display: flex !important;
         flex-direction: column !important;
         align-items: center !important;
         justify-content: center !important;
-        gap: 4px !important;
+        gap: 5px !important;
         -webkit-tap-highlight-color: transparent !important;
         white-space: nowrap !important;
         overflow: hidden !important;
@@ -406,29 +408,29 @@ html, body { overflow-x: hidden; max-width: 100vw; }
         line-height: 1.2 !important;
         cursor: pointer !important;
     }
-    /* ── Icon (emoji) — clearly larger than label ── */
+    /* ── Icon (emoji) — 30–32px, clearly larger than label ── */
     [data-testid="stSegmentedControl"] button > div > p,
     [data-testid="stSegmentedControl"] button > p,
     [data-testid="stSegmentedControl"] button span[data-testid="stIconEmoji"],
     [data-testid="stSegmentedControl"] button [class*="icon"],
     [data-testid="stSegmentedControl"] button [class*="Icon"],
     [data-testid="stSegmentedControl"] button img {
-        font-size: 26px !important;
+        font-size: 30px !important;
         line-height: 1 !important;
         margin: 0 !important;
         display: block !important;
     }
-    /* ── Label text ── */
+    /* ── Label text — 15–16px, well readable ── */
     [data-testid="stSegmentedControl"] button span:not([class]),
     [data-testid="stSegmentedControl"] button [class*="label"],
     [data-testid="stSegmentedControl"] button [class*="Label"] {
-        font-size: 13px !important;
+        font-size: 15px !important;
         line-height: 1.15 !important;
         max-width: 100% !important;
         overflow: hidden !important;
         text-overflow: ellipsis !important;
     }
-    /* ── Active / selected option — accent color + top indicator line ── */
+    /* ── Active / selected option — APH accent + top indicator line ── */
     [data-testid="stSegmentedControl"] button[kind='segmented_controlActive'] {
         color: #58a6ff !important;
         background: rgba(88,166,255,0.09) !important;
@@ -437,13 +439,22 @@ html, body { overflow-x: hidden; max-width: 100vw; }
     }
     /* ── Ensure main content is not hidden behind fixed nav ── */
     [data-testid="stMainBlockContainer"] {
-        padding-bottom: 115px !important;
+        padding-bottom: 130px !important;
     }
 }
 
 @media (min-width: 769px) {
-    /* Hide mobile nav entirely on desktop — sidebar handles navigation */
-    [data-testid="stSegmentedControl"] { display: none !important; }
+    /* Desktop: mobile nav must NOT be visible — sidebar handles navigation.
+       Multiple properties ensure this even with position:fixed from mobile rules. */
+    [data-testid="stSegmentedControl"] {
+        display: none !important;
+        visibility: hidden !important;
+        height: 0 !important;
+        overflow: hidden !important;
+        pointer-events: none !important;
+        position: static !important;
+        z-index: -1 !important;
+    }
 }
 
 /* ══ Mobile active-player header pill ════════════════════════════════════════ */

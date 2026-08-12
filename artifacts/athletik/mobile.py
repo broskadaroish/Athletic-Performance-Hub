@@ -86,9 +86,23 @@ def handle_mobile_nav_params() -> None:
     """
     Read ?player_id= query param; update session state without page reload.
     ?nav= is kept as legacy deep-link fallback (sets _nav_goto).
+    ?_sw= is used by the screen-width JS detector to persist viewport width.
     Must be called BEFORE nav_section widget is instantiated.
     """
     try:
+        # ── Screen-width detection result (set by _inject_screen_width_detect JS) ──
+        sw_val = st.query_params.get("_sw", "")
+        if sw_val:
+            try:
+                st.session_state["_screen_width"] = int(sw_val)
+            except (ValueError, TypeError):
+                st.session_state["_screen_width"] = 1024
+            try:
+                del st.query_params["_sw"]
+            except Exception:
+                pass
+            # Continue — other params may also be present
+
         player_id_val = st.query_params.get("player_id", "")
         if player_id_val:
             st.query_params.clear()
@@ -117,6 +131,38 @@ def handle_mobile_nav_params() -> None:
         pass
 
 
+def _inject_screen_width_detect() -> None:
+    """
+    Inject a JS snippet (once per session) that detects window.innerWidth and
+    writes it to the ?_sw= query param, triggering a page reload.
+
+    On the reload handle_mobile_nav_params() reads ?_sw=, stores the value in
+    st.session_state["_screen_width"], and clears the param.
+    After that render_mobile_nav() uses the cached value as a Python-level guard
+    so the widget is never instantiated on desktop (> 768 px).
+
+    The one-time reload is harmless: authentication uses cookie-based persistence
+    and survives a browser location.replace().
+    """
+    if "_screen_width" in st.session_state:
+        return  # already detected — no further injection needed
+    import streamlit.components.v1 as components
+    components.html(
+        "<script>"
+        "try {"
+        "  var w = Math.round(window.parent.innerWidth || window.innerWidth || 0);"
+        "  if (w > 0) {"
+        "    var u = new URL(window.parent.location.href);"
+        "    u.searchParams.set('_sw', String(w));"
+        "    window.parent.location.replace(u.toString());"
+        "  }"
+        "} catch(e) {}"
+        "</script>",
+        height=0,
+        scrolling=False,
+    )
+
+
 # ── Bottom navigation bar ─────────────────────────────────────────────────────
 
 def render_mobile_nav(current_section: str) -> None:
@@ -127,7 +173,19 @@ def render_mobile_nav(current_section: str) -> None:
     ──────
     The widget appears position:fixed at the bottom on ≤768px via CSS
     declared in theme.py ([data-testid="stSegmentedControl"]).
-    On desktop (≥769px) the widget is hidden entirely (display:none).
+    On desktop (≥769px) the widget is NOT rendered (Python-level guard) after
+    the first-load screen-width detection rerun. CSS provides an additional
+    hide fallback for the one initial render on desktop before detection fires.
+
+    Screen-width detection
+    ──────────────────────
+    On the very first render, _inject_screen_width_detect() injects a JS snippet
+    that writes window.innerWidth to ?_sw= and triggers a location.replace()
+    reload. handle_mobile_nav_params() (called before the nav radio widget in
+    app.py) reads ?_sw= on that reload and stores it in
+    st.session_state["_screen_width"]. From then on, render_mobile_nav() returns
+    immediately when _screen_width > 768, so the widget is never instantiated on
+    desktop. The one-time reload is harmless; cookie-based auth survives it.
 
     Navigation flow
     ───────────────
@@ -148,6 +206,12 @@ def render_mobile_nav(current_section: str) -> None:
 
     No hidden buttons. No JS event tricks. No HTML bridges.
     """
+    # ── Screen-width guard: inject detector once; skip render on desktop ──────
+    _inject_screen_width_detect()
+    _sw = st.session_state.get("_screen_width", 0)
+    if _sw > 768:
+        return  # Desktop detected — sidebar handles navigation
+
     def _on_nav_change() -> None:
         choice = st.session_state.get("_mobile_nav_sc")
         if choice is None:

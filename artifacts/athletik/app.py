@@ -10090,9 +10090,12 @@ with st.sidebar:
 _check_save_ok()
 
 # Mobile: "Mehr" overlay — position:fixed, covers main content on ≤768px
-if inject_mobile_mehr_overlay(_MAIN_SECTIONS):
-    render_mobile_nav(section)
-    st.stop()
+# Guard: only render on mobile (≤768px); desktop uses sidebar exclusively
+_mob_sw = st.session_state.get("_screen_width", 0)
+if _mob_sw == 0 or _mob_sw <= 768:
+    if inject_mobile_mehr_overlay(_MAIN_SECTIONS):
+        render_mobile_nav(section)
+        st.stop()
 
 # Helper: look up active player object for mobile player header
 def _mob_player():

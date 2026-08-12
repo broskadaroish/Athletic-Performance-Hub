@@ -21,6 +21,9 @@ from database import (
     normalize_email,
     kuendigung_liste_laden,
     kuendigung_bestaetigen,
+    kunde_zusammenfassung_laden,
+    kunde_loeschen,
+    db_backup_erstellen,
 )
 from license import LIZENZ_TYPEN, FEATURE_LABELS
 
@@ -204,6 +207,49 @@ def _detail_a_kundenkonto(daten: dict) -> None:
                                 f"aktiv={'1' if e_aktiv else '0'}", _sa_id())
             st.success("✅ Gespeichert.")
             st.rerun()
+
+        st.markdown("---")
+        st.markdown("**⚡ Account-Status**")
+        _ist_aktiv = bool(b.get("aktiv"))
+        if _ist_aktiv:
+            st.success("🟢 Konto ist aktiv — Kunde kann sich einloggen.")
+            if st.button("🔴 Account deaktivieren", key=f"deakt_btn_{b.get('id')}", type="secondary"):
+                st.session_state[f"_deakt_confirm_{b.get('id')}"] = True
+            if st.session_state.get(f"_deakt_confirm_{b.get('id')}"):
+                st.warning(
+                    "⚠️ Möchtest du den Zugang dieses Kunden wirklich deaktivieren? "
+                    "Der Login wird blockiert. Alle Daten bleiben vollständig erhalten."
+                )
+                _dc1, _dc2 = st.columns(2)
+                if _dc1.button("✅ Ja, deaktivieren", key=f"deakt_ja_{b.get('id')}", type="primary"):
+                    kundenstamm_aendern(b["id"], v.get("id"), aktiv=0, superadmin_id=_sa_id())
+                    benutzer_aktivieren(b["id"], 0)
+                    audit_log_eintragen(b["id"], "konto_deaktiviert",
+                                        "Superadmin hat Konto deaktiviert", _sa_id())
+                    st.session_state.pop(f"_deakt_confirm_{b.get('id')}", None)
+                    st.success("⛔ Konto deaktiviert.")
+                    st.rerun()
+                if _dc2.button("❌ Abbrechen", key=f"deakt_nein_{b.get('id')}"):
+                    st.session_state.pop(f"_deakt_confirm_{b.get('id')}", None)
+                    st.rerun()
+        else:
+            st.warning("⛔ Konto ist deaktiviert — Login blockiert.")
+            if st.button("🟢 Account aktivieren", key=f"akt_btn_{b.get('id')}", type="primary"):
+                st.session_state[f"_akt_confirm_{b.get('id')}"] = True
+            if st.session_state.get(f"_akt_confirm_{b.get('id')}"):
+                st.info("Möchtest du diesen Account reaktivieren? Der Kunde kann sich danach wieder einloggen.")
+                _ac1, _ac2 = st.columns(2)
+                if _ac1.button("✅ Ja, aktivieren", key=f"akt_ja_{b.get('id')}", type="primary"):
+                    kundenstamm_aendern(b["id"], v.get("id"), aktiv=1, superadmin_id=_sa_id())
+                    benutzer_aktivieren(b["id"], 1)
+                    audit_log_eintragen(b["id"], "konto_aktiviert",
+                                        "Superadmin hat Konto reaktiviert", _sa_id())
+                    st.session_state.pop(f"_akt_confirm_{b.get('id')}", None)
+                    st.success("✅ Konto aktiviert.")
+                    st.rerun()
+                if _ac2.button("❌ Abbrechen", key=f"akt_nein_{b.get('id')}"):
+                    st.session_state.pop(f"_akt_confirm_{b.get('id')}", None)
+                    st.rerun()
 
         st.markdown("---")
         st.markdown("**🔑 E-Mail-Adresse ändern**")
@@ -523,6 +569,119 @@ def _detail_audit(daten: dict) -> None:
                 )
 
 
+def _detail_gefahrenbereich(daten: dict) -> None:
+    """
+    Gefahrenbereich — endgültige Kundenlöschung (Superadmin only).
+    Zweistufige Bestätigung: Datenübersicht → Kundennummer-Eingabe → Löschen.
+    Rechnungsdaten werden anonymisiert, nicht gelöscht (Aufbewahrungspflicht).
+    """
+    b   = daten.get("benutzer") or {}
+    v   = daten.get("verein") or {}
+    bid = b.get("id")
+    vid = v.get("id")
+    kn  = v.get("kundennummer") or b.get("kundennummer") or "—"
+    if not bid:
+        return
+
+    with st.expander("☠️ **Gefahrenbereich — Endgültige Löschung**", expanded=False):
+        st.markdown(
+            '<div style="border:1px solid #f85149;border-radius:8px;padding:12px 14px;'
+            'background:rgba(248,81,73,0.07);margin-bottom:14px">'
+            '<b style="color:#f85149">⚠️ Achtung: Dieser Bereich enthält irreversible Aktionen.</b><br>'
+            'Das endgültige Löschen entfernt <b>alle Spieler- und Testdaten</b> dauerhaft. '
+            'Rechnungsdaten werden aus gesetzlichen Gründen anonymisiert aufbewahrt, nicht gelöscht. '
+            'Nur Superadmin darf diese Aktion ausführen.</div>',
+            unsafe_allow_html=True,
+        )
+
+        # ── Schritt 1: Datenübersicht laden ───────────────────────────────────
+        if st.button("🔍 Betroffene Daten prüfen", key=f"_lz_start_{bid}", type="secondary"):
+            try:
+                zs = kunde_zusammenfassung_laden(vid, bid)
+                st.session_state[f"_lz_{bid}"] = zs
+            except Exception as _ex:
+                st.error(f"Fehler beim Laden der Zusammenfassung: {_ex}")
+
+        zs = st.session_state.get(f"_lz_{bid}")
+        if zs is not None:
+            st.markdown("---")
+            st.markdown("**📋 Betroffene Daten dieses Kunden**")
+            _lc1, _lc2, _lc3, _lc4 = st.columns(4)
+            _lc1.metric("Spieler",         zs.get("n_spieler", 0))
+            _lc2.metric("Testdatensätze",  zs.get("n_tests",   0))
+            _lc3.metric("Trainingspläne",  zs.get("n_plaene",  0))
+            _lc4.metric("Vertragsstatus",  zs.get("vertragsstatus", "—"))
+            st.markdown(
+                f'<div style="background:#161b22;border:1px solid #30363d;border-radius:6px;'
+                f'padding:8px 12px;margin:8px 0;font-size:13px">'
+                f'<b>Kundennummer:</b> <code>{kn}</code> &nbsp;·&nbsp; '
+                f'<b>Name/Verein:</b> {v.get("name") or (b.get("vorname","") + " " + b.get("nachname","")).strip() or "—"}'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+            st.error(
+                "⚠️ **Achtung:** Dieser Vorgang ist **nicht rückgängig zu machen**. "
+                "Alle Spieler und deren Testergebnisse werden endgültig gelöscht."
+            )
+
+            # ── Schritt 2: Zweite Bestätigung — Kundennummer eintippen ────────
+            st.markdown("---")
+            st.markdown("**🔑 Zweite Bestätigung erforderlich**")
+            st.caption(
+                f"Gib die Kundennummer **`{kn}`** exakt ein, um die Löschung freizuschalten:"
+            )
+            _bestaetigung = st.text_input(
+                "Kundennummer zur Bestätigung",
+                key=f"_lz_confirm_{bid}",
+                placeholder=kn,
+                label_visibility="collapsed",
+            )
+
+            if _bestaetigung.strip() and _bestaetigung.strip() == kn.strip():
+                st.error("☠️ Bestätigung akzeptiert. Der nächste Klick löscht diesen Kunden **endgültig**.")
+                if st.button(
+                    "🗑️ Kunde endgültig löschen — NICHT RÜCKGÄNGIG",
+                    key=f"_lz_execute_{bid}",
+                    type="primary",
+                ):
+                    # Backup-Versuch vor der Löschung
+                    try:
+                        _bk_ok, _bk_msg = db_backup_erstellen()
+                    except Exception as _bke:
+                        _bk_ok, _bk_msg = False, str(_bke)
+
+                    try:
+                        _result = kunde_loeschen(vid, bid, _sa_id())
+                        audit_log_eintragen(
+                            None,
+                            "kunde_endgueltig_geloescht",
+                            (
+                                f"kn={kn}, n_spieler={_result.get('n_spieler', 0)}, "
+                                f"n_benutzer={_result.get('n_benutzer', 0)}, "
+                                f"backup={'ok' if _bk_ok else 'fehlgeschlagen'}"
+                            ),
+                            _sa_id(),
+                        )
+                        # Session-Cleanup → zurück zur Kundenliste
+                        for _k in [f"_lz_{bid}", f"_lz_confirm_{bid}", f"_lz_start_{bid}",
+                                   "kunden_auswahl"]:
+                            st.session_state.pop(_k, None)
+                        st.success(
+                            f"✅ Kunde **{kn}** wurde endgültig gelöscht. "
+                            f"{_result.get('n_spieler', 0)} Spieler entfernt."
+                        )
+                        if _bk_ok:
+                            st.info(f"💾 Backup: ✅ {_bk_msg}")
+                        else:
+                            st.warning(f"💾 Backup-Status: ⚠️ {_bk_msg}")
+                        st.rerun()
+                    except Exception as _le:
+                        st.error(f"❌ Löschung fehlgeschlagen: {_le}")
+
+            elif _bestaetigung.strip():
+                st.error(f"❌ Kundennummer stimmt nicht überein. Erwartet: **`{kn}`**")
+
+
 def _kunde_detail(verein_id: int | None, benutzer_id: int | None) -> None:
     """Vollständige Kundendetailansicht mit 4 Sektionen + Audit."""
     if st.button("← Zurück zur Kundenliste", key="kd_zurueck"):
@@ -552,6 +711,7 @@ def _kunde_detail(verein_id: int | None, benutzer_id: int | None) -> None:
     _detail_c_lizenz(daten)
     _detail_d_vertrag(daten)
     _detail_audit(daten)
+    _detail_gefahrenbereich(daten)
 
 
 def _widerruf_frist_badge(eingegangen_str: str | None) -> str:

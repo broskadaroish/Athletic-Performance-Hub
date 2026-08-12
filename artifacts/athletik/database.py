@@ -4940,6 +4940,175 @@ def backup_status_laden() -> dict:
     return result
 
 
+def kunde_zusammenfassung_laden(verein_id: int | None, benutzer_id: int) -> dict:
+    """
+    Liefert eine Zusammenfassung der Daten eines Kunden für den Lösch-Dialog.
+    Tenant-sicher: nur Daten des angegebenen verein_id/benutzer_id.
+    """
+    with get_conn() as conn:
+        if verein_id:
+            n_spieler = conn.execute(
+                "SELECT COUNT(*) FROM spieler WHERE verein_id=?", (verein_id,)
+            ).fetchone()[0]
+            n_tests = 0
+            for tbl in [
+                "sprint_test", "sprung_test", "agilitaet_test", "ausdauer_test",
+                "fms_test", "y_balance_test", "kraft_test", "spiro_test",
+            ]:
+                try:
+                    row = conn.execute(
+                        f"SELECT COUNT(*) FROM {tbl} WHERE spieler_id IN "
+                        f"(SELECT id FROM spieler WHERE verein_id=?)",
+                        (verein_id,),
+                    ).fetchone()
+                    n_tests += row[0] if row else 0
+                except Exception:
+                    pass
+            n_plaene = 0
+            try:
+                n_plaene = conn.execute(
+                    "SELECT COUNT(*) FROM trainingsplan_versionen tv "
+                    "JOIN spieler sp ON tv.spieler_id=sp.id WHERE sp.verein_id=?",
+                    (verein_id,),
+                ).fetchone()[0]
+            except Exception:
+                pass
+            row = conn.execute(
+                "SELECT lizenz_status FROM vereine WHERE id=?", (verein_id,)
+            ).fetchone()
+            vertragsstatus = row[0] if row else "—"
+        else:
+            n_spieler = conn.execute(
+                "SELECT COUNT(*) FROM spieler WHERE benutzer_id=?", (benutzer_id,)
+            ).fetchone()[0]
+            n_tests = 0
+            for tbl in [
+                "sprint_test", "sprung_test", "agilitaet_test", "ausdauer_test",
+                "fms_test", "y_balance_test", "kraft_test",
+            ]:
+                try:
+                    row = conn.execute(
+                        f"SELECT COUNT(*) FROM {tbl} WHERE spieler_id IN "
+                        f"(SELECT id FROM spieler WHERE benutzer_id=?)",
+                        (benutzer_id,),
+                    ).fetchone()
+                    n_tests += row[0] if row else 0
+                except Exception:
+                    pass
+            n_plaene = 0
+            try:
+                n_plaene = conn.execute(
+                    "SELECT COUNT(*) FROM trainingsplan_versionen tv "
+                    "JOIN spieler sp ON tv.spieler_id=sp.id WHERE sp.benutzer_id=?",
+                    (benutzer_id,),
+                ).fetchone()[0]
+            except Exception:
+                pass
+            vertragsstatus = "Einzeltrainer"
+        return {
+            "n_spieler": n_spieler,
+            "n_tests":   n_tests,
+            "n_plaene":  n_plaene,
+            "vertragsstatus": vertragsstatus,
+        }
+
+
+def kunde_loeschen(
+    verein_id: int | None,
+    benutzer_id: int,
+    superadmin_id: int | None = None,
+) -> dict:
+    """
+    Löscht einen Kunden endgültig (Superadmin-only).
+
+    Tenant-sicher: es werden ausschließlich Daten des angegebenen
+    verein_id/benutzer_id entfernt. Fremde Mandantendaten bleiben unberührt.
+
+    Rechnungsadressen werden NICHT gelöscht, sondern anonymisiert
+    (gesetzliche Aufbewahrungspflicht für Geschäftsunterlagen).
+
+    Gibt dict mit {"n_spieler": int, "n_benutzer": int} zurück.
+
+    Hinweis: Der Aufrufer ist für den Audit-Log-Eintrag verantwortlich,
+    damit er nach der Löschung noch Kontext (kn, backup-Status) eintragen kann.
+    """
+    import datetime as _dt
+
+    # ── Phase 1: Spieler-IDs sammeln, dann einzeln löschen (nutzt get_conn intern) ──
+    with get_conn() as conn:
+        if verein_id:
+            spieler_ids = [
+                r[0] for r in conn.execute(
+                    "SELECT id FROM spieler WHERE verein_id=?", (verein_id,)
+                ).fetchall()
+            ]
+            alle_benutzer_ids = [
+                r[0] for r in conn.execute(
+                    "SELECT id FROM benutzer WHERE verein_id=? OR id=?",
+                    (verein_id, benutzer_id),
+                ).fetchall()
+            ]
+        else:
+            spieler_ids = [
+                r[0] for r in conn.execute(
+                    "SELECT id FROM spieler WHERE benutzer_id=?", (benutzer_id,)
+                ).fetchall()
+            ]
+            alle_benutzer_ids = [benutzer_id]
+
+    n_spieler = len(spieler_ids)
+
+    # spieler_loeschen() öffnet eigene Verbindung — außerhalb des with-Blocks aufrufen
+    for sid in spieler_ids:
+        try:
+            spieler_loeschen(sid)
+        except Exception:
+            pass
+
+    # ── Phase 2: Restliche Daten bereinigen ───────────────────────────────────
+    with get_conn() as conn:
+        conn.execute("PRAGMA foreign_keys = ON")
+
+        for bid in alle_benutzer_ids:
+            # Rechnungsadressen anonymisieren (Aufbewahrungspflicht)
+            try:
+                conn.execute(
+                    """UPDATE rechnungsadressen SET
+                       vorname='[gelöscht]', nachname='[gelöscht]',
+                       email='geloescht@anonymized.invalid',
+                       firma='[Archiviert]', strasse='', plz='', ort=''
+                       WHERE benutzer_id=?""",
+                    (bid,),
+                )
+            except Exception:
+                pass
+            # Sessions invalidieren
+            try:
+                conn.execute("DELETE FROM sessions WHERE benutzer_id=?", (bid,))
+            except Exception:
+                pass
+
+        if verein_id:
+            # Trainer-Benutzer des Vereins löschen (CASCADE: benachrichtigungen)
+            try:
+                conn.execute("DELETE FROM benutzer WHERE verein_id=?", (verein_id,))
+            except Exception:
+                pass
+            # Verein löschen (CASCADE: lizenz_warn_log, login_log.verein_id=SET NULL)
+            try:
+                conn.execute("DELETE FROM vereine WHERE id=?", (verein_id,))
+            except Exception:
+                pass
+
+        # Haupt-Benutzer löschen (könnte bereits über verein_id-Kaskade weg sein)
+        try:
+            conn.execute("DELETE FROM benutzer WHERE id=?", (benutzer_id,))
+        except Exception:
+            pass
+
+    return {"n_spieler": n_spieler, "n_benutzer": len(alle_benutzer_ids)}
+
+
 def db_backup_erstellen() -> tuple[bool, str]:
     """
     Erstellt ein Datenbank-Backup aus dem laufenden Prozess.

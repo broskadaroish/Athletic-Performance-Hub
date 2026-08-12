@@ -1,0 +1,527 @@
+KORREKTUR – MOBILE NAVIGATION WIRKLICH GROSS, AUF DESKTOP KOMPLETT AUSBLENDEN, KUNDEN DEAKTIVIEREN/LÖSCHEN
+
+Aktueller Stand:
+
+1. Die Mobile Bottom Navigation ist mir weiterhin zu klein.
+2. Auf Desktop/PC ist die Mobile Navigation teilweise ebenfalls sichtbar, obwohl dort bereits die Sidebar vorhanden ist.
+3. In Benutzerverwaltung und Kundenverwaltung möchte ich Kunden deaktivieren und – wenn wirklich gewünscht – auch löschen können.
+4. Vorhandene Funktionen sollen zuerst geprüft werden. Falls Deaktivieren/Löschen bereits existiert, vorhandene Logik weiterverwenden. Falls nicht, ergänzen.
+
+WICHTIG:
+- Keine Loginlogik neu schreiben.
+- Keine Sessionlogik verändern.
+- Keine Pakete/Preise verändern.
+- Keine Diagnose-/Trainingslogik ändern.
+- Keine Mandantentrennung schwächen.
+- Keine Daten automatisch löschen.
+- Löschen nur nach ausdrücklicher Benutzeraktion.
+- Bestehende Datenbank möglichst nur migrationssicher erweitern.
+
+==================================================
+TEIL A – MOBILE NAVIGATION WIRKLICH GROSS
+==================================================
+
+1. ZIEL
+
+Die Mobile Bottom Navigation soll wie eine echte native App-Navigation wirken.
+
+Auf Smartphone bis einschließlich 768 px:
+
+5 große gleich breite Bereiche:
+
+🏠
+Start
+
+👤
+Spieler
+
+🧪
+Tests
+
+📅
+Training
+
+⋯
+Mehr
+
+==================================================
+2. VOLLE BREITE
+
+Die Leiste muss die komplette Bildschirmbreite einnehmen:
+
+position: fixed;
+left: 0;
+right: 0;
+bottom: 0;
+width: 100vw;
+
+Keine Begrenzung durch den normalen Streamlit-Content-Container.
+
+==================================================
+3. EINE ZEILE
+
+Genau 5 Spalten:
+
+display: grid;
+grid-template-columns: repeat(5, minmax(0, 1fr));
+
+Kein flex-wrap.
+
+Kein Zeilenumbruch.
+
+==================================================
+4. DEUTLICH HÖHER
+
+Die Leiste soll jetzt wirklich groß sein.
+
+Gesamthöhe:
+
+ca. 92–104 px
+
+Mindestens:
+
+min-height: 92px
+
+Jeder Navigationseintrag muss eine große Touchfläche besitzen.
+
+==================================================
+5. ICON-GRÖSSE
+
+Icons:
+
+ca. 30–34 px
+
+==================================================
+6. TEXT-GRÖSSE
+
+Text:
+
+ca. 15–17 px
+
+Gut lesbar.
+
+==================================================
+7. ICON OBEN / TEXT UNTEN
+
+Vertikal:
+
+Icon oben
+Text darunter
+
+Mit ca. 5–7 px Abstand.
+
+==================================================
+8. AKTIVER MENÜPUNKT
+
+Aktiver Punkt deutlich sichtbar:
+
+- Icon und Text in APH-Akzentfarbe
+- dezenter aktiver Hintergrund
+- optional 3–4 px obere Akzentlinie
+
+Keine dicken Rahmen um jeden einzelnen Button.
+
+==================================================
+9. ZUSAMMENHÄNGENDE LEISTE
+
+Die Navigation soll nicht wie fünf normale Streamlit-Buttons wirken.
+
+Keine großen Einzelrahmen.
+
+Eine zusammenhängende Bottom-Bar mit dezenten Trennungen.
+
+==================================================
+10. INHALT NICHT VERDECKEN
+
+Hauptinhalt auf Mobile:
+
+padding-bottom ca. 125–140 px
+
+damit letzte Inhalte nicht hinter der Leiste verschwinden.
+
+==================================================
+11. SAFE AREA
+
+Falls möglich:
+
+padding-bottom: calc(8px + env(safe-area-inset-bottom));
+
+==================================================
+TEIL B – MOBILE NAV DARF AUF DESKTOP NICHT EXISTIEREN
+==================================================
+
+12. AKTUELLES PROBLEM
+
+Auf PC/Desktop ist die Mobile Navigation teilweise ebenfalls sichtbar, obwohl dort die Sidebar vorhanden ist.
+
+Das soll nicht passieren.
+
+==================================================
+13. NICHT NUR PER CSS VERSTECKEN
+
+Prüfe, wie die Mobile Navigation aktuell erzeugt wird.
+
+Bevorzugt:
+
+Mobile Navigation nur dann rendern, wenn Mobile-Modus / kleiner Viewport erkannt wurde.
+
+Nicht unnötig auf Desktop erzeugen und später nur verstecken.
+
+==================================================
+14. BREAKPOINT
+
+Mobile Bottom Navigation:
+
+nur bei <= 768 px
+
+Desktop/Laptop:
+
+> 768 px
+
+→ Mobile Bottom Navigation NICHT rendern.
+
+==================================================
+15. DESKTOP
+
+Auf Desktop/Laptop:
+
+nur bestehende Sidebar verwenden.
+
+Keine Bottom Navigation.
+
+Keine doppelte Navigation.
+
+==================================================
+16. TABLET
+
+Bei Tablet > 768 px:
+
+bestehende Sidebar / Tablet-Lösung verwenden.
+
+Keine Mobile Bottom Bar, sofern nicht bereits bewusst anders vorgesehen.
+
+==================================================
+17. DESKTOP TEST
+
+Teste:
+
+1366 × 768
+1920 × 1080
+
+Erwartung:
+
+- Sidebar vorhanden
+- Mobile Bottom Navigation NICHT sichtbar
+- Mobile Bottom Navigation idealerweise NICHT im DOM / nicht gerendert
+- keine doppelte Navigation
+
+==================================================
+TEIL C – KUNDEN DEAKTIVIEREN
+==================================================
+
+18. BENUTZERVERWALTUNG UND KUNDENVERWALTUNG PRÜFEN
+
+Prüfe zunächst, ob bereits vorhanden:
+
+- Account deaktivieren
+- Account aktivieren
+- Kunde sperren
+- Kunde löschen
+- Kunde archivieren
+
+Wenn vollständig vorhanden:
+weiterverwenden.
+
+Wenn teilweise:
+ergänzen.
+
+Wenn nicht vorhanden:
+neu erstellen.
+
+==================================================
+19. DEAKTIVIEREN
+
+In Benutzerverwaltung UND Kundenverwaltung soll für berechtigten Superadmin verfügbar sein:
+
+[Account deaktivieren]
+
+Bei Klick:
+
+Bestätigung:
+
+„Möchtest du den Zugang dieses Kunden wirklich deaktivieren?“
+
+Nach Bestätigung:
+
+- Login blockieren
+- Daten NICHT löschen
+- Spieler NICHT löschen
+- Tests NICHT löschen
+- Trainingspläne NICHT löschen
+- Vertragsdaten NICHT löschen
+- Rechnungsdaten NICHT löschen
+
+Status:
+
+Deaktiviert
+
+==================================================
+20. REAKTIVIEREN
+
+Bei deaktiviertem Kunden:
+
+[Account aktivieren]
+
+Nach Bestätigung:
+Login wieder möglich.
+
+==================================================
+21. LOGIN-MELDUNG
+
+Deaktivierter Kunde erhält beim Login:
+
+„Dein Konto ist derzeit deaktiviert. Bitte kontaktiere den Support unter support@aphsystem.de.“
+
+==================================================
+TEIL D – KUNDEN LÖSCHEN
+==================================================
+
+22. LÖSCHEN NUR BEWUSST
+
+Eine Löschung darf niemals automatisch erfolgen.
+
+Nur Superadmin mit ausdrücklicher Aktion.
+
+Button:
+
+„Kunde löschen“
+
+==================================================
+23. LÖSCHBUTTON KLAR ABGRENZEN
+
+„Kunde löschen“ als gefährliche Aktion darstellen.
+
+Nicht direkt neben normalen Bearbeitungsbuttons ohne Abstand.
+
+Bevorzugt unter:
+
+„Gefahrenbereich“
+
+==================================================
+24. ERSTE BESTÄTIGUNG
+
+Nach Klick:
+
+Warnung:
+
+„Achtung: Dieser Vorgang kann gespeicherte Kundendaten betreffen.“
+
+Anzeigen:
+
+- Kundennummer
+- Name / Verein
+- Anzahl Spieler
+- Anzahl Tests
+- Anzahl Trainingspläne
+- Vertragsstatus
+
+==================================================
+25. ZWEITE BESTÄTIGUNG
+
+Vor endgültiger Löschung zusätzliche bewusste Bestätigung verlangen.
+
+Zum Beispiel Eingabe:
+
+LÖSCHEN
+
+oder:
+
+Kundennummer
+
+Erst dann darf endgültig gelöscht werden.
+
+==================================================
+26. STANDARDMÄSSIG ARCHIVIEREN STATT LÖSCHEN
+
+Bevorzugt zusätzlich anbieten:
+
+[Deaktivieren]
+
+[Archivieren]
+
+[Kunde endgültig löschen]
+
+Empfehlung:
+
+Normale Fälle:
+Deaktivieren / Archivieren
+
+Endgültige Löschung:
+nur bewusst und selten.
+
+==================================================
+27. DATENSCHUTZ UND VERTRAGSDATEN
+
+Vor endgültiger Löschung prüfen, ob Daten aufgrund gesetzlicher Aufbewahrungspflichten nicht sofort gelöscht werden dürfen.
+
+Insbesondere mögliche:
+
+- Rechnungsdaten
+- Vertragsdaten
+- steuer-/handelsrechtlich relevante Daten
+
+Diese nicht blind physisch löschen.
+
+Falls Aufbewahrungspflicht besteht:
+personenbezogene Nutzungsdaten löschen/anonymisieren, aufbewahrungspflichtige Geschäftsunterlagen entsprechend sperren/archivieren.
+
+Keine rechtlichen Fristen erfinden; bestehende Datenschutz-/Vertragslogik berücksichtigen.
+
+==================================================
+28. SPIELERDATEN
+
+Wenn Kunde endgültig gelöscht werden soll:
+
+klar anzeigen, welche Spieler betroffen sind.
+
+Keine Spieler eines anderen Mandanten löschen.
+
+Mandantentrennung strikt beachten.
+
+==================================================
+29. TENANT-SICHERHEIT
+
+Bei DELETE immer eindeutig auf den betroffenen Mandanten beschränken.
+
+Niemals globale Löschung.
+
+Alle abhängigen Datensätze müssen tenant-/kundenbezogen geprüft werden.
+
+==================================================
+30. BACKUP VOR ENDGÜLTIGER LÖSCHUNG
+
+Wenn ein Kunde endgültig gelöscht wird:
+
+vorher mindestens sicherstellen, dass aktuelles Datenbankbackup vorhanden ist bzw. vorhandene Backup-Strategie greift.
+
+Keine automatische Wiederherstellung anbieten, aber Audit protokollieren.
+
+==================================================
+31. AUDIT LOG
+
+Protokollieren:
+
+- Kunde deaktiviert
+- Kunde aktiviert
+- Kunde archiviert
+- endgültige Löschung ausgeführt
+
+Speichern:
+
+- Superadmin-ID
+- Kunde
+- Kundennummer
+- Aktion
+- Datum/Uhrzeit
+
+Keine Passwörter/Tokens loggen.
+
+==================================================
+32. SUPERADMIN-RECHTE
+
+Nur Superadmin darf Kunden endgültig löschen.
+
+Trainer oder Verein dürfen nicht andere Kundenkonten löschen.
+
+Bestehende Rollenlogik beachten.
+
+==================================================
+33. BENUTZERVERWALTUNG UND KUNDENVERWALTUNG SYNCHRON
+
+Wenn derselbe Kunde in:
+
+- Benutzerverwaltung
+und
+- Kundenverwaltung
+
+angezeigt wird, müssen Statusänderungen synchron dieselbe zentrale Datenquelle verwenden.
+
+Nicht zwei unterschiedliche Aktiv-/Löschstatus führen.
+
+==================================================
+TEIL E – TESTS
+==================================================
+
+34. MOBILE
+
+Bei 360 / 390 / 412 / 430 px:
+
+- Bottom Bar ca. 92–104 px hoch
+- volle Breite
+- alle 5 Elemente eine Zeile
+- Icons groß
+- Texte gut lesbar
+- keine zweite Zeile
+- keine doppelte Navigation
+
+==================================================
+35. DESKTOP
+
+Bei 1366 / 1920 px:
+
+- Sidebar sichtbar
+- keine Bottom Bar
+- keine doppelte Navigation
+
+==================================================
+36. DEAKTIVIEREN TEST
+
+Testkunde deaktivieren.
+
+Erwartung:
+- Login nicht möglich
+- Daten bleiben vollständig vorhanden
+
+Danach reaktivieren.
+
+Erwartung:
+- Login wieder möglich
+- alle Daten unverändert
+
+==================================================
+37. LÖSCHTEST
+
+Nur in sicherer Testumgebung / Testkunde:
+
+- Löschprozess öffnen
+- Warnung zeigt betroffene Daten
+- zweite Bestätigung erforderlich
+- fremde Mandantendaten bleiben unberührt
+
+Keine echten Produktivkunden testweise löschen.
+
+==================================================
+38. ABSCHLUSSBERICHT
+
+Berichte danach:
+
+1. Warum wurde die Mobile Navigation auf Desktop gerendert?
+2. Wird sie jetzt nur <=768 px gerendert? JA / NEIN
+3. Ist sie bei Desktop vollständig weg? JA / NEIN
+4. Welche Höhe hat die Mobile Bar?
+5. Welche Icon-Größe?
+6. Welche Textgröße?
+7. Sind alle 5 Punkte in einer Zeile? JA / NEIN
+8. Gibt es Deaktivieren bereits oder wurde es ergänzt?
+9. Gibt es Reaktivieren?
+10. Gibt es endgültiges Löschen?
+11. Gibt es eine doppelte Bestätigung?
+12. Werden Spieler/Tests/Trainingspläne bei Deaktivierung erhalten? JA / NEIN
+13. Ist endgültiges Löschen tenant-sicher? JA / NEIN
+14. Gibt es Audit-Logging?
+15. Welche Dateien wurden geändert?
+16. Welche DB-Felder/Tabellen wurden ergänzt?
+
+Danach STOPPEN.
+
+Keine weiteren Funktionen verändern.
