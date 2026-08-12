@@ -11,3 +11,4 @@
 - [Mixed-type DataFrame Arrow bug](arrow-mixed-types.md) — columns with int/None must use None not "—" for missing values; "—" causes ArrowInvalid in st.dataframe
 - [License system architecture](license-system.md) — license.py + stripe_service.py + modules/lizenz_page.py; gate in app.py; DB: new vereine cols + rechnungen table
 - [Auth Schritt-1 overhaul](auth-schritt1.md) — SCHRITT-1 spec fully implemented: email_service.py, sessions table, rechnungsadressen table, 5-tab login gate, cookie-based persistence, normalize_email everywhere
+- [Kundenverwaltung Schritt-2](kundenverwaltung-schritt2.md) — SCHRITT-2: kundennummer APH-XXXXXX on vereine+benutzer, vertragsdaten cols, audit_log table, modules/kundenverwaltung.py, login deaktiviert message

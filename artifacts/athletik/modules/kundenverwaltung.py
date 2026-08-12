@@ -1,0 +1,534 @@
+"""
+Kundenverwaltung — Superadmin-Übersicht über alle Vereine und Trainer-Kunden.
+Zeigt Stammdaten, Rechnungsadressen, Lizenzen und Vertragsdaten.
+"""
+from __future__ import annotations
+import streamlit as st
+from database import (
+    kunden_liste_laden,
+    kunde_vollstaendig_laden,
+    rechnungsadresse_speichern,
+    rechnungsadresse_laden,
+    superadmin_email_aendern,
+    superadmin_benutzername_aendern,
+    vertragsfelder_setzen,
+    kundenstamm_aendern,
+    benutzer_aktivieren,
+    audit_log_eintragen,
+    lizenz_setzen,
+    normalize_email,
+)
+from license import LIZENZ_TYPEN, FEATURE_LABELS
+
+
+_STATUS_LABELS = {
+    "trial":     "🟡 Testphase",
+    "active":    "🟢 Aktiv",
+    "expired":   "🔴 Abgelaufen",
+    "suspended": "⛔ Gesperrt",
+    "cancelled": "🚫 Gekündigt",
+    "unbekannt": "❓ Unbekannt",
+}
+
+
+def _sa_id() -> int | None:
+    return st.session_state.get("user", {}).get("id")
+
+
+def _badge(text: str, color: str = "#30363d") -> str:
+    return (
+        f'<span style="background:{color};color:#e6edf3;padding:2px 8px;'
+        f'border-radius:4px;font-size:11px;font-weight:600">{text}</span>'
+    )
+
+
+def _kpis(kunden: list[dict]) -> None:
+    total       = len(kunden)
+    aktiv       = sum(1 for k in kunden if k["aktiv"])
+    trainer     = sum(1 for k in kunden if k["kundentyp"] == "Trainer")
+    vereine     = sum(1 for k in kunden if k["kundentyp"] == "Verein")
+    unverif     = sum(1 for k in kunden if not k["email_verifiziert"])
+    liz_aktiv   = sum(1 for k in kunden if k["lizenz_status"] == "active")
+    liz_ab      = sum(1 for k in kunden if k["lizenz_status"] in ("expired", "suspended"))
+    gekuendigt  = sum(1 for k in kunden if k["kuendigungsstatus"] != "aktiv")
+    cols = st.columns(8)
+    data = [
+        ("Gesamtkunden",          total,      "#1f6feb"),
+        ("Aktiv",                 aktiv,      "#238636"),
+        ("Trainer",               trainer,    "#6e7681"),
+        ("Vereine",               vereine,    "#6e7681"),
+        ("E-Mail ausstehend",     unverif,    "#d29922"),
+        ("Aktive Lizenzen",       liz_aktiv,  "#238636"),
+        ("Abgelaufene Lizenzen",  liz_ab,     "#da3633"),
+        ("Gekündigt",             gekuendigt, "#da3633"),
+    ]
+    for col, (label, val, color) in zip(cols, data):
+        col.markdown(
+            f'<div style="background:#161b22;border:1px solid #30363d;border-radius:8px;'
+            f'padding:12px 8px;text-align:center">'
+            f'<div style="font-size:22px;font-weight:700;color:{color}">{val}</div>'
+            f'<div style="font-size:11px;color:#8b949e;margin-top:2px">{label}</div>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+    st.markdown("<br>", unsafe_allow_html=True)
+
+
+def _kunden_karte(k: dict) -> None:
+    """Rendert eine kompakte Kundenkarte mit Details-Button."""
+    kn   = k.get("kundennummer") or "—"
+    typ  = k.get("kundentyp", "—")
+    name = (k.get("vereinsname") or "").strip() if typ == "Verein" else ""
+    ansp = f"{k.get('vorname','') or ''} {k.get('nachname','') or ''}".strip() or "—"
+    email = k.get("email") or "—"
+    liz  = _STATUS_LABELS.get(k.get("lizenz_status", ""), k.get("lizenz_status", "—"))
+    paket = (k.get("lizenztyp") or "—").upper()
+    ev   = "✅" if k.get("email_verifiziert") else "📧"
+    ak   = "🟢" if k.get("aktiv") else "⛔"
+
+    with st.container():
+        c1, c2 = st.columns([4, 1])
+        with c1:
+            st.markdown(
+                f'<div style="background:#161b22;border:1px solid #30363d;border-radius:8px;'
+                f'padding:12px 16px;margin-bottom:6px">'
+                f'<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:4px">'
+                f'<strong style="color:#e6edf3">{kn}</strong>'
+                f'{"<strong style=color:#e6edf3> — " + name + "</strong>" if name else ""}'
+                f'<span style="color:#8b949e;font-size:12px">{typ}</span>'
+                f'</div>'
+                f'<div style="font-size:12px;color:#8b949e">'
+                f'{ev} {ansp} &nbsp;|&nbsp; {email} &nbsp;|&nbsp; Paket: <strong>{paket}</strong>'
+                f' &nbsp;|&nbsp; {liz} &nbsp;|&nbsp; {ak}</div>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+        with c2:
+            st.markdown("<div style='padding-top:8px'>", unsafe_allow_html=True)
+            if st.button("🔍 Details", key=f"kd_{k.get('verein_id')}_{k.get('benutzer_id')}",
+                         use_container_width=True):
+                st.session_state["kunden_auswahl"] = (
+                    k.get("verein_id"), k.get("benutzer_id")
+                )
+                st.rerun()
+            st.markdown("</div>", unsafe_allow_html=True)
+
+
+def _detail_a_kundenkonto(daten: dict) -> None:
+    """Section A: Kundenkonto — Stammdaten + Account-Status."""
+    b = daten.get("benutzer") or {}
+    v = daten.get("verein") or {}
+    kundentyp = "Verein" if v else "Trainer"
+
+    with st.expander("**A — Kundenkonto**", expanded=True):
+        c1, c2 = st.columns(2)
+        c1.markdown(f"**Kundennummer:** `{v.get('kundennummer') or b.get('kundennummer') or '—'}`")
+        c2.markdown(f"**Kundentyp:** {kundentyp}")
+        if kundentyp == "Verein":
+            c1.markdown(f"**Vereinsname:** {v.get('name','—')}")
+            c2.markdown(f"**Ansprechpartner:** {b.get('vorname','')} {b.get('nachname','')}")
+        else:
+            c1.markdown(f"**Name:** {b.get('vorname','')} {b.get('nachname','')}")
+        c1.markdown(f"**Benutzername:** `{b.get('benutzername') or '—'}`")
+        c2.markdown(f"**E-Mail:** {b.get('email','—')}")
+        ev = "✅ Bestätigt" if b.get("email_verifiziert") else "❌ Ausstehend"
+        c1.markdown(f"**E-Mail-Status:** {ev}")
+        c2.markdown(f"**Telefon:** {b.get('telefon') or v.get('telefon') or '—'}")
+        c1.markdown(f"**Registriert am:** {b.get('erstellt_am','—')}")
+        c2.markdown(f"**Letzter Login:** {b.get('letzter_login','—')}")
+        c1.markdown(f"**Account:** {'🟢 Aktiv' if b.get('aktiv') else '⛔ Deaktiviert'}")
+
+        unvollstaendig = not b.get("email") or (kundentyp == "Verein" and not v.get("name"))
+        if unvollstaendig:
+            st.warning("⚠️ Stammdaten unvollständig")
+
+        st.markdown("---")
+        st.markdown("**✏️ Stammdaten bearbeiten**")
+        ec1, ec2 = st.columns(2)
+        e_vn   = ec1.text_input("Vorname",   value=b.get("vorname",""),  key=f"ekd_vn_{b.get('id')}")
+        e_nn   = ec2.text_input("Nachname",  value=b.get("nachname",""), key=f"ekd_nn_{b.get('id')}")
+        e_tel  = ec1.text_input("Telefon",   value=b.get("telefon") or v.get("telefon") or "",
+                                key=f"ekd_tel_{b.get('id')}")
+        if kundentyp == "Verein":
+            e_vname = ec2.text_input("Vereinsname", value=v.get("name",""), key=f"ekd_vname_{b.get('id')}")
+            e_ansp  = ec1.text_input("Ansprechpartner (Nachname + Vorname getrennt)",
+                                     value=v.get("ansprechpartner",""), key=f"ekd_ansp_{b.get('id')}")
+        e_aktiv = st.checkbox("Konto aktiv", value=bool(b.get("aktiv")), key=f"ekd_ak_{b.get('id')}")
+
+        if st.button("💾 Stammdaten speichern", key=f"ekd_save_{b.get('id')}"):
+            kundenstamm_aendern(
+                b["id"], v.get("id"),
+                vorname=e_vn.strip() or None,
+                nachname=e_nn.strip() or None,
+                telefon=e_tel.strip() or None,
+                vereinsname=e_vname.strip() if kundentyp == "Verein" else None,
+                ansprechpartner=e_ansp.strip() if kundentyp == "Verein" else None,
+                aktiv=1 if e_aktiv else 0,
+                superadmin_id=_sa_id(),
+            )
+            benutzer_aktivieren(b["id"], 1 if e_aktiv else 0)
+            audit_log_eintragen(b["id"], "account_status_geaendert",
+                                f"aktiv={'1' if e_aktiv else '0'}", _sa_id())
+            st.success("✅ Gespeichert.")
+            st.rerun()
+
+        st.markdown("---")
+        st.markdown("**🔑 E-Mail-Adresse ändern**")
+        ec3, ec4 = st.columns(2)
+        e_email_neu = ec3.text_input("Neue E-Mail-Adresse", key=f"ekd_email_{b.get('id')}",
+                                     placeholder="neu@verein.de")
+        if ec4.button("✉️ E-Mail ändern + Verifikation senden", key=f"ekd_email_save_{b.get('id')}"):
+            if not e_email_neu.strip() or "@" not in e_email_neu:
+                st.error("Bitte gültige E-Mail-Adresse eingeben.")
+            else:
+                try:
+                    import os as _os_ev
+                    _token = superadmin_email_aendern(b["id"], e_email_neu.strip(), _sa_id())
+                    _base = _os_ev.environ.get("APP_BASE_URL") or (
+                        f"https://{_os_ev.environ.get('REPLIT_DEV_DOMAIN','localhost')}/athletik/app"
+                    )
+                    try:
+                        from email_service import send_verification_email as _sve
+                        _sve(normalize_email(e_email_neu.strip()), b.get("vorname","Kunde"),
+                             _token, _base)
+                        st.success("✅ E-Mail geändert — Bestätigungsmail gesendet.")
+                    except Exception as _ee:
+                        st.success("✅ E-Mail geändert (E-Mail-Versand ausstehend).")
+                    st.rerun()
+                except ValueError as _ve:
+                    st.error(str(_ve))
+
+        st.markdown("**👤 Benutzername ändern**")
+        ec5, ec6 = st.columns(2)
+        e_uname = ec5.text_input("Neuer Benutzername", key=f"ekd_uname_{b.get('id')}",
+                                  value=b.get("benutzername") or "")
+        if ec6.button("✅ Benutzername speichern", key=f"ekd_uname_save_{b.get('id')}"):
+            if not e_uname.strip():
+                st.error("Benutzername darf nicht leer sein.")
+            else:
+                try:
+                    superadmin_benutzername_aendern(b["id"], e_uname.strip(), _sa_id())
+                    st.success("✅ Benutzername geändert.")
+                    st.rerun()
+                except ValueError as _ve:
+                    st.error(str(_ve))
+
+
+def _detail_b_rechnungsadresse(daten: dict) -> None:
+    """Section B: Rechnungsadresse — ansehen + bearbeiten."""
+    b  = daten.get("benutzer") or {}
+    ra = daten.get("rechnungsadresse") or {}
+
+    with st.expander("**B — Rechnungsadresse**", expanded=False):
+        if ra:
+            c1, c2 = st.columns(2)
+            c1.markdown(f"**Firma/Verein:** {ra.get('firma') or '—'}")
+            c2.markdown(f"**USt-ID:** {ra.get('ust_id') or '—'}")
+            c1.markdown(f"**Vorname:** {ra.get('vorname','—')}")
+            c2.markdown(f"**Nachname:** {ra.get('nachname','—')}")
+            c1.markdown(f"**Straße + Nr:** {ra.get('strasse','—')} {ra.get('hausnummer','')}")
+            c2.markdown(f"**PLZ / Ort:** {ra.get('plz','—')} {ra.get('ort','—')}")
+            c1.markdown(f"**Land:** {ra.get('land','—')}")
+            c2.markdown(f"**Rechnungs-E-Mail:** {ra.get('rechnung_email','—')}")
+            c1.markdown(f"**Telefon:** {ra.get('telefon') or '—'}")
+        else:
+            st.warning("⚠️ Keine Rechnungsadresse hinterlegt.")
+
+        st.markdown("---")
+        st.markdown("**✏️ Rechnungsadresse bearbeiten**")
+        rb1, rb2 = st.columns(2)
+        f_firma   = rb1.text_input("Firma/Verein (optional)", key=f"ra_firma_{b.get('id')}",
+                                    value=ra.get("firma") or "")
+        f_tel     = rb2.text_input("Telefon (optional)",      key=f"ra_tel_{b.get('id')}",
+                                    value=ra.get("telefon") or "")
+        rb3, rb4 = st.columns(2)
+        f_vn      = rb3.text_input("Vorname *",   key=f"ra_vn_{b.get('id')}",
+                                    value=ra.get("vorname") or "")
+        f_nn      = rb4.text_input("Nachname *",  key=f"ra_nn_{b.get('id')}",
+                                    value=ra.get("nachname") or "")
+        rb5, rb6 = st.columns([3,1])
+        f_str     = rb5.text_input("Straße *",    key=f"ra_str_{b.get('id')}",
+                                    value=ra.get("strasse") or "")
+        f_hnr     = rb6.text_input("Nr. *",       key=f"ra_hnr_{b.get('id')}",
+                                    value=ra.get("hausnummer") or "")
+        rb7, rb8 = st.columns([1,2])
+        f_plz     = rb7.text_input("PLZ *",       key=f"ra_plz_{b.get('id')}",
+                                    value=ra.get("plz") or "")
+        f_ort     = rb8.text_input("Ort *",       key=f"ra_ort_{b.get('id')}",
+                                    value=ra.get("ort") or "")
+        rb9, rb10 = st.columns(2)
+        f_land    = rb9.text_input("Land *",      key=f"ra_land_{b.get('id')}",
+                                    value=ra.get("land") or "Deutschland")
+        f_remail  = rb10.text_input("Rechnungs-E-Mail *", key=f"ra_remail_{b.get('id')}",
+                                     value=ra.get("rechnung_email") or "")
+        f_ustid   = st.text_input("Umsatzsteuer-ID (optional)", key=f"ra_ustid_{b.get('id')}",
+                                   value=ra.get("ust_id") or "")
+
+        if st.button("💾 Rechnungsadresse speichern", key=f"ra_save_{b.get('id')}"):
+            pflicht = [f_vn, f_nn, f_str, f_hnr, f_plz, f_ort, f_land, f_remail]
+            if any(not v.strip() for v in pflicht):
+                st.error("Bitte alle Pflichtfelder (*) ausfüllen.")
+            else:
+                _bestaetigt = st.session_state.get(f"ra_bestaetigt_{b.get('id')}", False)
+                if not _bestaetigt:
+                    st.session_state[f"ra_bestaetigt_{b.get('id')}"] = True
+                    st.warning("⚠️ **Rechnungsdaten wirklich ändern?** Nochmals speichern zum Bestätigen.")
+                else:
+                    rechnungsadresse_speichern(
+                        b["id"],
+                        firma=f_firma.strip() or None,
+                        vorname=f_vn.strip(),
+                        nachname=f_nn.strip(),
+                        strasse=f_str.strip(),
+                        hausnummer=f_hnr.strip(),
+                        plz=f_plz.strip(),
+                        ort=f_ort.strip(),
+                        land=f_land.strip(),
+                        rechnung_email=f_remail.strip(),
+                        telefon=f_tel.strip() or None,
+                        ust_id=f_ustid.strip() or None,
+                    )
+                    audit_log_eintragen(b["id"], "rechnungsadresse_geaendert",
+                                        "", _sa_id())
+                    st.session_state.pop(f"ra_bestaetigt_{b.get('id')}", None)
+                    st.success("✅ Rechnungsadresse gespeichert.")
+                    st.rerun()
+
+
+def _detail_c_lizenz(daten: dict) -> None:
+    """Section C: Lizenz/Paket — bestehende Pakete aus license.py, Paketwechsel mit Bestätigung."""
+    b = daten.get("benutzer") or {}
+    v = daten.get("verein") or {}
+
+    if not v:
+        with st.expander("**C — Lizenz / Paket**", expanded=False):
+            st.info("Lizenzinformationen nur für Vereinskunden verfügbar.")
+        return
+
+    verein_id   = v["id"]
+    lizenztyp   = (v.get("lizenztyp") or "BASIC").upper()
+    liz_status  = v.get("lizenz_status") or "trial"
+    liz_bis     = v.get("lizenz_bis") or "—"
+    testphase   = v.get("testphase_bis") or "—"
+    paket_def   = LIZENZ_TYPEN.get(lizenztyp, LIZENZ_TYPEN.get("BASIC", {}))
+
+    # Spieler- und Trainer-Zählung
+    from database import get_conn, _row
+    with get_conn() as conn:
+        spieler_anz = conn.execute(
+            "SELECT COUNT(*) FROM spieler WHERE verein_id=?", (verein_id,)
+        ).fetchone()[0]
+        trainer_anz = conn.execute(
+            "SELECT COUNT(*) FROM benutzer WHERE verein_id=? AND aktiv=1", (verein_id,)
+        ).fetchone()[0]
+
+    with st.expander("**C — Lizenz / Paket**", expanded=False):
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Paket",       paket_def.get("label", lizenztyp))
+        c2.metric("Lizenzstatus", _STATUS_LABELS.get(liz_status, liz_status))
+        c3.metric("Lizenz bis",  liz_bis)
+        c1.metric("Spieler",     f"{spieler_anz} / {paket_def.get('max_spieler','∞')}")
+        c2.metric("Trainer",     f"{trainer_anz} / {paket_def.get('max_trainer','∞')}")
+        c3.metric("Testphase bis", testphase)
+
+        # Preis & Abrechnung
+        if paket_def:
+            st.markdown(
+                f"**Preis:** {paket_def.get('preis_monat',0):.2f} € / Monat &nbsp;|&nbsp; "
+                f"{paket_def.get('preis_jahr',0):.2f} € / Jahr"
+            )
+
+        st.markdown("---")
+        st.markdown("**🔄 Paketwechsel (nur zwischen bestehenden Paketen)**")
+        paket_optionen = list(LIZENZ_TYPEN.keys())
+        cur_idx = paket_optionen.index(lizenztyp) if lizenztyp in paket_optionen else 0
+        neues_paket = st.selectbox("Neues Paket", paket_optionen, index=cur_idx,
+                                    format_func=lambda x: f"{x} — {LIZENZ_TYPEN[x]['label']}",
+                                    key=f"liz_paket_{verein_id}")
+        neuer_status = st.selectbox(
+            "Lizenzstatus", ["trial","active","expired","suspended","cancelled"],
+            index=["trial","active","expired","suspended","cancelled"].index(liz_status)
+                  if liz_status in ["trial","active","expired","suspended","cancelled"] else 0,
+            format_func=lambda x: _STATUS_LABELS.get(x, x),
+            key=f"liz_status_{verein_id}",
+        )
+        lc1, lc2 = st.columns(2)
+        neue_liz_bis = lc1.text_input("Lizenz bis (YYYY-MM-DD)", value=v.get("lizenz_bis") or "",
+                                       key=f"liz_bis_{verein_id}")
+        neue_test_bis = lc2.text_input("Testphase bis (YYYY-MM-DD)",
+                                        value=v.get("testphase_bis") or "",
+                                        key=f"liz_test_{verein_id}")
+
+        if st.button("💾 Lizenz / Paket speichern", key=f"liz_save_{verein_id}"):
+            _pk_key = f"liz_bestaetigt_{verein_id}"
+            if neues_paket != lizenztyp and not st.session_state.get(_pk_key):
+                st.session_state[_pk_key] = True
+                st.warning(
+                    f"⚠️ **Paket wirklich von {lizenztyp} auf {neues_paket} ändern?**"
+                    " Nochmals speichern zum Bestätigen."
+                )
+            else:
+                lizenz_setzen(
+                    verein_id,
+                    neues_paket,
+                    neuer_status,
+                    neue_liz_bis.strip() or None,
+                    neue_test_bis.strip() or None,
+                )
+                audit_log_eintragen(
+                    b.get("id"), "paket_geaendert",
+                    f"{lizenztyp} → {neues_paket} status={neuer_status}", _sa_id(),
+                )
+                st.session_state.pop(_pk_key, None)
+                st.success("✅ Lizenz gespeichert.")
+                st.rerun()
+
+
+def _detail_d_vertrag(daten: dict) -> None:
+    """Section D: Vertragsdaten — Beginn, Ende, Kündigung."""
+    b = daten.get("benutzer") or {}
+    v = daten.get("verein") or {}
+
+    if not v:
+        with st.expander("**D — Vertrag**", expanded=False):
+            st.info("Vertragsdaten nur für Vereinskunden verfügbar.")
+        return
+
+    verein_id = v["id"]
+    with st.expander("**D — Vertrag**", expanded=False):
+        c1, c2 = st.columns(2)
+        c1.markdown(f"**Vertragsstatus:** {v.get('kuendigungsstatus','aktiv')}")
+        c2.markdown(f"**Vertragsbeginn:** {v.get('vertragsbeginn','—') or '—'}")
+        c1.markdown(f"**Vertragsende:** {v.get('vertragsende','—') or '—'}")
+        c2.markdown(f"**Kündigung eingegangen:** {v.get('kuendigung_eingegangen','—') or '—'}")
+        c1.markdown(f"**Gekündigt zum:** {v.get('gekuendigt_zum','—') or '—'}")
+
+        st.markdown("---")
+        st.markdown("**✏️ Vertragsdaten bearbeiten**")
+        vc1, vc2 = st.columns(2)
+        e_vbeg   = vc1.text_input("Vertragsbeginn (YYYY-MM-DD)",
+                                   value=v.get("vertragsbeginn") or "", key=f"vt_beg_{verein_id}")
+        e_vend   = vc2.text_input("Vertragsende (YYYY-MM-DD)",
+                                   value=v.get("vertragsende") or "", key=f"vt_end_{verein_id}")
+        e_keing  = vc1.text_input("Kündigung eingegangen (YYYY-MM-DD)",
+                                   value=v.get("kuendigung_eingegangen") or "", key=f"vt_kein_{verein_id}")
+        e_kzum   = vc2.text_input("Gekündigt zum (YYYY-MM-DD)",
+                                   value=v.get("gekuendigt_zum") or "", key=f"vt_kzum_{verein_id}")
+        kstatus_opts = ["aktiv", "Kündigung eingegangen", "gekündigt"]
+        cur_ks = v.get("kuendigungsstatus","aktiv")
+        e_kstat = st.selectbox("Kündigungsstatus", kstatus_opts,
+                                index=kstatus_opts.index(cur_ks) if cur_ks in kstatus_opts else 0,
+                                key=f"vt_kstat_{verein_id}")
+
+        if st.button("💾 Vertragsdaten speichern", key=f"vt_save_{verein_id}"):
+            vertragsfelder_setzen(
+                verein_id,
+                vertragsbeginn=e_vbeg.strip() or None,
+                vertragsende=e_vend.strip() or None,
+                kuendigung_eingegangen=e_keing.strip() or None,
+                gekuendigt_zum=e_kzum.strip() or None,
+                kuendigungsstatus=e_kstat,
+                superadmin_id=_sa_id(),
+            )
+            st.success("✅ Vertragsdaten gespeichert.")
+            st.rerun()
+
+
+def _detail_audit(daten: dict) -> None:
+    """Audit-Verlauf der letzten 20 Änderungen."""
+    audit = daten.get("audit") or []
+    with st.expander(f"**🔍 Änderungshistorie** ({len(audit)} Einträge)", expanded=False):
+        if not audit:
+            st.info("Noch keine Änderungen protokolliert.")
+        else:
+            for a in audit:
+                sa_name = f"{a.get('sa_vorname','')} {a.get('sa_nachname','')}".strip() or "System"
+                st.markdown(
+                    f"**{a.get('erstellt_am','—')}** — `{a.get('aktion','—')}`"
+                    f"  _{a.get('details','')}_  *(Superadmin: {sa_name})*"
+                )
+
+
+def _kunde_detail(verein_id: int | None, benutzer_id: int | None) -> None:
+    """Vollständige Kundendetailansicht mit 4 Sektionen + Audit."""
+    if st.button("← Zurück zur Kundenliste", key="kd_zurueck"):
+        st.session_state.pop("kunden_auswahl", None)
+        st.rerun()
+
+    daten = kunde_vollstaendig_laden(verein_id=verein_id, benutzer_id=benutzer_id)
+    if not daten:
+        st.error("Kunde nicht gefunden.")
+        return
+
+    b   = daten.get("benutzer") or {}
+    v   = daten.get("verein") or {}
+    kn  = v.get("kundennummer") or b.get("kundennummer") or "—"
+    typ = "Verein" if v else "Trainer"
+    tit = v.get("name") or f"{b.get('vorname','')} {b.get('nachname','')}".strip() or "Unbekannt"
+
+    st.markdown(
+        f'<h2 style="color:#e6edf3;margin-bottom:4px">{kn} — {tit}</h2>'
+        f'<p style="color:#8b949e;font-size:13px">{typ} · {b.get("email","—")}</p>',
+        unsafe_allow_html=True,
+    )
+    st.divider()
+
+    _detail_a_kundenkonto(daten)
+    _detail_b_rechnungsadresse(daten)
+    _detail_c_lizenz(daten)
+    _detail_d_vertrag(daten)
+    _detail_audit(daten)
+
+
+def page_kundenverwaltung():
+    """Hauptseite der Kundenverwaltung (nur Superadmin)."""
+    user = st.session_state.get("user", {})
+    if user.get("rolle") != "Superadmin":
+        st.error("❌ Nur Superadmins können die Kundenverwaltung aufrufen.")
+        return
+
+    # Detail-Ansicht?
+    auswahl = st.session_state.get("kunden_auswahl")
+    if auswahl:
+        verein_id, benutzer_id = auswahl
+        _kunde_detail(verein_id, benutzer_id)
+        return
+
+    # ── Listansicht ────────────────────────────────────────────────────────────
+    st.title("👥 Kundenverwaltung")
+
+    # Filter-Controls
+    fc1, fc2, fc3, fc4 = st.columns([3, 1, 1, 1])
+    such        = fc1.text_input("🔍 Suche", placeholder="Kundennummer, Name, E-Mail, Benutzername…",
+                                  key="kv_such", label_visibility="collapsed")
+    filter_typ  = fc2.selectbox("Kundentyp", ["Alle", "Verein", "Trainer"],
+                                 key="kv_typ", label_visibility="collapsed")
+    filter_st   = fc3.selectbox(
+        "Accountstatus", ["Alle","Aktiv","Deaktiviert","Gesperrt","E-Mail nicht bestätigt"],
+        key="kv_status", label_visibility="collapsed",
+    )
+    # Lizenzstatus-Werte aus dem System
+    _liz_opts = ["Alle", "trial", "active", "expired", "suspended", "cancelled", "unbekannt"]
+    filter_liz  = fc4.selectbox("Lizenzstatus", _liz_opts, key="kv_lizenz",
+                                 label_visibility="collapsed")
+
+    alle_kunden = kunden_liste_laden(
+        such=such,
+        filter_typ=filter_typ,
+        filter_status=filter_st,
+        filter_lizenz=filter_liz,
+    )
+
+    # KPI-Zeile (auf Basis aller Kunden ohne Filter für Überblick)
+    alle_kunden_gesamt = kunden_liste_laden()
+    _kpis(alle_kunden_gesamt)
+
+    # Ergebnisanzahl
+    st.caption(f"{len(alle_kunden)} Kunden gefunden")
+
+    if not alle_kunden:
+        st.info("Keine Kunden gefunden.")
+        return
+
+    for k in alle_kunden:
+        _kunden_karte(k)

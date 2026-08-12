@@ -77,6 +77,7 @@ from modules.vereine import page_vereine
 from modules.trainerportal import page_trainerportal, page_mein_profil
 from modules.saas_dashboard import page_saas_dashboard
 from modules.lizenz_page import page_lizenz_vereinsadmin, page_lizenz_superadmin
+from modules.kundenverwaltung import page_kundenverwaltung
 from testprotokoll_pdf import (
     generate_testprotokoll, TEST_NAMEN, TEST_REIHENFOLGE,
 )
@@ -465,6 +466,13 @@ if "user" not in st.session_state:
                             st.error(
                                 f"🔒 Konto vorübergehend gesperrt — zu viele Fehlversuche. "
                                 f"Bitte in ca. **{_min_rest} Minute(n)** erneut versuchen."
+                            )
+                        elif isinstance(_user_obj, dict) and _user_obj.get("konto_deaktiviert"):
+                            import os as _os_kd
+                            _support = _os_kd.environ.get("SUPPORT_EMAIL", "support@aphsystem.de")
+                            st.error(
+                                f"⛔ Dein Konto ist derzeit deaktiviert. "
+                                f"Bitte kontaktiere den Support unter **{_support}**."
                             )
                         elif isinstance(_user_obj, dict) and _user_obj.get("email_nicht_verifiziert"):
                             _ev_bid   = _user_obj["benutzer_id"]
@@ -8780,7 +8788,7 @@ if _user_rolle_nav in ("Superadmin", "Vereinsadmin"):
 if _user_rolle_nav == "Vereinsadmin":
     _MAIN_SECTIONS = _MAIN_SECTIONS + ["💳  Lizenz"]
 if _user_rolle_nav == "Superadmin":
-    _MAIN_SECTIONS = _MAIN_SECTIONS + ["🏢  Vereinsverwaltung", "💳  Lizenzverwaltung"]
+    _MAIN_SECTIONS = _MAIN_SECTIONS + ["🏢  Vereinsverwaltung", "💳  Lizenzverwaltung", "👥  Kundenverwaltung"]
 
 with st.sidebar:
     # ── Logo ──────────────────────────────────────────────────────────────────
@@ -9134,3 +9142,5 @@ elif section == "💳  Lizenz":
     page_lizenz_vereinsadmin()
 elif section == "💳  Lizenzverwaltung":
     page_lizenz_superadmin()
+elif section == "👥  Kundenverwaltung":
+    page_kundenverwaltung()

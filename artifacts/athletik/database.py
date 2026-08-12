@@ -2202,6 +2202,70 @@ def _migrate_multitenant():
             )
         """)
 
+        # ── Kundennummern, Vertragsdaten, Audit-Log ──────────────────────────
+        neue_verein_vertrag_cols = [
+            ("kundennummer",            "TEXT"),
+            ("vertragsbeginn",          "TEXT"),
+            ("vertragsende",            "TEXT"),
+            ("kuendigung_eingegangen",  "TEXT"),
+            ("gekuendigt_zum",          "TEXT"),
+            ("kuendigungsstatus",       "TEXT"),
+        ]
+        for col, typ in neue_verein_vertrag_cols:
+            try:
+                conn.execute(f"ALTER TABLE vereine ADD COLUMN {col} {typ}")
+            except Exception:
+                pass
+        try:
+            conn.execute("ALTER TABLE benutzer ADD COLUMN kundennummer TEXT")
+        except Exception:
+            pass
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS audit_log (
+                id             INTEGER PRIMARY KEY AUTOINCREMENT,
+                benutzer_id    INTEGER,
+                aktion         TEXT    NOT NULL,
+                details        TEXT,
+                superadmin_id  INTEGER,
+                erstellt_am    TEXT    NOT NULL DEFAULT (datetime('now')),
+                FOREIGN KEY (benutzer_id)   REFERENCES benutzer(id),
+                FOREIGN KEY (superadmin_id) REFERENCES benutzer(id)
+            )
+        """)
+        # Kundennummern für bestehende Vereine vergeben (einmalig)
+        for (vid,) in conn.execute(
+            "SELECT id FROM vereine WHERE kundennummer IS NULL ORDER BY id"
+        ).fetchall():
+            _max_v = conn.execute(
+                "SELECT MAX(CAST(SUBSTR(kundennummer,5) AS INTEGER)) "
+                "FROM vereine WHERE kundennummer IS NOT NULL"
+            ).fetchone()[0] or 0
+            _max_b = conn.execute(
+                "SELECT MAX(CAST(SUBSTR(kundennummer,5) AS INTEGER)) "
+                "FROM benutzer WHERE kundennummer IS NOT NULL"
+            ).fetchone()[0] or 0
+            conn.execute(
+                "UPDATE vereine SET kundennummer=? WHERE id=?",
+                (f"APH-{max(_max_v, _max_b)+1:06d}", vid),
+            )
+        # Kundennummern für standalone Trainer (verein_id IS NULL, kein Superadmin)
+        for (bid,) in conn.execute(
+            "SELECT id FROM benutzer WHERE kundennummer IS NULL "
+            "AND verein_id IS NULL AND rolle != 'Superadmin' ORDER BY id"
+        ).fetchall():
+            _max_v = conn.execute(
+                "SELECT MAX(CAST(SUBSTR(kundennummer,5) AS INTEGER)) "
+                "FROM vereine WHERE kundennummer IS NOT NULL"
+            ).fetchone()[0] or 0
+            _max_b = conn.execute(
+                "SELECT MAX(CAST(SUBSTR(kundennummer,5) AS INTEGER)) "
+                "FROM benutzer WHERE kundennummer IS NOT NULL"
+            ).fetchone()[0] or 0
+            conn.execute(
+                "UPDATE benutzer SET kundennummer=? WHERE id=?",
+                (f"APH-{max(_max_v, _max_b)+1:06d}", bid),
+            )
+
         # ── Rechnungen-Tabelle ─────────────────────────────────────────────
         conn.execute("""
             CREATE TABLE IF NOT EXISTS rechnungen (
@@ -2368,6 +2432,7 @@ def verein_registrieren(
         verein_id, vorname, nachname, email_norm, passwort, "Vereinsadmin",
         benutzername=benutzername, email_verifiziert=0,
     )
+    kundennummer_vergeben_verein(verein_id)
     return verein_id, benutzer_id
 
 
@@ -2693,7 +2758,7 @@ def trainer_registrieren(
                    VALUES (NULL, ?, ?, ?, ?, 'Trainer', 0, ?, 0)""",
                 (vorname, nachname, email_norm, _pw_hash(passwort), benutzername),
             )
-            return cur.lastrowid
+            _new_bid = cur.lastrowid
         except _sqlite3.IntegrityError as e:
             msg = str(e)
             if "UNIQUE" in msg and "email" in msg:
@@ -2701,6 +2766,8 @@ def trainer_registrieren(
             if "UNIQUE" in msg and "benutzername" in msg:
                 raise ValueError(f"Der Benutzername '{benutzername}' ist bereits vergeben.") from e
             raise
+    kundennummer_vergeben_benutzer(_new_bid)
+    return _new_bid
 
 
 def registrier_code_laden(verein_id: int) -> str | None:
@@ -3658,3 +3725,352 @@ def rechnungsadresse_laden(benutzer_id: int) -> dict | None:
         return _row(conn.execute(
             "SELECT * FROM rechnungsadressen WHERE benutzer_id=?", (benutzer_id,)
         ).fetchone())
+
+
+# ==========================================================================
+# Kundenverwaltung — Kundennummern, Audit-Log, Listen- und Detailabfragen
+# ==========================================================================
+
+def naechste_kundennummer() -> str:
+    """Gibt die nächste freie Kundennummer im Format APH-XXXXXX zurück."""
+    with get_conn() as conn:
+        _mv = conn.execute(
+            "SELECT MAX(CAST(SUBSTR(kundennummer,5) AS INTEGER)) "
+            "FROM vereine WHERE kundennummer LIKE 'APH-%'"
+        ).fetchone()[0] or 0
+        _mb = conn.execute(
+            "SELECT MAX(CAST(SUBSTR(kundennummer,5) AS INTEGER)) "
+            "FROM benutzer WHERE kundennummer LIKE 'APH-%'"
+        ).fetchone()[0] or 0
+        return f"APH-{max(_mv, _mb)+1:06d}"
+
+
+def kundennummer_vergeben_verein(verein_id: int) -> str:
+    """Vergibt eine neue Kundennummer an einen Verein (falls noch keine vorhanden)."""
+    with get_conn() as conn:
+        existing = conn.execute(
+            "SELECT kundennummer FROM vereine WHERE id=?", (verein_id,)
+        ).fetchone()
+        if existing and existing[0]:
+            return existing[0]
+    kn = naechste_kundennummer()
+    with get_conn() as conn:
+        conn.execute("UPDATE vereine SET kundennummer=? WHERE id=?", (kn, verein_id))
+    return kn
+
+
+def kundennummer_vergeben_benutzer(benutzer_id: int) -> str:
+    """Vergibt eine neue Kundennummer an einen standalone Benutzer (kein Verein)."""
+    with get_conn() as conn:
+        existing = conn.execute(
+            "SELECT kundennummer FROM benutzer WHERE id=?", (benutzer_id,)
+        ).fetchone()
+        if existing and existing[0]:
+            return existing[0]
+    kn = naechste_kundennummer()
+    with get_conn() as conn:
+        conn.execute("UPDATE benutzer SET kundennummer=? WHERE id=?", (kn, benutzer_id))
+    return kn
+
+
+def audit_log_eintragen(
+    benutzer_id: int | None,
+    aktion: str,
+    details: str = "",
+    superadmin_id: int | None = None,
+) -> None:
+    """Schreibt einen Audit-Log-Eintrag.
+    Niemals Passwörter, Tokens oder Secrets speichern!"""
+    try:
+        with get_conn() as conn:
+            conn.execute(
+                """INSERT INTO audit_log (benutzer_id, aktion, details, superadmin_id)
+                   VALUES (?, ?, ?, ?)""",
+                (benutzer_id, aktion, details, superadmin_id),
+            )
+    except Exception:
+        pass  # Audit darf die Hauptoperation nie blockieren
+
+
+def kunden_liste_laden(
+    such: str = "",
+    filter_typ: str = "Alle",
+    filter_status: str = "Alle",
+    filter_lizenz: str = "Alle",
+) -> list[dict]:
+    """Lädt alle Kunden (Vereine + standalone Trainer) für Superadmin-Übersicht.
+    Gibt eine flache Liste von dicts zurück, die beide Kundentypen vereinheitlicht."""
+    sql = """
+        SELECT
+            v.id                            AS verein_id,
+            b.id                            AS benutzer_id,
+            'Verein'                        AS kundentyp,
+            v.kundennummer,
+            v.name                          AS vereinsname,
+            b.vorname,
+            b.nachname,
+            b.benutzername,
+            b.email,
+            COALESCE(b.email_verifiziert,1) AS email_verifiziert,
+            b.erstellt_am                   AS registriert_am,
+            b.letzter_login,
+            COALESCE(b.aktiv,1)             AS aktiv,
+            b.gesperrt_bis,
+            COALESCE(v.lizenztyp,'BASIC')   AS lizenztyp,
+            COALESCE(v.lizenz_status,'trial') AS lizenz_status,
+            v.lizenz_bis,
+            v.testphase_bis,
+            v.vertragsbeginn,
+            v.vertragsende,
+            COALESCE(v.kuendigungsstatus,'aktiv') AS kuendigungsstatus,
+            v.kuendigung_eingegangen,
+            v.gekuendigt_zum,
+            COALESCE(v.gesperrt,0)          AS verein_gesperrt,
+            b.telefon
+        FROM vereine v
+        LEFT JOIN benutzer b
+               ON b.verein_id = v.id
+              AND b.rolle = 'Vereinsadmin'
+
+        UNION ALL
+
+        SELECT
+            NULL                            AS verein_id,
+            b.id                            AS benutzer_id,
+            'Trainer'                       AS kundentyp,
+            b.kundennummer,
+            NULL                            AS vereinsname,
+            b.vorname,
+            b.nachname,
+            b.benutzername,
+            b.email,
+            COALESCE(b.email_verifiziert,1) AS email_verifiziert,
+            b.erstellt_am                   AS registriert_am,
+            b.letzter_login,
+            COALESCE(b.aktiv,1)             AS aktiv,
+            b.gesperrt_bis,
+            COALESCE(b.lizenz,'BASIC')      AS lizenztyp,
+            'unbekannt'                     AS lizenz_status,
+            NULL                            AS lizenz_bis,
+            NULL                            AS testphase_bis,
+            NULL                            AS vertragsbeginn,
+            NULL                            AS vertragsende,
+            'aktiv'                         AS kuendigungsstatus,
+            NULL                            AS kuendigung_eingegangen,
+            NULL                            AS gekuendigt_zum,
+            0                               AS verein_gesperrt,
+            b.telefon
+        FROM benutzer b
+        WHERE b.verein_id IS NULL AND b.rolle != 'Superadmin'
+
+        ORDER BY kundennummer
+    """
+    with get_conn() as conn:
+        rows = [dict(r) for r in conn.execute(sql).fetchall()]
+
+    such_l = such.strip().lower()
+    result = []
+    for r in rows:
+        # Suchfilter
+        if such_l:
+            felder = [
+                (r.get("kundennummer") or "").lower(),
+                (r.get("vorname") or "").lower(),
+                (r.get("nachname") or "").lower(),
+                (r.get("vereinsname") or "").lower(),
+                (r.get("benutzername") or "").lower(),
+                (r.get("email") or "").lower(),
+            ]
+            if not any(such_l in f for f in felder):
+                continue
+        # Kundentyp-Filter
+        if filter_typ != "Alle" and r["kundentyp"] != filter_typ:
+            continue
+        # Accountstatus-Filter
+        if filter_status != "Alle":
+            if filter_status == "Aktiv" and not r["aktiv"]:
+                continue
+            if filter_status == "Deaktiviert" and r["aktiv"]:
+                continue
+            if filter_status == "E-Mail nicht bestätigt" and r["email_verifiziert"]:
+                continue
+            if filter_status == "Gesperrt" and not r.get("verein_gesperrt"):
+                continue
+        # Lizenzstatus-Filter
+        if filter_lizenz != "Alle" and r["lizenz_status"] != filter_lizenz:
+            continue
+        result.append(r)
+    return result
+
+
+def kunde_vollstaendig_laden(
+    verein_id: int | None = None,
+    benutzer_id: int | None = None,
+) -> dict | None:
+    """Lädt alle Daten eines Kunden: benutzer + verein + rechnungsadresse + lizenz.
+    Genau ein von verein_id oder benutzer_id muss angegeben werden."""
+    with get_conn() as conn:
+        if verein_id:
+            v = _row(conn.execute("SELECT * FROM vereine WHERE id=?", (verein_id,)).fetchone())
+            if not v:
+                return None
+            b = _row(conn.execute(
+                "SELECT * FROM benutzer WHERE verein_id=? AND rolle='Vereinsadmin' LIMIT 1",
+                (verein_id,),
+            ).fetchone())
+        else:
+            b = _row(conn.execute("SELECT * FROM benutzer WHERE id=?", (benutzer_id,)).fetchone())
+            if not b:
+                return None
+            v = _row(conn.execute("SELECT * FROM vereine WHERE id=?", (b.get("verein_id"),)).fetchone()) if b.get("verein_id") else None
+
+        ra = _row(conn.execute(
+            "SELECT * FROM rechnungsadressen WHERE benutzer_id=?", (b["id"] if b else None,)
+        ).fetchone()) if b else None
+
+        audit = [dict(r) for r in conn.execute(
+            "SELECT al.*, sb.vorname AS sa_vorname, sb.nachname AS sa_nachname "
+            "FROM audit_log al "
+            "LEFT JOIN benutzer sb ON sb.id = al.superadmin_id "
+            "WHERE al.benutzer_id=? ORDER BY al.erstellt_am DESC LIMIT 20",
+            (b["id"] if b else None,),
+        ).fetchall()] if b else []
+
+    return {
+        "verein":          v,
+        "benutzer":        b,
+        "rechnungsadresse": ra,
+        "audit":           audit,
+    }
+
+
+def superadmin_email_aendern(
+    benutzer_id: int,
+    neue_email: str,
+    superadmin_id: int,
+) -> str:
+    """Ändert die E-Mail eines Benutzers (Superadmin).
+    Normalisiert, prüft Duplikat, setzt email_verifiziert=0, erstellt neuen Token.
+    Gibt den Verifikationstoken zurück (für E-Mail-Versand).
+    Wirft ValueError bei Duplikat."""
+    import sqlite3 as _sq
+    email_norm = normalize_email(neue_email)
+    with get_conn() as conn:
+        dup = conn.execute(
+            "SELECT id FROM benutzer WHERE LOWER(email)=? AND id!=?",
+            (email_norm, benutzer_id),
+        ).fetchone()
+        if dup:
+            raise ValueError(f"Die E-Mail-Adresse '{email_norm}' ist bereits vergeben.")
+        alte_email = (conn.execute(
+            "SELECT email FROM benutzer WHERE id=?", (benutzer_id,)
+        ).fetchone() or [None])[0]
+        conn.execute(
+            "UPDATE benutzer SET email=?, email_verifiziert=0, email_token=NULL WHERE id=?",
+            (email_norm, benutzer_id),
+        )
+    token = email_token_erzeugen(benutzer_id)
+    audit_log_eintragen(
+        benutzer_id,
+        "email_geaendert",
+        f"alt={alte_email} → neu={email_norm}",
+        superadmin_id,
+    )
+    return token
+
+
+def superadmin_benutzername_aendern(
+    benutzer_id: int,
+    neuer_name: str,
+    superadmin_id: int,
+) -> None:
+    """Ändert den Benutzernamen. Prüft auf Duplikate. Loggt Änderung.
+    Wirft ValueError bei Duplikat."""
+    neuer_name = neuer_name.strip()
+    with get_conn() as conn:
+        dup = conn.execute(
+            "SELECT id FROM benutzer WHERE LOWER(benutzername)=LOWER(?) AND id!=?",
+            (neuer_name, benutzer_id),
+        ).fetchone()
+        if dup:
+            raise ValueError(f"Der Benutzername '{neuer_name}' ist bereits vergeben.")
+        alter = (conn.execute(
+            "SELECT benutzername FROM benutzer WHERE id=?", (benutzer_id,)
+        ).fetchone() or [None])[0]
+        conn.execute(
+            "UPDATE benutzer SET benutzername=? WHERE id=?", (neuer_name, benutzer_id)
+        )
+    audit_log_eintragen(
+        benutzer_id, "benutzername_geaendert",
+        f"alt={alter} → neu={neuer_name}", superadmin_id,
+    )
+
+
+def vertragsfelder_setzen(
+    verein_id: int,
+    *,
+    vertragsbeginn: str | None = None,
+    vertragsende: str | None = None,
+    kuendigung_eingegangen: str | None = None,
+    gekuendigt_zum: str | None = None,
+    kuendigungsstatus: str | None = None,
+    superadmin_id: int | None = None,
+) -> None:
+    """Setzt Vertragsdaten für einen Verein. Loggt Änderung."""
+    with get_conn() as conn:
+        conn.execute(
+            """UPDATE vereine SET
+                   vertragsbeginn        = COALESCE(?, vertragsbeginn),
+                   vertragsende          = COALESCE(?, vertragsende),
+                   kuendigung_eingegangen = COALESCE(?, kuendigung_eingegangen),
+                   gekuendigt_zum        = COALESCE(?, gekuendigt_zum),
+                   kuendigungsstatus     = COALESCE(?, kuendigungsstatus)
+               WHERE id=?""",
+            (vertragsbeginn, vertragsende, kuendigung_eingegangen,
+             gekuendigt_zum, kuendigungsstatus, verein_id),
+        )
+    audit_log_eintragen(
+        None, "vertragsdaten_geaendert",
+        f"verein_id={verein_id} status={kuendigungsstatus}",
+        superadmin_id,
+    )
+
+
+def kundenstamm_aendern(
+    benutzer_id: int,
+    verein_id: int | None,
+    *,
+    vorname: str | None = None,
+    nachname: str | None = None,
+    telefon: str | None = None,
+    vereinsname: str | None = None,
+    ansprechpartner: str | None = None,
+    aktiv: int | None = None,
+    superadmin_id: int | None = None,
+) -> None:
+    """Ändert Kundenstammdaten (Benutzer + optional Verein). Loggt Änderung."""
+    with get_conn() as conn:
+        if vorname is not None or nachname is not None or telefon is not None:
+            conn.execute(
+                """UPDATE benutzer SET
+                       vorname  = COALESCE(?, vorname),
+                       nachname = COALESCE(?, nachname),
+                       telefon  = COALESCE(?, telefon),
+                       aktiv    = COALESCE(?, aktiv)
+                   WHERE id=?""",
+                (vorname, nachname, telefon, aktiv, benutzer_id),
+            )
+        if verein_id and (vereinsname is not None or ansprechpartner is not None):
+            conn.execute(
+                """UPDATE vereine SET
+                       name            = COALESCE(?, name),
+                       ansprechpartner = COALESCE(?, ansprechpartner),
+                       aktiv           = COALESCE(?, aktiv)
+                   WHERE id=?""",
+                (vereinsname, ansprechpartner, aktiv, verein_id),
+            )
+    audit_log_eintragen(
+        benutzer_id, "kundendaten_geaendert",
+        f"verein_id={verein_id} vorname={vorname} nachname={nachname}",
+        superadmin_id,
+    )

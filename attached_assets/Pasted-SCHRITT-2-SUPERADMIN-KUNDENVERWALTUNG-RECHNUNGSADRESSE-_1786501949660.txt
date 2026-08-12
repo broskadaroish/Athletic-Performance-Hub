@@ -1,0 +1,682 @@
+SCHRITT 2 – SUPERADMIN, KUNDENVERWALTUNG, RECHNUNGSADRESSE UND LIZENZÜBERSICHT
+
+Arbeite auf Basis von SCHRITT 1 weiter.
+
+WICHTIG:
+- Bestehende Benutzerkonten erhalten.
+- Bestehende Spieler erhalten.
+- Bestehende Diagnosewerte erhalten.
+- Bestehende Trainingspläne erhalten.
+- Bestehende Authentifizierung aus Schritt 1 weiterverwenden.
+- Bestehende E-Mail-Verifikation weiterverwenden.
+- Bestehende Session-Logik nicht verändern.
+- Bestehende Rollen Superadmin / Verein / Trainer erhalten.
+- Keine funktionierenden Module unnötig neu programmieren.
+- Keine doppelten Tabellen, Funktionen, Adminseiten oder Lizenzsysteme erstellen.
+- Datenbankänderungen nur ergänzend und migrationssicher durchführen.
+- BESTEHENDE PAKETE, PREISE, LAUFZEITEN UND LIZENZLIMITS SIND VERBINDLICHE GESCHÄFTSLOGIK UND DÜRFEN NICHT VERÄNDERT WERDEN.
+
+==================================================
+0. VERBINDLICHE ARBEITSREGEL
+==================================================
+
+Prüfe für JEDEN einzelnen Punkt zuerst den bestehenden Code und die Datenbank.
+
+Danach gilt:
+
+A) FUNKTION VOLLSTÄNDIG VORHANDEN
+→ bestehende Funktion unverändert weiterverwenden
+→ nur prüfen und testen
+
+B) FUNKTION TEILWEISE VORHANDEN
+→ bestehende Funktion behalten
+→ nur fehlende Teile ergänzen
+→ keine zweite parallele Lösung erstellen
+
+C) FUNKTION NICHT VORHANDEN
+→ Funktion vollständig neu erstellen
+→ sauber in das bestehende System integrieren
+
+WICHTIG:
+„Nicht vorhanden“ bedeutet NICHT überspringen.
+
+Am Ende muss jeder Punkt entweder:
+- BEREITS VORHANDEN
+- ERGÄNZT
+oder
+- NEU ERSTELLT
+sein.
+
+==================================================
+1. BESTANDSAUFNAHME
+==================================================
+
+Prüfe zuerst:
+
+- Superadmin
+- Benutzerverwaltung
+- Kundenverwaltung
+- Lizenzverwaltung
+- Lizenztypen
+- Pakete
+- Preise
+- Laufzeiten
+- Lizenzlimits
+- Lizenzstatus
+- Account aktivieren/deaktivieren
+- Vereinsdaten
+- Trainerdaten
+- Rechnungsadressen
+- Vertragsinformationen
+- Kündigungsstatus
+- Kundennummer
+- Suche
+- Filter
+- Kundendetailansicht
+
+Erstelle intern:
+
+BEREITS VORHANDEN
+TEILWEISE VORHANDEN
+FEHLT
+
+Danach mit der Umsetzung beginnen.
+
+==================================================
+2. ZIEL DER KUNDENVERWALTUNG
+==================================================
+
+Die Superadmin-Kunden-/Lizenzverwaltung soll vollständig und übersichtlich werden.
+
+Aktuell reicht die Anzeige eines Vereinsnamens nicht aus.
+
+Jeder Kunde muss eindeutig erkennbar sein – egal ob:
+- Trainer
+- Verein
+
+Der Superadmin soll erkennen können:
+
+- Wer ist der Kunde?
+- Welche Kontaktdaten hat er?
+- Welche Rechnungsadresse hat er?
+- Welches bestehende Paket besitzt er?
+- Welchen Preis / welche Laufzeit hat dieses Paket?
+- Welche Lizenz besitzt er?
+- Ist das Konto aktiv?
+- Ist die E-Mail bestätigt?
+- Gibt es eine Kündigung?
+- Wann begann / endet der Vertrag?
+
+==================================================
+3. VOLLSTÄNDIGE KUNDENSTAMMDATEN
+==================================================
+
+Folgende Daten sollen vorhanden sein:
+
+- Kundennummer
+- Kundentyp: Trainer / Verein
+- Vorname
+- Nachname
+- Vereinsname, falls Verein
+- Ansprechpartner Vorname
+- Ansprechpartner Nachname
+- Benutzername
+- E-Mail-Adresse
+- E-Mail bestätigt: Ja / Nein
+- Telefonnummer
+- Registrierungsdatum
+- letzter Login
+- Accountstatus
+- Lizenzstatus
+- Lizenztyp / Paket
+- Vertragsbeginn
+- Vertragsende / Verlängerungsdatum
+- Kündigungsstatus
+
+Fehlende Daten bei Alt-Konten dürfen NULL / leer bleiben.
+
+Keine Werte erfinden.
+
+==================================================
+4. KUNDENNUMMER
+==================================================
+
+Prüfe, ob bereits ein Kundennummernsystem existiert.
+
+Wenn vorhanden:
+bestehendes System weiterverwenden.
+
+Wenn nicht:
+eindeutige Kundennummer ergänzen, z.B.:
+
+APH-000001
+APH-000002
+
+Anforderungen:
+- eindeutig
+- automatisch vergeben
+- bestehende interne Benutzer-ID nicht ersetzen
+- Alt-Kunden nachträglich Kundennummer geben
+- keine Datenverluste
+
+==================================================
+5. SUPERADMIN – KUNDENÜBERSICHT
+==================================================
+
+Erstelle bzw. erweitere:
+
+"Kundenverwaltung"
+
+Oben kompakte Kennzahlen:
+
+- Gesamtkunden
+- aktive Kunden
+- Trainer
+- Vereine
+- E-Mail noch nicht bestätigt
+- aktive Lizenzen
+- abgelaufene Lizenzen
+- gekündigte Kunden
+
+Darunter Kundenübersicht.
+
+Trainer-Beispiel:
+
+APH-000012
+Max Mustermann
+Trainer
+max@example.de
+Paket: [bestehendes Paket]
+Lizenzstatus: Aktiv
+E-Mail: bestätigt
+
+[Details]
+
+Verein-Beispiel:
+
+APH-000013
+SV Musterstadt
+Ansprechpartner: Peter Beispiel
+Verein
+kontakt@example.de
+Paket: [bestehendes Paket]
+Lizenzstatus: Aktiv
+
+[Details]
+
+==================================================
+6. SUCHE
+==================================================
+
+Suche ermöglichen nach:
+
+- Kundennummer
+- Vorname
+- Nachname
+- Vereinsname
+- Ansprechpartner
+- Benutzername
+- E-Mail-Adresse
+
+Bestehende Suche erweitern, falls vorhanden.
+
+==================================================
+7. FILTER
+==================================================
+
+Mindestens:
+
+Kundentyp:
+- Alle
+- Trainer
+- Verein
+
+Accountstatus:
+- Alle
+- Aktiv
+- Deaktiviert
+- Gesperrt
+- E-Mail nicht bestätigt
+
+Lizenzstatus:
+- bestehende Statuswerte des Systems
+
+Vorhandene Statuswerte nicht unnötig umbenennen.
+
+==================================================
+8. KUNDENDETAILANSICHT
+==================================================
+
+Falls vorhanden:
+erweitern.
+
+Falls nicht:
+neu erstellen.
+
+Bereiche:
+
+A) KUNDENKONTO
+- Kundennummer
+- Kundentyp
+- Vorname
+- Nachname
+- Vereinsname
+- Ansprechpartner
+- Benutzername
+- E-Mail
+- E-Mail bestätigt
+- Telefonnummer
+- Registrierungsdatum
+- letzter Login
+- Accountstatus
+
+B) RECHNUNGSADRESSE
+- Firma / Verein
+- Vorname
+- Nachname
+- Straße
+- Hausnummer
+- PLZ
+- Ort
+- Land
+- Rechnungs-E-Mail
+- Telefonnummer
+- Umsatzsteuer-ID
+
+C) LIZENZ / PAKET
+- bestehendes Paket
+- bestehender Preis
+- bestehendes Abrechnungsintervall
+- Lizenzstatus
+- Vertragsbeginn
+- Vertragsende / nächste Verlängerung
+- bestehende Limits
+- aktuelle Nutzung
+
+D) VERTRAG
+- Vertragsstatus
+- Kündigung eingegangen
+- Kündigungsdatum
+- gekündigt zum
+- Vertragsende
+
+==================================================
+9. RECHNUNGSADRESSE AUS SCHRITT 1
+==================================================
+
+Die bereits in Schritt 1 erstellte Rechnungsadressstruktur weiterverwenden.
+
+KEINE zweite Rechnungsadressentabelle erstellen.
+
+Superadmin soll die Rechnungsadresse:
+- ansehen
+- bearbeiten
+- speichern
+
+können.
+
+Vor Speichern:
+
+"Rechnungsdaten wirklich ändern?"
+
+anzeigen.
+
+==================================================
+10. KUNDENDATEN BEARBEITEN
+==================================================
+
+Dieser Punkt bleibt ausdrücklich bestehen.
+
+Superadmin soll folgende Kundendaten bearbeiten können:
+
+- Vorname
+- Nachname
+- Vereinsname
+- Ansprechpartner Vorname
+- Ansprechpartner Nachname
+- Telefonnummer
+- Rechnungsadresse
+- Accountstatus
+- Lizenzstatus
+- bestehendes Paket / Lizenztyp
+- Vertragsbeginn
+- Vertragsende
+
+Prüfe zuerst, welche Bearbeitungsfunktionen schon vorhanden sind.
+
+Falls vollständig vorhanden:
+nur testen.
+
+Falls teilweise vorhanden:
+nur fehlende Bearbeitungsmöglichkeiten ergänzen.
+
+Falls nicht vorhanden:
+vollständig erstellen.
+
+Vor kritischen Änderungen Bestätigung anzeigen.
+
+==================================================
+11. E-MAIL-ADRESSE DURCH SUPERADMIN ÄNDERN
+==================================================
+
+Bei Änderung der Kunden-E-Mail:
+
+- normalisieren
+- auf Duplikat prüfen
+- neue Adresse als nicht bestätigt markieren
+- neue Verifizierungs-E-Mail senden
+- neue Adresse muss bestätigt werden
+
+Bestehende Authentifizierungslogik aus Schritt 1 verwenden.
+
+==================================================
+12. BENUTZERNAME ÄNDERN
+==================================================
+
+Superadmin soll Benutzername ändern können, falls noch nicht vorhanden.
+
+Vor Änderung:
+- auf Duplikat prüfen
+- keine mehrfachen Benutzernamen erlauben
+
+==================================================
+13. ACCOUNT AKTIVIEREN / DEAKTIVIEREN
+==================================================
+
+Falls bereits vorhanden:
+weiterverwenden und testen.
+
+Falls nicht:
+neu erstellen.
+
+Bei Deaktivierung:
+- Login blockieren
+- keine Daten löschen
+
+Meldung:
+
+"Dein Konto ist derzeit deaktiviert. Bitte kontaktiere den Support unter support@aphsystem.de."
+
+==================================================
+14. BESTEHENDE PAKETE, PREISE UND LIZENZTYPEN
+==================================================
+
+Meine Pakete, Preise und Lizenzmodelle sind bereits festgelegt.
+
+Diese vorhandene Struktur ist verbindlich.
+
+Prüfe:
+
+- welche Pakete existieren
+- welche Preise existieren
+- welche Laufzeiten existieren
+- welche Abrechnungsintervalle existieren
+- welche Spielerlimits existieren
+- welche Trainer-/Benutzerlimits existieren
+- welche Modulfreigaben existieren
+- welche Lizenztypen existieren
+
+BESTEHENDE PAKETE UND PREISE DÜRFEN NICHT:
+
+- gelöscht
+- umbenannt
+- preislich verändert
+- ersetzt
+- zusammengelegt
+- neu interpretiert
+- in Limits verändert
+- in Funktionsumfang verändert
+
+werden.
+
+Keine neuen Beispiel-Pakete erstellen.
+
+Keine zweite Paket-/Preisstruktur erstellen.
+
+Preise immer aus der bestehenden zentralen Paket-/Lizenzquelle lesen.
+
+==================================================
+15. PAKETANZEIGE IM SUPERADMIN
+==================================================
+
+Beim Kunden anzeigen:
+
+- Paketname
+- Preis
+- Abrechnungsintervall
+- Lizenzstatus
+- Vertragsbeginn
+- nächste Verlängerung / Vertragsende
+- Spielerlimit
+- aktuelle Spielerzahl
+- Benutzer-/Trainerlimit
+- aktuelle Nutzung
+- vorhandene Modulfreigaben, wenn sinnvoll
+
+Keine Werte hart neu einprogrammieren.
+
+==================================================
+16. PAKETWECHSEL DURCH SUPERADMIN
+==================================================
+
+Falls Paketwechsel bereits existiert:
+nicht neu bauen.
+
+Falls noch nicht vorhanden:
+Superadmin darf ausschließlich zwischen bereits vorhandenen Paketen wechseln.
+
+Vor Wechsel:
+
+"Paket wirklich von [altes Paket] auf [neues Paket] ändern?"
+
+Keine neue Zahlungslogik oder automatische Abbuchung bauen.
+
+Keine Preise neu berechnen, falls hierfür bereits eine bestehende Logik existiert.
+
+==================================================
+17. LIZENZSTATUS
+==================================================
+
+Bestehende Lizenzstatus verwenden.
+
+Keine zweite parallele Statuslogik erstellen.
+
+Der Status soll in Kundenliste und Kundendetailseite klar sichtbar sein.
+
+==================================================
+18. LIZENZLIMITS
+==================================================
+
+Bestehende Limits beibehalten.
+
+Zum Beispiel vorhandene:
+
+- Spielerlimit
+- Benutzerlimit
+- Trainerlimit
+- Modulzugriffe
+
+Keine Limits verändern.
+
+Keine bestehenden Kunden neu einschränken.
+
+==================================================
+19. VERTRAGSDATEN
+==================================================
+
+Prüfe bestehende Vertragsdaten.
+
+Mindestens verfügbar machen:
+
+- Vertragsbeginn
+- Vertragsende
+- nächste Verlängerung, falls vorhanden
+- Kündigung eingegangen am
+- gekündigt zum
+- Kündigungsstatus
+
+Fehlende Felder ergänzen.
+
+Bei unbekannten Alt-Daten:
+NULL / leer.
+
+==================================================
+20. KÜNDIGUNGSSTATUS
+==================================================
+
+Noch KEIN neues vollständiges Online-Kündigungssystem bauen.
+
+Vorhandene Kündigungsfunktionen nicht entfernen.
+
+Im Superadmin soll sichtbar sein:
+
+- nicht gekündigt
+- Kündigung eingegangen
+- gekündigt zum Datum X
+
+==================================================
+21. ALT-KONTEN
+==================================================
+
+Bestehende Benutzer müssen weiter funktionieren.
+
+Fehlende Daten mit:
+
+"Stammdaten unvollständig"
+
+kennzeichnen.
+
+Keine bestehenden Login-Daten, Pakete, Preise, Spieler oder Diagnosedaten verändern.
+
+==================================================
+22. AUDIT / ÄNDERUNGSHISTORIE
+==================================================
+
+Falls bereits vorhanden:
+weiterverwenden.
+
+Falls nicht vorhanden:
+einfache Audit-Struktur ergänzen.
+
+Protokollieren:
+
+- Account aktiviert/deaktiviert
+- Kundendaten geändert
+- Rechnungsadresse geändert
+- E-Mail geändert
+- Benutzername geändert
+- Paket geändert
+- Lizenzstatus geändert
+- Vertragsdaten geändert
+
+Speichern:
+- Kunde
+- Aktion
+- Datum/Uhrzeit
+- Superadmin-ID
+
+Niemals Passwörter, Tokens oder Secrets speichern.
+
+==================================================
+23. SICHERHEIT
+==================================================
+
+Im Superadmin niemals anzeigen:
+
+- Passwort
+- Passwort-Hash
+- SMTP_PASSWORD
+- E-Mail-Verifikationstoken
+- Passwort-Reset-Token
+- Session-Token
+- Replit Secrets
+
+==================================================
+24. RESPONSIVE DARSTELLUNG
+==================================================
+
+Funktion muss auf:
+- Laptop
+- Desktop
+- Tablet
+- Smartphone
+
+funktionieren.
+
+Auf Smartphone keine unnötig breite Tabelle erzwingen.
+
+Kunden können dort kompakt als Karten dargestellt werden.
+
+Noch keine allgemeine Mobile-Design-Phase durchführen.
+
+==================================================
+25. TESTS
+==================================================
+
+Mindestens testen:
+
+1. bestehender Superadmin
+2. bestehender Trainer
+3. bestehender Verein
+4. neue Trainerregistrierung
+5. neue Vereinsregistrierung
+6. Rechnungsadresse sichtbar
+7. Rechnungsadresse bearbeitbar
+8. Kundennummer vorhanden
+9. Suche
+10. Filter
+11. Kundendetailansicht
+12. Kundendaten bearbeiten
+13. E-Mail ändern
+14. neue E-Mail muss bestätigt werden
+15. Benutzername ändern
+16. Account deaktivieren
+17. Account wieder aktivieren
+18. bestehende Pakete unverändert
+19. bestehende Preise unverändert
+20. Paket korrekt angezeigt
+21. Paketwechsel nur zwischen bestehenden Paketen
+22. bestehende Limits unverändert
+23. bestehende Spieler erhalten
+24. bestehende Diagnosedaten erhalten
+25. bestehende Trainingspläne erhalten
+26. Alt-Konten funktionieren
+27. keine Passwörter/Tokens/Secrets sichtbar
+
+==================================================
+26. ABSCHLUSSBERICHT
+==================================================
+
+Für jeden Hauptpunkt angeben:
+
+- BEREITS VORHANDEN
+- ERGÄNZT
+oder
+- NEU ERSTELLT
+
+Zusätzlich berichten:
+
+1. Was war bereits vorhanden?
+2. Was war teilweise vorhanden?
+3. Was hat gefehlt?
+4. Was wurde ergänzt?
+5. Was wurde neu erstellt?
+6. Welche Dateien wurden geändert?
+7. Welche Datenbankfelder/Tabellen wurden ergänzt?
+8. Welche Funktionen wurden bewusst nicht verändert?
+9. Welche Pakete existieren aktuell?
+10. Welche Preise existieren aktuell?
+11. Welche Laufzeiten existieren?
+12. Welche Limits gehören zu welchem Paket?
+13. Wo sind Pakete und Preise zentral gespeichert?
+14. Welche Lizenzstatus existieren aktuell?
+15. Wie funktioniert Aktivieren/Deaktivieren?
+16. Wie funktioniert Paketwechsel?
+17. Wie funktioniert die E-Mail-Änderung?
+18. Wie werden Alt-Konten behandelt?
+19. Wurde bestätigt, dass Pakete und Preise NICHT verändert wurden?
+20. Welche 10 Punkte soll ich selbst testen?
+
+Danach STOPPEN.
+
+Keine weiteren Funktionen ohne meine Freigabe hinzufügen.

@@ -59,8 +59,7 @@ def login(email_oder_benutzername: str, passwort: str) -> dict | None:
                FROM benutzer b
                LEFT JOIN vereine v ON b.verein_id = v.id
                WHERE (LOWER(b.email)=?
-                      OR (b.benutzername IS NOT NULL AND LOWER(b.benutzername)=?))
-                 AND b.aktiv = 1""",
+                      OR (b.benutzername IS NOT NULL AND LOWER(b.benutzername)=?))""",
             (login_norm, login_norm),
         ).fetchone()
         conn.close()
@@ -69,6 +68,10 @@ def login(email_oder_benutzername: str, passwort: str) -> dict | None:
 
     if user is None:
         return None
+
+    # 2b. Konto deaktiviert? — Eigene Meldung statt generischem Fehler
+    if not user["aktiv"]:
+        return {"konto_deaktiviert": True}
 
     # 3. Passwort prüfen
     stored = user["passwort_hash"]
