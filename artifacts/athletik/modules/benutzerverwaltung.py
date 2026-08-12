@@ -109,6 +109,28 @@ def page_benutzerverwaltung():
                         benutzer_aktualisieren(u["id"], sel_verein_id, vorname.strip(),
                                               nachname.strip(), email.strip(), neue_rolle)
                         benutzer_aktivieren(u["id"], 1 if aktiv else 0)
+                        # Freischaltungs-E-Mail senden wenn Konto gerade aktiviert wurde
+                        if not _aktiv and aktiv:
+                            try:
+                                import os as _os_sv
+                                _custom_sv = _os_sv.environ.get("APP_BASE_URL", "")
+                                _dev_sv    = _os_sv.environ.get("REPLIT_DEV_DOMAIN", "")
+                                if _custom_sv:
+                                    _base_sv = _custom_sv.rstrip("/")
+                                elif _dev_sv:
+                                    _base_sv = f"https://{_dev_sv}/athletik/app"
+                                else:
+                                    _base_sv = "http://localhost:8082/app"
+                                from email_service import send_freischaltung_email as _sfe_sv
+                                _vname_sv = sel_verein["name"] if vereine else ""
+                                _sfe_sv(email.strip(), vorname.strip() or "Benutzer",
+                                        _base_sv, _vname_sv)
+                            except Exception as _fee_sv:
+                                import logging as _log_sv
+                                _log_sv.getLogger("athletik.email").error(
+                                    "Freischaltungs-E-Mail (Speichern) fehlgeschlagen (%s)",
+                                    type(_fee_sv).__name__,
+                                )
                         st.success("Benutzer gespeichert.")
                         st.rerun()
                     except ValueError as _ve:
@@ -173,9 +195,19 @@ def page_benutzerverwaltung():
                                 from email_service import send_freischaltung_email as _sfe
                                 from database import benutzer_by_id as _bbi_f
                                 _bdata_f = _bbi_f(u["id"]) or {}
+                                # Vereinsname für personalisierte E-Mail ermitteln
+                                _vname_fs = ""
+                                if u.get("verein_id"):
+                                    try:
+                                        from database import verein_by_id as _vbi_fs
+                                        _vr_fs = _vbi_fs(u["verein_id"]) or {}
+                                        _vname_fs = _vr_fs.get("name", "")
+                                    except Exception:
+                                        pass
                                 _sfe(_bdata_f.get("email",""),
                                      _bdata_f.get("vorname","Benutzer"),
-                                     _get_base_url_bv())
+                                     _get_base_url_bv(),
+                                     _vname_fs)
                                 st.success("✅ Account freigeschaltet — Freischaltungs-E-Mail gesendet.")
                             except Exception as _fee:
                                 import logging as _log_bv

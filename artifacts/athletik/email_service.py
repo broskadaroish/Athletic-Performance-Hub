@@ -209,13 +209,18 @@ def send_username_reminder(to: str, name: str, benutzername: str | None,
     _send(to, subject, text, html)
 
 
-def send_freischaltung_email(to: str, name: str, base_url: str) -> None:
-    """Sendet die Freischaltungsbenachrichtigung nach der Admin-Aktivierung."""
+def send_freischaltung_email(to: str, name: str, base_url: str, vereinsname: str = "") -> None:
+    """Sendet die Freischaltungsbenachrichtigung nach der Admin-Aktivierung.
+
+    vereinsname – optionaler Vereinsname; wenn angegeben, lautet die Formulierung
+    "Dein Konto bei <Vereinsname>", sonst "dein Zugang zu <AppName>".
+    """
     login_url = base_url.rstrip("/")
-    subject = f"{_APP_NAME} – Dein Zugang wurde freigeschaltet"
+    kontext = f"bei {vereinsname}" if vereinsname else f"zu {_APP_NAME}"
+    subject = f"{_APP_NAME} – Dein Konto ist jetzt aktiv"
     text = (
         f"Hallo {name},\n\n"
-        f"dein Zugang zu {_APP_NAME} wurde freigeschaltet. "
+        f"dein Konto {kontext} wurde freigeschaltet. "
         "Du kannst dich jetzt anmelden.\n\n"
         f"Anmelden: {login_url}\n\n"
         f"Support: {_SUPPORT_EMAIL}\n\n"
@@ -223,7 +228,7 @@ def send_freischaltung_email(to: str, name: str, base_url: str) -> None:
     )
     html = (
         f"<p>Hallo <strong>{name}</strong>,</p>"
-        f"<p>dein Zugang zu <strong>{_APP_NAME}</strong> wurde freigeschaltet. "
+        f"<p>dein Konto <strong>{kontext}</strong> wurde freigeschaltet. "
         "Du kannst dich jetzt anmelden.</p>"
         f'<p><a href="{login_url}" style="background:#238636;color:#fff;'
         f'padding:10px 24px;border-radius:6px;text-decoration:none;display:inline-block;font-weight:bold">'
