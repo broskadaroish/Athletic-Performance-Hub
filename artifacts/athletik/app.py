@@ -331,8 +331,10 @@ if "user" not in st.session_state:
                         st.error("Die Passwörter stimmen nicht überein.")
                     else:
                         if _pra(_qp_reset, _rp1):
-                            st.success("✅ Passwort geändert — bitte jetzt anmelden.")
+                            st.success("✅ Passwort geändert — du wirst zur Anmeldung weitergeleitet…")
                             st.query_params.clear()
+                            import time as _t; _t.sleep(1.5)
+                            st.rerun()
                         else:
                             st.error("❌ Reset-Link ungültig oder bereits verwendet.")
             st.stop()
