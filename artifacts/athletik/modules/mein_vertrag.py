@@ -205,7 +205,7 @@ def _kuendigung_flow(user: dict, eid: int, ist_verein: bool, data: dict) -> None
         ):
             ok, ergebnis = kuendigung_einreichen(eid, ist_verein, grund)
             if ok:
-                _sende_email(user, data, ergebnis[:10])
+                _sende_email(user, data, ergebnis[:10], ist_verein=ist_verein, grund=grund)
                 st.session_state["_kuend_step"] = 2
                 st.session_state["_kuend_datum"] = ergebnis[:10]
                 st.rerun()
@@ -244,23 +244,59 @@ def _kuendigung_flow(user: dict, eid: int, ist_verein: bool, data: dict) -> None
             st.rerun()
 
 
-def _sende_email(user: dict, data: dict, datum: str) -> None:
-    """Sendet die Kündigungsbestätigungs-E-Mail; fehlertolerante Ausführung."""
+def _sende_email(
+    user: dict,
+    data: dict,
+    datum: str,
+    ist_verein: bool = False,
+    grund: str = "",
+) -> None:
+    """Sendet Kündigungsbestätigung an den Kunden und Admin-Benachrichtigung an Superadmin."""
+    import os as _os
+
+    kundennummer = data.get("kundennummer") or "—"
+    lizenztyp    = data.get("lizenztyp") or data.get("lizenz_typ") or "—"
+    kundenname   = user.get("vorname") or user.get("name") or ""
+    kundenemail  = user.get("email") or ""
+
+    # ── 1. Bestätigungs-E-Mail an den Kunden ────────────────────────────────
     try:
         from email_service import send_kuendigung_bestaetigung
-        email = user.get("email") or ""
-        if not email:
-            return
-        send_kuendigung_bestaetigung(
-            to=email,
-            name=user.get("vorname") or user.get("name") or "Kunde",
-            kundennummer=data.get("kundennummer") or "—",
-            lizenztyp=data.get("lizenztyp") or data.get("lizenz_typ") or "—",
-            kuendigung_datum=datum,
-            vertragsende=(data.get("vertragsende")
-                          or data.get("lizenz_bis")
-                          or "Wird noch bestätigt"),
-        )
-        _log.info("Kündigungsbestätigung an %s... gesendet", email[:4])
+        if kundenemail:
+            send_kuendigung_bestaetigung(
+                to=kundenemail,
+                name=kundenname or "Kunde",
+                kundennummer=kundennummer,
+                lizenztyp=lizenztyp,
+                kuendigung_datum=datum,
+                vertragsende=(data.get("vertragsende")
+                              or data.get("lizenz_bis")
+                              or "Wird noch bestätigt"),
+            )
+            _log.info("Kündigungsbestätigung an %s... gesendet", kundenemail[:4])
     except Exception as exc:
         _log.error("Kündigungsbestätigungs-E-Mail fehlgeschlagen: %s", type(exc).__name__)
+
+    # ── 2. Sofort-Benachrichtigung an Superadmin ─────────────────────────────
+    try:
+        from email_service import send_kuendigung_admin_benachrichtigung
+        admin_email = (
+            _os.environ.get("SUPERADMIN_EMAIL", "").strip()
+            or "Broska_daroish@hotmail.de"
+        )
+        kundentyp = "Verein" if ist_verein else "Einzeltrainer"
+        send_kuendigung_admin_benachrichtigung(
+            to=admin_email,
+            kundennummer=kundennummer,
+            kundentyp=kundentyp,
+            lizenztyp=lizenztyp,
+            datum=datum,
+            kundenname=kundenname,
+            kundenemail=kundenemail,
+            grund=grund or "",
+        )
+        _log.info("Admin-Kündigung-Benachrichtigung gesendet")
+    except Exception as exc:
+        _log.error(
+            "Admin-Kündigung-Benachrichtigung fehlgeschlagen: %s", type(exc).__name__
+        )

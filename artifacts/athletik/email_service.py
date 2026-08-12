@@ -354,6 +354,98 @@ def send_kuendigung_bestaetigung(
         return False
 
 
+def send_kuendigung_admin_benachrichtigung(
+    to: str,
+    kundennummer: str,
+    kundentyp: str,
+    lizenztyp: str,
+    datum: str,
+    kundenname: str = "",
+    kundenemail: str = "",
+    grund: str = "",
+) -> bool:
+    """Benachrichtigt den Superadmin sofort über eine eingegangene Kündigung.
+
+    Wird direkt nach kuendigung_einreichen() aufgerufen — unabhängig von der
+    Kundenbestätigungs-E-Mail.
+    """
+    subject = f"{_APP_NAME} – ⚠️ Neue Kündigung eingegangen ({kundennummer})"
+
+    grund_zeile_txt = f"Kündigungsgrund:         {grund}\n" if grund else ""
+    grund_zeile_html = (
+        f"<tr><td style='padding:8px 12px;color:#57606a;font-size:13px;"
+        f"white-space:nowrap'>Kündigungsgrund</td>"
+        f"<td style='padding:8px 12px;color:#24292f;font-size:13px'>{grund}</td></tr>"
+        if grund else ""
+    )
+
+    text = (
+        f"[{_APP_NAME}] NEUE KÜNDIGUNG\n\n"
+        f"Kundennummer:            {kundennummer}\n"
+        f"Kundenname:              {kundenname or '—'}\n"
+        f"Kunden-E-Mail:           {kundenemail or '—'}\n"
+        f"Kundentyp:               {kundentyp}\n"
+        f"Paket:                   {lizenztyp}\n"
+        f"Eingegangen am:          {datum}\n"
+        f"{grund_zeile_txt}"
+        f"\nBitte die Kündigung in der Kundenverwaltung bestätigen.\n"
+    )
+    html = (
+        "<!DOCTYPE html><html><body style='font-family:Arial,sans-serif;"
+        "background:#f6f8fa;padding:24px;margin:0'>"
+        "<div style='max-width:600px;margin:0 auto;background:#ffffff;"
+        "border:1px solid #d0d7de;border-radius:8px;padding:40px 32px'>"
+        f"<h2 style='color:#24292f;margin:0 0 4px'>{_APP_NAME}</h2>"
+        "<p style='color:#57606a;font-size:13px;margin:0 0 24px'>"
+        "Football Performance &amp; Diagnostics</p>"
+        "<hr style='border:none;border-top:1px solid #d0d7de;margin:0 0 24px'>"
+        "<p style='color:#24292f;font-size:15px;font-weight:600;"
+        "margin:0 0 16px'>⚠️ Neue Kündigung eingegangen</p>"
+        "<table style='width:100%;border-collapse:collapse;margin:0 0 28px;"
+        "background:#f6f8fa;border-radius:6px;padding:16px'>"
+        "<tbody>"
+        f"<tr><td style='padding:8px 12px;color:#57606a;font-size:13px;"
+        f"white-space:nowrap'>Kundennummer</td>"
+        f"<td style='padding:8px 12px;color:#24292f;font-size:13px;"
+        f"font-weight:600'>{kundennummer}</td></tr>"
+        f"<tr style='background:#ffffff'><td style='padding:8px 12px;"
+        f"color:#57606a;font-size:13px'>Kundenname</td>"
+        f"<td style='padding:8px 12px;color:#24292f;font-size:13px'>{kundenname or '—'}</td></tr>"
+        f"<tr><td style='padding:8px 12px;color:#57606a;font-size:13px;"
+        f"white-space:nowrap'>Kunden-E-Mail</td>"
+        f"<td style='padding:8px 12px;color:#24292f;font-size:13px'>"
+        f"<a href='mailto:{kundenemail}' style='color:#0969da'>{kundenemail or '—'}</a></td></tr>"
+        f"<tr style='background:#ffffff'><td style='padding:8px 12px;"
+        f"color:#57606a;font-size:13px'>Kundentyp</td>"
+        f"<td style='padding:8px 12px;color:#24292f;font-size:13px'>{kundentyp}</td></tr>"
+        f"<tr><td style='padding:8px 12px;color:#57606a;font-size:13px'>Paket</td>"
+        f"<td style='padding:8px 12px;color:#24292f;font-size:13px'>{lizenztyp}</td></tr>"
+        f"<tr style='background:#ffffff'><td style='padding:8px 12px;"
+        f"color:#57606a;font-size:13px;white-space:nowrap'>Eingegangen am</td>"
+        f"<td style='padding:8px 12px;color:#24292f;font-size:13px;"
+        f"font-weight:600'>{datum}</td></tr>"
+        f"{grund_zeile_html}"
+        "</tbody></table>"
+        "<p style='color:#24292f;font-size:13px'>"
+        "Bitte die Kündigung in der "
+        "<strong>Kundenverwaltung → Kündigungen</strong> prüfen und bestätigen.</p>"
+        "<hr style='border:none;border-top:1px solid #d0d7de;margin:24px 0'>"
+        f"<p style='color:#57606a;font-size:12px;margin-bottom:0'>"
+        f"Automatische Benachrichtigung — {_APP_NAME}</p>"
+        "</div></body></html>"
+    )
+    try:
+        _send(to, subject, text, html)
+        log.info("Admin-Kündigung-Benachrichtigung an %s... gesendet", to[:6])
+        return True
+    except Exception as exc:
+        log.error(
+            "send_kuendigung_admin_benachrichtigung fehlgeschlagen (%s)",
+            type(exc).__name__,
+        )
+        return False
+
+
 def send_test_mail(to: str) -> None:
     """Testmail für Superadmin — prüft ob SMTP-Konfiguration funktioniert."""
     subject = f"{_APP_NAME} – E-Mail-Test"
