@@ -79,43 +79,72 @@ def _kpis(kunden: list[dict]) -> None:
 
 
 def _kunden_karte(k: dict) -> None:
-    """Rendert eine kompakte Kundenkarte mit Details-Button."""
-    kn   = k.get("kundennummer") or "—"
-    typ  = k.get("kundentyp", "—")
-    name = (k.get("vereinsname") or "").strip() if typ == "Verein" else ""
-    ansp = f"{k.get('vorname','') or ''} {k.get('nachname','') or ''}".strip() or "—"
-    email = k.get("email") or "—"
-    liz  = _STATUS_LABELS.get(k.get("lizenz_status", ""), k.get("lizenz_status", "—"))
-    paket = (k.get("lizenztyp") or "—").upper()
-    ev   = "✅" if k.get("email_verifiziert") else "📧"
-    ak   = "🟢" if k.get("aktiv") else "⛔"
+    """
+    Rendert eine responsive Kundenkarte.
 
-    with st.container():
-        c1, c2 = st.columns([4, 1])
-        with c1:
-            st.markdown(
-                f'<div style="background:#161b22;border:1px solid #30363d;border-radius:8px;'
-                f'padding:12px 16px;margin-bottom:6px">'
-                f'<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:4px">'
-                f'<strong style="color:#e6edf3">{kn}</strong>'
-                f'{"<strong style=color:#e6edf3> — " + name + "</strong>" if name else ""}'
-                f'<span style="color:#8b949e;font-size:12px">{typ}</span>'
-                f'</div>'
-                f'<div style="font-size:12px;color:#8b949e">'
-                f'{ev} {ansp} &nbsp;|&nbsp; {email} &nbsp;|&nbsp; Paket: <strong>{paket}</strong>'
-                f' &nbsp;|&nbsp; {liz} &nbsp;|&nbsp; {ak}</div>'
-                f'</div>',
-                unsafe_allow_html=True,
-            )
-        with c2:
-            st.markdown("<div style='padding-top:8px'>", unsafe_allow_html=True)
-            if st.button("🔍 Details", key=f"kd_{k.get('verein_id')}_{k.get('benutzer_id')}",
-                         use_container_width=True):
-                st.session_state["kunden_auswahl"] = (
-                    k.get("verein_id"), k.get("benutzer_id")
-                )
-                st.rerun()
-            st.markdown("</div>", unsafe_allow_html=True)
+    Desktop (≥769 px): horizontales Flex-Layout — Info links, Details-Button rechts.
+    Mobile  (≤768 px): gestapelte Karte — Info oben, volle Breite-Button unten.
+    Navigation via ?kd=VID_BID Query-Param (wird in page_kundenverwaltung() gelesen).
+    """
+    import html as _html
+
+    kn    = k.get("kundennummer") or "—"
+    typ   = k.get("kundentyp", "—")
+    icon  = "🏢" if typ == "Verein" else "👤"
+    vname = (k.get("vereinsname") or "").strip() if typ == "Verein" else ""
+    ansp  = f"{k.get('vorname','') or ''} {k.get('nachname','') or ''}".strip() or "—"
+    email = k.get("email") or "—"
+    liz_raw = k.get("lizenz_status") or ""
+    liz   = _STATUS_LABELS.get(liz_raw, liz_raw or "—")
+    liz_cls = {"active": "active", "expired": "expired",
+                "suspended": "suspended", "cancelled": "cancelled"}.get(liz_raw, "")
+    paket = (k.get("lizenztyp") or "—").upper()
+    ev    = "✅" if k.get("email_verifiziert") else "📧"
+    ak    = "🟢" if k.get("aktiv") else "⛔"
+
+    # URL-sicheres Encoding für den Details-Link
+    vid = k.get("verein_id") or 0
+    bid = k.get("benutzer_id") or 0
+
+    # HTML-Escaping aller kundenkontrollierten Werte
+    kn_h    = _html.escape(kn)
+    vname_h = _html.escape(vname)
+    ansp_h  = _html.escape(ansp)
+    email_h = _html.escape(email)
+    liz_h   = _html.escape(liz)
+    paket_h = _html.escape(paket)
+    typ_h   = _html.escape(typ)
+
+    vname_part = (
+        f' <span class="aph-kc-vname">— {vname_h}</span>' if vname_h else ""
+    )
+    liz_chip = (
+        f'<span class="aph-kc-chip aph-kc-chip-{liz_cls}">{liz_h}</span>'
+        if liz_cls else
+        f'<span class="aph-kc-chip">{liz_h}</span>'
+    )
+
+    st.markdown(
+        f'<a href="?kd={vid}_{bid}" class="aph-kunden-karte">'
+        f'  <div class="aph-kunden-info">'
+        f'    <div class="aph-kc-header">'
+        f'      <strong class="aph-kc-kn">{icon} {kn_h}</strong>'
+        f'      {vname_part}'
+        f'      <span class="aph-kc-chip">{typ_h}</span>'
+        f'    </div>'
+        f'    <div class="aph-kc-sub">{ansp_h} · {email_h}</div>'
+        f'    <div class="aph-kc-meta">'
+        f'      <span class="aph-kc-chip">{paket_h}</span>'
+        f'      {liz_chip}'
+        f'      <span style="color:#8b949e;font-size:11px">{ev} {ak}</span>'
+        f'    </div>'
+        f'  </div>'
+        f'  <div class="aph-kunden-btn-wrap">'
+        f'    <span class="aph-kunden-btn">🔍 Details →</span>'
+        f'  </div>'
+        f'</a>',
+        unsafe_allow_html=True,
+    )
 
 
 def _detail_a_kundenkonto(daten: dict) -> None:
@@ -670,6 +699,23 @@ def page_kundenverwaltung():
     if user.get("rolle") != "Superadmin":
         st.error("❌ Nur Superadmins können die Kundenverwaltung aufrufen.")
         return
+
+    # ── Mobile-Navigation via ?kd=VID_BID Query-Param ────────────────────────
+    # Wird von _kunden_karte() als <a href="?kd=…"> gesetzt.
+    # Encoding: verein_id oder 0 für None, benutzer_id oder 0 für None.
+    _kd_param = st.query_params.get("kd", "")
+    if _kd_param and not st.session_state.get("kunden_auswahl"):
+        try:
+            _kd_parts = str(_kd_param).split("_", 1)
+            if len(_kd_parts) == 2:
+                _vid_p = int(_kd_parts[0]) or None
+                _bid_p = int(_kd_parts[1]) or None
+                if _vid_p is not None or _bid_p is not None:
+                    st.session_state["kunden_auswahl"] = (_vid_p, _bid_p)
+                    st.query_params.clear()
+                    st.rerun()
+        except (ValueError, TypeError):
+            st.query_params.clear()
 
     # Detail-Ansicht — geht direkt rein ohne Tab-Wrap
     auswahl = st.session_state.get("kunden_auswahl")

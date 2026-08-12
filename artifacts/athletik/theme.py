@@ -466,6 +466,75 @@ html, body { overflow-x: hidden; max-width: 100vw; }
     }
 }
 
+/* ══ Kundenverwaltung — responsive Kundenkarten (Spec §22) ══════════════════ */
+.aph-kunden-karte {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin-bottom: 6px;
+    text-decoration: none !important;
+    color: inherit;
+    transition: border-color .15s;
+    cursor: pointer;
+}
+.aph-kunden-karte:hover { border-color: #58a6ff; text-decoration: none !important; }
+.aph-kunden-info  { flex: 1; min-width: 0; }
+.aph-kc-header    { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 3px; }
+.aph-kc-kn        { color: #e6edf3; font-size: 14px; }
+.aph-kc-vname     { color: #e6edf3; font-size: 13px; }
+.aph-kc-sub       { color: #8b949e; font-size: 11px; margin-bottom: 5px;
+                     white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.aph-kc-meta      { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-top: 4px; }
+.aph-kc-chip      { background: #21262d; color: #8b949e; font-size: 11px;
+                     padding: 2px 7px; border-radius: 10px; white-space: nowrap; }
+.aph-kc-chip-active    { background: #0d3b2e; color: #3fb950; }
+.aph-kc-chip-expired   { background: #3b1c1c; color: #f85149; }
+.aph-kc-chip-suspended { background: #3b2d0d; color: #d29922; }
+.aph-kc-chip-cancelled { background: #2d0d0d; color: #f85149; }
+.aph-kunden-btn-wrap { flex-shrink: 0; }
+.aph-kunden-btn {
+    display: inline-block;
+    background: #21262d;
+    color: #e6edf3 !important;
+    border: 1px solid #30363d;
+    border-radius: 6px;
+    padding: 6px 14px;
+    font-size: 13px;
+    white-space: nowrap;
+    text-decoration: none !important;
+}
+.aph-kunden-karte:hover .aph-kunden-btn { background: #30363d; border-color: #58a6ff; }
+
+@media (max-width: 768px) {
+    .aph-kunden-karte {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+        border-radius: 10px;
+        padding: 14px 16px;
+        margin-bottom: 10px;
+    }
+    .aph-kc-sub { white-space: normal; }
+    .aph-kunden-btn {
+        display: block;
+        text-align: center;
+        padding: 11px;
+        font-size: 15px;
+        border-radius: 8px;
+        background: #1f6feb;
+        border-color: #1f6feb;
+        color: #ffffff !important;
+        font-weight: 600;
+        min-height: 44px;
+        line-height: 1.5;
+    }
+    .aph-kunden-karte:hover .aph-kunden-btn { background: #388bfd; border-color: #388bfd; }
+}
+
 /* ══ "Mehr" overlay ══════════════════════════════════════════════════════════ */
 .aph-mehr-overlay { display: none; }
 
