@@ -1549,11 +1549,16 @@ def generate_trainingsplan_pdf(
     plangruppen_config: dict,
     alters_ersatz: dict | None = None,
     vereinsname: str = "",
+    version_nr: int | None = None,
+    plan_datum: str = "",
 ) -> bytes:
     """
     Druckbarer Trainingsplan-PDF fuer einen Spieler.
     Zeigt Altersgruppe, vollstaendigen Wochenplan, Warm-Up, Substitutionshinweise
     und wissenschaftliche Quellen. Gleicher Stil wie AthletikReport.
+
+    version_nr  — Versionsnummer des aktiven Plans (z.B. 3)
+    plan_datum  — Erstellungsdatum der aktiven Version (ISO-String, z.B. '2026-08-01')
     """
     alters_ersatz = alters_ersatz or {}
 
@@ -1590,7 +1595,18 @@ def generate_trainingsplan_pdf(
     pdf.set_xy(0, 38)
     pdf.set_font("Helvetica", "I", 7)
     pdf.set_text_color(180, 200, 230)
-    pdf.cell(0, 5, "Erstellt am %s  " % date.today().strftime("%d.%m.%Y"), align="R")
+    # Kopfzeile: Versionsnummer + Plandatum (falls übergeben) + Druckdatum
+    _hdr_parts = []
+    if version_nr is not None:
+        _hdr_parts.append("Version %d" % version_nr)
+    if plan_datum:
+        try:
+            _pd_fmt = date.fromisoformat(str(plan_datum)[:10]).strftime("%d.%m.%Y")
+        except (ValueError, TypeError):
+            _pd_fmt = str(plan_datum)[:10]
+        _hdr_parts.append("Planstand: %s" % _pd_fmt)
+    _hdr_parts.append("Druck: %s" % date.today().strftime("%d.%m.%Y"))
+    pdf.cell(0, 5, "  |  ".join(_hdr_parts) + "  ", align="R")
 
     pdf.set_text_color(*pdf.DARK)
     pdf.set_y(55)

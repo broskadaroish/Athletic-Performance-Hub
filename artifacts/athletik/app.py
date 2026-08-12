@@ -3735,7 +3735,9 @@ def page_trainingsplan():
             with st.spinner("Trainingsplan-PDF wird erstellt …"):
                 try:
                     _tv_vereinsname = st.session_state.get("cfg_vereinsname", "")
-                    _tv_plan_raw = trainingsplan_laden(sid)
+                    # Aktive Version nutzen statt trainingsplan_laden() —
+                    # stellt sicher dass das PDF exakt die angezeigte Version enthält
+                    _tv_plan_raw = plan_laden_nach_version(_vid)
                     # Normalisiere zu dict-Liste mit einheitlichen Spaltennamen
                     _tv_plan_dicts = []
                     for _row in (_tv_plan_raw or []):
@@ -3746,12 +3748,14 @@ def page_trainingsplan():
                         else:
                             _tv_plan_dicts.append(_row)
                     _tv_pdf_bytes = generate_trainingsplan_pdf(
-                        spieler         = auswahl,
-                        plan_rows       = _tv_plan_dicts,
-                        plangruppe      = _tv_pg,
+                        spieler            = auswahl,
+                        plan_rows          = _tv_plan_dicts,
+                        plangruppe         = _tv_pg,
                         plangruppen_config = _tv_cfg,
-                        alters_ersatz   = _ALTERS_ERSATZ,
-                        vereinsname     = _tv_vereinsname,
+                        alters_ersatz      = _ALTERS_ERSATZ,
+                        vereinsname        = _tv_vereinsname,
+                        version_nr         = _av.get("version_nr"),
+                        plan_datum         = _av.get("datum", ""),
                     )
                     _tv_vorname  = (auswahl.get("vorname") or "").strip()
                     _tv_nachname = (auswahl.get("nachname") or auswahl.get("name") or "Spieler").strip()
