@@ -19,3 +19,4 @@
 - [SCHRITT 8 Dashboard Trainer](schritt8-dashboard.md) — _dash_trainer komplett ersetzt; neue Helper-Funktionen; Hilfsfunktionen vor _dash_trainer in saas_dashboard.py
 - [Mobile nav session race condition](mobile-nav-session.md) — CookieController braucht 1 Extra-Rerun; loading-Platzhalter statt sofortigem Login-Gate verhindert Session-Verlust
 - [SCHRITT 9 Datensicherheit](schritt9-datensicherheit.md) — spieler_mandant_pruefen(), backup_status_laden(), db_backup_erstellen() in database.py; daily backup in lizenz_scheduler.py; Datensicherheit-Dashboard im Superadmin Export-Expander
+- [SCHRITT 10 Rechtliche Seiten](schritt10-legal.md) — modules/legal_page.py enthält page_impressum/page_datenschutz/page_agb; pre-login via _legal_show key; in-app via _ueber_sub key in page_ueber_software(); support@aphsystem.de ersetzt überall Broska_daroish@hotmail.de

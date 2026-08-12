@@ -9,7 +9,7 @@ imports simple; shared logic is delegated to the module layer.
 APP_NAME      = "Athletic Performance Hub"
 APP_VERSION   = "1.0.0"
 APP_DEVELOPER = "Broska Daroish"
-APP_EMAIL     = "Broska_daroish@hotmail.de"
+APP_EMAIL     = "support@aphsystem.de"
 APP_PHONE     = "01741682671"
 APP_COPYRIGHT = "\u00a9 2026 Broska Daroish. Alle Rechte vorbehalten."
 
@@ -35,6 +35,7 @@ from mobile import (
     inject_scroll_to_top_if_needed,
 )
 from help_ui import sicherheitshinweis_box, show_test_info, show_field_help, field_info_col, norm_badge, show_trainer_checkliste
+from modules.legal_page import page_impressum, page_datenschutz, page_agb
 from ui_components import (
     kpi_card, score_kpi, risk_kpi,
     player_banner, section_header, deficit_row, strength_row,
@@ -274,6 +275,24 @@ def _app_base_url() -> str:
 # ─── URL-Parameter lesen (E-Mail-Verifikation, Passwort-Reset) ────────────────
 _qp_verify = st.query_params.get("verify")
 _qp_reset  = st.query_params.get("reset")
+
+# ─── Rechtliche Seiten ohne Login erreichbar (Impressum, Datenschutz, AGB) ────
+# Gesetzt durch Buttons auf der Login-Seite. key: _legal_show ∈ {impressum|datenschutz|agb}
+_legal_show_key = st.session_state.pop("_legal_show", None)
+if _legal_show_key in ("impressum", "datenschutz", "agb"):
+    if st.button("← Zurück zur Anmeldung", key="legal_back_btn"):
+        st.rerun()
+    st.markdown(
+        '<hr style="border-color:#21262d;margin:8px 0 16px">',
+        unsafe_allow_html=True,
+    )
+    if _legal_show_key == "impressum":
+        page_impressum()
+    elif _legal_show_key == "datenschutz":
+        page_datenschutz()
+    elif _legal_show_key == "agb":
+        page_agb()
+    st.stop()
 
 # ─── Login-Gate: Benutzer muss angemeldet sein ────────────────────────────────
 if "user" not in st.session_state:
@@ -891,6 +910,22 @@ if "user" not in st.session_state:
                         except Exception as _ex:
                             st.error(f"Fehler bei der Registrierung: {_ex}")
 
+    # ── Rechtliche Links (ohne Anmeldung erreichbar) ──────────────────────────
+    st.markdown(
+        '<div style="margin-top:28px;padding-top:14px;border-top:1px solid #21262d;'
+        'text-align:center;font-size:10px;color:#8b949e">Rechtliches</div>',
+        unsafe_allow_html=True,
+    )
+    _ll1, _ll2, _ll3 = st.columns(3)
+    if _ll1.button("📋 Impressum", key="login_legal_impressum", use_container_width=True):
+        st.session_state["_legal_show"] = "impressum"
+        st.rerun()
+    if _ll2.button("🔒 Datenschutz", key="login_legal_datenschutz", use_container_width=True):
+        st.session_state["_legal_show"] = "datenschutz"
+        st.rerun()
+    if _ll3.button("📄 AGB", key="login_legal_agb", use_container_width=True):
+        st.session_state["_legal_show"] = "agb"
+        st.rerun()
 
     st.stop()
 
@@ -9510,108 +9545,161 @@ def page_testprotokoll():
 
 # ── Sub-page maps per section ─────────────────────────────────────────────────
 def page_ueber_software():
-    """Über die Software — Branding, Kontakt, Urheberrecht."""
-    import io as _uio
-    _ueber_logo = logo_laden()
-    if _ueber_logo:
-        try:
-            _ulcol, _umcol, _urcol = st.columns([1, 2, 1])
-            with _umcol:
-                st.image(_uio.BytesIO(_ueber_logo), use_container_width=True)
-        except Exception:
-            pass
-    _icon_path = os.path.join(os.path.dirname(__file__), "assets", "app_logo.png")
-    if not _ueber_logo and os.path.exists(_icon_path):
-        try:
-            _ulcol2, _umcol2, _urcol2 = st.columns([1, 2, 1])
-            with _umcol2:
-                st.image(_icon_path, use_container_width=True)
-        except Exception:
-            pass
-    _header_icon = "" if (_ueber_logo or os.path.exists(_icon_path)) else '<div style="font-size:64px">⚽</div>'
-    _header_pad  = "16px" if _ueber_logo else "40px"
-    st.markdown(
-        f'<div style="max-width:700px;margin:0 auto">'
-        f'<div style="text-align:center;padding:{_header_pad} 0 24px">'
-        f'{_header_icon}'
-        f'<h1 style="color:#e6edf3;font-size:22px;font-weight:800;'
-        f'letter-spacing:0.5px;margin:16px 0 4px">{APP_NAME}</h1>'
-        f'<div style="color:#58a6ff;font-size:12px;font-weight:600;'
-        f'letter-spacing:2px">VERSION {APP_VERSION}</div>'
-        f'</div></div>',
-        unsafe_allow_html=True,
-    )
+    """Über — Info, Impressum, Datenschutz, AGB.
 
-    col_l, col_r = st.columns(2)
+    Sub-Navigation via session_state key '_ueber_sub' ∈ {info|impressum|datenschutz|agb}.
+    Kann auch von der Sidebar-Footer-Navigation gesetzt werden.
+    """
+    from modules.legal_page import page_impressum as _pg_impressum
+    from modules.legal_page import page_datenschutz as _pg_datenschutz
+    from modules.legal_page import page_agb as _pg_agb
 
-    with col_l:
+    _sub = st.session_state.get("_ueber_sub", "info")
+
+    # ── Sub-Navigation ─────────────────────────────────────────────────────────
+    _nc1, _nc2, _nc3, _nc4 = st.columns(4)
+    if _nc1.button("ℹ️ Info", key="ueber_sub_info", use_container_width=True,
+                   type="primary" if _sub == "info" else "secondary"):
+        st.session_state["_ueber_sub"] = "info"
+        st.rerun()
+    if _nc2.button("📋 Impressum", key="ueber_sub_impressum", use_container_width=True,
+                   type="primary" if _sub == "impressum" else "secondary"):
+        st.session_state["_ueber_sub"] = "impressum"
+        st.rerun()
+    if _nc3.button("🔒 Datenschutz", key="ueber_sub_datenschutz", use_container_width=True,
+                   type="primary" if _sub == "datenschutz" else "secondary"):
+        st.session_state["_ueber_sub"] = "datenschutz"
+        st.rerun()
+    if _nc4.button("📄 AGB", key="ueber_sub_agb", use_container_width=True,
+                   type="primary" if _sub == "agb" else "secondary"):
+        st.session_state["_ueber_sub"] = "agb"
+        st.rerun()
+
+    st.markdown('<hr style="border-color:#21262d;margin:8px 0 16px">', unsafe_allow_html=True)
+
+    # ── Seiteninhalt ───────────────────────────────────────────────────────────
+    if _sub == "impressum":
+        _pg_impressum()
+
+    elif _sub == "datenschutz":
+        _pg_datenschutz()
+
+    elif _sub == "agb":
+        _pg_agb()
+
+    else:
+        # ── INFO ──────────────────────────────────────────────────────────────
+        import io as _uio
+        _ueber_logo = logo_laden()
+        if _ueber_logo:
+            try:
+                _ulcol, _umcol, _urcol = st.columns([1, 2, 1])
+                with _umcol:
+                    st.image(_uio.BytesIO(_ueber_logo), use_container_width=True)
+            except Exception:
+                pass
+        _icon_path = os.path.join(os.path.dirname(__file__), "assets", "app_logo.png")
+        if not _ueber_logo and os.path.exists(_icon_path):
+            try:
+                _ulcol2, _umcol2, _urcol2 = st.columns([1, 2, 1])
+                with _umcol2:
+                    st.image(_icon_path, use_container_width=True)
+            except Exception:
+                pass
+
+        _has_logo   = bool(_ueber_logo) or os.path.exists(_icon_path)
+        _hdr_icon   = "" if _has_logo else '<div style="font-size:64px;text-align:center">⚽</div>'
+        _hdr_pad    = "8px" if _has_logo else "40px"
         st.markdown(
-            f'<div style="background:#161b22;border:1px solid #30363d;'
-            f'border-radius:10px;padding:20px 22px;margin-bottom:12px">'
-            f'<div style="font-size:10px;color:#8b949e;letter-spacing:1px;'
-            f'margin-bottom:10px">SOFTWARE</div>'
-            f'<div style="color:#e6edf3;font-weight:700;font-size:14px;margin-bottom:4px">'
-            f'{APP_NAME}</div>'
-            f'<div style="color:#8b949e;font-size:12px">Version {APP_VERSION}</div>'
+            f'<div translate="no" style="text-align:center;padding:{_hdr_pad} 0 20px">'
+            f'{_hdr_icon}'
+            f'<h1 style="color:#e6edf3;font-size:22px;font-weight:800;'
+            f'letter-spacing:0.5px;margin:16px 0 4px">{APP_NAME}</h1>'
+            f'<div style="color:#58a6ff;font-size:12px;font-weight:600;'
+            f'letter-spacing:2px">VERSION {APP_VERSION}</div>'
             f'</div>',
             unsafe_allow_html=True,
         )
+
+        # Kurzbeschreibung
         st.markdown(
-            f'<div style="background:#161b22;border:1px solid #30363d;'
-            f'border-radius:10px;padding:20px 22px;margin-bottom:12px">'
-            f'<div style="font-size:10px;color:#8b949e;letter-spacing:1px;'
-            f'margin-bottom:10px">ENTWICKLER</div>'
-            f'<div style="color:#e6edf3;font-weight:700;font-size:14px;margin-bottom:8px">'
-            f'{APP_DEVELOPER}</div>'
-            f'<div style="font-size:10px;color:#8b949e;letter-spacing:1px;'
-            f'margin-bottom:6px">KONTAKT</div>'
-            f'<div style="color:#58a6ff;font-size:12px;margin-bottom:2px">'
-            f'✉ {APP_EMAIL}</div>'
-            f'<div style="color:#8b949e;font-size:12px">☎ {APP_PHONE}</div>'
-            f'</div>',
+            '<div style="background:#161b22;border:1px solid #30363d;border-radius:10px;'
+            'padding:16px 20px;margin-bottom:14px;color:#c9d1d9;font-size:14px;line-height:1.7">'
+            'Athletic Performance Hub unterstützt Trainer und Vereine bei der strukturierten '
+            'Leistungsdiagnostik, Trainingsplanung und langfristigen Entwicklung von '
+            'Fußballspielern.'
+            '</div>',
             unsafe_allow_html=True,
         )
 
-    with col_r:
+        # Info-Karten
+        _ci1, _ci2 = st.columns(2)
+        with _ci1:
+            st.markdown(
+                f'<div translate="no" style="background:#161b22;border:1px solid #30363d;'
+                f'border-radius:10px;padding:18px 20px;margin-bottom:12px">'
+                f'<div style="font-size:10px;color:#8b949e;letter-spacing:1px;margin-bottom:8px">SOFTWARE</div>'
+                f'<div style="color:#e6edf3;font-weight:700;font-size:14px;margin-bottom:4px">{APP_NAME}</div>'
+                f'<div style="color:#8b949e;font-size:12px">Version {APP_VERSION}</div>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+        with _ci2:
+            st.markdown(
+                f'<div translate="no" style="background:#161b22;border:1px solid #30363d;'
+                f'border-radius:10px;padding:18px 20px;margin-bottom:12px">'
+                f'<div style="font-size:10px;color:#8b949e;letter-spacing:1px;margin-bottom:8px">ENTWICKELT VON</div>'
+                f'<div style="color:#e6edf3;font-weight:700;font-size:14px;margin-bottom:10px">{APP_DEVELOPER}</div>'
+                f'<div style="font-size:10px;color:#8b949e;letter-spacing:1px;margin-bottom:4px">SUPPORT</div>'
+                f'<a href="mailto:support@aphsystem.de" style="color:#58a6ff;font-size:13px;'
+                f'text-decoration:none">support@aphsystem.de</a>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+
+        # Fachlicher Hinweis
         st.markdown(
-            f'<div style="background:#161b22;border:1px solid #30363d;'
-            f'border-radius:10px;padding:20px 22px;margin-bottom:12px">'
-            f'<div style="font-size:10px;color:#8b949e;letter-spacing:1px;'
-            f'margin-bottom:10px">COPYRIGHT</div>'
-            f'<div style="color:#e6edf3;font-weight:700;font-size:13px;margin-bottom:4px">'
-            f'{APP_COPYRIGHT}</div>'
-            f'<div style="color:#8b949e;font-size:11px;margin-top:8px">'
-            f'Diese Software befindet sich in kontinuierlicher Weiterentwicklung.</div>'
-            f'</div>',
+            '<div style="background:#161b22;border-left:4px solid #d29922;border-radius:6px;'
+            'padding:14px 18px;color:#8b949e;font-size:13px;line-height:1.7;margin-bottom:16px">'
+            '<strong style="color:#d29922">Hinweis</strong><br>'
+            'Athletic Performance Hub dient der sportlichen Leistungsdiagnostik und '
+            'Trainingsplanung. Die dargestellten Auswertungen, Auffälligkeiten und '
+            'Trainingsempfehlungen stellen keine medizinische Diagnose dar und ersetzen '
+            'keine ärztliche oder physiotherapeutische Untersuchung.'
+            '</div>',
             unsafe_allow_html=True,
         )
-        mailto_link = (
-            f"mailto:{APP_EMAIL}?subject=Athletic Performance Hub — Supportanfrage"
-            f"&body=Hallo Herr Daroish,%0D%0A%0D%0A"
+
+        # Support-Button
+        _mailto_support = (
+            "mailto:support@aphsystem.de"
+            "?subject=Athletic%20Performance%20Hub%20%E2%80%93%20Supportanfrage"
         )
         st.link_button(
-            "📧 Entwickler kontaktieren",
-            mailto_link,
+            "📧 Support kontaktieren",
+            _mailto_support,
             use_container_width=True,
         )
 
-    st.markdown("---")
-    st.markdown("### ⚖️ Urheberrecht")
-    st.markdown(
-        f'<div style="background:#0d1117;border-left:4px solid #d29922;'
-        f'border-radius:6px;padding:16px 18px;color:#8b949e;font-size:12px;'
-        f'line-height:1.7">'
-        f'Diese Software ist urheberrechtlich geschützt. Das Kopieren, Vervielfältigen, '
-        f'Verändern, Verbreiten oder die Weitergabe der Software oder von Teilen der '
-        f'Software ohne ausdrückliche schriftliche Genehmigung des Entwicklers ist untersagt. '
-        f'Zuwiderhandlungen können rechtliche Konsequenzen nach den geltenden gesetzlichen '
-        f'Bestimmungen nach sich ziehen.'
-        f'</div>',
-        unsafe_allow_html=True,
-    )
+        # Rechtliche Links
+        st.markdown(
+            '<div style="margin-top:20px;padding-top:14px;border-top:1px solid #21262d;'
+            'text-align:center;font-size:10px;color:#8b949e;margin-bottom:8px">Rechtliches</div>',
+            unsafe_allow_html=True,
+        )
+        _rl1, _rl2, _rl3 = st.columns(3)
+        if _rl1.button("📋 Impressum", key="info_goto_impressum", use_container_width=True):
+            st.session_state["_ueber_sub"] = "impressum"
+            st.rerun()
+        if _rl2.button("🔒 Datenschutz", key="info_goto_datenschutz", use_container_width=True):
+            st.session_state["_ueber_sub"] = "datenschutz"
+            st.rerun()
+        if _rl3.button("📄 AGB", key="info_goto_agb", use_container_width=True):
+            st.session_state["_ueber_sub"] = "agb"
+            st.rerun()
 
-    st.markdown("---")
-    st.caption(APP_COPYRIGHT)
+        st.markdown("---")
+        st.caption(APP_COPYRIGHT)
 
 
 _SUB_SPIELER = {
@@ -9990,15 +10078,24 @@ with st.sidebar:
 
     # ── Copyright-Footer ──────────────────────────────────────────────────────
     st.markdown(
-        f'<div style="position:fixed;bottom:0;left:0;width:240px;padding:8px 12px;'
-        f'background:{C["bg"]};border-top:1px solid {C["border"]};z-index:100">'
-        f'<div style="font-size:9px;color:{C["muted"]};text-align:center;line-height:1.5">'
-        f'{APP_COPYRIGHT}<br>'
-        f'<a href="ℹ️  Über" style="color:{C["muted"]};text-decoration:none">'
-        f'v{APP_VERSION}</a>'
+        f'<div style="padding:8px 12px 4px;border-top:1px solid {C["border"]};margin-top:8px">'
+        f'<div translate="no" style="font-size:9px;color:{C["muted"]};text-align:center;line-height:1.6">'
+        f'© 2026 Athletic Performance Hub<br>v{APP_VERSION}'
         f'</div></div>',
         unsafe_allow_html=True,
     )
+    if st.button("📋 Impressum", key="footer_impressum", use_container_width=True):
+        st.session_state["nav_section"]  = "ℹ️  Über"
+        st.session_state["_ueber_sub"]   = "impressum"
+        st.rerun()
+    if st.button("🔒 Datenschutz", key="footer_datenschutz", use_container_width=True):
+        st.session_state["nav_section"]  = "ℹ️  Über"
+        st.session_state["_ueber_sub"]   = "datenschutz"
+        st.rerun()
+    if st.button("📄 AGB", key="footer_agb", use_container_width=True):
+        st.session_state["nav_section"]  = "ℹ️  Über"
+        st.session_state["_ueber_sub"]   = "agb"
+        st.rerun()
 
 # ── Route ─────────────────────────────────────────────────────────────────────
 _check_save_ok()

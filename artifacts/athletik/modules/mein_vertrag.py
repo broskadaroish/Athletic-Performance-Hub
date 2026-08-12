@@ -422,7 +422,7 @@ def _sende_email(
         from email_service import send_kuendigung_admin_benachrichtigung
         admin_email = (
             _os.environ.get("SUPERADMIN_EMAIL", "").strip()
-            or "Broska_daroish@hotmail.de"
+            or "support@aphsystem.de"
         )
         kundentyp = "Verein" if ist_verein else "Einzeltrainer"
         send_kuendigung_admin_benachrichtigung(

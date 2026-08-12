@@ -81,7 +81,7 @@ def _stripe_upgrade(typ_key: str, verein_id: int, info: dict) -> None:
     if not stripe_verfuegbar():
         st.info(
             f"Für einen Wechsel auf **{typ_def.get('label', typ_key)}** kontaktiere uns bitte: "
-            "**Broska_daroish@hotmail.de** · Tel. 01741682671"
+            "**support@aphsystem.de**"
         )
         return
 
