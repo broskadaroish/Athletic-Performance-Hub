@@ -278,6 +278,16 @@ _qp_reset  = st.query_params.get("reset")
 if "user" not in st.session_state:
 
     # 1. Cookie-basierte Session-Wiederherstellung (nach Browser-Reload)
+    #
+    # Hintergrund: CookieController ist eine React-Komponente. Beim ersten Run
+    # einer neuen Streamlit-Session (z. B. nach einem Browser-Reload durch die
+    # mobile Bottom-Navigation) ist der Wert noch nicht aus dem Browser
+    # zurückgemeldet worden — _cookie_ctrl.get("ath_sid") gibt None zurück.
+    # Der Controller triggert danach automatisch einen zweiten Rerun mit dem
+    # echten Cookie-Wert. Damit die Login-Seite in diesem Zwischenzustand
+    # NICHT angezeigt wird, zeigen wir beim ersten Run einen Lade-Platzhalter
+    # und stoppen. Im zweiten Rerun ist der Cookie verfügbar und die Session
+    # wird korrekt wiederhergestellt — ohne erneuten Login.
     if _cookie_ctrl and not _qp_verify and not _qp_reset:
         try:
             _stored_sid = _cookie_ctrl.get("ath_sid")
@@ -288,6 +298,19 @@ if "user" not in st.session_state:
                     st.session_state["user"]           = _restored
                     st.session_state["_session_token"] = _stored_sid
                     st.rerun()
+            elif not st.session_state.get("_cookie_load_done"):
+                # Erster Run nach neuem Page-Load: Controller noch nicht bereit.
+                # Warte auf den automatischen zweiten Rerun mit echtem Cookie-Wert.
+                st.session_state["_cookie_load_done"] = True
+                st.markdown(
+                    '<div style="min-height:80vh;display:flex;align-items:center;'
+                    'justify-content:center">'
+                    '<div style="color:#8b949e;font-size:14px;text-align:center">'
+                    '<div style="font-size:28px;margin-bottom:12px">⚙️</div>'
+                    'Sitzung wird geprüft …</div></div>',
+                    unsafe_allow_html=True,
+                )
+                st.stop()
         except Exception:
             pass
 

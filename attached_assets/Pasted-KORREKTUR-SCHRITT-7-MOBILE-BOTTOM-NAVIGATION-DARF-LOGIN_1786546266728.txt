@@ -1,0 +1,443 @@
+KORREKTUR SCHRITT 7 – MOBILE BOTTOM NAVIGATION DARF LOGIN-SESSION NICHT VERLIEREN
+
+Aktueller realer Fehler:
+
+Auf dem Smartphone funktionieren die Bottom-Navigation-Buttons:
+
+* Start
+* Spieler
+* Tests
+* Training
+* Mehr
+
+optisch.
+
+ABER:
+
+Sobald ich einen dieser Buttons anklicke, werde ich auf die Login-Seite weitergeleitet.
+
+Wenn ich mich dort erneut anmelde, lande ich anschließend auf der richtigen Zielseite.
+
+Auf PC/Desktop funktionieren die Menübuttons dagegen korrekt, ohne erneute Anmeldung.
+
+DAS DARF NICHT SO SEIN.
+
+==================================================
+
+1. VERBINDLICHE REGEL
+   ==================================================
+
+Wenn ein Benutzer einmal erfolgreich angemeldet ist, muss seine Session bei Navigation innerhalb der Anwendung erhalten bleiben.
+
+Ein erneuter Login darf NICHT nötig sein bei:
+
+* Klick auf Start
+* Klick auf Spieler
+* Klick auf Tests
+* Klick auf Training
+* Klick auf Mehr
+* Seitenwechsel
+* normalem Streamlit-Rerun
+* Smartphone-Navigation
+* Desktop-Navigation
+
+Logout nur durch:
+
+1. Klick auf "Abmelden"
+
+oder
+
+2. tatsächliches Session-Timeout
+
+==================================================
+2. NICHT DIE AUTH-LOGIK NEU SCHREIBEN
+=====================================
+
+Die Sessionlogik aus SCHRITT 1 funktioniert grundsätzlich, da Desktop-Navigation korrekt funktioniert.
+
+Deshalb:
+
+* keine neue Session-Engine erstellen
+* keine neue Cookie-Lösung erstellen
+* keine neue Login-Logik erstellen
+* keine bestehenden Sessiontabellen ersetzen
+* keine Sessiondauer verändern
+
+Nur analysieren, warum die MOBILE Bottom Navigation den bestehenden Login-Zustand verliert.
+
+==================================================
+3. URSACHE DER MOBILE-NAVIGATION PRÜFEN
+=======================================
+
+Prüfe insbesondere:
+
+* Wie navigieren die Bottom-Navigation-Buttons?
+* Verwenden sie normale interne Navigation?
+* Verwenden sie HTML <a href="...">?
+* Verwenden sie JavaScript window.location?
+* Wird window.location.href gesetzt?
+* Wird eine neue URL geladen, ohne Session-State zu übernehmen?
+* Wird query_params gesetzt?
+* Wird st.switch_page verwendet?
+* Wird page state über URL statt Session gesteuert?
+* Wird die Session vor Navigation versehentlich gelöscht?
+* Wird Cookie-Controller bei Mobile-Navigation neu initialisiert?
+* Wird der Auth-Check ausgeführt, bevor der Session-Cookie geladen wurde?
+* Entsteht bei Mobile ein Streamlit-Rerun, bei dem der Auth-Status zu früh als "nicht angemeldet" bewertet wird?
+* Wird beim Klick eine externe oder falsche interne Route verwendet?
+* Wird ein neuer Tab oder vollständiger Browser-Reload ausgelöst?
+
+==================================================
+4. BESTEHENDE SESSION AUS SCHRITT 1 VERWENDEN
+=============================================
+
+Bestehende Session-Struktur weiterverwenden:
+
+* serverseitige Session
+* ath_sid Cookie
+* session_validieren()
+* vorhandener Session-Login-Status
+
+Beim Seitenwechsel muss zuerst geprüft werden:
+
+1. existiert ath_sid?
+2. ist Session serverseitig gültig?
+3. welchem Benutzer gehört die Session?
+
+Wenn gültig:
+
+→ Benutzer bleibt angemeldet.
+
+NICHT:
+
+→ automatisch Login-Seite anzeigen.
+
+==================================================
+5. AUTHENTIFIZIERUNG NICHT NUR AUS st.session_state ABLEITEN
+============================================================
+
+Falls die Mobile-Navigation nur auf:
+
+st.session_state["logged_in"]
+
+oder ähnlichen flüchtigen Werten basiert:
+
+Korrigieren.
+
+Nach Rerun muss der Login-Zustand aus der persistenten Session / dem ath_sid Cookie wiederhergestellt werden können.
+
+Das Cookie ist die dauerhafte Sessionquelle.
+
+st.session_state darf zusätzlich verwendet werden, aber nicht als einzige Auth-Quelle.
+
+==================================================
+6. SESSION-RESTORE MUSS VOR ROUTING PASSIEREN
+=============================================
+
+Prüfe Reihenfolge beim App-Start / Rerun.
+
+Gewünschte Reihenfolge:
+
+1. Session-Cookie lesen
+2. Session serverseitig validieren
+3. Benutzerkontext wiederherstellen
+4. erst danach Routing / Zielseite bestimmen
+5. erst wenn keine gültige Session vorhanden ist → Login anzeigen
+
+NICHT:
+
+1. Zielseite aufrufen
+2. logged_in fehlt
+3. sofort Login anzeigen
+4. Cookie erst später lesen
+
+Dieser Race-/Reihenfolgefehler könnte besonders auf Mobile auftreten.
+
+==================================================
+7. BOTTOM NAVIGATION INTERN ROUTEN
+==================================
+
+Mobile Navigation soll dieselbe interne Routing-Logik verwenden wie Desktop, soweit möglich.
+
+Bevorzugt:
+
+* bestehende page state / navigation function
+* st.switch_page(), wenn bereits korrekt eingesetzt
+* vorhandene interne Router-Funktion
+
+NICHT unnötig:
+
+* externe hrefs
+* absolute URL-Neuladevorgänge
+* window.location reload
+
+verwenden, wenn diese die Session destabilisieren.
+
+==================================================
+8. QUERY PARAMS
+===============
+
+Falls die Mobile Navigation über Query-Parameter navigiert:
+
+z.B.
+
+?page=training
+
+Dann:
+
+* Session nicht löschen
+* Session zuerst validieren
+* query parameter nur zur Seitenauswahl verwenden
+* keine Auth-Weiterleitung erzeugen, solange Session gültig ist
+
+==================================================
+9. "MEHR"-MENÜ
+==============
+
+Dasselbe gilt für "Mehr".
+
+Alle dort enthaltenen Seiten müssen die bestehende Session übernehmen.
+
+Kein erneuter Login bei:
+
+* Berichte
+* Kalender
+* Einstellungen
+* Vertrag
+* Trainingsbibliothek
+* Logout-Seite
+* sonstige interne Seiten
+
+==================================================
+10. LOGOUT MUSS WEITER FUNKTIONIEREN
+====================================
+
+Nur der echte Button:
+
+"Abmelden"
+
+darf:
+
+* serverseitige Session beenden
+* ath_sid Cookie löschen
+* Benutzer auf Loginseite zurückführen
+
+Normale Navigation darf dies niemals tun.
+
+==================================================
+11. COOKIE PRÜFEN
+=================
+
+Prüfe speziell den Cookie:
+
+ath_sid
+
+Beim Mobile-Klick:
+
+Vor Navigation:
+ath_sid vorhanden: JA/NEIN
+
+Nach Navigation:
+ath_sid vorhanden: JA/NEIN
+
+WICHTIG:
+Cookie-Wert niemals anzeigen.
+
+Nur prüfen, ob vorhanden.
+
+Wenn Cookie nach Navigation verschwindet:
+
+Ursache finden und beheben.
+
+==================================================
+12. DOMAIN / COOKIE-SCOPE PRÜFEN
+================================
+
+Prüfe, ob Mobile-Navigation möglicherweise zwischen unterschiedlichen Hosts/URLs wechselt.
+
+Zum Beispiel:
+
+aphsystem.de
+
+vs.
+
+[www.aphsystem.de](http://www.aphsystem.de)
+
+vs.
+
+Replit-Domain
+
+oder:
+
+http / https
+
+Wenn der Cookie nur für einen Host gesetzt ist, kann ein Hostwechsel zum Loginverlust führen.
+
+Alle internen Mobile-Links müssen auf derselben produktiven Origin bleiben.
+
+Keine Domainwechsel durch Navigation.
+
+==================================================
+13. COOKIE-EIGENSCHAFTEN
+========================
+
+Bestehende Cookie-Einstellungen prüfen:
+
+* Secure
+* HttpOnly, soweit mit verwendeter Lösung möglich
+* SameSite
+* Domain
+* Path
+
+Path sollte interne Seiten der App nicht ausschließen.
+
+Die Session muss für die komplette Anwendung gültig sein.
+
+Nicht nur für Login-/Startseite.
+
+==================================================
+14. MOBILE UND DESKTOP GLEICHE AUTHENTIFIZIERUNG
+================================================
+
+Es darf keine getrennte Authentifizierungslogik geben wie:
+
+Desktop:
+Funktion A
+
+Mobile:
+Funktion B
+
+Beide müssen dieselbe zentrale Authentifizierungs- und Sessionfunktion verwenden.
+
+Mobile Bottom Navigation darf ausschließlich UI/Navigation sein.
+
+==================================================
+15. AKTIVER SPIELER
+===================
+
+Zusätzlich prüfen:
+
+Beim Wechsel über mobile Navigation darf der aktive Spieler nicht unnötig verloren gehen.
+
+Wenn ein aktiver Spieler ausgewählt ist:
+
+Diagnostik
+→ Training
+→ Diagnostik
+
+soll nach Möglichkeit derselbe Spieler aktiv bleiben.
+
+Falls die bestehende App bewusst je Seite neu auswählen lässt, diese Logik nicht unnötig ändern.
+
+==================================================
+16. TESTABLAUF SMARTPHONE
+=========================
+
+Test 1:
+
+Smartphone öffnen.
+
+Login einmal durchführen.
+
+Dann:
+
+Start
+→ Spieler
+→ Tests
+→ Training
+→ Mehr
+→ Start
+
+Erwartung:
+
+KEINE erneute Login-Seite.
+
+==================================================
+17. TEST RELOAD
+===============
+
+Nach erfolgreichem Login:
+
+Seite aktualisieren.
+
+Erwartung:
+
+Benutzer bleibt angemeldet.
+
+Dann Bottom Navigation erneut testen.
+
+==================================================
+18. TEST BROWSER ZURÜCK/VOR
+===========================
+
+Falls Browser-Zurück/Vor verwendet wird:
+
+Session muss weiterhin gültig bleiben.
+
+Kein unerwarteter Logout.
+
+==================================================
+19. TEST PC/DESKTOP
+===================
+
+Desktop-/Laptop-Navigation danach erneut testen.
+
+Erwartung:
+
+bestehendes korrektes Verhalten bleibt unverändert.
+
+Keine Regression.
+
+==================================================
+20. TEST SESSION-TIMEOUT
+========================
+
+Wichtig:
+
+Nur wenn die Session tatsächlich abgelaufen ist:
+
+→ Login-Seite anzeigen.
+
+Damit sicherstellen, dass der Fix nicht einfach Authentifizierung deaktiviert.
+
+==================================================
+21. DEBUG-LOGGING
+=================
+
+Für die Diagnose darf temporär sicher geloggt werden:
+
+* mobile navigation target
+* session cookie present: true/false
+* server session valid: true/false
+* authenticated user id
+* destination page
+
+NICHT loggen:
+
+* Session-Token
+* Cookie-Wert
+* Passwort
+* SMTP-Secrets
+
+==================================================
+22. ABSCHLUSSBERICHT
+====================
+
+Nach Reparatur berichten:
+
+1. Warum verlor die Mobile Bottom Navigation die Login-Session?
+2. Welche Navigationstechnik wurde vorher verwendet?
+3. Welche Navigationstechnik wird jetzt verwendet?
+4. Wurde ath_sid beim Mobile-Klick gelöscht? JA / NEIN
+5. War die Reihenfolge Session-Restore / Routing falsch? JA / NEIN
+6. Gab es einen Domain-/Origin-Wechsel? JA / NEIN
+7. Verwenden Desktop und Mobile jetzt dieselbe zentrale Authentifizierung? JA / NEIN
+8. Bleibt der Benutzer nach Start → Spieler → Tests → Training → Mehr angemeldet? JA / NEIN
+9. Funktioniert Reload weiterhin ohne erneuten Login? JA / NEIN
+10. Funktioniert echter Logout weiterhin? JA / NEIN
+11. Wurde die Sessiondauer verändert? Erwartet: NEIN
+12. Welche Dateien wurden geändert?
+
+Danach STOPPEN.
+
+Keine weiteren UI- oder Funktionsänderungen durchführen.
