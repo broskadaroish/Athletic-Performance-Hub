@@ -582,24 +582,38 @@ def _kuendigungen_uebersicht() -> None:
                 col_best, col_end, _ = st.columns([1, 1, 2])
                 if col_best.button("✅ Bestätigen", key=f"kuend_best_{kid}",
                                    type="primary"):
-                    kuendigung_bestaetigen(
+                    ok_b, _ = kuendigung_bestaetigen(
                         eid, iv,
                         vende_input.strip() or None,
                         "bestaetigt",
                     )
-                    st.success("Kündigung bestätigt.")
+                    if ok_b:
+                        st.success("Kündigung bestätigt.")
+                    else:
+                        st.warning(
+                            "⚠️ Die Kündigung konnte nicht bestätigt werden — "
+                            "sie wurde inzwischen vom Kunden zurückgezogen. "
+                            "Bitte die Liste neu laden."
+                        )
                     st.rerun()
 
             if kst in ("eingegangen", "bestaetigt"):
                 col_end2, _ = st.columns([1, 3])
                 if col_end2.button("🏁 Als beendet markieren",
                                    key=f"kuend_end_{kid}"):
-                    kuendigung_bestaetigen(
+                    ok_e, _ = kuendigung_bestaetigen(
                         eid, iv,
                         k.get("gekuendigt_zum") or None,
                         "beendet",
                     )
-                    st.success("Kündigung als beendet markiert.")
+                    if ok_e:
+                        st.success("Kündigung als beendet markiert.")
+                    else:
+                        st.warning(
+                            "⚠️ Die Kündigung konnte nicht beendet werden — "
+                            "der Status hat sich zwischenzeitlich geändert. "
+                            "Bitte die Liste neu laden."
+                        )
                     st.rerun()
 
 

@@ -3899,42 +3899,95 @@ def kuendigung_einreichen(entity_id: int, ist_verein: bool,
     return True, jetzt
 
 
-def kuendigung_bestaetigen(entity_id: int, ist_verein: bool,
-                            vertragsende: str | None = None,
-                            status: str = "bestaetigt") -> None:
+def kuendigung_widerrufen(entity_id: int, ist_verein: bool) -> tuple[bool, str]:
+    """Zieht eine eingereichte Kündigung zurück.
+
+    Nur möglich solange kuendigungsstatus='eingegangen' (noch nicht vom Admin bestätigt).
+    Setzt kuendigung_eingegangen=NULL, kuendigungsstatus='aktiv', kuendigung_grund=NULL.
+
+    Atomisches bedingtes UPDATE — kein TOCTOU-Risiko: der Widerruf greift nur,
+    wenn der Status zum Zeitpunkt des Schreibens noch 'eingegangen' ist.
+    rowcount == 0 bedeutet, dass ein Admin die Kündigung inzwischen bestätigt hat.
+
+    Gibt (True, 'ok') oder (False, 'nicht_widerrufbar') zurück.
+    """
+    tabelle = "vereine" if ist_verein else "benutzer"
+    with get_conn() as conn:
+        cur = conn.execute(
+            f"UPDATE {tabelle} SET "
+            f"kuendigung_eingegangen=NULL, "
+            f"kuendigungsstatus='aktiv', "
+            f"kuendigung_grund=NULL "
+            f"WHERE id=? AND kuendigungsstatus='eingegangen'",
+            (entity_id,),
+        )
+        if cur.rowcount == 0:
+            return False, "nicht_widerrufbar"
+    return True, "ok"
+
+
+def kuendigung_bestaetigen(
+    entity_id: int,
+    ist_verein: bool,
+    vertragsende: str | None = None,
+    status: str = "bestaetigt",
+) -> tuple[bool, str]:
     """Superadmin bestätigt / beendet eine Kündigung; setzt optional Vertragsende.
 
-    Wenn status='beendet':
+    Atomische Zustandsprüfung — gültige Vorgänger-Zustände:
+      'bestaetigt': nur aus 'eingegangen'
+      'beendet':    aus 'eingegangen' oder 'bestaetigt'
+
+    rowcount == 0 bedeutet, dass die Kündigung inzwischen vom Kunden widerrufen
+    oder der Status anderweitig geändert wurde — kein Update wird ausgeführt.
+
+    Rückgabe: (True, 'ok') bei Erfolg
+              (False, 'widerrufen_oder_ungueltig') wenn Voraussetzung nicht erfüllt
+
+    Wenn status='beendet' und Update erfolgreich:
       - lizenz_status wird auf 'cancelled' gesetzt
       - aktiv=0 wird auf die Entität gesetzt
       - Bei Verein: alle zugehörigen Benutzer werden ebenfalls deaktiviert (aktiv=0)
-      - Audit-Log-Eintrag wird geschrieben
     """
     from datetime import datetime
     jetzt = datetime.utcnow().isoformat()
     tabelle = "vereine" if ist_verein else "benutzer"
+
+    # Gültige Vorgänger-Zustände je Ziel-Status
+    if status == "bestaetigt":
+        vorgaenger = ("eingegangen",)
+    elif status == "beendet":
+        vorgaenger = ("eingegangen", "bestaetigt")
+    else:
+        vorgaenger = ("eingegangen",)  # Fallback: konservativ
+
+    platzhalter = ",".join("?" * len(vorgaenger))
+
     with get_conn() as conn:
-        # Basisfelder setzen
-        conn.execute(
+        # Atomisches bedingtes UPDATE — nur wenn Vorgänger-Status gültig
+        cur = conn.execute(
             f"UPDATE {tabelle} "
             f"SET kuendigungsstatus=?, "
             f"    gekuendigt_zum=COALESCE(?, gekuendigt_zum), "
             f"    kuendigung_bestaetigung_am=? "
-            f"WHERE id=?",
-            (status, vertragsende, jetzt, entity_id),
+            f"WHERE id=? AND kuendigungsstatus IN ({platzhalter})",
+            (status, vertragsende, jetzt, entity_id, *vorgaenger),
         )
-        # Status-Kaskade bei "beendet"
+        if cur.rowcount == 0:
+            return False, "widerrufen_oder_ungueltig"
+
+        # Status-Kaskade bei "beendet" — nur wenn obiges UPDATE erfolgreich war
         if status == "beendet":
             conn.execute(
                 f"UPDATE {tabelle} SET lizenz_status='cancelled', aktiv=0 WHERE id=?",
                 (entity_id,),
             )
             if ist_verein:
-                # Alle Benutzer des Vereins deaktivieren
                 conn.execute(
                     "UPDATE benutzer SET aktiv=0 WHERE verein_id=?",
                     (entity_id,),
                 )
+
     # Audit-Log (darf nie blockieren)
     _audit_benutzer_id = None if ist_verein else entity_id
     _audit_details = (
@@ -3948,6 +4001,7 @@ def kuendigung_bestaetigen(entity_id: int, ist_verein: bool,
         f"kuendigung_{status}",
         _audit_details,
     )
+    return True, "ok"
 
 
 def kuendigung_liste_laden(status_filter: str | None = None) -> list[dict]:

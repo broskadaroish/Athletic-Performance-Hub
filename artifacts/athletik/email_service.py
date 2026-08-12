@@ -354,6 +354,70 @@ def send_kuendigung_bestaetigung(
         return False
 
 
+def send_kuendigung_widerrufen(
+    to: str,
+    name: str,
+    kundennummer: str,
+    lizenztyp: str,
+) -> bool:
+    """Bestätigt dem Kunden, dass seine Kündigung erfolgreich zurückgezogen wurde."""
+    subject = f"{_APP_NAME} – Kündigung zurückgezogen"
+    text = (
+        f"Hallo {name},\n\n"
+        f"deine Kündigung für {_APP_NAME} wurde erfolgreich zurückgezogen.\n\n"
+        f"Kundennummer:  {kundennummer}\n"
+        f"Paket:         {lizenztyp}\n\n"
+        f"Dein Vertrag läuft wie gewohnt weiter. Es fallen keine weiteren "
+        f"Schritte auf deiner Seite an.\n\n"
+        f"Falls du die Kündigung erneut einreichen möchtest, kannst du das "
+        f"jederzeit unter 'Mein Vertrag' tun.\n\n"
+        f"Bei Fragen erreichst du uns unter {_SUPPORT_EMAIL}.\n\n"
+        f"Viele Grüße\n{_APP_NAME}"
+    )
+    html = (
+        "<!DOCTYPE html><html><body style='font-family:Arial,sans-serif;"
+        "background:#f6f8fa;padding:24px;margin:0'>"
+        "<div style='max-width:580px;margin:0 auto;background:#ffffff;"
+        "border:1px solid #d0d7de;border-radius:8px;padding:40px 32px'>"
+        f"<h2 style='color:#24292f;margin:0 0 4px'>{_APP_NAME}</h2>"
+        "<p style='color:#57606a;font-size:13px;margin:0 0 24px'>"
+        "Football Performance &amp; Diagnostics</p>"
+        "<hr style='border:none;border-top:1px solid #d0d7de;margin:0 0 24px'>"
+        f"<p style='color:#24292f'>Hallo <strong>{name}</strong>,</p>"
+        "<p style='color:#24292f'>deine Kündigung wurde erfolgreich "
+        "<strong>zurückgezogen</strong>.</p>"
+        "<table style='width:100%;border-collapse:collapse;margin:20px 0 28px;"
+        "background:#f6f8fa;border-radius:6px;padding:16px'>"
+        "<tbody>"
+        f"<tr><td style='padding:8px 12px;color:#57606a;font-size:13px;"
+        f"white-space:nowrap'>Kundennummer</td>"
+        f"<td style='padding:8px 12px;color:#24292f;font-size:13px;"
+        f"font-weight:600'>{kundennummer}</td></tr>"
+        f"<tr style='background:#ffffff'><td style='padding:8px 12px;"
+        f"color:#57606a;font-size:13px'>Paket</td>"
+        f"<td style='padding:8px 12px;color:#24292f;font-size:13px'>{lizenztyp}</td></tr>"
+        f"<tr><td style='padding:8px 12px;color:#57606a;font-size:13px'>Status</td>"
+        f"<td style='padding:8px 12px;color:#238636;font-size:13px;"
+        f"font-weight:600'>Aktiv — Kündigung zurückgezogen</td></tr>"
+        "</tbody></table>"
+        "<p style='color:#24292f;font-size:13px'>Dein Vertrag läuft wie gewohnt "
+        "weiter. Es sind keine weiteren Schritte erforderlich.</p>"
+        "<hr style='border:none;border-top:1px solid #d0d7de;margin:24px 0'>"
+        f"<p style='color:#57606a;font-size:12px'>Fragen? "
+        f"<a href='mailto:{_SUPPORT_EMAIL}' style='color:#0969da'>{_SUPPORT_EMAIL}</a></p>"
+        f"<p style='color:#57606a;font-size:12px;margin-bottom:0'>"
+        f"Viele Grüße<br><strong>{_APP_NAME}</strong></p>"
+        "</div></body></html>"
+    )
+    try:
+        _send(to, subject, text, html)
+        log.info("Widerrufs-Bestätigung an %s... gesendet", to[:4])
+        return True
+    except Exception as exc:
+        log.error("send_kuendigung_widerrufen fehlgeschlagen (%s)", type(exc).__name__)
+        return False
+
+
 def send_kuendigung_admin_benachrichtigung(
     to: str,
     kundennummer: str,
