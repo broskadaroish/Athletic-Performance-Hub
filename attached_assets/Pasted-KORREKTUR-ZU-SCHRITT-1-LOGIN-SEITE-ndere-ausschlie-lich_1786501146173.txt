@@ -1,0 +1,111 @@
+KORREKTUR ZU SCHRITT 1 – LOGIN-SEITE
+
+Ändere ausschließlich die Darstellung der bereits vorhandenen Funktionen
+„Passwort vergessen“ und „Benutzername vergessen“.
+
+WICHTIG:
+- Keine Authentifizierungslogik ändern.
+- Keine Datenbank ändern.
+- Keine E-Mail-Logik ändern.
+- Keine Token-Logik ändern.
+- Keine Session-Logik ändern.
+- Die bereits implementierten Passwort-Reset- und Benutzername-Reminder-Funktionen weiterverwenden.
+
+==================================================
+LOGIN-DARSTELLUNG
+==================================================
+
+Auf der Login-Seite befinden sich:
+
+Benutzername / E-Mail
+[________________________]
+
+Passwort
+[________________________]
+
+Direkt UNTER diesen Eingabefeldern sollen zwei gut sichtbare,
+aber dezente anklickbare Buttons/Links stehen:
+
+[ Benutzername vergessen? ]   [ Passwort vergessen? ]
+
+Auf dem Smartphone dürfen sie bei zu wenig Platz untereinander dargestellt werden:
+
+[ Benutzername vergessen? ]
+
+[ Passwort vergessen? ]
+
+Danach folgt der normale:
+
+[ Anmelden ]
+
+Button.
+
+==================================================
+BENUTZERNAME VERGESSEN
+==================================================
+
+Beim Klick auf:
+
+„Benutzername vergessen?“
+
+soll die bereits implementierte Funktion für den
+Benutzername-Reminder geöffnet werden.
+
+Der Benutzer gibt seine hinterlegte E-Mail-Adresse ein.
+
+Keine neue Backend-Logik erstellen.
+
+==================================================
+PASSWORT VERGESSEN
+==================================================
+
+Beim Klick auf:
+
+„Passwort vergessen?“
+
+soll die bereits implementierte Passwort-Reset-Funktion geöffnet werden.
+
+Keine neue Backend-Logik erstellen.
+
+==================================================
+ZURÜCK ZUM LOGIN
+==================================================
+
+Sowohl bei:
+
+- Benutzername vergessen
+- Passwort vergessen
+
+muss ein klarer Button/Link vorhanden sein:
+
+„← Zurück zur Anmeldung“
+
+==================================================
+DESIGN
+==================================================
+
+Die beiden Funktionen sollen optisch als sekundäre Aktionen erscheinen.
+
+Sie dürfen nicht stärker hervorgehoben sein als der Hauptbutton:
+
+„Anmelden“
+
+Desktop und Smartphone müssen sauber funktionieren.
+
+==================================================
+ABSCHLUSS
+==================================================
+
+Teste:
+
+1. Benutzername vergessen anklicken
+2. Zurück zur Anmeldung
+3. Passwort vergessen anklicken
+4. Zurück zur Anmeldung
+5. normale Anmeldung
+6. Smartphone-Darstellung
+7. Desktop-Darstellung
+
+Keine anderen Funktionen verändern.
+
+Danach kurz berichten, welche Datei(en) geändert wurden.

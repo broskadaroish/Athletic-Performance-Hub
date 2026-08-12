@@ -359,73 +359,156 @@ if "user" not in st.session_state:
 
         else:
             # 5. Login / Registrierung / Passwort vergessen / Benutzername vergessen
-            _login_tab, _reg_tab, _trainer_tab, _pw_tab, _bn_tab = st.tabs([
+            _login_tab, _reg_tab, _trainer_tab = st.tabs([
                 "🔐 Anmelden",
                 "🏟️ Verein registrieren",
                 "👤 Trainer registrieren",
-                "🔑 Passwort vergessen",
-                "👤 Benutzername vergessen",
             ])
 
-            # ── Anmelden ─────────────────────────────────────────────────────
+            # ── Anmelden (mit Inline-Subviews für Passwort-/Benutzername-Vergessen) ──
             with _login_tab:
-                _login_email    = st.text_input(
-                    "E-Mail oder Benutzername", key="login_email",
-                    placeholder="trainer@verein.de"
-                )
-                _login_passwort = st.text_input("Passwort", key="login_pw", type="password")
-                if st.button("🔐 Anmelden", type="primary",
-                             use_container_width=True, key="login_btn"):
-                    _user_obj = login(_login_email.strip(), _login_passwort)
-                    if isinstance(_user_obj, dict) and _user_obj.get("gesperrt"):
-                        _min_rest = max(1, round(_user_obj["verbleibend_sek"] / 60))
-                        st.error(
-                            f"🔒 Konto vorübergehend gesperrt — zu viele Fehlversuche. "
-                            f"Bitte in ca. **{_min_rest} Minute(n)** erneut versuchen."
-                        )
-                    elif isinstance(_user_obj, dict) and _user_obj.get("email_nicht_verifiziert"):
-                        _ev_bid   = _user_obj["benutzer_id"]
-                        _ev_email = _user_obj["email"]
-                        st.warning(
-                            "📧 **Bitte bestätige zuerst deine E-Mail-Adresse.** "
-                            "Wir haben dir beim Registrieren eine Bestätigungs-E-Mail geschickt."
-                        )
-                        if st.button("📧 Bestätigungs-E-Mail erneut senden", key="resend_verify_btn"):
-                            from database import (
-                                email_token_erzeugen as _ete,
-                                email_token_resend_erlaubt as _etra,
-                                benutzer_by_id as _bbi,
-                            )
-                            if _etra(_ev_bid):
-                                _ntoken = _ete(_ev_bid)
-                                _bu = _bbi(_ev_bid) or {}
-                                try:
-                                    from email_service import send_verification_email as _sve
-                                    _sve(_ev_email, _bu.get("vorname") or "Benutzer",
-                                         _ntoken, _app_base_url())
-                                    st.success("✅ Bestätigungs-E-Mail erneut gesendet.")
-                                except Exception as _ee:
-                                    st.warning(f"E-Mail konnte nicht gesendet werden: {_ee}")
-                            else:
-                                st.info("Bitte warte mindestens 5 Minuten vor der nächsten Anforderung.")
-                    elif _user_obj:
-                        st.session_state["user"] = _user_obj
-                        # DB-Session erstellen + Cookie setzen
-                        try:
-                            from database import session_erstellen as _se
-                            _new_sid = _se(_user_obj["id"],
-                                          idle_sek=_SESSION_IDLE_SEC,
-                                          max_sek=_SESSION_MAX_SEC)
-                            st.session_state["_session_token"] = _new_sid
-                            if _cookie_ctrl:
-                                _cookie_ctrl.set("ath_sid", _new_sid,
-                                                max_age=_SESSION_MAX_SEC,
-                                                secure=True, same_site="Strict")
-                        except Exception:
-                            pass
+                # Sekundäre Buttons optisch dezenter machen
+                st.markdown("""
+                <style>
+                button[kind="secondary"].login-secondary {
+                    background: transparent !important;
+                    border: 1px solid #30363d !important;
+                    color: #8b949e !important;
+                    font-size: 12px !important;
+                }
+                </style>
+                """, unsafe_allow_html=True)
+
+                _lsv = st.session_state.get("_login_subview", None)
+
+                # ── Subview: Benutzername vergessen ───────────────────────────
+                if _lsv == "benutzername":
+                    st.markdown("#### 👤 Benutzername vergessen")
+                    st.caption("Gib deine hinterlegte E-Mail-Adresse ein. "
+                               "Falls ein Konto existiert, senden wir dir deinen Benutzernamen.")
+                    _bn_input = st.text_input("E-Mail-Adresse", key="bn_input_inline",
+                                              placeholder="trainer@verein.de")
+                    _bn_c1, _bn_c2 = st.columns([1, 1])
+                    if _bn_c1.button("← Zurück zur Anmeldung", key="bn_back_btn",
+                                     use_container_width=True):
+                        st.session_state["_login_subview"] = None
                         st.rerun()
-                    else:
-                        st.error("❌ E-Mail/Benutzername oder Passwort falsch.")
+                    if _bn_c2.button("👤 Benutzername anfordern", key="bn_send_inline",
+                                     type="primary", use_container_width=True):
+                        # Immer gleiche Meldung — kein Info-Leakage
+                        st.info("Falls ein passendes Konto existiert, "
+                                "erhältst du eine E-Mail mit deinem Benutzernamen.")
+                        if _bn_input.strip():
+                            try:
+                                from database import benutzername_reminder_laden as _brl
+                                _br = _brl(_bn_input.strip())
+                                if _br:
+                                    _br_uname, _br_name = _br
+                                    from email_service import send_username_reminder as _sur
+                                    _sur(_bn_input.strip(), _br_name, _br_uname)
+                            except Exception:
+                                pass
+
+                # ── Subview: Passwort vergessen ───────────────────────────────
+                elif _lsv == "passwort":
+                    st.markdown("#### 🔑 Passwort vergessen")
+                    st.caption("Gib deine E-Mail-Adresse oder deinen Benutzernamen ein. "
+                               "Falls ein Konto existiert, senden wir dir einen Reset-Link.")
+                    _pw_input = st.text_input("E-Mail-Adresse oder Benutzername",
+                                              key="pw_input_inline",
+                                              placeholder="trainer@verein.de")
+                    _pw_c1, _pw_c2 = st.columns([1, 1])
+                    if _pw_c1.button("← Zurück zur Anmeldung", key="pw_back_btn",
+                                     use_container_width=True):
+                        st.session_state["_login_subview"] = None
+                        st.rerun()
+                    if _pw_c2.button("🔑 Reset-Link anfordern", key="pw_send_inline",
+                                     type="primary", use_container_width=True):
+                        # Immer gleiche Meldung — kein Info-Leakage
+                        st.info("Falls ein passendes Konto existiert, "
+                                "haben wir eine E-Mail mit weiteren Anweisungen gesendet.")
+                        if _pw_input.strip():
+                            try:
+                                from database import pw_reset_token_erzeugen as _prte
+                                _rt = _prte(_pw_input.strip())
+                                if _rt:
+                                    _rt_token, _rt_name, _rt_email = _rt
+                                    from email_service import send_password_reset as _spr
+                                    _spr(_rt_email, _rt_name, _rt_token, _app_base_url())
+                            except Exception:
+                                pass
+
+                # ── Hauptformular: Login ──────────────────────────────────────
+                else:
+                    _login_email    = st.text_input(
+                        "E-Mail oder Benutzername", key="login_email",
+                        placeholder="trainer@verein.de"
+                    )
+                    _login_passwort = st.text_input("Passwort", key="login_pw", type="password")
+
+                    # Sekundäre Links — dezent, unter den Feldern, vor dem Anmelden-Button
+                    _sl1, _sl2 = st.columns(2)
+                    if _sl1.button("👤 Benutzername vergessen?", key="goto_bn_btn",
+                                   use_container_width=True):
+                        st.session_state["_login_subview"] = "benutzername"
+                        st.rerun()
+                    if _sl2.button("🔑 Passwort vergessen?", key="goto_pw_btn",
+                                   use_container_width=True):
+                        st.session_state["_login_subview"] = "passwort"
+                        st.rerun()
+
+                    if st.button("🔐 Anmelden", type="primary",
+                                 use_container_width=True, key="login_btn"):
+                        _user_obj = login(_login_email.strip(), _login_passwort)
+                        if isinstance(_user_obj, dict) and _user_obj.get("gesperrt"):
+                            _min_rest = max(1, round(_user_obj["verbleibend_sek"] / 60))
+                            st.error(
+                                f"🔒 Konto vorübergehend gesperrt — zu viele Fehlversuche. "
+                                f"Bitte in ca. **{_min_rest} Minute(n)** erneut versuchen."
+                            )
+                        elif isinstance(_user_obj, dict) and _user_obj.get("email_nicht_verifiziert"):
+                            _ev_bid   = _user_obj["benutzer_id"]
+                            _ev_email = _user_obj["email"]
+                            st.warning(
+                                "📧 **Bitte bestätige zuerst deine E-Mail-Adresse.** "
+                                "Wir haben dir beim Registrieren eine Bestätigungs-E-Mail geschickt."
+                            )
+                            if st.button("📧 Bestätigungs-E-Mail erneut senden",
+                                         key="resend_verify_btn"):
+                                from database import (
+                                    email_token_erzeugen as _ete,
+                                    email_token_resend_erlaubt as _etra,
+                                    benutzer_by_id as _bbi,
+                                )
+                                if _etra(_ev_bid):
+                                    _ntoken = _ete(_ev_bid)
+                                    _bu = _bbi(_ev_bid) or {}
+                                    try:
+                                        from email_service import send_verification_email as _sve
+                                        _sve(_ev_email, _bu.get("vorname") or "Benutzer",
+                                             _ntoken, _app_base_url())
+                                        st.success("✅ Bestätigungs-E-Mail erneut gesendet.")
+                                    except Exception as _ee:
+                                        st.warning(f"E-Mail konnte nicht gesendet werden: {_ee}")
+                                else:
+                                    st.info("Bitte warte mindestens 5 Minuten vor der nächsten Anforderung.")
+                        elif _user_obj:
+                            st.session_state["user"] = _user_obj
+                            try:
+                                from database import session_erstellen as _se
+                                _new_sid = _se(_user_obj["id"],
+                                              idle_sek=_SESSION_IDLE_SEC,
+                                              max_sek=_SESSION_MAX_SEC)
+                                st.session_state["_session_token"] = _new_sid
+                                if _cookie_ctrl:
+                                    _cookie_ctrl.set("ath_sid", _new_sid,
+                                                    max_age=_SESSION_MAX_SEC,
+                                                    secure=True, same_site="Strict")
+                            except Exception:
+                                pass
+                            st.rerun()
+                        else:
+                            st.error("❌ E-Mail/Benutzername oder Passwort falsch.")
 
             # ── Verein registrieren ───────────────────────────────────────────
             with _reg_tab:
@@ -633,57 +716,6 @@ if "user" not in st.session_state:
                         except Exception as _ex:
                             st.error(f"Fehler bei der Registrierung: {_ex}")
 
-            # ── Passwort vergessen ────────────────────────────────────────────
-            with _pw_tab:
-                st.markdown(
-                    '<p style="color:#8b949e;font-size:12px;margin-bottom:12px">'
-                    "Gib deine E-Mail-Adresse oder deinen Benutzernamen ein.</p>",
-                    unsafe_allow_html=True,
-                )
-                _pw_input = st.text_input(
-                    "E-Mail-Adresse oder Benutzername", key="pw_forget_input",
-                    placeholder="trainer@verein.de"
-                )
-                if st.button("🔑 Reset-Link anfordern", type="primary",
-                             use_container_width=True, key="pw_forget_btn"):
-                    # Immer dieselbe Meldung — verhindert Benutzer-Enumeration
-                    st.info("Falls ein passendes Konto existiert, haben wir eine E-Mail mit weiteren Anweisungen gesendet.")
-                    if _pw_input.strip():
-                        try:
-                            from database import pw_reset_token_erzeugen as _prte
-                            _rt = _prte(_pw_input.strip())
-                            if _rt:
-                                _rt_token, _rt_name, _rt_email = _rt
-                                from email_service import send_password_reset as _spr
-                                _spr(_rt_email, _rt_name, _rt_token, _app_base_url())
-                        except Exception:
-                            pass  # Stille Fehler — kein Info-Leakage
-
-            # ── Benutzername vergessen ────────────────────────────────────────
-            with _bn_tab:
-                st.markdown(
-                    '<p style="color:#8b949e;font-size:12px;margin-bottom:12px">'
-                    "Gib deine hinterlegte E-Mail-Adresse ein.</p>",
-                    unsafe_allow_html=True,
-                )
-                _bn_input = st.text_input(
-                    "E-Mail-Adresse", key="bn_forget_input",
-                    placeholder="trainer@verein.de"
-                )
-                if st.button("👤 Benutzername anfordern", type="primary",
-                             use_container_width=True, key="bn_forget_btn"):
-                    # Immer dieselbe Meldung — kein Info-Leakage
-                    st.info("Falls ein passendes Konto existiert, erhalten Sie eine E-Mail.")
-                    if _bn_input.strip():
-                        try:
-                            from database import benutzername_reminder_laden as _brl
-                            _br = _brl(_bn_input.strip())
-                            if _br:
-                                _br_uname, _br_name = _br
-                                from email_service import send_username_reminder as _sur
-                                _sur(_bn_input.strip(), _br_name, _br_uname)
-                        except Exception:
-                            pass
 
     st.stop()
 
