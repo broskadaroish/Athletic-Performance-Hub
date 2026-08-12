@@ -617,51 +617,61 @@ def _kuendigungen_uebersicht() -> None:
         iv   = bool(k["ist_verein"])
         kid  = f"{k['kundentyp']}_{eid}"
 
-        with st.expander(
-            f"{icon} {k.get('kundennummer','—')} — {k.get('name','—')}  |  {kst}",
-            expanded=False,
-        ):
-            c1, c2 = st.columns(2)
-            c1.markdown(f"**Kundentyp:** {k['kundentyp']}")
-            c1.markdown(f"**Paket:** {k.get('lizenztyp') or '—'}")
-            # Letzte Statusänderung ermitteln
-            eingegangen_ts = k.get("kuendigung_eingegangen") or ""
-            bestaetigt_ts  = k.get("kuendigung_bestaetigung_am") or ""
-            letzte_ts      = (bestaetigt_ts or eingegangen_ts)[:16].replace("T", " ") or "—"
+        # Gemeinsame Felder vorberechnen
+        eingegangen_ts = k.get("kuendigung_eingegangen") or ""
+        bestaetigt_ts  = k.get("kuendigung_bestaetigung_am") or ""
+        letzte_ts      = (bestaetigt_ts or eingegangen_ts)[:16].replace("T", " ") or "—"
+        eingegangen_fmt = eingegangen_ts[:16].replace("T", " ") or "—"
+        bestaetigt_fmt  = bestaetigt_ts[:16].replace("T", " ") or "—"
+        widerruf_badge  = _widerruf_frist_badge(eingegangen_ts) if kst == "eingegangen" else ""
 
-            c1.markdown(f"**Kündigung eingegangen:**  "
-                        f"{eingegangen_ts[:16].replace('T',' ') or '—'}")
-            c1.markdown(f"**Vertrag endet am:**  "
-                        f"{k.get('gekuendigt_zum') or 'Nicht festgelegt'}")
-            c1.markdown(f"**Letzte Statusänderung:**  {letzte_ts}")
-            c2.markdown(f"**Lizenzstatus:** {k.get('lizenz_status') or '—'}")
-            c2.markdown(f"**Kündigungsstatus:** {kst}")
-            c2.markdown(f"**Kündigungsgrund:**  "
-                        f"{k.get('kuendigung_grund') or 'Kein Grund angegeben'}")
-            c2.markdown(f"**Bestätigt am:**  "
-                        f"{bestaetigt_ts[:16].replace('T',' ') or '—'}")
+        # ── Status-Badge CSS-Klasse ─────────────────────────────────────────
+        badge_cls = {
+            "eingegangen": "aph-kuend-badge-eingegangen",
+            "bestaetigt":  "aph-kuend-badge-bestaetigt",
+            "beendet":     "aph-kuend-badge-beendet",
+        }.get(kst, "aph-kuend-badge-beendet")
 
-            # Widerruf-Frist-Badge (nur für 'eingegangen', nur wenn Frist konfiguriert)
+        # ══ MOBILE: Karten-Darstellung (hidden on desktop via CSS :has()) ══
+        with st.container():
+            st.markdown(
+                '<div class="aph-kuend-mobile-sentinel"></div>',
+                unsafe_allow_html=True,
+            )
+            st.markdown(
+                f"""
+                <div class="aph-kuend-card">
+                  <div class="aph-kuend-card-header">
+                    <span class="aph-kuend-badge {badge_cls}">{kst}</span>
+                    <span class="aph-kuend-card-kn">{icon} {k.get('kundennummer','—')}</span>
+                    <span class="aph-kuend-card-name">{k.get('name','—')}</span>
+                  </div>
+                  <div class="aph-kuend-card-meta">
+                    <span><b>Paket:</b> {k.get('lizenztyp') or '—'}</span>
+                    <span><b>Kundentyp:</b> {k['kundentyp']}</span>
+                    <span><b>Eingegangen:</b> {eingegangen_fmt}</span>
+                    <span><b>Vertrag endet am:</b> {k.get('gekuendigt_zum') or 'Nicht festgelegt'}</span>
+                    <span><b>Letzte Statusänderung:</b> {letzte_ts}</span>
+                    <span><b>Lizenzstatus:</b> {k.get('lizenz_status') or '—'}</span>
+                    <span><b>Kündigungsgrund:</b> {k.get('kuendigung_grund') or 'Kein Grund angegeben'}</span>
+                    <span><b>Bestätigt am:</b> {bestaetigt_fmt}</span>
+                  </div>
+                  {f'<div style="margin-top:8px">{widerruf_badge}</div>' if widerruf_badge else ''}
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
             if kst == "eingegangen":
-                badge = _widerruf_frist_badge(eingegangen_ts)
-                if badge:
-                    st.markdown(badge, unsafe_allow_html=True)
-
-            st.markdown("")
-
-            if kst == "eingegangen":
-                vende_input = st.text_input(
+                vende_m = st.text_input(
                     "Vertragsende setzen (YYYY-MM-DD, optional)",
-                    key=f"kuend_vende_{kid}",
+                    key=f"kuend_vende_m_{kid}",
                     placeholder="z. B. 2026-09-30",
                 )
-                col_best, col_end, _ = st.columns([1, 1, 2])
-                if col_best.button("✅ Bestätigen", key=f"kuend_best_{kid}",
-                                   type="primary"):
+                if st.button("✅ Bestätigen", key=f"kuend_best_m_{kid}",
+                             type="primary", use_container_width=True):
                     ok_b, _ = kuendigung_bestaetigen(
-                        eid, iv,
-                        vende_input.strip() or None,
-                        "bestaetigt",
+                        eid, iv, vende_m.strip() or None, "bestaetigt",
                     )
                     if ok_b:
                         st.success("Kündigung bestätigt.")
@@ -674,13 +684,11 @@ def _kuendigungen_uebersicht() -> None:
                     st.rerun()
 
             if kst in ("eingegangen", "bestaetigt"):
-                col_end2, _ = st.columns([1, 3])
-                if col_end2.button("🏁 Als beendet markieren",
-                                   key=f"kuend_end_{kid}"):
+                if st.button("🏁 Als beendet markieren",
+                             key=f"kuend_end_m_{kid}",
+                             use_container_width=True):
                     ok_e, _ = kuendigung_bestaetigen(
-                        eid, iv,
-                        k.get("gekuendigt_zum") or None,
-                        "beendet",
+                        eid, iv, k.get("gekuendigt_zum") or None, "beendet",
                     )
                     if ok_e:
                         st.success("Kündigung als beendet markiert.")
@@ -691,6 +699,71 @@ def _kuendigungen_uebersicht() -> None:
                             "Bitte die Liste neu laden."
                         )
                     st.rerun()
+
+        # ══ DESKTOP: Expander-Darstellung (hidden on mobile via CSS :has()) ═
+        with st.container():
+            st.markdown(
+                '<div class="aph-kuend-desktop-sentinel"></div>',
+                unsafe_allow_html=True,
+            )
+            with st.expander(
+                f"{icon} {k.get('kundennummer','—')} — {k.get('name','—')}  |  {kst}",
+                expanded=False,
+            ):
+                c1, c2 = st.columns(2)
+                c1.markdown(f"**Kundentyp:** {k['kundentyp']}")
+                c1.markdown(f"**Paket:** {k.get('lizenztyp') or '—'}")
+                c1.markdown(f"**Kündigung eingegangen:** {eingegangen_fmt}")
+                c1.markdown(f"**Vertrag endet am:** {k.get('gekuendigt_zum') or 'Nicht festgelegt'}")
+                c1.markdown(f"**Letzte Statusänderung:** {letzte_ts}")
+                c2.markdown(f"**Lizenzstatus:** {k.get('lizenz_status') or '—'}")
+                c2.markdown(f"**Kündigungsstatus:** {kst}")
+                c2.markdown(f"**Kündigungsgrund:** {k.get('kuendigung_grund') or 'Kein Grund angegeben'}")
+                c2.markdown(f"**Bestätigt am:** {bestaetigt_fmt}")
+
+                if widerruf_badge:
+                    st.markdown(widerruf_badge, unsafe_allow_html=True)
+
+                st.markdown("")
+
+                if kst == "eingegangen":
+                    vende_input = st.text_input(
+                        "Vertragsende setzen (YYYY-MM-DD, optional)",
+                        key=f"kuend_vende_{kid}",
+                        placeholder="z. B. 2026-09-30",
+                    )
+                    col_best, col_end, _ = st.columns([1, 1, 2])
+                    if col_best.button("✅ Bestätigen", key=f"kuend_best_{kid}",
+                                       type="primary"):
+                        ok_b, _ = kuendigung_bestaetigen(
+                            eid, iv, vende_input.strip() or None, "bestaetigt",
+                        )
+                        if ok_b:
+                            st.success("Kündigung bestätigt.")
+                        else:
+                            st.warning(
+                                "⚠️ Die Kündigung konnte nicht bestätigt werden — "
+                                "sie wurde inzwischen vom Kunden zurückgezogen. "
+                                "Bitte die Liste neu laden."
+                            )
+                        st.rerun()
+
+                if kst in ("eingegangen", "bestaetigt"):
+                    col_end2, _ = st.columns([1, 3])
+                    if col_end2.button("🏁 Als beendet markieren",
+                                       key=f"kuend_end_{kid}"):
+                        ok_e, _ = kuendigung_bestaetigen(
+                            eid, iv, k.get("gekuendigt_zum") or None, "beendet",
+                        )
+                        if ok_e:
+                            st.success("Kündigung als beendet markiert.")
+                        else:
+                            st.warning(
+                                "⚠️ Die Kündigung konnte nicht beendet werden — "
+                                "der Status hat sich zwischenzeitlich geändert. "
+                                "Bitte die Liste neu laden."
+                            )
+                        st.rerun()
 
 
 def page_kundenverwaltung():

@@ -593,6 +593,62 @@ html, body { overflow-x: hidden; max-width: 100vw; }
     .aph-kunden-karte:hover .aph-kunden-btn { background: #388bfd; border-color: #388bfd; }
 }
 
+/* ══ Kundenverwaltung — Kündigungen responsive Karten (Task #199) ═══════════ */
+/*
+ * Strategy: render each Kündigung twice inside st.container() blocks.
+ * A sentinel <div> inside each container lets CSS :has() toggle visibility.
+ *   .aph-kuend-desktop-sentinel  → container shown on desktop, hidden on mobile
+ *   .aph-kuend-mobile-sentinel   → container shown on mobile, hidden on desktop
+ */
+@media (max-width: 768px) {
+    div[data-testid="stVerticalBlock"]:has(.aph-kuend-desktop-sentinel):not(:has([data-testid="stVerticalBlock"]:has(.aph-kuend-desktop-sentinel))) {
+        display: none !important;
+    }
+}
+@media (min-width: 769px) {
+    div[data-testid="stVerticalBlock"]:has(.aph-kuend-mobile-sentinel):not(:has([data-testid="stVerticalBlock"]:has(.aph-kuend-mobile-sentinel))) {
+        display: none !important;
+    }
+}
+
+/* Kündigungen card — mobile layout */
+.aph-kuend-card {
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin-bottom: 10px;
+}
+.aph-kuend-card-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 6px;
+}
+.aph-kuend-card-kn   { color: #e6edf3; font-size: 14px; font-weight: 600; }
+.aph-kuend-card-name { color: #c9d1d9; font-size: 14px; }
+.aph-kuend-card-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 12px;
+    color: #8b949e;
+    margin-top: 6px;
+}
+.aph-kuend-card-meta span { display: block; }
+.aph-kuend-badge {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 10px;
+    white-space: nowrap;
+}
+.aph-kuend-badge-eingegangen { background: #1c2d3f; color: #58a6ff; border: 1px solid #388bfd; }
+.aph-kuend-badge-bestaetigt  { background: #0d3b2e; color: #3fb950; border: 1px solid #3fb950; }
+.aph-kuend-badge-beendet     { background: #21262d; color: #8b949e; border: 1px solid #30363d; }
+
 /* ══ "Mehr" navigation screen ════════════════════════════════════════════════ */
 /* Rendered via native st.button elements — no CSS overlay, no onclick HTML. */
 
