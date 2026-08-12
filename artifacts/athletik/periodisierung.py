@@ -925,9 +925,11 @@ def defizit_score(schwerpunkt_text: str) -> dict[str, int]:
     Score: 3 = primary, 2 = secondary, 1 = tertiary.
     Returns {} for empty/missing input (NO_DATA → Basis-Modus, caller handles).
     """
+    if not schwerpunkt_text:
+        return {}  # NO_DATA: keine Defizite, Basis-Modus aktiv
     txt = schwerpunkt_text.lower().strip()
     if not txt:
-        return {}  # NO_DATA: keine Defizite, Basis-Modus aktiv
+        return {}  # leer nach strip → Basis-Modus
     _mapping = [
         (["hüft", "huft", "gluteus", "becken", "seitenasymmetrie"],     "Hüfte"),
         (["knie", "valgus", "landungskontrolle", "sprungasymmetrie"],   "Knie"),
