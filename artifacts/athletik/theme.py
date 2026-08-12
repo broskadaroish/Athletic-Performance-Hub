@@ -397,12 +397,11 @@ html, body { overflow-x: hidden; max-width: 100vw; }
         word-break: break-word !important;
         box-shadow: none !important;
     }
-    /* Selected / active option */
-    [data-testid="stSegmentedControl"] button[aria-checked="true"],
-    [data-testid="stSegmentedControl"] button[aria-pressed="true"],
-    [data-testid="stSegmentedControl"] button[data-selected="true"] {
+    /* Selected / active option — Streamlit sets kind='segmented_controlActive'
+       on the selected button (confirmed from styled-components source) */
+    [data-testid="stSegmentedControl"] button[kind='segmented_controlActive'] {
         color: #58a6ff !important;
-        background: none !important;
+        background: rgba(88,166,255,0.10) !important;
         border: none !important;
         box-shadow: none !important;
     }
