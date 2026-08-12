@@ -32,6 +32,7 @@ from mobile import (
     render_mobile_nav,
     inject_mobile_player_header,
     inject_mobile_mehr_overlay,
+    inject_scroll_to_top_if_needed,
 )
 from help_ui import sicherheitshinweis_box, show_test_info, show_field_help, field_info_col, norm_badge, show_trainer_checkliste
 from ui_components import (
@@ -9894,6 +9895,7 @@ with st.sidebar:
         label_visibility="collapsed",
         format_func=lambda x: _NAV_TRANS.get(x, {}).get(_cur_lang, x),
     )
+    inject_scroll_to_top_if_needed(section)
 
     # ── Sub-navigation ────────────────────────────────────────────────────────
     sub_map = None

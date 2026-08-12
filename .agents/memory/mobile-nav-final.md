@@ -52,6 +52,9 @@ render_mobile_nav(section)
 `nav_section` is the sidebar `st.radio` key (app.py line ~9836).
 NEVER write to `nav_section` after line 9836. Always use `_nav_goto` pending key (applied at line ~9812, before the radio widget).
 
+### Scroll-to-top on section change
+`inject_scroll_to_top_if_needed(section)` in mobile.py compares `section` with `_prev_nav_section` in session_state. Only when they differ, a `st.components.v1.html` (height=0) iframe executes JS: `window.parent.document.querySelector('[data-testid="stMain"]').scrollTop = 0`. Called in app.py right after `section = st.radio(...)`. Does NOT fire on normal widget reruns — only real section changes.
+
 ### Segmented control CSS target safety
 No other page in the app uses `st.segmented_control` → targeting `[data-testid="stSegmentedControl"]` globally is safe.
 Selected state uses multiple selectors: `[aria-checked="true"]`, `[aria-pressed="true"]`, `[data-selected="true"]` (Streamlit version may vary).

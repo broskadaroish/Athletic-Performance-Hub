@@ -48,6 +48,40 @@ _PLAYER_SECTIONS = frozenset({
 
 # ── Query-param navigation handler ───────────────────────────────────────────
 
+def inject_scroll_to_top_if_needed(section: str) -> None:
+    """
+    Scroll to the top of the page only when the main section actually changes.
+
+    Triggered by: mobile nav tap, desktop sidebar click — any real section change.
+    NOT triggered by: form edits, widget changes, saves, reruns within a page.
+
+    Implementation: st.components.v1.html (0-height iframe) executes JS that
+    scrolls Streamlit's main scroll container in the parent window.
+    The scroll container is [data-testid="stMain"] (confirmed from Streamlit DOM).
+
+    Session key _prev_nav_section tracks the last rendered section.
+    On first render (prev = None) no scroll is injected.
+    """
+    import streamlit.components.v1 as components
+
+    prev = st.session_state.get("_prev_nav_section")
+    st.session_state["_prev_nav_section"] = section
+
+    if prev is not None and prev != section:
+        components.html(
+            "<script>"
+            "try {"
+            "  var p = window.parent;"
+            "  var el = p.document.querySelector('[data-testid=\"stMain\"]');"
+            "  if (el) { el.scrollTop = 0; el.scrollLeft = 0; }"
+            "  else { p.scrollTo(0, 0); p.document.documentElement.scrollTop = 0; }"
+            "} catch(e) {}"
+            "</script>",
+            height=0,
+            scrolling=False,
+        )
+
+
 def handle_mobile_nav_params() -> None:
     """
     Read ?player_id= query param; update session state without page reload.

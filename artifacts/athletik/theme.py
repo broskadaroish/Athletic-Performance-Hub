@@ -352,6 +352,7 @@ html, body { overflow-x: hidden; max-width: 100vw; }
    Safe to target all stSegmentedControl: no other page uses this widget. */
 
 @media (max-width: 768px) {
+    /* ── Nav container ── */
     [data-testid="stSegmentedControl"] {
         position: fixed !important;
         bottom: 0 !important;
@@ -362,11 +363,12 @@ html, body { overflow-x: hidden; max-width: 100vw; }
         border-top: 1px solid #21262d !important;
         box-shadow: 0 -2px 16px rgba(0,0,0,.65) !important;
         margin: 0 !important;
-        padding: 4px 0 env(safe-area-inset-bottom, 0) !important;
+        padding: 6px 0 env(safe-area-inset-bottom, 0) !important;
         border-radius: 0 !important;
         width: 100vw !important;
+        min-height: 68px !important;
     }
-    /* Pill/option container — full width, evenly distributed */
+    /* ── Inner pill container — full width, 5 equal columns ── */
     [data-testid="stSegmentedControl"] > div:first-child {
         display: flex !important;
         width: 100% !important;
@@ -375,39 +377,63 @@ html, body { overflow-x: hidden; max-width: 100vw; }
         border: none !important;
         padding: 0 !important;
         border-radius: 0 !important;
+        min-height: 68px !important;
     }
-    /* Each option button */
+    /* ── Each option button ── */
     [data-testid="stSegmentedControl"] button {
-        flex: 1 !important;
+        flex: 1 1 20% !important;
         border-radius: 0 !important;
         border: none !important;
         background: none !important;
         color: #8b949e !important;
-        font-size: 11px !important;
+        font-size: 13px !important;
         font-weight: 600 !important;
-        padding: 8px 2px !important;
-        min-height: 50px !important;
+        padding: 6px 2px !important;
+        min-height: 68px !important;
         min-width: 0 !important;
+        max-width: 20% !important;
         display: flex !important;
         flex-direction: column !important;
         align-items: center !important;
         justify-content: center !important;
+        gap: 3px !important;
         -webkit-tap-highlight-color: transparent !important;
-        white-space: normal !important;
-        word-break: break-word !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
         box-shadow: none !important;
+        line-height: 1.2 !important;
     }
-    /* Selected / active option — Streamlit sets kind='segmented_controlActive'
-       on the selected button (confirmed from styled-components source) */
+    /* ── Icon (emoji) — larger than label text ── */
+    [data-testid="stSegmentedControl"] button > div > p,
+    [data-testid="stSegmentedControl"] button > p,
+    [data-testid="stSegmentedControl"] button span[data-testid="stIconEmoji"],
+    [data-testid="stSegmentedControl"] button [class*="icon"],
+    [data-testid="stSegmentedControl"] button [class*="Icon"],
+    [data-testid="stSegmentedControl"] button img {
+        font-size: 22px !important;
+        line-height: 1 !important;
+        margin: 0 !important;
+    }
+    /* ── Label text — readable size ── */
+    [data-testid="stSegmentedControl"] button span:not([class]),
+    [data-testid="stSegmentedControl"] button [class*="label"],
+    [data-testid="stSegmentedControl"] button [class*="Label"] {
+        font-size: 14px !important;
+        line-height: 1.1 !important;
+    }
+    /* ── Selected / active option ── */
+    /* Streamlit sets kind='segmented_controlActive' on the selected button  */
+    /* (confirmed from styled-components.B5oT30oI.js source)                 */
     [data-testid="stSegmentedControl"] button[kind='segmented_controlActive'] {
         color: #58a6ff !important;
-        background: rgba(88,166,255,0.10) !important;
+        background: rgba(88,166,255,0.08) !important;
         border: none !important;
         box-shadow: none !important;
     }
-    /* Ensure main content is not hidden behind the fixed nav */
+    /* ── Ensure main content is not hidden behind the taller fixed nav ── */
     [data-testid="stMainBlockContainer"] {
-        padding-bottom: 80px !important;
+        padding-bottom: 100px !important;
     }
 }
 

@@ -1,0 +1,645 @@
+KORREKTUR SCHRITT 7 – MOBILE BOTTOM NAVIGATION FINAL OPTIMIEREN
+
+Die Mobile Bottom Navigation funktioniert technisch jetzt.
+
+Sie soll NICHT mehr grundsätzlich umgebaut werden.
+
+Es sollen nur noch folgende Punkte verbessert werden:
+
+1. Navigation auf dem Handy größer und besser bedienbar machen
+2. Icons oben und Text darunter anzeigen
+3. volle Bildschirmbreite nutzen
+4. bei echtem Seitenwechsel immer automatisch ganz nach oben scrollen
+5. Login-/Session-Verhalten unverändert lassen
+6. Desktop-Version nicht verändern
+
+==================================================
+0. WICHTIGE REGEL
+=================
+
+Die aktuelle funktionierende Navigation nicht neu erfinden.
+
+NICHT wieder verwenden:
+
+* versteckte 0–20 Triggerbuttons
+* ⬡-Hilfsbuttons
+* <a href="?nav=...">
+* img onload
+* img onerror
+* künstliche React-Events
+* React-Hacks
+* CSS-Tricks zum Verstecken technischer Navigationsbuttons
+
+Die aktuelle native Streamlit-Navigation weiterverwenden.
+
+==================================================
+
+1. MOBILE BOTTOM NAVIGATION
+   ==================================================
+
+Auf Smartphones bis einschließlich 768 px soll dauerhaft unten sichtbar sein:
+
+🏠
+Start
+
+👤
+Spieler
+
+🧪
+Tests
+
+📅
+Training
+
+⋯
+Mehr
+
+Layout:
+
+Icon oben
+Text darunter
+
+Alle fünf Elemente gleich breit.
+
+Jeder Punkt erhält ungefähr:
+
+20 % der verfügbaren Breite.
+
+==================================================
+2. VOLLE BILDSCHIRMBREITE
+=========================
+
+Die Bottom Navigation soll die komplette verfügbare Breite nutzen.
+
+Ziel:
+
+width: 100%
+
+bzw. volle App-/Viewportbreite.
+
+Nicht wie aktuell nur einen kleineren Bereich links verwenden.
+
+Die Navigation soll optisch über die gesamte untere Bildschirmkante laufen.
+
+==================================================
+3. HÖHE VERGRÖSSERN
+===================
+
+Die aktuelle Navigation ist zu klein.
+
+Zielhöhe:
+
+ca. 68–76 px
+
+Mindestens:
+
+min-height: 68px
+
+Touch-Flächen ausreichend groß für Smartphone-Bedienung.
+
+==================================================
+4. ICON-GRÖSSE
+==============
+
+Icons etwas größer anzeigen.
+
+Ziel:
+
+ca. 22–26 px
+
+Icons sauber zentrieren.
+
+==================================================
+5. TEXTGRÖSSE
+=============
+
+Beschriftungen gut lesbar.
+
+Ziel:
+
+ca. 14–16 px
+
+Text unter dem jeweiligen Icon.
+
+Beispiel:
+
+🏠
+Start
+
+Nicht alles eng nebeneinander in einer Zeile darstellen.
+
+==================================================
+6. ABSTÄNDE
+===========
+
+Innerhalb eines Navigationselements:
+
+* Icon und Text sauber ausrichten
+* kleine Lücke zwischen Icon und Text
+* keine unnötigen großen Außenabstände
+
+Alle fünf Elemente optisch gleich groß.
+
+==================================================
+7. AKTIVER MENÜPUNKT
+====================
+
+Der aktuell aktive Menüpunkt muss klar sichtbar bleiben.
+
+Beispiel:
+
+Start aktiv
+
+→ vorhandene APH-Akzentfarbe / Markierung verwenden.
+
+Andere Punkte neutral darstellen.
+
+Aktive Markierung darf nicht die Größe der Leiste verändern.
+
+==================================================
+8. FIXED BOTTOM
+===============
+
+Navigation weiterhin fest am unteren Bildschirmrand:
+
+position: fixed;
+bottom: 0;
+
+mit ausreichend hohem z-index.
+
+Sie muss beim Scrollen sichtbar bleiben.
+
+==================================================
+9. SAFE AREA
+============
+
+Auf Smartphones mit Gesten-/Systembereich berücksichtigen:
+
+env(safe-area-inset-bottom)
+
+wenn technisch sinnvoll.
+
+Damit Navigation nicht zu tief am Rand sitzt.
+
+==================================================
+10. INHALT DARF NICHT VERDECKT WERDEN
+=====================================
+
+Da Bottom Navigation höher wird:
+
+Hauptinhalt unten ausreichend Padding geben.
+
+Ungefähr:
+
+padding-bottom: 90px bis 110px
+
+abhängig von tatsächlicher Höhe.
+
+Letzte Karten / Buttons dürfen nicht hinter der Navigation liegen.
+
+==================================================
+11. WICHTIG – NEUE SEITE IMMER OBEN STARTEN
+===========================================
+
+Aktuelles Verhalten:
+
+Ich befinde mich z.B. auf der Startseite weit unten.
+
+Dann klicke ich auf:
+
+Tests
+
+Die Tests-Seite öffnet sich, aber der Browser bleibt ungefähr auf derselben Scrollhöhe.
+
+Das soll geändert werden.
+
+GEWÜNSCHTES VERHALTEN:
+
+Bei jedem echten Hauptseitenwechsel:
+
+→ neue Seite öffnen
+→ automatisch ganz nach oben scrollen
+
+Beispiel:
+
+Start weit unten
+→ Tests anklicken
+→ Tests startet oben
+
+Tests weit unten
+→ Training anklicken
+→ Training startet oben
+
+Training weit unten
+→ Spieler anklicken
+→ Spieler startet oben
+
+==================================================
+12. SCROLL-TO-TOP NUR BEI NAVIGATION
+====================================
+
+Sehr wichtig:
+
+Scroll-to-top darf NUR bei einem echten Seitenwechsel ausgelöst werden.
+
+NICHT bei normalen Streamlit-Reruns.
+
+Folgende Aktionen dürfen NICHT automatisch zum Seitenanfang springen:
+
+* Eingabefeld ändern
+* FMS-Wert eingeben
+* Y-Balance-Wert eingeben
+* Sprintwert eingeben
+* Dropdown ändern
+* Checkbox anklicken
+* Übung bearbeiten
+* Trainingsplan bearbeiten
+* Formular absenden
+* Speichern
+* Notiz eingeben
+
+Nur wenn:
+
+alte_seite != neue_seite
+
+soll Scroll-to-top ausgeführt werden.
+
+==================================================
+13. ZENTRALE NAVIGATION VERWENDEN
+=================================
+
+Nutze die bereits funktionierende zentrale Navigation.
+
+Beispielprinzip:
+
+navigate_to("start")
+navigate_to("spieler")
+navigate_to("diagnostik")
+navigate_to("training")
+navigate_to("mehr")
+
+Wenn die Route tatsächlich geändert wurde:
+
+→ neuen Seitenstatus setzen
+→ danach gezielt Scroll-to-top auslösen
+
+Keine zweite Navigation entwickeln.
+
+==================================================
+14. SCROLLPOSITION ERKENNEN
+===========================
+
+Vorherige Scrollposition muss nicht gespeichert werden.
+
+Bei Hauptnavigation gilt immer:
+
+neue Seite = oben beginnen.
+
+Innerhalb derselben Seite soll die normale Scrollposition erhalten bleiben, soweit Streamlit dies bereits macht.
+
+==================================================
+15. SICHERE SCROLL-TO-TOP-LÖSUNG
+================================
+
+Verwende eine einfache, stabile Lösung.
+
+Keine alten React-/img-Hacks.
+
+Wenn JavaScript notwendig ist:
+
+nur gezielt NACH tatsächlichem Navigationswechsel ausführen.
+
+Beispielprinzip:
+
+window.scrollTo(0, 0)
+
+oder entsprechend für den tatsächlichen Streamlit-Hauptscrollcontainer.
+
+Prüfe zuerst, welcher Scrollcontainer tatsächlich verwendet wird.
+
+Nicht blind einen falschen Container scrollen.
+
+==================================================
+16. KEIN SMOOTH-SCROLL NOTWENDIG
+================================
+
+Beim Seitenwechsel soll direkt oben begonnen werden.
+
+Keine lange Animation notwendig.
+
+==================================================
+17. KEIN VOLLER BROWSER-RELOAD
+==============================
+
+Die funktionierende interne Navigation weiterverwenden.
+
+Ein Klick auf:
+
+Start
+Spieler
+Tests
+Training
+Mehr
+
+darf keinen vollständigen Browser-Reload erzeugen.
+
+Dadurch soll:
+
+* Login erhalten bleiben
+* st.session_state erhalten bleiben
+* aktiver Spieler erhalten bleiben
+* tenant_id erhalten bleiben
+* Rolle erhalten bleiben
+
+==================================================
+18. LOGIN / SESSION NICHT VERÄNDERN
+===================================
+
+NICHT ändern:
+
+* ath_sid
+* CookieController
+* Session-Tabelle
+* Session-Lifetime
+* SESSION_IDLE_TIMEOUT
+* SESSION_MAX_LIFETIME
+* Login-Validierung
+* Logout-Logik
+
+Die Navigation funktioniert aktuell ohne erneuten Login.
+
+Das muss so bleiben.
+
+==================================================
+19. AKTIVER SPIELER
+===================
+
+Wenn ein Spieler ausgewählt ist:
+
+z.B. Lion Daroish
+
+dann:
+
+Tests
+→ Training
+→ Start
+→ Tests
+
+soll derselbe aktive Spieler erhalten bleiben.
+
+Keine unnötige Rücksetzung.
+
+==================================================
+20. "MEHR"
+==========
+
+Mehr muss weiterhin funktionieren.
+
+Beim Klick:
+
+Mehr
+
+→ Mehr-Seite startet ebenfalls oben.
+
+Auch Unterseiten aus Mehr sollen normal funktionieren.
+
+==================================================
+21. ABMELDEN
+============
+
+Im Mehr-Menü muss weiterhin korrekt stehen:
+
+"Abmelden"
+
+Nicht:
+
+"sündigen"
+
+Nicht automatisch übersetzen.
+
+Logout-Funktion nicht verändern.
+
+==================================================
+22. EIGENNAMEN
+==============
+
+Eigennamen weiterhin nicht übersetzen.
+
+Beispiele:
+
+Lion
+→ Lion
+
+Athletic Performance Hub
+→ Athletic Performance Hub
+
+Spieler-, Vereins-, Benutzer- und Paketnamen 1:1 anzeigen.
+
+==================================================
+23. SMARTPHONE-BREAKPOINT
+=========================
+
+Mobile Bottom Navigation anzeigen bis:
+
+max-width: 768px
+
+Bei größeren Bildschirmbreiten:
+
+Bottom Navigation ausblenden.
+
+Desktop-Sidebar verwenden.
+
+==================================================
+24. TEST 360 PX
+===============
+
+Bei 360 px testen.
+
+Erwartung:
+
+* alle fünf Navigationselemente sichtbar
+* kein Text abgeschnitten
+* kein horizontaler Scrollbalken
+* Icon oben
+* Text darunter
+* ausreichende Touch-Fläche
+
+==================================================
+25. TEST 390 PX
+===============
+
+Bei 390 px testen.
+
+Gleiche Erwartungen.
+
+==================================================
+26. TEST 412 PX
+===============
+
+Bei 412 px testen.
+
+Gleiche Erwartungen.
+
+==================================================
+27. TEST 430 PX
+===============
+
+Bei 430 px testen.
+
+Gleiche Erwartungen.
+
+==================================================
+28. NAVIGATIONSTEST
+===================
+
+Realer Test:
+
+1. Einmal anmelden.
+2. Startseite ganz nach unten scrollen.
+3. Tests anklicken.
+
+Erwartung:
+Tests-Seite ganz oben.
+
+4. Tests ganz nach unten scrollen.
+5. Training anklicken.
+
+Erwartung:
+Training ganz oben.
+
+6. Training nach unten scrollen.
+7. Spieler anklicken.
+
+Erwartung:
+Spieler ganz oben.
+
+8. Spieler nach unten scrollen.
+9. Mehr anklicken.
+
+Erwartung:
+Mehr ganz oben.
+
+10. Start anklicken.
+
+Erwartung:
+Start ganz oben.
+
+Während des gesamten Tests:
+
+KEINE erneute Login-Seite.
+
+==================================================
+29. FORMULAR-TEST
+=================
+
+Danach z.B. FMS oder Y-Balance öffnen.
+
+Nach unten scrollen.
+
+Einen Wert verändern.
+
+Erwartung:
+
+Seite darf NICHT wegen dieses normalen Reruns automatisch nach oben springen.
+
+Dasselbe testen bei:
+
+* Dropdown
+* Checkbox
+* Training bearbeiten
+* Notiz
+* Speichern
+
+==================================================
+30. RELOAD-TEST
+===============
+
+Browser manuell aktualisieren.
+
+Erwartung:
+
+* Session wird über bestehendes ath_sid wiederhergestellt
+* kein erneuter Login
+* Mobile Navigation wieder sichtbar
+* aktuelle Seite korrekt dargestellt
+
+==================================================
+31. DESKTOP TEST
+================
+
+Desktop/Laptop testen.
+
+Erwartung:
+
+* bestehende Sidebar unverändert
+* keine Mobile Bottom Navigation
+* keine Verschlechterung
+* Navigation weiterhin korrekt
+
+==================================================
+32. KEINE BACKENDÄNDERUNGEN
+===========================
+
+Diese Korrektur ist ausschließlich UI/Navigation.
+
+NICHT verändern:
+
+* Datenbank
+* Mandantentrennung
+* Spieler
+* Diagnosen
+* Tests
+* Trainingspläne
+* Trainingslogik
+* Sprintlogik
+* Pakete
+* Preise
+* Verträge
+* Kündigungen
+* E-Mail
+* Authentifizierung
+
+==================================================
+33. KEINE LEGACY-TRIGGERBUTTONS
+===============================
+
+Noch einmal prüfen:
+
+Es dürfen keine alten:
+
+⬡0
+⬡1
+...
+⬡20
+
+Triggerbuttons zurückkehren.
+
+Keine versteckten Hilfsbuttons für Navigation.
+
+==================================================
+34. ABSCHLUSSBERICHT
+====================
+
+Nach Umsetzung berichten:
+
+1. Welche native Navigationskomponente wird aktuell verwendet?
+2. Welche Höhe hat die Bottom Navigation?
+3. Welche Icon-Größe?
+4. Welche Textgröße?
+5. Nutzt sie auf Mobile die volle Breite? JA / NEIN
+6. Sind alle fünf Elemente gleich breit? JA / NEIN
+7. Werden Icon und Text untereinander dargestellt? JA / NEIN
+8. Startet jede neue Hauptseite automatisch ganz oben? JA / NEIN
+9. Wird Scroll-to-top nur bei echtem Seitenwechsel ausgelöst? JA / NEIN
+10. Bleiben normale Formular-Reruns an ihrer Scrollposition? JA / NEIN
+11. Bleibt Login erhalten? JA / NEIN
+12. Bleibt aktiver Spieler erhalten? JA / NEIN
+13. Funktioniert Mehr weiterhin? JA / NEIN
+14. Ist "Abmelden" korrekt? JA / NEIN
+15. Funktioniert Desktop unverändert? JA / NEIN
+16. Sind die alten 0–20 Triggerbuttons weiterhin vollständig entfernt? JA / NEIN
+17. Welche Dateien wurden geändert?
+
+Danach STOPPEN.
+
+Keine weiteren Funktionen oder Designänderungen durchführen.
