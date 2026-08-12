@@ -604,6 +604,53 @@ def send_widerruf_admin_benachrichtigung(
         return False
 
 
+def send_deaktivierung_email(to: str, name: str, vereinsname: str = "") -> bool:
+    """Sendet eine Benachrichtigung an den Trainer, dass sein Konto deaktiviert wurde.
+
+    vereinsname – optionaler Vereinsname für personalisierten Kontext.
+    Gibt True bei Erfolg zurück; False wenn SMTP nicht konfiguriert oder Fehler auftritt.
+    """
+    kontext = f"bei {vereinsname}" if vereinsname else f"bei {_APP_NAME}"
+    subject = f"{_APP_NAME} – Dein Konto wurde deaktiviert"
+    text = (
+        f"Hallo {name},\n\n"
+        f"dein Konto {kontext} wurde deaktiviert. "
+        "Du kannst dich bis auf Weiteres nicht mehr anmelden.\n\n"
+        "Falls du Fragen hast oder glaubst, dass dies ein Fehler ist, "
+        f"wende dich bitte an: {_SUPPORT_EMAIL}\n\n"
+        f"Viele Grüße\n{_APP_NAME}"
+    )
+    html = (
+        "<!DOCTYPE html><html><body style='font-family:Arial,sans-serif;"
+        "background:#f6f8fa;padding:24px;margin:0'>"
+        "<div style='max-width:560px;margin:0 auto;background:#ffffff;"
+        "border:1px solid #d0d7de;border-radius:8px;padding:40px 32px'>"
+        f"<h2 style='color:#24292f;margin:0 0 4px'>{_APP_NAME}</h2>"
+        "<p style='color:#57606a;font-size:13px;margin:0 0 24px'>"
+        "Football Performance &amp; Diagnostics</p>"
+        "<hr style='border:none;border-top:1px solid #d0d7de;margin:0 0 24px'>"
+        f"<p style='color:#24292f'>Hallo <strong>{name}</strong>,</p>"
+        f"<p style='color:#24292f'>dein Konto <strong>{kontext}</strong> wurde "
+        "<strong>deaktiviert</strong>. Du kannst dich bis auf Weiteres nicht mehr anmelden.</p>"
+        "<p style='color:#24292f;background:#fff8c5;border:1px solid #f0c000;"
+        "border-radius:6px;padding:12px 16px;font-size:13px'>"
+        "Falls du Fragen hast oder glaubst, dass dies ein Fehler ist, wende dich bitte "
+        f"an unseren Support.</p>"
+        "<hr style='border:none;border-top:1px solid #d0d7de;margin:24px 0'>"
+        f"<p style='color:#57606a;font-size:12px'>Fragen? "
+        f"<a href='mailto:{_SUPPORT_EMAIL}' style='color:#0969da'>{_SUPPORT_EMAIL}</a></p>"
+        f"<p style='color:#57606a;font-size:12px;margin-bottom:0'>"
+        f"Viele Grüße<br><strong>{_APP_NAME}</strong></p>"
+        "</div></body></html>"
+    )
+    try:
+        _send(to, subject, text, html)
+        return True
+    except Exception as exc:
+        log.error("send_deaktivierung_email fehlgeschlagen (%s)", type(exc).__name__)
+        return False
+
+
 def send_test_mail(to: str) -> None:
     """Testmail für Superadmin — prüft ob SMTP-Konfiguration funktioniert."""
     subject = f"{_APP_NAME} – E-Mail-Test"

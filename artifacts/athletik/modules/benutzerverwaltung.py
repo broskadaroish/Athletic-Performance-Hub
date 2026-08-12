@@ -131,6 +131,19 @@ def page_benutzerverwaltung():
                                     "Freischaltungs-E-Mail (Speichern) fehlgeschlagen (%s)",
                                     type(_fee_sv).__name__,
                                 )
+                        # Deaktivierungs-E-Mail senden wenn Konto gerade deaktiviert wurde
+                        if _aktiv and not aktiv:
+                            try:
+                                from email_service import send_deaktivierung_email as _sde_sv
+                                _vname_de = sel_verein["name"] if vereine else ""
+                                _sde_sv(email.strip(), vorname.strip() or "Benutzer",
+                                        _vname_de)
+                            except Exception as _dee_sv:
+                                import logging as _log_de
+                                _log_de.getLogger("athletik.email").error(
+                                    "Deaktivierungs-E-Mail (Speichern) fehlgeschlagen (%s)",
+                                    type(_dee_sv).__name__,
+                                )
                         st.success("Benutzer gespeichert.")
                         st.rerun()
                     except ValueError as _ve:
