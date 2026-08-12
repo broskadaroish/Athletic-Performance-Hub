@@ -1,0 +1,414 @@
+KORREKTUR SCHRITT 1 – PASSWORT VERGESSEN UND BENUTZERNAME VERGESSEN
+
+Aktueller realer Test:
+
+1. „Passwort vergessen“
+   → E-Mail wird inzwischen zugestellt.
+   → Die E-Mail ist jedoch leer bzw. enthält keinen brauchbaren Inhalt.
+   → Es fehlt insbesondere der Link, über den der Benutzer ein neues Passwort setzen kann.
+
+2. „Benutzername vergessen“
+   → Es wird aktuell keine E-Mail zugestellt.
+
+WICHTIG:
+
+* Bestehende funktionierende SMTP-Verbindung NICHT verändern.
+* SMTP-Secrets NICHT verändern.
+* Session-Logik NICHT verändern.
+* Registrierung NICHT verändern.
+* E-Mail-Verifizierung NICHT verändern.
+* Nur die beiden Recovery-Funktionen analysieren und reparieren.
+
+==================================================
+
+1. PASSWORT-RESET – URSACHE PRÜFEN
+   ==================================================
+
+Prüfe zuerst den bestehenden Codepfad:
+
+Login
+→ „Passwort vergessen?“
+→ Benutzer finden
+→ Reset-Token erzeugen
+→ Reset-Link erzeugen
+→ send_password_reset()
+→ E-Mail-Inhalt
+→ SMTP-Versand
+
+Prüfe insbesondere:
+
+* Wird ein Reset-Token tatsächlich erzeugt?
+* Wird der Token in der Datenbank gespeichert?
+* Wird pw_reset_ablauf gesetzt?
+* Wird der Token an send_password_reset() übergeben?
+* Wird APP_BASE_URL geladen?
+* Wird daraus ein vollständiger Reset-Link erzeugt?
+* Wird dieser Link tatsächlich in den Text-/HTML-Body der E-Mail eingefügt?
+* Werden Subject, Textbody und HTMLbody korrekt an EmailMessage/MIME-Nachricht gesetzt?
+* Wird eventuell nur eine leere Nachricht versendet?
+* Wird der Body nach dem Erstellen versehentlich überschrieben?
+
+==================================================
+2. RESET-LINK
+=============
+
+Der Link soll unter produktiver Domain erzeugt werden.
+
+Wenn:
+
+APP_BASE_URL=https://aphsystem.de
+
+gesetzt ist, soll z.B. erzeugt werden:
+
+https://aphsystem.de/?reset=RESET_TOKEN
+
+oder der bereits im Projekt vorhandene funktionierende Reset-Pfad.
+
+Keine Replit-Development-URL verwenden, wenn APP_BASE_URL vorhanden ist.
+
+Der Token darf:
+
+* sicher zufällig
+* zeitlich begrenzt
+* einmal verwendbar
+
+sein.
+
+Bestehende Tokenlogik weiterverwenden.
+
+==================================================
+3. PASSWORT-RESET-E-MAIL
+========================
+
+Die E-Mail darf NICHT leer sein.
+
+Absender:
+
+Athletic Performance Hub
+[noreply@aphsystem.de](mailto:noreply@aphsystem.de)
+
+Reply-To:
+
+[support@aphsystem.de](mailto:support@aphsystem.de)
+
+Betreff:
+
+Athletic Performance Hub – Passwort zurücksetzen
+
+Textinhalt:
+
+Hallo [Vorname],
+
+du hast angefordert, dein Passwort für Athletic Performance Hub zurückzusetzen.
+
+Klicke auf den folgenden Link, um ein neues Passwort festzulegen:
+
+[Passwort zurücksetzen]
+
+Falls der Button nicht funktioniert, soll darunter zusätzlich der vollständige Reset-Link als klickbarer Text angezeigt werden.
+
+Der Link ist nur für einen begrenzten Zeitraum gültig und kann nur einmal verwendet werden.
+
+Wenn du diese Anfrage nicht gestellt hast, kannst du diese E-Mail ignorieren.
+
+Bei Fragen:
+[support@aphsystem.de](mailto:support@aphsystem.de)
+
+Viele Grüße
+Athletic Performance Hub
+
+==================================================
+4. HTML + TEXT FALLBACK
+=======================
+
+Die Passwort-Reset-Mail soll möglichst:
+
+* HTML-Version
+  UND
+* Plain-Text-Version
+
+enthalten.
+
+Damit die Mail auch dann lesbar ist, wenn ein Mailclient HTML nicht korrekt darstellt.
+
+Plain-Text muss mindestens enthalten:
+
+* Erklärung
+* vollständigen Reset-Link
+* Support-Adresse
+
+==================================================
+5. RESET-SEITE
+==============
+
+Wenn der Kunde auf den Reset-Link klickt:
+
+* Token prüfen
+* bei gültigem Token Formular anzeigen
+
+Felder:
+
+Neues Passwort
+Passwort bestätigen
+
+Button:
+
+„Passwort ändern“
+
+Nach erfolgreicher Änderung:
+
+„Dein Passwort wurde erfolgreich geändert.“
+
+Danach:
+
+[Zur Anmeldung]
+
+Token anschließend ungültig machen.
+
+Bei ungültigem oder abgelaufenem Token:
+
+„Dieser Link ist ungültig oder abgelaufen.“
+
+Zusätzlich:
+
+[Neuen Passwort-Link anfordern]
+
+==================================================
+6. KEIN PASSWORT PER E-MAIL
+===========================
+
+Weiterhin verbindlich:
+
+* kein temporäres Passwort versenden
+* kein neues Passwort per Mail schicken
+* kein Klartextpasswort speichern
+
+Der Benutzer setzt das neue Passwort ausschließlich über den Reset-Link selbst.
+
+==================================================
+7. BENUTZERNAME VERGESSEN – URSACHE PRÜFEN
+==========================================
+
+Prüfe separat den bestehenden Codepfad:
+
+Login
+→ „Benutzername vergessen?“
+→ E-Mail eingeben
+→ normalize_email()
+→ Benutzer finden
+→ Benutzername laden
+→ send_username_reminder()
+→ SMTP-Versand
+
+Prüfe insbesondere:
+
+* Wird die eingegebene E-Mail korrekt normalisiert?
+* Wird das Konto gefunden?
+* Ist die richtige E-Mail-Adresse im Konto hinterlegt?
+* Verhindert email_verifiziert aktuell unnötig den Versand?
+* Verhindert account_aktiv unnötig den Versand?
+* Wird benutzername_reminder_laden() aufgerufen?
+* Liefert diese Funktion tatsächlich den Benutzernamen zurück?
+* Wird send_username_reminder() aufgerufen?
+* Gibt die Funktion Erfolg/Fehler zurück?
+* Wird ein Fehler verschluckt?
+
+==================================================
+8. BENUTZERNAME-REMINDER VERHALTEN
+==================================
+
+Wenn ein Konto mit der eingegebenen E-Mail existiert und grundsätzlich zur Recovery berechtigt ist:
+
+Benutzername-E-Mail versenden.
+
+Auf der Webseite trotzdem immer nur anzeigen:
+
+„Falls ein passendes Konto existiert, erhalten Sie eine E-Mail.“
+
+Dadurch keine Information darüber preisgeben, ob die E-Mail registriert ist.
+
+==================================================
+9. BENUTZERNAME-E-MAIL
+======================
+
+Absender:
+
+Athletic Performance Hub
+[noreply@aphsystem.de](mailto:noreply@aphsystem.de)
+
+Reply-To:
+
+[support@aphsystem.de](mailto:support@aphsystem.de)
+
+Betreff:
+
+Athletic Performance Hub – Dein Benutzername
+
+Inhalt:
+
+Hallo [Vorname],
+
+du hast deinen Benutzernamen für Athletic Performance Hub angefordert.
+
+Dein Benutzername lautet:
+
+[BENUTZERNAME]
+
+Du kannst dich hier anmelden:
+
+https://aphsystem.de
+
+Wenn du diese Anfrage nicht gestellt hast, kannst du diese E-Mail ignorieren.
+
+Bei Fragen:
+[support@aphsystem.de](mailto:support@aphsystem.de)
+
+Viele Grüße
+Athletic Performance Hub
+
+==================================================
+10. BENUTZERNAME UND E-MAIL
+===========================
+
+Wichtig:
+
+Der Benutzername ist kein Passwort und darf dem Besitzer des Kontos an seine hinterlegte E-Mail-Adresse zugeschickt werden.
+
+Passwörter oder Passwort-Hashes niemals mitsenden.
+
+==================================================
+11. E-MAIL-STATUS NICHT FALSCH BLOCKIEREN
+=========================================
+
+Prüfe die aktuelle Regel:
+
+In Schritt 1 wurde der Benutzername-Reminder möglicherweise auf:
+
+„nur verifizierte und aktive Konten“
+
+beschränkt.
+
+Prüfe, ob genau das die Ursache ist.
+
+Gewünschtes Verhalten:
+
+* bei normal bestehenden Kundenkonten soll die Recovery funktionieren
+* bei gesperrten/deaktivierten Konten darf weiterhin eine sichere, neutrale Behandlung erfolgen
+* die Webseite verrät niemals, ob ein Konto existiert
+
+Keine unnötige Blockade erzeugen, wenn dadurch ein legitimer Kunde seinen Benutzernamen nicht zurückerhalten kann.
+
+==================================================
+12. SMTP NICHT NEU KONFIGURIEREN
+================================
+
+Da die Passwort-Reset-Mail bereits ankommt, ist grundsätzlich bewiesen, dass SMTP-Versand funktioniert.
+
+Deshalb:
+
+SMTP_HOST
+SMTP_PORT
+SMTP_USERNAME
+SMTP_PASSWORD
+SMTP_FROM
+
+nicht unnötig verändern.
+
+Fokus auf:
+
+* Inhaltserzeugung
+* Linkerzeugung
+* Funktionsaufrufe
+* Recovery-Bedingungen
+
+==================================================
+13. TEST PASSWORT VERGESSEN
+===========================
+
+Testablauf:
+
+1. Login-Seite öffnen.
+2. „Passwort vergessen?“ klicken.
+3. registrierte E-Mail eingeben.
+4. Anfrage absenden.
+
+Erwartung:
+
+* neutrale Erfolgsmeldung auf Website
+* E-Mail kommt an
+* Betreff vorhanden
+* Text vorhanden
+* Button/Link vorhanden
+* vollständiger Fallback-Link vorhanden
+
+5. Link öffnen.
+6. Reset-Seite erscheint.
+7. neues Passwort zweimal eingeben.
+8. speichern.
+9. Login mit altem Passwort schlägt fehl.
+10. Login mit neuem Passwort funktioniert.
+11. Reset-Link zweites Mal öffnen.
+12. Link wird abgelehnt.
+
+==================================================
+14. TEST BENUTZERNAME VERGESSEN
+===============================
+
+1. Login-Seite öffnen.
+2. „Benutzername vergessen?“ klicken.
+3. hinterlegte E-Mail-Adresse eingeben.
+4. absenden.
+
+Erwartung:
+
+* neutrale Meldung auf Website
+* E-Mail wird versendet
+* E-Mail enthält Vorname, falls vorhanden
+* E-Mail enthält korrekten Benutzernamen
+* E-Mail enthält Login-Hinweis
+* kein Passwort enthalten
+
+==================================================
+15. LOGGING
+===========
+
+Für Entwicklungs-/Diagnosezwecke darf sicher geloggt werden:
+
+* password reset requested
+* reset token generated
+* reset email send attempted
+* reset email sent / failed
+* username reminder requested
+* username reminder send attempted
+* username reminder sent / failed
+
+NICHT loggen:
+
+* Reset-Token selbst
+* Passwort
+* Passwort-Hash
+* SMTP_PASSWORD
+* Session-Token
+
+==================================================
+16. ABSCHLUSSBERICHT
+====================
+
+Nach Reparatur berichten:
+
+1. Warum war die Passwort-Reset-E-Mail leer?
+2. Wurde ein Reset-Link vorher erzeugt: JA / NEIN?
+3. Wie sieht der verwendete Reset-Pfad aus, ohne echten Token zu zeigen?
+4. Enthält die Mail jetzt Plain-Text und HTML: JA / NEIN?
+5. Funktioniert das Reset-Formular: JA / NEIN?
+6. Funktioniert die Passwortänderung: JA / NEIN?
+7. Warum wurde beim Benutzername-Reminder bisher keine Mail gesendet?
+8. Wird send_username_reminder() jetzt aufgerufen: JA / NEIN?
+9. Funktioniert die Benutzername-Mail: JA / NEIN?
+10. Welche Dateien wurden geändert?
+11. Welche Datenbankänderungen waren nötig?
+12. Wurde SMTP-Konfiguration verändert? Erwartet: NEIN, sofern nicht zwingend erforderlich.
+
+Danach STOPPEN.
+
+Keine anderen Bereiche verändern.

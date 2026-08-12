@@ -405,15 +405,28 @@ if "user" not in st.session_state:
                         st.info("Falls ein passendes Konto existiert, "
                                 "erhältst du eine E-Mail mit deinem Benutzernamen.")
                         if _bn_input.strip():
+                            import logging as _log_bn
+                            _log_bn_inst = _log_bn.getLogger("athletik.email")
                             try:
                                 from database import benutzername_reminder_laden as _brl
+                                _log_bn_inst.info("Benutzername-Reminder angefordert für: %s",
+                                                  _bn_input.strip()[:3] + "***")
                                 _br = _brl(_bn_input.strip())
                                 if _br:
-                                    _br_uname, _br_name = _br
+                                    _br_uname, _br_name, _br_email = _br
                                     from email_service import send_username_reminder as _sur
-                                    _sur(_bn_input.strip(), _br_name, _br_uname)
-                            except Exception:
-                                pass
+                                    _log_bn_inst.info("Sende Benutzername-Reminder an verifizierte Adresse")
+                                    _sur(_br_email, _br_name, _br_uname,
+                                         os.environ.get("APP_BASE_URL", "https://aphsystem.de"))
+                                    _log_bn_inst.info("Benutzername-Reminder erfolgreich gesendet")
+                                else:
+                                    _log_bn_inst.info("Benutzername-Reminder: kein passendes Konto gefunden")
+                            except Exception as _e_bn:
+                                _log_bn_inst.error(
+                                    "Benutzername-Reminder fehlgeschlagen (%s) — "
+                                    "SMTP_PASSWORD wird nicht geloggt.",
+                                    type(_e_bn).__name__,
+                                )
 
                 # ── Subview: Passwort vergessen ───────────────────────────────
                 elif _lsv == "passwort":
@@ -434,15 +447,26 @@ if "user" not in st.session_state:
                         st.info("Falls ein passendes Konto existiert, "
                                 "haben wir eine E-Mail mit weiteren Anweisungen gesendet.")
                         if _pw_input.strip():
+                            import logging as _log_pw
+                            _log_pw_inst = _log_pw.getLogger("athletik.email")
                             try:
                                 from database import pw_reset_token_erzeugen as _prte
+                                _log_pw_inst.info("Passwort-Reset angefordert")
                                 _rt = _prte(_pw_input.strip())
                                 if _rt:
                                     _rt_token, _rt_name, _rt_email = _rt
+                                    _log_pw_inst.info("Reset-Token erzeugt — sende E-Mail")
                                     from email_service import send_password_reset as _spr
                                     _spr(_rt_email, _rt_name, _rt_token, _app_base_url())
-                            except Exception:
-                                pass
+                                    _log_pw_inst.info("Passwort-Reset E-Mail erfolgreich gesendet")
+                                else:
+                                    _log_pw_inst.info("Passwort-Reset: kein passendes Konto gefunden")
+                            except Exception as _e_pw:
+                                _log_pw_inst.error(
+                                    "Passwort-Reset E-Mail fehlgeschlagen (%s) — "
+                                    "SMTP_PASSWORD wird nicht geloggt.",
+                                    type(_e_pw).__name__,
+                                )
 
                 # ── Hauptformular: Login ──────────────────────────────────────
                 else:

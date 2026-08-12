@@ -61,7 +61,7 @@ def _send(to: str, subject: str, body_text: str, body_html: str | None = None) -
     context = ssl.create_default_context()
     with smtplib.SMTP_SSL(_SMTP_HOST, _SMTP_PORT, context=context) as smtp:
         smtp.login(_SMTP_USER, pw)   # pw absichtlich nicht geloggt
-        smtp.sendmail(_SMTP_FROM, [to], msg.as_bytes())
+        smtp.send_message(msg)       # send_message() ist zuverlässiger als sendmail+as_bytes()
 
     log.info("E-Mail gesendet an %s — Betreff: %s", to, subject)
 
@@ -99,50 +99,90 @@ def send_verification_email(to: str, name: str, token: str, base_url: str) -> No
 def send_password_reset(to: str, name: str, token: str, base_url: str) -> None:
     """Sendet den Passwort-Reset-Link. Kein Klartextpasswort in der E-Mail."""
     reset_url = f"{base_url.rstrip('/')}/?reset={token}"
-    subject = f"{_APP_NAME} – Passwort zurücksetzen"
+    subject = f"{_APP_NAME} \u2013 Passwort zur\u00fccksetzen"
     text = (
         f"Hallo {name},\n\n"
-        "du hast das Zurücksetzen deines Passworts angefordert.\n\n"
+        f"du hast angefordert, dein Passwort f\u00fcr {_APP_NAME} zur\u00fcckzusetzen.\n\n"
+        "Klicke auf den folgenden Link, um ein neues Passwort festzulegen:\n\n"
         f"{reset_url}\n\n"
-        "Der Link ist 1 Stunde gültig und kann nur einmal verwendet werden.\n\n"
-        "Falls du keine Anfrage gestellt hast, kannst du diese E-Mail ignorieren. "
-        "Dein Passwort bleibt in diesem Fall unverändert.\n\n"
-        f"Support: {_SUPPORT_EMAIL}\n\n"
-        f"Viele Grüße\n{_APP_NAME}"
+        "Der Link ist nur f\u00fcr einen begrenzten Zeitraum g\u00fcltig (1 Stunde) "
+        "und kann nur einmal verwendet werden.\n\n"
+        "Wenn du diese Anfrage nicht gestellt hast, kannst du diese E-Mail ignorieren. "
+        "Dein Passwort bleibt in diesem Fall unver\u00e4ndert.\n\n"
+        f"Bei Fragen: {_SUPPORT_EMAIL}\n\n"
+        f"Viele Gr\u00fc\u00dfe\n{_APP_NAME}"
     )
     html = (
-        f"<p>Hallo <strong>{name}</strong>,</p>"
-        "<p>du hast das Zurücksetzen deines Passworts angefordert:</p>"
-        f'<p><a href="{reset_url}" style="background:#0969da;color:#fff;'
-        f'padding:10px 24px;border-radius:6px;text-decoration:none;display:inline-block;font-weight:bold">'
-        f"Passwort zurücksetzen</a></p>"
-        "<p>Der Link ist <strong>1 Stunde</strong> gültig und kann nur einmal verwendet werden.</p>"
-        "<p>Falls du keine Anfrage gestellt hast, ignoriere diese E-Mail. "
-        "Dein Passwort bleibt unverändert.</p>"
-        f"<hr><p style='font-size:12px;color:#666'>Support: "
-        f"<a href='mailto:{_SUPPORT_EMAIL}'>{_SUPPORT_EMAIL}</a></p>"
-        f"<p style='font-size:12px;color:#666'>Viele Grüße<br><strong>{_APP_NAME}</strong></p>"
+        "<!DOCTYPE html><html><body style='font-family:Arial,sans-serif;"
+        "background:#f6f8fa;padding:24px'>"
+        "<div style='max-width:560px;margin:0 auto;background:#ffffff;"
+        "border:1px solid #d0d7de;border-radius:8px;padding:32px'>"
+        f"<h2 style='color:#24292f;margin-top:0'>{_APP_NAME}</h2>"
+        f"<p style='color:#24292f'>Hallo <strong>{name}</strong>,</p>"
+        f"<p style='color:#24292f'>du hast angefordert, dein Passwort f\u00fcr "
+        f"<strong>{_APP_NAME}</strong> zur\u00fcckzusetzen.</p>"
+        "<p style='color:#24292f'>Klicke auf den folgenden Button, um ein neues Passwort festzulegen:</p>"
+        f'<p><a href="{reset_url}" style="background:#0969da;color:#ffffff;'
+        "padding:12px 28px;border-radius:6px;text-decoration:none;"
+        "display:inline-block;font-weight:bold;font-size:15px\">"
+        "Passwort zur\u00fccksetzen</a></p>"
+        "<p style='color:#57606a;font-size:13px'>Falls der Button nicht funktioniert, "
+        "kopiere diesen Link in deinen Browser:</p>"
+        f'<p style="word-break:break-all"><a href="{reset_url}" style="color:#0969da">'
+        f"{reset_url}</a></p>"
+        "<hr style='border:none;border-top:1px solid #d0d7de;margin:24px 0'>"
+        "<p style='color:#57606a;font-size:13px'>"
+        "Der Link ist <strong>1 Stunde</strong> g\u00fcltig und kann nur einmal verwendet werden.</p>"
+        "<p style='color:#57606a;font-size:13px'>"
+        "Wenn du diese Anfrage nicht gestellt hast, kannst du diese E-Mail ignorieren. "
+        "Dein Passwort bleibt unver\u00e4ndert.</p>"
+        f"<p style='color:#57606a;font-size:12px'>Bei Fragen: "
+        f"<a href='mailto:{_SUPPORT_EMAIL}' style='color:#0969da'>{_SUPPORT_EMAIL}</a></p>"
+        f"<p style='color:#57606a;font-size:12px'>Viele Gr\u00fc\u00dfe<br>"
+        f"<strong>{_APP_NAME}</strong></p>"
+        "</div></body></html>"
     )
     _send(to, subject, text, html)
 
 
-def send_username_reminder(to: str, name: str, benutzername: str) -> None:
+def send_username_reminder(to: str, name: str, benutzername: str,
+                           login_url: str = "https://aphsystem.de") -> None:
     """Sendet den Benutzernamen per E-Mail (kein Passwort-Klartextversand)."""
-    subject = f"{_APP_NAME} – Dein Benutzername"
+    subject = f"{_APP_NAME} \u2013 Dein Benutzername"
     text = (
         f"Hallo {name},\n\n"
-        f"dein Benutzername lautet: {benutzername}\n\n"
-        "Du kannst dich mit deiner E-Mail-Adresse oder deinem Benutzernamen anmelden.\n\n"
-        f"Support: {_SUPPORT_EMAIL}\n\n"
-        f"Viele Grüße\n{_APP_NAME}"
+        f"du hast deinen Benutzernamen f\u00fcr {_APP_NAME} angefordert.\n\n"
+        f"Dein Benutzername lautet:\n\n    {benutzername}\n\n"
+        f"Du kannst dich hier anmelden:\n{login_url}\n\n"
+        "Wenn du diese Anfrage nicht gestellt hast, kannst du diese E-Mail ignorieren.\n\n"
+        f"Bei Fragen: {_SUPPORT_EMAIL}\n\n"
+        f"Viele Gr\u00fc\u00dfe\n{_APP_NAME}"
     )
     html = (
-        f"<p>Hallo <strong>{name}</strong>,</p>"
-        f"<p>dein Benutzername lautet: <strong>{benutzername}</strong></p>"
-        "<p>Du kannst dich mit deiner E-Mail-Adresse oder deinem Benutzernamen anmelden.</p>"
-        f"<hr><p style='font-size:12px;color:#666'>Support: "
-        f"<a href='mailto:{_SUPPORT_EMAIL}'>{_SUPPORT_EMAIL}</a></p>"
-        f"<p style='font-size:12px;color:#666'>Viele Grüße<br><strong>{_APP_NAME}</strong></p>"
+        "<!DOCTYPE html><html><body style='font-family:Arial,sans-serif;"
+        "background:#f6f8fa;padding:24px'>"
+        "<div style='max-width:560px;margin:0 auto;background:#ffffff;"
+        "border:1px solid #d0d7de;border-radius:8px;padding:32px'>"
+        f"<h2 style='color:#24292f;margin-top:0'>{_APP_NAME}</h2>"
+        f"<p style='color:#24292f'>Hallo <strong>{name}</strong>,</p>"
+        f"<p style='color:#24292f'>du hast deinen Benutzernamen f\u00fcr "
+        f"<strong>{_APP_NAME}</strong> angefordert.</p>"
+        "<p style='color:#24292f'>Dein Benutzername lautet:</p>"
+        f"<p style='background:#f6f8fa;border:1px solid #d0d7de;border-radius:6px;"
+        f"padding:12px 20px;font-size:18px;font-weight:bold;letter-spacing:1px;"
+        f"color:#24292f'>{benutzername}</p>"
+        f'<p><a href="{login_url}" style="background:#238636;color:#ffffff;'
+        "padding:12px 28px;border-radius:6px;text-decoration:none;"
+        "display:inline-block;font-weight:bold;font-size:15px\">"
+        "Jetzt anmelden</a></p>"
+        "<hr style='border:none;border-top:1px solid #d0d7de;margin:24px 0'>"
+        "<p style='color:#57606a;font-size:13px'>"
+        "Wenn du diese Anfrage nicht gestellt hast, kannst du diese E-Mail ignorieren.</p>"
+        f"<p style='color:#57606a;font-size:12px'>Bei Fragen: "
+        f"<a href='mailto:{_SUPPORT_EMAIL}' style='color:#0969da'>{_SUPPORT_EMAIL}</a></p>"
+        f"<p style='color:#57606a;font-size:12px'>Viele Gr\u00fc\u00dfe<br>"
+        f"<strong>{_APP_NAME}</strong></p>"
+        "</div></body></html>"
     )
     _send(to, subject, text, html)
 

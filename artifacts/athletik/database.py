@@ -3884,18 +3884,20 @@ def pw_reset_anwenden(token: str, neues_passwort: str) -> bool:
     return True
 
 
-def benutzername_reminder_laden(email: str) -> tuple[str, str] | None:
-    """Gibt (benutzername, vorname) zurück wenn E-Mail verifiziert + Konto aktiv, sonst None."""
+def benutzername_reminder_laden(email: str) -> tuple[str, str, str] | None:
+    """Gibt (benutzername, vorname, email_aus_db) zurück wenn E-Mail verifiziert, sonst None.
+    Prüft email_verifiziert=1 (brauchen gültige Zieladresse), aber NICHT aktiv=1 —
+    Spec §11: keine unnötige Blockade für Konten, die auf Admin-Freischaltung warten."""
     email_norm = normalize_email(email)
     with get_conn() as conn:
         row = conn.execute(
-            """SELECT benutzername, vorname FROM benutzer
-               WHERE LOWER(email)=? AND email_verifiziert=1 AND aktiv=1""",
+            """SELECT benutzername, vorname, email FROM benutzer
+               WHERE LOWER(email)=? AND email_verifiziert=1""",
             (email_norm,),
         ).fetchone()
     if not row or not row[0]:
         return None
-    return row[0], row[1] or "Benutzer"
+    return row[0], row[1] or "Benutzer", row[2]
 
 
 # ==========================================================================
