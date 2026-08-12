@@ -10003,3 +10003,91 @@ elif section == "👥  Kundenverwaltung":
 
 # ── Mobile bottom nav (≤768px only, no <a href>, no page reload) ─────────────
 render_mobile_nav(section)
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# §20 — KORREKTUR SCHRITT 7: Mobile Bottom Navigation (Abschlussbericht)
+# Datum: 2026-08-12
+# ═══════════════════════════════════════════════════════════════════════════════
+#
+# PROBLEM-ANALYSE (drei unabhängige Fehler)
+# ──────────────────────────────────────────
+# 1. NAV UNSICHTBAR
+#    Ursache: declare_component(path="components/mobile_nav/") schlägt in
+#    Replits mTLS-Proxy fehl. Streamlit versucht /_stcore/component/ zu
+#    routen — dieser Pfad wird nicht durchgeleitet. Timeout-Error im
+#    Browser-Log → Custom Component nie gerendert → Nav komplett weg.
+#
+# 2. "SÜNDIGEN" / AUTO-TRANSLATE
+#    Ursache: Chromes automatische Seitenübersetzung griff, weil kein
+#    lang="de" am <html>-Element gesetzt war. Streamlit's internes UI
+#    enthält englische Texte → Chrome klassifiziert die Seite als englisch
+#    → bietet Übersetzung an → "Abmelden" wurde zu "sündigen" übersetzt.
+#
+# 3. FALSCHE NAV-ITEM-LABELS (component-intern)
+#    Folge aus Problem 1 — irrelevant, da component ganz entfernt.
+#
+# LÖSUNG
+# ──────
+# Vollständige Überarbeitung mobile.py. Kein declare_component mehr.
+#
+# Neue Architektur:
+#
+#   A) VISUELLE NAV
+#      st.markdown → <nav class="aph-bottom-nav"> mit <button onclick>
+#      (kein <a href> → kein Page-Reload → Session erhalten)
+#      CSS aus theme.py: position:fixed; bottom:0; z-index:9999
+#      Alle nav-interaktiven Elemente: <button type="button">
+#
+#   B) NAVIGATE-SIGNAL VIA HIDDEN TRIGGER-BUTTONS
+#      Für jedes mögliche Navigationsziel existiert ein st.button(label="⬡N")
+#      (U+2B21 White Hexagon als eindeutiges Präfix-Zeichen).
+#      render_mobile_nav() rendert alle 21 Trigger in st.columns(21) am
+#      Seitenende. Die onclick-Handler der visuellen Buttons suchen per JS
+#      den Trigger mit passendem textContent ("⬡3" etc.) und rufen .click()
+#      auf. Streamlit empfängt das Widget-Event über den WebSocket →
+#      _apply_nav_signal() → st.session_state update → st.rerun().
+#      Kein Seiten-Reload, keine neue Session, kein Cookie-Verlust.
+#
+#   C) TRIGGER-BUTTONS VERSTECKEN
+#      <img src="x" onerror="..."> feuert auf jedem Rerun, wenn das
+#      Element neu in den DOM eingefügt wird. Der onerror-Handler startet
+#      einen MutationObserver, der jede stColumn mit ⬡-Button-Inhalt auf
+#      position:absolute;top:-9999px verschiebt. Programmatisches .click()
+#      auf off-screen Elemente funktioniert (kein CSS-Gate für Events).
+#      Hinweis: <script>-Blöcke in st.markdown werden von React unterdrückt.
+#      Nur Event-Handler-Attribute (onclick, onerror) und <style>-Blöcke
+#      werden ausgeführt.
+#
+#   D) CHROME AUTO-TRANSLATE FIX
+#      Derselbe onerror-Handler setzt:
+#        document.documentElement.lang = 'de'
+#        document.documentElement.setAttribute('translate', 'no')
+#      Alle Nav-HTML-Elemente tragen zusätzlich translate="no" als Attribut.
+#
+# ÄNDERUNGEN
+# ──────────
+# • mobile.py       — vollständig neu geschrieben (button-trigger Architektur)
+# • theme.py        — .aph-bn-item als <button>-Styles (inkl. Reset) neu;
+#                     .aph-mehr-item, .aph-mehr-close, .aph-mph-switch
+#                     alle als <button>-Styles angepasst;
+#                     padding-bottom: 80px für .main .block-container
+# • app.py          — keine Import-Änderungen nötig (render_mobile_nav war
+#                     bereits korrekt importiert)
+# • components/     — mobile_nav/index.html verbleibt, wird aber nicht mehr
+#                     geladen (kein declare_component-Aufruf mehr)
+#
+# DESKTOP UNBERÜHRT
+# ─────────────────
+# Alle @media-Queries bleiben unverändert. Desktop-Navigation (Sidebar) ist
+# nicht betroffen. Die versteckten Trigger-Buttons sind auf Desktop durch
+# die MutationObserver-Logik ebenfalls off-screen, stören aber die Sidebar
+# nicht (die Buttons liegen im Main-Content-Bereich).
+#
+# BEKANNTE EINSCHRÄNKUNGEN
+# ────────────────────────
+# • 21 Mini-Spalten = minimaler Layout-Overhead vor dem MutationObserver-Hide.
+#   In der Praxis: kein sichtbares Flash (Observer feuert vor Paint).
+# • Ein Klick auf einen Nav-Button verursacht immer 2 Reruns (1× für den
+#   Trigger-Button, 1× für st.rerun() in _apply_nav_signal). Das ist die
+#   minimale Anzahl für die session-state-basierte Navigation in Streamlit.
+# ═══════════════════════════════════════════════════════════════════════════════

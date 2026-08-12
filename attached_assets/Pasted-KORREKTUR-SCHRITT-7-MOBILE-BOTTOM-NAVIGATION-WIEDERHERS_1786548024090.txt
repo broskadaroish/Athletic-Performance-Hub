@@ -1,0 +1,447 @@
+KORREKTUR SCHRITT 7 – MOBILE BOTTOM NAVIGATION WIEDERHERSTELLEN UND FALSCHE ÜBERSETZUNGEN BEHEBEN
+
+Aktueller realer Zustand nach der letzten Korrektur:
+
+PROBLEM 1:
+Die Mobile Bottom Navigation ist auf dem Smartphone jetzt komplett verschwunden.
+
+PROBLEM 2:
+Im Smartphone-Modus werden eigene Funktionsnamen und Texte teilweise automatisch von Englisch auf Deutsch übersetzt.
+
+PROBLEM 3:
+Beim Logout / Abmelden steht im Smartphone-Modus:
+
+"sündigen"
+
+statt:
+
+"Abmelden"
+
+Das darf nicht passieren.
+
+WICHTIG:
+
+* Keine Authentifizierungslogik neu schreiben.
+* Keine Sessiondatenbank ändern.
+* Keine Login-/Logout-Backendlogik ändern.
+* Keine Desktop-Navigation beschädigen.
+* Keine Pakete, Preise, Trainingslogik oder Diagnostik ändern.
+* Keine Datenbankänderungen durchführen, sofern für diese UI-Korrektur nicht zwingend notwendig.
+
+==================================================
+
+1. MOBILE BOTTOM NAVIGATION MUSS WIEDER SICHTBAR SEIN
+   ==================================================
+
+Auf Smartphone bis einschließlich 768 px muss die Bottom Navigation wieder dauerhaft sichtbar sein.
+
+Hauptpunkte:
+
+* Start
+* Spieler
+* Tests
+* Training
+* Mehr
+
+Beispiel:
+
+🏠        👤        🧪        📅        ⋯
+Start     Spieler   Tests     Training  Mehr
+
+Anforderungen:
+
+* position: fixed
+* bottom: 0
+* volle Viewport-Breite
+* hoher z-index
+* nicht hinter anderen Streamlit-Komponenten verschwinden
+* ausreichende Touch-Flächen
+* aktiver Menüpunkt sichtbar
+* bestehendes Dark Design
+* Inhalt unten mit ausreichendem Padding versehen
+
+==================================================
+2. WARUM IST DIE NAVIGATION VERSCHWUNDEN?
+=========================================
+
+Analysiere zuerst:
+
+* wurde das HTML/CSS der Bottom Navigation entfernt?
+* wurde die Render-Funktion nicht mehr aufgerufen?
+* verhindert eine neue if-Bedingung die Mobile-Ausgabe?
+* stimmt der Media Query noch?
+* wird display:none gesetzt?
+* liegt die Navigation hinter einem anderen Element?
+* wurde die Navigation zusammen mit den alten <a href>-Links komplett entfernt?
+* wird CSS nur auf Desktop geladen?
+
+Den konkreten Grund finden und beheben.
+
+==================================================
+3. INTERNE NAVIGATION BEIBEHALTEN
+=================================
+
+Die Bottom Navigation soll NICHT wieder auf die problematischen normalen:
+
+<a href="?nav=...">
+
+Links zurückgestellt werden, wenn diese einen vollständigen Browser-Reload erzeugen.
+
+Die sichtbare Bottom Navigation soll intern die funktionierende Streamlit-Navigation verwenden.
+
+Bevorzugt dieselbe Routingfunktion wie Desktop.
+
+Zum Beispiel konzeptionell:
+
+navigate_to("start")
+navigate_to("spieler")
+navigate_to("diagnostik")
+navigate_to("training")
+navigate_to("mehr")
+
+Die genaue bestehende Routingstruktur zuerst prüfen und wiederverwenden.
+
+==================================================
+4. MOBILE UI DARF NICHT AUTOMATISCH ÜBERSETZEN
+==============================================
+
+Aktuell werden im Smartphone-Modus eigene Begriffe teilweise automatisch übersetzt.
+
+Das muss gestoppt werden.
+
+Prüfe insbesondere:
+
+* Mobile Bottom Navigation
+* Mobile "Mehr"-Menü
+* JavaScript-Komponenten
+* i18n.py
+* automatische Übersetzungsfunktionen
+* CSS/HTML-Komponenten
+* Browser-/Component-Translation
+* Funktionsnamen aus Datenbank oder Navigation
+
+Verbindliche Regel:
+
+Nur feste UI-Texte dürfen über die bestehende kontrollierte i18n-Struktur übersetzt werden.
+
+Eigene dynamische Inhalte und technische Bezeichnungen dürfen niemals automatisch durch freie Wortübersetzung laufen.
+
+==================================================
+5. EIGENNAMEN UND DYNAMISCHE DATEN NICHT ÜBERSETZEN
+===================================================
+
+Folgende Werte müssen grundsätzlich 1:1 angezeigt werden:
+
+* Spielername
+* Vorname
+* Nachname
+* Vereinsname
+* Benutzername
+* Paketname
+* Übungsname, sofern als eigener Datenbankwert gespeichert
+* vom Benutzer eingegebene Texte
+* Trainer-Notizen
+* Kundendaten
+* technische Modulnamen, sofern explizit festgelegt
+
+Beispiele:
+
+Lion
+→ Lion
+
+NICHT:
+Löwe
+
+==================================================
+6. UI-TEXTE NUR ÜBER FESTE SCHLÜSSEL ÜBERSETZEN
+===============================================
+
+Falls i18n.py verwendet wird:
+
+Nur kontrollierte Keys verwenden.
+
+Beispiel:
+
+t("nav_logout")
+→ "Abmelden"
+
+Nicht:
+
+t(variable_text)
+
+wenn variable_text dynamisch aus Datenbank oder Code kommt.
+
+Keine generische Wort-für-Wort-Übersetzung dynamischer Inhalte.
+
+==================================================
+7. "SÜNDIGEN" FEHLER FINDEN
+===========================
+
+Suche projektweit nach:
+
+* "sündigen"
+* "Sündigen"
+* logout
+* sign out
+* signout
+* abmelden
+* kündigen
+* translation mapping
+* Mobile-Navigation Logout-Label
+
+Prüfe auch, ob:
+
+"sign out"
+
+oder:
+
+"logout"
+
+durch eine fehlerhafte Übersetzungsroutine zu "sündigen" wird.
+
+==================================================
+8. VERBINDLICHES LOGOUT-LABEL
+=============================
+
+In deutscher Sprache muss überall stehen:
+
+"Abmelden"
+
+Nicht:
+
+* sündigen
+* kündigen
+* ausloggen, wenn bisher "Abmelden" als Standard verwendet wird
+* sign out
+* logout
+
+Nach erfolgreichem Logout:
+
+"Sie wurden erfolgreich abgemeldet."
+
+==================================================
+9. MOBILE UND DESKTOP GLEICHE TEXTE
+===================================
+
+Wenn Desktop:
+
+"Abmelden"
+
+anzeigt, muss Mobile ebenfalls:
+
+"Abmelden"
+
+anzeigen.
+
+Wenn Desktop:
+
+"Trainingsbibliothek"
+
+anzeigt, darf Mobile nicht plötzlich einen anderen automatisch übersetzten Begriff verwenden.
+
+Mobile und Desktop müssen dieselbe zentrale Textquelle verwenden.
+
+==================================================
+10. MOBILE "MEHR"-MENÜ
+======================
+
+Das "Mehr"-Menü wiederherstellen bzw. prüfen.
+
+Alle vorhandenen Bereiche müssen dort weiterhin erreichbar sein.
+
+Beispiele abhängig von bestehender App:
+
+* Entwicklung
+* Berichte
+* Kalender
+* Trainingsbibliothek
+* Vertrag
+* Einstellungen
+* Support
+* Abmelden
+
+Keine Funktionsnamen automatisch neu übersetzen.
+
+==================================================
+11. NAVIGATION NICHT DUPLIZIEREN
+================================
+
+Keine zweite vollständig getrennte Liste von deutschen Texten für Mobile anlegen, wenn Desktop bereits zentrale Navigationsdefinitionen besitzt.
+
+Bevorzugt:
+
+eine zentrale Navigation-Konfiguration:
+
+route
+label_key
+icon
+roles
+
+Desktop und Mobile lesen dieselben Daten.
+
+Dadurch keine unterschiedlichen Begriffe.
+
+==================================================
+12. BREAKPOINT PRÜFEN
+=====================
+
+Bottom Navigation muss sichtbar sein bei:
+
+360 px
+375 px
+390 px
+412 px
+430 px
+
+Bei >768 px:
+Bottom Navigation ausblenden, wenn Desktop-Sidebar verwendet wird.
+
+==================================================
+13. Z-INDEX / STREAMLIT FOOTER
+==============================
+
+Prüfe insbesondere:
+
+* Streamlit Footer
+* CookieController-Komponente
+* Chat-/Toast-Komponenten
+* fixed Header
+* dialogs
+* overlays
+
+Die Bottom Navigation muss im normalen Seitenbetrieb sichtbar bleiben.
+
+==================================================
+14. BOTTOM PADDING
+==================
+
+Hauptinhalt auf Mobile mit ausreichend Abstand unten versehen.
+
+Zum Beispiel abhängig von tatsächlicher Bottom-Bar-Höhe:
+
+padding-bottom: 80px bis 100px
+
+Damit letzte Buttons/Karten nicht hinter der Navigation liegen.
+
+==================================================
+15. SESSION MUSS WEITER FUNKTIONIEREN
+=====================================
+
+Der letzte Session-Fix darf nicht rückgängig gemacht werden.
+
+Test:
+
+Einmal anmelden.
+
+Dann:
+
+Start
+→ Spieler
+→ Tests
+→ Training
+→ Mehr
+→ Start
+
+Erwartung:
+
+* Bottom Navigation sichtbar
+* keine erneute Anmeldung
+* keine Login-Seite
+* aktiver Benutzer bleibt erhalten
+
+==================================================
+16. LOGOUT TEST
+===============
+
+Im Mobile "Mehr"-Menü:
+
+"Abmelden"
+
+anklicken.
+
+Erwartung:
+
+* Session wird beendet
+* ath_sid wird wie bisher gelöscht
+* Login-Seite erscheint
+* Text korrekt
+* kein "sündigen"
+
+==================================================
+17. EIGENNAMEN TEST
+===================
+
+Testspieler:
+
+Lion
+
+Auf Mobile prüfen:
+
+* Dashboard
+* Spieler
+* Tests
+* Training
+* Berichte
+
+Erwartung überall:
+
+Lion
+
+Nicht:
+
+Löwe
+
+==================================================
+18. DYNAMISCHE TEXTE TESTEN
+===========================
+
+Teste mindestens:
+
+* Spielername
+* Vereinsname
+* Benutzername
+* Paketname
+* Trainingsplanname
+* Übungsname
+* Trainer-Notiz
+
+Erwartung:
+
+keine unerwünschte automatische Übersetzung.
+
+==================================================
+19. DESKTOP REGRESSIONSTEST
+===========================
+
+Desktop prüfen:
+
+* Sidebar weiterhin vorhanden
+* Navigation funktioniert
+* Texte unverändert korrekt
+* Login bleibt erhalten
+* Logout funktioniert
+
+Keine Verschlechterung der PC-Version.
+
+==================================================
+20. ABSCHLUSSBERICHT
+====================
+
+Nach Reparatur berichten:
+
+1. Warum war die Bottom Navigation verschwunden?
+2. Welche Datei/Bedingung verursachte das?
+3. Ist sie jetzt bei 360/390/412 px wieder sichtbar? JA / NEIN
+4. Welche interne Navigationsmethode verwendet Mobile jetzt?
+5. Bleibt der Login bei Mobile-Navigation erhalten? JA / NEIN
+6. Warum wurde "Abmelden" zu "sündigen"?
+7. Wo lag die fehlerhafte Übersetzungslogik?
+8. Ist "Abmelden" jetzt überall korrekt? JA / NEIN
+9. Werden Eigennamen wie "Lion" weiterhin unverändert angezeigt? JA / NEIN
+10. Werden dynamische DB-Texte von automatischer Übersetzung ausgeschlossen? JA / NEIN
+11. Verwenden Desktop und Mobile dieselben zentralen Navigationslabels? JA / NEIN
+12. Welche Dateien wurden geändert?
+
+Danach STOPPEN.
+
+Keine anderen Funktionen verändern.

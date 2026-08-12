@@ -361,12 +361,44 @@ html, body { overflow-x: hidden; max-width: 100vw; }
         align-items: stretch;
         justify-content: space-around;
         box-shadow: 0 -2px 16px rgba(0,0,0,0.65);
-        /* iOS safe area */
         padding-bottom: env(safe-area-inset-bottom, 0px);
     }
-    /* Bottom nav items are now rendered inside the component iframe.
-       These rules are kept for any legacy references but are no longer
-       needed for the nav bar itself — styling lives in index.html. */
+    .aph-bn-item {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        flex: 1;
+        /* button reset */
+        background: none;
+        border: none;
+        cursor: pointer;
+        font-family: inherit;
+        /* visual */
+        color: #8b949e;
+        padding: 6px 4px;
+        min-width: 0;
+        -webkit-tap-highlight-color: transparent;
+        transition: color 0.12s;
+        user-select: none;
+    }
+    .aph-bn-item.aph-bn-active { color: #58a6ff; }
+    .aph-bn-item:active         { opacity: 0.7; }
+    .aph-bn-icon  { font-size: 20px; line-height: 1.2; display: block; }
+    .aph-bn-label {
+        font-size: 10px;
+        font-weight: 600;
+        margin-top: 2px;
+        display: block;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 100%;
+    }
+    /* Ensure bottom content is not hidden behind the fixed nav */
+    .main .block-container {
+        padding-bottom: 80px !important;
+    }
 }
 
 /* ══ Mobile active-player header pill ════════════════════════════════════════ */
@@ -391,8 +423,10 @@ html, body { overflow-x: hidden; max-width: 100vw; }
     }
     .aph-mph-sub  { font-size: 11px; color: #c9d1d9; margin-top: 1px; }
     .aph-mph-switch {
-        font-size: 12px; color: #58a6ff; text-decoration: none;
+        font-size: 12px; color: #58a6ff;
         white-space: nowrap; flex-shrink: 0; padding: 4px 0;
+        /* button reset */
+        background: none; border: none; cursor: pointer; font-family: inherit;
     }
     .aph-mph-switch:hover { text-decoration: underline; color: #79bcff; }
 }
@@ -536,7 +570,11 @@ html, body { overflow-x: hidden; max-width: 100vw; }
         z-index: 1;
     }
     .aph-mehr-title    { font-size: 18px; font-weight: 700; color: #e6edf3; }
-    .aph-mehr-close    { font-size: 22px; color: #8b949e; text-decoration: none; padding: 6px 2px; line-height: 1; }
+    .aph-mehr-close    {
+        font-size: 22px; color: #8b949e; padding: 6px 2px; line-height: 1;
+        /* button reset */
+        background: none; border: none; cursor: pointer; font-family: inherit;
+    }
     .aph-mehr-close:hover { color: #e6edf3; }
     .aph-mehr-section-label {
         font-size: 11px; font-weight: 700; letter-spacing: 1px;
@@ -548,12 +586,15 @@ html, body { overflow-x: hidden; max-width: 100vw; }
         justify-content: space-between;
         padding: 15px 16px;
         border-bottom: 1px solid #161b22;
-        text-decoration: none !important;
         color: #e6edf3;
         font-size: 15px;
         -webkit-tap-highlight-color: transparent;
+        width: 100%;
+        /* button reset */
+        background: none; border: none; cursor: pointer;
+        font-family: inherit; text-align: left;
     }
-    .aph-mehr-item:hover        { background: #161b22; text-decoration: none !important; }
+    .aph-mehr-item:hover        { background: #161b22; }
     .aph-mehr-item:active       { opacity: 0.7; }
     .aph-mehr-item-text         { color: #e6edf3; }
     .aph-mehr-item-arrow        { color: #8b949e; font-size: 18px; flex-shrink: 0; }

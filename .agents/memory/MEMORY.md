@@ -15,7 +15,7 @@
 - [Defizitlogik Schritt-3](defizitlogik-schritt3.md) — SCHRITT-3: NO_DATA≠Defizit; defizit_score returns {} for empty; Basis-Modus; bereich-based dedup; testdaten_uebersicht(); plan preservation via §19 hint
 - [Trainingsplan Schritt-4](trainingsplan-schritt4.md) — SCHRITT-4: versioned plans (trainingsplan_versionen table), Zeitbudget cap, per-exercise editing in tab_view, plan history, Trainer-Notizen
 - [Branding & Vertrag Schritt-5](schritt5-branding-vertrag.md) — SCHRITT-5: APP_NAME="Athletic Performance Hub", Mein-Vertrag-Seite, Online-Kündigung, Superadmin-Kündigungen-Tab
-- [SCHRITT 7 Mobile Responsive Design](schritt7-mobile.md) — mobile.py + theme.py @media; ?nav= query-param nav; bottom nav, Mehr overlay, player header
+- [Mobile nav final architecture](mobile-nav-final.md) — st.button ⬡IDX triggers + inline onclick JS; NO declare_component, NO href nav; onerror JS fixes Chrome auto-translate
 - [SCHRITT 8 Dashboard Trainer](schritt8-dashboard.md) — _dash_trainer komplett ersetzt; neue Helper-Funktionen; Hilfsfunktionen vor _dash_trainer in saas_dashboard.py
 - [Mobile nav session race condition](mobile-nav-session.md) — CookieController braucht 1 Extra-Rerun; loading-Platzhalter statt sofortigem Login-Gate verhindert Session-Verlust
 - [SCHRITT 9 Datensicherheit](schritt9-datensicherheit.md) — spieler_mandant_pruefen(), backup_status_laden(), db_backup_erstellen() in database.py; daily backup in lizenz_scheduler.py; Datensicherheit-Dashboard im Superadmin Export-Expander
