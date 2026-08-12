@@ -209,50 +209,65 @@ def render_mobile_nav(current_section: str) -> None:
             f'</button>'
         )
 
-    # ── 2. <img onerror> JavaScript (runs on every Streamlit rerun) ───────────
-    # Sets lang="de" on <html> to prevent browser auto-translate.
-    # Starts MutationObserver to hide trigger button columns off-screen.
-    # U+2B21 = ⬡ (White Hexagon) used as unique prefix for trigger labels.
-    onerror_js = (
-        "this.onerror=null;"
+    # ── 2. Inline JS via onload on a valid 1×1 GIF ───────────────────────────
+    # Fires on every Streamlit rerun when the img element is added to the DOM.
+    # Using a valid data-URI image (not a broken src) avoids triggering React's
+    # onError synthetic event handler, which was causing React error #231 and
+    # crashing the WebSocket connection → "artifact encountered an error".
+    #
+    # The entire JS body is wrapped in try/catch so no exception can escape,
+    # even if the DOM is in an unexpected state during a fast rerun.
+    #
+    # Sets document.documentElement.lang='de' to prevent Chrome Mobile
+    # auto-translate (which caused "sündigen" instead of "Abmelden").
+    # Starts MutationObserver to hide the hidden trigger button columns.
+    # U+2B21 = ⬡ (White Hexagon) — unique prefix for trigger button labels.
+    _TINY_GIF = (
+        "data:image/gif;base64,"
+        "R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw=="
+    )
+    onload_js = (
+        "this.onload=null;"
+        "try{"
         # Language + translate prevention
-        "(function(){"
         "var h=document.documentElement;"
         "h.lang='de';"
         "h.setAttribute('translate','no');"
-        # Cancel previous observer (new one is created on every rerun)
+        # Cancel previous observer (new one created on every rerun)
         "if(window._aphNavOb){try{window._aphNavOb.disconnect();}catch(e){}}"
-        # MutationObserver: hide trigger buttons as they appear
+        # MutationObserver: hide trigger button columns off-screen
         "window._aphNavOb=new MutationObserver(function(m,ob){"
-        "  var bs=document.querySelectorAll('button'),f=0;"
-        "  for(var j=0;j<bs.length;j++){"
-        "    if(!bs[j]._aphH&&/^\\u2B21\\d+$/.test(bs[j].textContent.trim())){"
-        "      bs[j]._aphH=1;"
-        "      var el=bs[j];"
-        "      for(var k=0;k<8;k++){"
-        "        if(!el.parentElement)break;"
-        "        el=el.parentElement;"
-        "        if(el.getAttribute&&el.getAttribute('data-testid')==='stColumn'){"
-        "          el.style.cssText='position:absolute!important;"
+        "var bs=document.querySelectorAll('button'),f=0;"
+        "for(var j=0;j<bs.length;j++){"
+        "if(!bs[j]._aphH&&/^\\u2B21\\d+$/.test(bs[j].textContent.trim())){"
+        "bs[j]._aphH=1;"
+        "var el=bs[j];"
+        "for(var k=0;k<8;k++){"
+        "if(!el.parentElement)break;"
+        "el=el.parentElement;"
+        "if(el.getAttribute&&el.getAttribute('data-testid')==='stColumn'){"
+        "el.style.cssText='position:absolute!important;"
         "top:-9999px!important;overflow:hidden!important;"
         "height:1px!important;width:1px!important';"
-        "          f++;break;"
-        "        }"
-        "      }"
-        "    }"
-        "  }"
-        "  if(f>0)ob.disconnect();"
+        "f++;break;"
+        "}"
+        "}"
+        "}"
+        "}"
+        "if(f>0)ob.disconnect();"
         "});"
+        "if(document.body)"
         "window._aphNavOb.observe(document.body,{childList:true,subtree:true});"
-        "})()"
+        "}catch(e){}"
     )
 
     st.markdown(
         f'<nav class="aph-bottom-nav" aria-label="Hauptnavigation" translate="no">'
         f'{items_html}'
         f'</nav>'
-        f'<img src="x" onerror="{onerror_js}"'
-        f' style="display:none;position:absolute;width:0;height:0">',
+        f'<img src="{_TINY_GIF}" onload="{onload_js}"'
+        f' style="display:none;position:absolute;width:0;height:0"'
+        f' aria-hidden="true">',
         unsafe_allow_html=True,
     )
 
