@@ -329,7 +329,10 @@ if "user" not in st.session_state:
 
         # Logout-Bestätigungsmeldung (gesetzt vom Logout-Button)
         if st.session_state.pop("__logout_ok__", False):
-            st.success("✅ Sie wurden erfolgreich abgemeldet.")
+            if st.session_state.pop("__pw_changed__", False):
+                st.success("✅ Passwort erfolgreich geändert. Bitte melde dich erneut an.")
+            else:
+                st.success("✅ Sie wurden erfolgreich abgemeldet.")
 
         # 2. E-Mail-Verifikation via URL-Parameter (?verify=TOKEN)
         if _qp_verify:
@@ -587,14 +590,29 @@ if "user" not in st.session_state:
                             st.session_state["user"] = _user_obj
                             try:
                                 from database import session_erstellen as _se
-                                _new_sid = _se(_user_obj["id"],
-                                              idle_sek=_SESSION_IDLE_SEC,
-                                              max_sek=_SESSION_MAX_SEC)
+                                _new_sid = _se(
+                                    _user_obj["id"],
+                                    idle_sek=_SESSION_IDLE_SEC,
+                                    max_sek=_SESSION_MAX_SEC,
+                                    # Race-Schutz: Passwort wurde zwischen Verifikation
+                                    # und Session-Erstellung geändert → ValueError
+                                    expected_token_version=_user_obj.get(
+                                        "session_token_version", 0
+                                    ),
+                                )
                                 st.session_state["_session_token"] = _new_sid
                                 if _cookie_ctrl:
                                     _cookie_ctrl.set("ath_sid", _new_sid,
                                                     max_age=_SESSION_MAX_SEC,
                                                     secure=True, same_site="Strict")
+                            except ValueError:
+                                # Passwort wurde während des Logins geändert —
+                                # Anmeldung verweigern
+                                st.error(
+                                    "❌ Anmeldung fehlgeschlagen: Das Passwort wurde "
+                                    "gerade geändert. Bitte erneut anmelden."
+                                )
+                                st.stop()
                             except Exception:
                                 pass
                             st.rerun()
@@ -874,6 +892,27 @@ if "user" not in st.session_state:
 
 
     st.stop()
+
+# ─── Per-Rerun Session-Token-Validierung (fängt nach Passwortänderung invalide ──
+# Sessions ab, auch wenn user bereits in st.session_state ist)              ─────
+_rerun_token = st.session_state.get("_session_token")
+if _rerun_token:
+    from database import session_token_aktiv as _sta
+    if not _sta(_rerun_token):
+        # Session wurde serverseitig invalidiert (z. B. nach Passwortänderung).
+        # Cookie und Session-State löschen → Nutzer zur Anmeldung führen.
+        if _cookie_ctrl:
+            try:
+                _cookie_ctrl.remove("ath_sid")
+            except Exception:
+                pass
+        # __pw_changed__ bewahren damit die Login-Seite die korrekte Meldung zeigt
+        _inv_preserve = {"__logout_ok__", "__pw_changed__"}
+        _inv_keys = [k for k in st.session_state.keys() if k not in _inv_preserve]
+        for _ik in _inv_keys:
+            del st.session_state[_ik]
+        st.session_state["__logout_ok__"] = True
+        st.rerun()
 
 # ─── Session-Timeout: inaktive Sitzungen automatisch abmelden ────────────────
 from session_timeout import check_session_timeout, touch_session
@@ -7822,7 +7861,21 @@ def page_einstellungen():
                 st.error("❌ Die neuen Passwörter stimmen nicht überein.")
             else:
                 benutzer_passwort(_u["id"], _pw_neu1)
-                st.success("✅ Passwort erfolgreich geändert.")
+                # Alle Sessions wurden in benutzer_passwort() bereits serverseitig
+                # ungültig gemacht. Jetzt auch die lokale Session + Cookie löschen
+                # und den Benutzer zur Login-Seite weiterleiten.
+                if _cookie_ctrl:
+                    try:
+                        _cookie_ctrl.remove("ath_sid")
+                    except Exception:
+                        pass
+                _pw_keys_del = [k for k in st.session_state.keys()
+                                if k != "__logout_ok__"]
+                for _pwk in _pw_keys_del:
+                    del st.session_state[_pwk]
+                st.session_state["__logout_ok__"] = True
+                st.session_state["__pw_changed__"] = True
+                st.rerun()
 
     with st.expander("🔒 Datenschutz & Datenverwaltung"):
         st.markdown("### 🔒 Datenschutz & Datenverwaltung")

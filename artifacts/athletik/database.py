@@ -2454,6 +2454,13 @@ def _migrate_multitenant():
             "WHERE (email_verifiziert IS NULL OR email_verifiziert=0) "
             "AND (email_token IS NULL OR email_token = '')"
         )
+        # ── Session-Token-Version (Session-Invalidierung nach Passwortänderung) ──
+        try:
+            conn.execute(
+                "ALTER TABLE benutzer ADD COLUMN session_token_version INTEGER NOT NULL DEFAULT 0"
+            )
+        except Exception:
+            pass  # Spalte existiert bereits
         # Sessions-Tabelle (server-seitige Session-Persistenz)
         conn.execute("""
             CREATE TABLE IF NOT EXISTS sessions (
@@ -2466,6 +2473,12 @@ def _migrate_multitenant():
                 FOREIGN KEY (benutzer_id) REFERENCES benutzer(id)
             )
         """)
+        try:
+            conn.execute(
+                "ALTER TABLE sessions ADD COLUMN token_version INTEGER NOT NULL DEFAULT 0"
+            )
+        except Exception:
+            pass  # Spalte existiert bereits
         # Rechnungsadressen-Tabelle
         conn.execute("""
             CREATE TABLE IF NOT EXISTS rechnungsadressen (
@@ -3180,12 +3193,46 @@ def benutzer_aktivieren(benutzer_id: int, aktiv: int) -> None:
         )
 
 
+def sessions_benutzer_beenden(benutzer_id: int, conn=None) -> int:
+    """Deaktiviert alle aktiven Sessions eines Benutzers (z. B. nach Passwortänderung).
+
+    Gibt die Anzahl der beendeten Sessions zurück.
+    Kann eine bestehende Datenbankverbindung (conn) entgegennehmen, damit
+    Passwortänderung + Session-Invalidierung atomar in einer Transaktion laufen.
+    Wird von benutzer_passwort() und pw_reset_anwenden() aufgerufen.
+    """
+    if conn is not None:
+        cur = conn.execute(
+            "UPDATE sessions SET aktiv=0 WHERE benutzer_id=? AND aktiv=1",
+            (benutzer_id,),
+        )
+        return cur.rowcount
+    with get_conn() as _conn:
+        cur = _conn.execute(
+            "UPDATE sessions SET aktiv=0 WHERE benutzer_id=? AND aktiv=1",
+            (benutzer_id,),
+        )
+        return cur.rowcount
+
+
 def benutzer_passwort(benutzer_id: int, neues_passwort: str) -> None:
+    """Setzt den Passwort-Hash, inkrementiert session_token_version und invalidiert
+    alle aktiven Sessions atomar in einer Transaktion.
+
+    Durch den Versions-Increment wird auch der Login-Race verhindert: Sessions, die
+    mit einem älteren session_token_version-Wert erstellt wurden (d. h. das Passwort
+    wurde noch während des Logins geändert), werden bei der nächsten Validierung
+    als ungültig erkannt.
+    """
     with get_conn() as conn:
         conn.execute(
-            "UPDATE benutzer SET passwort_hash=? WHERE id=?",
-            (_pw_hash(neues_passwort), benutzer_id)
+            "UPDATE benutzer SET passwort_hash=?, "
+            "session_token_version = COALESCE(session_token_version, 0) + 1 "
+            "WHERE id=?",
+            (_pw_hash(neues_passwort), benutzer_id),
         )
+        # Alle aktiven Sessions in derselben Transaktion invalidieren.
+        sessions_benutzer_beenden(benutzer_id, conn=conn)
 
 
 # ==========================================================================
@@ -4196,15 +4243,36 @@ def kuendigung_liste_laden(status_filter: str | None = None) -> list[dict]:
 
 
 def pw_reset_anwenden(token: str, neues_passwort: str) -> bool:
-    """Setzt Passwort via Reset-Token und invalidiert Token danach. Gibt True bei Erfolg."""
-    bid = pw_reset_token_validieren(token)
-    if not bid:
-        return False
+    """Setzt Passwort via Reset-Token. Gibt True bei Erfolg, False bei ungültigem Token.
+
+    Alles läuft atomar in einer einzigen Transaktion:
+    - UPDATE mit WHERE-Bedingung auf das Token (kein vorheriger SELECT) → verhindert
+      doppelten Token-Verbrauch: zwei gleichzeitige Aufrufe können nicht beide Zeilen
+      aktualisieren, da SQLite exklusive Schreibsperren hat und der Token nach dem
+      ersten Treffer auf NULL gesetzt ist.
+    - RETURNING id liefert die benutzer_id ohne zweiten Lookup.
+    - session_token_version wird inkrementiert → laufende Logins mit altem Passwort
+      können danach keine gültige Session mehr erstellen.
+    - Alle aktiven Sessions werden in derselben Transaktion invalidiert.
+    """
+    import datetime as _dt
+    jetzt = _dt.datetime.utcnow().isoformat()
     with get_conn() as conn:
-        conn.execute(
-            "UPDATE benutzer SET passwort_hash=?, pw_reset_token=NULL, pw_reset_ablauf=NULL WHERE id=?",
-            (_pw_hash(neues_passwort), bid),
-        )
+        row = conn.execute(
+            """UPDATE benutzer
+               SET passwort_hash         = ?,
+                   pw_reset_token        = NULL,
+                   pw_reset_ablauf       = NULL,
+                   session_token_version = COALESCE(session_token_version, 0) + 1
+               WHERE pw_reset_token = ?
+                 AND (pw_reset_ablauf IS NULL OR pw_reset_ablauf > ?)
+               RETURNING id""",
+            (_pw_hash(neues_passwort), token, jetzt),
+        ).fetchone()
+        if not row:
+            # Token nicht gefunden, bereits verbraucht oder abgelaufen
+            return False
+        sessions_benutzer_beenden(row[0], conn=conn)
     return True
 
 
@@ -4229,29 +4297,63 @@ def benutzername_reminder_laden(email: str) -> tuple[str, str, str] | None:
 # Server-seitige Sessions (Cookie-Persistenz)
 # ==========================================================================
 
-def session_erstellen(benutzer_id: int, idle_sek: int = 3600, max_sek: int = 86400) -> str:
-    """Erstellt eine neue DB-Session. Session-ID nach erfolgreichem Login erneuern."""
+def session_erstellen(
+    benutzer_id: int,
+    idle_sek: int = 3600,
+    max_sek: int = 86400,
+    expected_token_version: int | None = None,
+) -> str:
+    """Erstellt eine neue DB-Session und gibt das Token zurück.
+
+    expected_token_version (optional): der session_token_version-Wert, den
+    auth.login() beim Passwort-Check gelesen hat. Wenn er nicht mehr mit dem
+    aktuellen Wert in der DB übereinstimmt, wurde das Passwort während des
+    Logins geändert — die Session-Erstellung wird dann abgebrochen (ValueError).
+    Das verhindert den Login-Race: alte Credentials können keine neue Session
+    erzeugen, nachdem das Passwort geändert wurde.
+    """
     import datetime as _dt
     token  = _secrets.token_urlsafe(32)
     jetzt  = _dt.datetime.utcnow()
     ablauf = (jetzt + _dt.timedelta(seconds=max_sek)).isoformat()
     with get_conn() as conn:
+        if expected_token_version is not None:
+            row = conn.execute(
+                "SELECT COALESCE(session_token_version, 0) FROM benutzer WHERE id=?",
+                (benutzer_id,),
+            ).fetchone()
+            current_version = row[0] if row else 0
+            if current_version != expected_token_version:
+                raise ValueError(
+                    f"session_token_version mismatch: expected {expected_token_version}, "
+                    f"got {current_version}. Passwort wurde während des Logins geändert."
+                )
+        # token_version aus der DB lesen und in der Session speichern
+        ver_row = conn.execute(
+            "SELECT COALESCE(session_token_version, 0) FROM benutzer WHERE id=?",
+            (benutzer_id,),
+        ).fetchone()
+        token_version = ver_row[0] if ver_row else 0
         conn.execute(
-            """INSERT INTO sessions (token, benutzer_id, erstellt_am, letzte_aktivitaet, ablauf_am, aktiv)
-               VALUES (?, ?, ?, ?, ?, 1)""",
-            (token, benutzer_id, jetzt.isoformat(), jetzt.isoformat(), ablauf),
+            """INSERT INTO sessions
+               (token, benutzer_id, erstellt_am, letzte_aktivitaet, ablauf_am, aktiv, token_version)
+               VALUES (?, ?, ?, ?, ?, 1, ?)""",
+            (token, benutzer_id, jetzt.isoformat(), jetzt.isoformat(), ablauf, token_version),
         )
     return token
 
 
 def session_validieren(token: str, idle_sek: int = 3600) -> dict | None:
     """Validiert Session-Token, aktualisiert letzte_aktivitaet.
-    Gibt vollständiges user-dict zurück oder None (abgelaufen/ungültig)."""
+    Gibt vollständiges user-dict zurück oder None (abgelaufen/ungültig/version-mismatch)."""
     import datetime as _dt
     jetzt = _dt.datetime.utcnow()
     with get_conn() as conn:
         row = conn.execute(
-            """SELECT s.benutzer_id, s.letzte_aktivitaet, s.ablauf_am, b.aktiv, b.email_verifiziert
+            """SELECT s.benutzer_id, s.letzte_aktivitaet, s.ablauf_am, b.aktiv,
+                      b.email_verifiziert,
+                      COALESCE(s.token_version, 0),
+                      COALESCE(b.session_token_version, 0)
                FROM sessions s
                JOIN benutzer b ON b.id = s.benutzer_id
                WHERE s.token=? AND s.aktiv=1""",
@@ -4259,7 +4361,13 @@ def session_validieren(token: str, idle_sek: int = 3600) -> dict | None:
         ).fetchone()
         if not row:
             return None
-        bid, letzte, ablauf_str, b_aktiv, b_verif = row[0], row[1], row[2], row[3], row[4]
+        bid, letzte, ablauf_str, b_aktiv, b_verif, sess_ver, benutzer_ver = (
+            row[0], row[1], row[2], row[3], row[4], row[5], row[6]
+        )
+        # Version mismatch → Passwort wurde seit Session-Erstellung geändert
+        if sess_ver != benutzer_ver:
+            conn.execute("UPDATE sessions SET aktiv=0 WHERE token=?", (token,))
+            return None
         # Max-Lifetime prüfen
         if ablauf_str:
             try:
@@ -4291,6 +4399,35 @@ def session_validieren(token: str, idle_sek: int = 3600) -> dict | None:
             (bid,),
         ).fetchone())
         return user
+
+
+def session_token_aktiv(token: str) -> bool:
+    """Prüft, ob ein Session-Token noch gültig ist: aktiv=1 UND token_version
+    stimmt mit benutzer.session_token_version überein.
+
+    Wird bei jedem Rerun der authentifizierten App aufgerufen, um nach einer
+    Passwortänderung oder einem Admin-Reset sofort alle offenen Sessions zu sperren.
+    Schreibt keine letzte_aktivitaet (das übernimmt check_session_timeout).
+
+    Fail-closed: bei DB-Fehler wird False zurückgegeben — der Benutzer muss sich
+    erneut anmelden. Das ist sicherer als im Zweifel Zugriff zu gewähren.
+    """
+    try:
+        with get_conn() as conn:
+            row = conn.execute(
+                """SELECT s.aktiv, s.token_version,
+                          COALESCE(b.session_token_version, 0)
+                   FROM sessions s
+                   JOIN benutzer b ON b.id = s.benutzer_id
+                   WHERE s.token=?""",
+                (token,),
+            ).fetchone()
+            if not row:
+                return False
+            aktiv, sess_ver, benutzer_ver = row[0], row[1], row[2]
+            return bool(aktiv == 1 and sess_ver == benutzer_ver)
+    except Exception:
+        return False  # Fail-closed: DB-Fehler → Zugriff verweigern
 
 
 def session_beenden(token: str) -> None:

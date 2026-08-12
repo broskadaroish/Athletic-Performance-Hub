@@ -557,7 +557,11 @@ def page_mein_profil():
                 st.error("Neue Passwörter stimmen nicht überein.")
             else:
                 benutzer_passwort(uid, neu_pw1)
-                st.success("✅ Passwort erfolgreich geändert.")
+                # Sessions wurden in benutzer_passwort() serverseitig invalidiert.
+                # Flag setzen → per-Rerun-Token-Check in app.py erkennt ungültige
+                # Session und führt den vollständigen Logout durch.
+                st.session_state["__pw_changed__"] = True
+                st.rerun()
 
     # ── Benutzername ──────────────────────────────────────────────────────────
     st.divider()
