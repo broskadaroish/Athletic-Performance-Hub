@@ -5308,7 +5308,7 @@ def page_sprint():
                 _PRIO_LABEL = {3: "Deutliche Auffälligkeit", 2: "Relevante Auffälligkeit", 1: "Leichte Auffälligkeit"}
                 for _sp in _schwerpunkte:
                     _pf = _PRIO_FARBE.get(_sp["prioritaet"], "#58a6ff")
-                    _pl = _PRIO_LABEL.get(_sp["prioritaet"], "—")
+                    _prio_lbl = _PRIO_LABEL.get(_sp["prioritaet"], "—")
                     st.markdown(
                         f"<div style='background:#161b22;border-left:3px solid {_pf};"
                         f"border:1px solid {_pf};border-radius:8px;padding:14px;margin-bottom:8px'>"
@@ -5316,7 +5316,7 @@ def page_sprint():
                         f"margin-bottom:6px'>"
                         f"<span style='font-size:14px;font-weight:700;color:#e6edf3'>{_sp['bereich']}</span>"
                         f"<span style='font-size:10px;color:{_pf};background:#21262d;padding:2px 8px;"
-                        f"border-radius:10px'>{_pl}</span></div>"
+                        f"border-radius:10px'>{_prio_lbl}</span></div>"
                         f"<div style='font-size:12px;color:#8b949e;line-height:1.5'>{_sp['beschreibung']}</div>"
                         f"<div style='font-size:10px;color:#6e7681;margin-top:8px'>"
                         f"📊 Grundlage: {', '.join(_sp['quellen'])}</div>"
