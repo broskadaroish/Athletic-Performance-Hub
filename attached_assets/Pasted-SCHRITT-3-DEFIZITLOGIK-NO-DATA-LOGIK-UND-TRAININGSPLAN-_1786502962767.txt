@@ -1,0 +1,721 @@
+SCHRITT 3 – DEFIZITLOGIK, NO-DATA-LOGIK UND TRAININGSPLAN-STEUERUNG
+
+Arbeite auf Basis von SCHRITT 1 und SCHRITT 2 weiter.
+
+WICHTIG:
+- Bestehende Benutzerkonten nicht verändern.
+- Bestehende Lizenz-/Kundenverwaltung nicht verändern.
+- Bestehende Spieler nicht löschen.
+- Bestehende Diagnosewerte nicht verändern.
+- Bestehende Trainingspläne nicht automatisch löschen.
+- Bestehende FMS-, Y-Balance- und Sprintfunktionen nicht beschädigen.
+- Bestehende Trainingsbibliothek weiterverwenden.
+- Bestehende Trainingsplan-Regelengine prüfen und bevorzugt erweitern.
+- Keine zweite parallele Trainingsplan-Engine erstellen, wenn bereits eine vorhanden ist.
+- Bestehende sportwissenschaftliche Regeln weiterverwenden.
+- Noch KEINE neue Sprint-Muskel-Studienlogik aus meinem späteren Sprint-Arbeitspaket implementieren.
+- Noch KEINE Mobile-Design-Phase durchführen.
+
+==================================================
+0. VERBINDLICHE ARBEITSREGEL
+==================================================
+
+Prüfe für jeden Punkt zuerst den bestehenden Code.
+
+Danach gilt:
+
+A) vollständig vorhanden
+→ behalten und testen
+
+B) teilweise vorhanden
+→ vorhandene Lösung ergänzen
+
+C) nicht vorhanden
+→ neu erstellen und sauber integrieren
+
+Keine vorhandene funktionierende Logik unnötig ersetzen.
+
+==================================================
+1. HAUPTPROBLEM: KEINE DATEN SIND KEIN DEFIZIT
+==================================================
+
+Aktuelles Problem:
+
+Wenn bei einem Spieler noch keine oder nicht genügend Diagnosetests durchgeführt wurden, zeigt das Trainingssystem teilweise trotzdem erkannte Defizite an, z.B.:
+
+"Rumpf"
+
+Das ist fachlich falsch.
+
+Führe deshalb eine klare Trennung ein:
+
+NO_DATA ≠ DEFIZIT
+
+Ein fehlender Testwert darf niemals automatisch als schlechter Wert, Defizit, Risiko oder Schwäche interpretiert werden.
+
+Beispiele:
+
+Kein FMS-Test vorhanden
+→ NICHT "Rumpfstabilität schwach"
+
+Kein Y-Balance-Test vorhanden
+→ NICHT "einbeinige Stabilität schwach"
+
+Kein Sprinttest vorhanden
+→ NICHT "Beschleunigung schwach"
+
+==================================================
+2. DATENSTATUS PRO DIAGNOSEBEREICH
+==================================================
+
+Jeder relevante Diagnosebereich soll intern einen klaren Datenstatus besitzen.
+
+Zum Beispiel:
+
+NO_DATA
+VALID_DATA
+INCOMPLETE_DATA
+OUTDATED_DATA
+
+Bestehende Statuslogik bevorzugt weiterverwenden, falls vorhanden.
+
+Wichtig:
+
+Nur VALID_DATA darf für echte Defiziterkennung verwendet werden.
+
+INCOMPLETE_DATA darf nicht automatisch zum Defizit führen.
+
+OUTDATED_DATA darf entsprechend der bestehenden Systemlogik entweder:
+- gekennzeichnet
+oder
+- mit reduzierter Priorität berücksichtigt werden
+
+aber nicht ungeprüft als aktuelles Defizit gelten.
+
+==================================================
+3. DEFIZITQUELLE SPEICHERN
+==================================================
+
+Jedes erkannte Defizit soll nachvollziehbar sein.
+
+Wenn möglich, intern speichern bzw. berechnen:
+
+- Defizitname
+- Quelle
+- Testtyp
+- Testdatum
+- Schweregrad
+- Seitenbezug, falls vorhanden
+- Priorität
+
+Beispiel:
+
+Defizit:
+Einbeinige Stabilität
+
+Quelle:
+Y-Balance
+
+Datum:
+03.08.2026
+
+Schweregrad:
+2
+
+Dadurch darf kein Defizit ohne nachvollziehbare Datenquelle erzeugt werden.
+
+==================================================
+4. ANZAHL ERKANNTER DEFIZITE
+==================================================
+
+Die Trainingsplanlogik muss unterscheiden:
+
+A) 0 echte Defizite
+B) 1 echtes Defizit
+C) 2 echte Defizite
+D) 3 oder mehr echte Defizite
+
+Wichtig:
+Gezählt werden nur valide, tatsächlich aus Diagnosedaten erkannte Defizite.
+
+Keine Default-/Fallback-Defizite mitzählen.
+
+==================================================
+5. FALL A – KEINE DIAGNOSE DURCHGEFÜHRT
+==================================================
+
+Wenn beim Spieler noch KEIN verwertbarer Diagnosetest vorhanden ist:
+
+KEINE Defizite anzeigen.
+
+Stattdessen Status anzeigen:
+
+"Keine ausreichenden Diagnosedaten vorhanden."
+
+Optional:
+
+"Der Trainingsplan wird aktuell alters- und leistungsorientiert ohne diagnostischen Schwerpunkt erstellt."
+
+Der Trainingsplan wird dann im:
+
+BASIS-MODUS
+
+erstellt.
+
+==================================================
+6. BASIS-MODUS OHNE DIAGNOSTIK
+==================================================
+
+Wenn keine verwertbaren Diagnosedaten vorhanden sind, soll trotzdem ein sinnvoller Trainingsplan erstellt werden können.
+
+Dieser soll:
+
+- altersgerecht
+- fußballspezifisch
+- abwechslungsreich
+- ausgewogen
+- belastungsgerecht
+
+sein.
+
+Keine erfundenen Defizite anzeigen.
+
+Mögliche Trainingsbereiche:
+
+- Schnelligkeit
+- Antritt
+- Koordination
+- Beweglichkeit
+- Stabilität
+- Kraft mit Eigengewicht
+- Explosivkraft
+- Reaktivkraft
+- Rumpfstabilität
+- Hüftstabilität
+- einbeinige Kontrolle
+- Sprung-/Landetechnik
+- allgemeine Athletik
+
+WICHTIG:
+Diese Bereiche dürfen im Basis-Modus NICHT als "erkannte Defizite" dargestellt werden.
+
+Stattdessen z.B.:
+
+"Allgemeiner Trainingsschwerpunkt"
+
+oder:
+
+"Altersgerechter Athletikbaustein"
+
+==================================================
+7. ALTERSGERECHTE PLANUNG
+==================================================
+
+Nutze das vorhandene Alter / Geburtsdatum des Spielers.
+
+Prüfe zunächst, ob bereits Altersgruppenlogik vorhanden ist.
+
+Wenn vorhanden:
+weiterverwenden.
+
+Wenn nicht:
+eine zentrale Altersgruppenlogik ergänzen.
+
+Keine medizinischen oder extremen Trainingsvorgaben.
+
+Bei Kindern und Jugendlichen:
+- Technik und Bewegungsqualität priorisieren
+- altersgerechte Belastung
+- keine unnötig hohen externen Lasten
+- abwechslungsreiche Inhalte
+- spielerische/koordinative Elemente berücksichtigen
+
+Bestehende Alterslogik nicht überschreiben.
+
+==================================================
+8. FALL B – GENAU 1 DEFIZIT
+==================================================
+
+Wenn genau EIN echtes Defizit erkannt wurde:
+
+Dieses Defizit ist Hauptschwerpunkt des Trainingsplans.
+
+Beispiel:
+
+Erkanntes Defizit:
+Hüftstabilität
+
+Dann soll im Trainingsplan klar angezeigt werden:
+
+Hauptschwerpunkt:
+Hüftstabilität
+
+Aber:
+
+Der Trainingsplan darf NICHT zu 100 % nur aus diesem Bereich bestehen.
+
+Verwende ungefähr:
+
+60–70 % Schwerpunktarbeit
+30–40 % allgemeiner Erhalt / ergänzende Athletik
+
+Die allgemeine Ergänzung soll abhängig von Alter, Fußballprofil, vorhandener Trainingszeit und bestehenden Trainingsregeln ausgewählt werden.
+
+==================================================
+9. FALL C – GENAU 2 DEFIZITE
+==================================================
+
+Wenn genau ZWEI echte Defizite erkannt wurden:
+
+Nur diese beiden Defizite werden als diagnostische Hauptschwerpunkte angezeigt.
+
+Keine künstlichen zusätzlichen Defizite hinzufügen.
+
+Beispiel:
+
+1. Hüftstabilität
+2. Rumpfstabilität
+
+Anzeige:
+
+Diagnostische Schwerpunkte:
+1. Hüftstabilität
+2. Rumpfstabilität
+
+Die Schwerpunktanteile sinnvoll aufteilen.
+
+Zum Beispiel:
+- Schwerpunkt 1: ca. 35 %
+- Schwerpunkt 2: ca. 35 %
+- allgemeiner Erhalt: ca. 30 %
+
+Nicht hart codieren, falls bestehende Regelengine bereits ein Gewichtungssystem besitzt.
+
+==================================================
+10. FALL D – 3 ODER MEHR DEFIZITE
+==================================================
+
+Wenn 3 oder mehr valide Defizite erkannt werden:
+
+Nicht alle gleich stark trainieren.
+
+Bestehende Prioritätslogik verwenden.
+
+Falls noch nicht sauber vorhanden:
+
+Priorisierung anhand von:
+
+- Schweregrad
+- Risiko/Auffälligkeit
+- wiederholter Auffälligkeit
+- Asymmetrie
+- Testquelle
+- Relevanz für Bewegung/Sprint
+- Alter
+- bestehender Trainingsplan
+
+Die wichtigsten 2–3 Bereiche als Hauptschwerpunkte auswählen.
+
+Weitere valide Defizite als:
+
+"Nebenschwerpunkte / Erhalt"
+
+führen.
+
+Keine Defizite löschen.
+
+==================================================
+11. KEINE DUPLIKATE BEI DEFIZITEN
+==================================================
+
+Wenn mehrere Tests dasselbe funktionelle Problem erkennen, nicht mehrfach anzeigen.
+
+Beispiel:
+
+FMS erkennt:
+Hüftstabilität
+
+Y-Balance erkennt:
+Hüftstabilität
+
+Dann NICHT:
+
+1. Hüftstabilität
+2. Hüftstabilität
+
+sondern:
+
+Hüftstabilität
+Quellen: FMS + Y-Balance
+
+Priorität darf dadurch sinnvoll erhöht werden.
+
+==================================================
+12. ÄHNLICHE DEFIZITE ZUSAMMENFÜHREN
+==================================================
+
+Prüfe bestehende Defizit-Taxonomie.
+
+Falls sinnvoll, funktionell gleiche oder sehr ähnliche Begriffe zentral normalisieren.
+
+Beispiele:
+
+"Core"
+"Rumpf"
+"Rumpfstabilität"
+
+sollen nicht als drei unterschiedliche Defizite auftreten, wenn sie fachlich dasselbe meinen.
+
+Aber:
+
+Keine unterschiedlichen Bereiche unzulässig zusammenfassen.
+
+Eine zentrale Defizit-Taxonomie verwenden.
+
+==================================================
+13. TRAININGSPLAN – SCHWERPUNKTE SICHTBAR MACHEN
+==================================================
+
+Bei jedem erstellten Trainingsplan anzeigen:
+
+TRAININGSPLAN
+
+Modus:
+- Basis-Modus
+oder
+- Diagnostik-Modus
+
+Wenn Diagnostik-Modus:
+
+Erkannte Schwerpunkte:
+1. ...
+2. ...
+
+Wenn Basis-Modus:
+
+"Keine ausreichenden Diagnosedaten vorhanden.
+Der Plan wurde alters- und leistungsorientiert erstellt."
+
+==================================================
+14. WARUM WIRD DAS TRAINIERT?
+==================================================
+
+Bei diagnostisch ausgewählten Übungen oder Trainingsblöcken soll der Nutzer nachvollziehen können:
+
+"Warum wird das trainiert?"
+
+Beispiel:
+
+Schwerpunkt:
+Einbeinige Stabilität
+
+Begründung:
+"Im Y-Balance-Test wurde eine relevante Auffälligkeit erkannt."
+
+Keine medizinischen Diagnosen formulieren.
+
+Begriffe verwenden wie:
+
+- Auffälligkeit
+- Trainingsschwerpunkt
+- möglicher Leistungsbereich
+- Seitenunterschied
+- funktioneller Schwerpunkt
+
+Nicht:
+
+- Erkrankung
+- Diagnose
+- geschädigt
+- krank
+- verletzt
+
+außer echte Verletzungsdaten stammen aus dem vorhandenen Verletzungsmodul.
+
+==================================================
+15. BESTEHENDE TRAININGSREIHENFOLGE BEIBEHALTEN
+==================================================
+
+Die bestehende Trainingsphilosophie ist weiterhin verbindlich.
+
+Bei der Trainingsplan-Erstellung Reihenfolge beachten:
+
+1. Schnelligkeits- und Explosivübungen zuerst
+
+2. koordinativ / technisch anspruchsvolle Kraftübungen vor einfachen Übungen
+
+3. Mehrgelenksübungen vor Eingelenksübungen
+
+4. große Muskelgruppen vor kleinen Muskelgruppen
+
+5. Druck- und Zugübungen sinnvoll abwechseln
+
+6. Oberkörper- und Beinübungen sinnvoll abwechseln
+
+Sprint-/Schnelligkeitstraining immer vor ermüdendem Kraft- oder Ausdauertraining.
+
+Bestehende Regelengine hierfür weiterverwenden.
+
+==================================================
+16. ABWECHSLUNG VERHINDERT MONOTONE PLÄNE
+==================================================
+
+Auch wenn ein Schwerpunkt über mehrere Wochen bestehen bleibt:
+
+Nicht immer exakt dieselben Übungen auswählen.
+
+Verwende vorhandene Trainingsbibliothek.
+
+Übungen innerhalb desselben funktionellen Bereichs sinnvoll rotieren.
+
+Beachte dabei:
+
+- Alter
+- Leistungsniveau
+- Equipment
+- Schwierigkeitsgrad
+- Trainingsziel
+- bereits zuletzt verwendete Übungen
+
+Keine zufällige Rotation ohne fachliche Regeln.
+
+==================================================
+17. DEFIZIT ≠ JEDE ÜBUNG
+==================================================
+
+Beispiel:
+
+Defizit:
+Rumpfstabilität
+
+Der gesamte Trainingsplan darf trotzdem weiterhin enthalten:
+
+- Sprint
+- Explosivität
+- Kraft
+- Koordination
+- allgemeine Stabilität
+
+entsprechend der verfügbaren Trainingszeit.
+
+Nur der Schwerpunktanteil wird durch das Defizit erhöht.
+
+==================================================
+18. PLAN NICHT AUTOMATISCH LÖSCHEN
+==================================================
+
+WICHTIGE REGEL:
+
+Wenn ein Trainingsplan bereits erstellt wurde, darf er NICHT durch:
+
+- Seitenreload
+- neue Diagnose
+- Spielerwechsel
+- Login/Logout
+- erneutes Öffnen der Trainingsseite
+
+automatisch gelöscht oder überschrieben werden.
+
+Bestehender Plan bleibt gespeichert.
+
+Dieser Schritt soll zunächst sicherstellen, dass die Defizitlogik bestehende Pläne nicht ungewollt überschreibt.
+
+Die vollständige Versionierung/Bearbeitung von Trainingsplänen kommt in SCHRITT 4.
+
+==================================================
+19. NEUE DIAGNOSE NACH BESTEHENDEM PLAN
+==================================================
+
+Wenn ein bestehender Trainingsplan vorhanden ist und danach neue Diagnosedaten eingegeben werden:
+
+NICHT automatisch den aktuellen Plan löschen oder ersetzen.
+
+Stattdessen Hinweis:
+
+"Neue Diagnosedaten sind verfügbar."
+
+Optional:
+
+"Trainingsplan aktualisieren"
+
+Der Nutzer entscheidet selbst, ob ein neuer Plan erstellt oder der bestehende später angepasst wird.
+
+==================================================
+20. TRANSPARENZ ÜBER DATENBASIS
+==================================================
+
+Im Trainingsbereich soll der Nutzer erkennen können, auf welchen Daten der Plan basiert.
+
+Beispiel:
+
+Datenbasis:
+
+FMS:
+03.08.2026
+
+Y-Balance:
+03.08.2026
+
+Sprint:
+Noch kein Test
+
+Dadurch soll klar sein, welche Tests tatsächlich berücksichtigt wurden.
+
+Keine fehlenden Tests als negativ darstellen.
+
+==================================================
+21. DEFIZIT-PRIORITÄT
+==================================================
+
+Prüfe bestehende Prioritätslogik.
+
+Falls vorhanden:
+weiterverwenden und nur korrigieren, wenn NO_DATA fälschlich Punkte erzeugt.
+
+Falls keine zentrale Priorität vorhanden ist:
+
+Verwende grundsätzlich:
+
+0 = keine Auffälligkeit
+1 = leicht
+2 = relevant
+3 = deutlich
+
+Aber:
+
+Diese Punktelogik nur für valide Testdaten.
+
+NO_DATA bekommt KEINE Defizitpunkte.
+
+NO_DATA = keine Bewertung möglich.
+
+==================================================
+22. TESTS
+==================================================
+
+Teste mindestens folgende Fälle:
+
+TEST A
+Spieler ohne FMS, ohne Y-Balance, ohne Sprint.
+
+Erwartung:
+- keine erkannten Defizite
+- kein "Rumpf" als Defizit
+- Basis-Modus
+- altersgerechter abwechslungsreicher Trainingsplan
+
+TEST B
+Spieler nur mit FMS ohne Auffälligkeiten.
+
+Erwartung:
+- keine künstlichen Defizite
+- sinnvoller Basis-/Erhaltungsplan
+
+TEST C
+Spieler mit genau einem validen Defizit.
+
+Erwartung:
+- genau dieses Defizit als Hauptschwerpunkt
+- allgemeine Trainingsanteile bleiben erhalten
+
+TEST D
+Spieler mit genau zwei validen Defiziten.
+
+Erwartung:
+- genau diese zwei diagnostischen Schwerpunkte
+- keine erfundenen dritten/vierten Defizite
+
+TEST E
+Mehrere Tests erkennen dasselbe Defizit.
+
+Erwartung:
+- einmal anzeigen
+- mehrere Quellen zuordnen
+- Priorität ggf. erhöhen
+
+TEST F
+3 oder mehr Defizite.
+
+Erwartung:
+- wichtigste 2–3 priorisieren
+- weitere als Nebenschwerpunkte
+
+TEST G
+Fehlender Sprinttest.
+
+Erwartung:
+- kein Sprintdefizit allein wegen fehlender Daten
+
+TEST H
+Bestehender Trainingsplan + neue Diagnose.
+
+Erwartung:
+- vorhandener Plan bleibt bestehen
+- Hinweis auf neue Diagnosedaten
+- kein automatisches Überschreiben
+
+TEST I
+Reload der Trainingsseite.
+
+Erwartung:
+- bestehender Trainingsplan bleibt erhalten
+
+TEST J
+Spielerwechsel.
+
+Erwartung:
+- Trainingsplan jedes Spielers korrekt getrennt
+- keine Datenvermischung
+
+==================================================
+23. REGRESSIONSTEST
+==================================================
+
+Zusätzlich prüfen:
+
+- FMS-Eingabe funktioniert
+- Y-Balance-Eingabe funktioniert
+- Sprinttest funktioniert
+- Spieleranlage funktioniert
+- Spielerwechsel funktioniert
+- Dashboard funktioniert
+- Trainingsbibliothek funktioniert
+- bestehende Trainingsplan-Erstellung funktioniert
+- Datenbank bleibt konsistent
+- keine Kundendaten betroffen
+- keine Lizenzdaten betroffen
+
+==================================================
+24. ABSCHLUSSBERICHT
+==================================================
+
+Nach Abschluss keine weiteren Funktionen hinzufügen.
+
+Berichte:
+
+1. Warum wurde bisher ohne Diagnose "Rumpf" als Defizit erkannt?
+2. Wo genau lag der Fehler?
+3. Wie wurde NO_DATA von echtem Defizit getrennt?
+4. Welche Datenstatus werden jetzt verwendet?
+5. Wie funktioniert der Basis-Modus?
+6. Wie wird genau 1 Defizit behandelt?
+7. Wie werden genau 2 Defizite behandelt?
+8. Wie werden 3+ Defizite priorisiert?
+9. Wie werden doppelte Defizite zusammengeführt?
+10. Wie bleibt ein bestehender Trainingsplan erhalten?
+11. Welche Dateien wurden geändert?
+12. Welche DB-Änderungen wurden vorgenommen?
+13. Welche bestehende Trainingslogik wurde bewusst nicht verändert?
+14. Welche Tests wurden erfolgreich durchgeführt?
+15. Welche 10 Punkte soll ich selbst testen?
+
+Für jeden Hauptpunkt zusätzlich kennzeichnen:
+
+- BEREITS VORHANDEN
+- ERGÄNZT
+oder
+- NEU ERSTELLT
+
+Danach STOPPEN.
+
+Keine Funktionen aus SCHRITT 4 oder dem späteren Sprint-Wissenschaftsmodul automatisch vorwegnehmen.

@@ -285,92 +285,114 @@ def defizite_ermitteln(
     spiro_row=None,
 ) -> list[dict]:
     """
-    Returns a list of deficit dicts with keys:
-      level  : 'kritisch' | 'warnung'
-      bereich: str
-      modul  : str   (source module label)
-      text   : str
+    Returns a deduplicated list of deficit dicts.  NO_DATA (None row) ≠ Defizit.
+    Keys per entry:
+      level     : 'kritisch' | 'warnung'
+      bereich   : str  (canonical area — same bereich → merged, not duplicated)
+      modul     : str  (source(s), e.g. 'FMS' or 'FMS + Y-Balance')
+      text      : str  (most severe finding)
+      datum     : str | None
+      prioritaet: int  (3 = kritisch, 2 = warnung)
     """
-    defizite = []
-    seen: set = set()
+    defizite: list[dict] = []
+    seen: dict[str, int] = {}  # bereich → index in defizite
 
-    def add(level, bereich, text, modul=""):
-        key = (bereich, text)
-        if key not in seen:
-            defizite.append({"level": level, "bereich": bereich, "text": text, "modul": modul})
-            seen.add(key)
+    def add(level: str, bereich: str, text: str, modul: str = "", datum=None):
+        """Fügt ein Defizit hinzu oder führt gleiche Bereiche zusammen.
+        NO_DATA = diese Funktion wird gar nicht aufgerufen (Guards oben)."""
+        sev = 3 if level == "kritisch" else 2
+        if bereich in seen:
+            ex = defizite[seen[bereich]]
+            if sev > ex["prioritaet"]:
+                ex["level"] = level
+                ex["text"] = text
+                ex["prioritaet"] = sev
+            if modul and modul not in ex["modul"]:
+                ex["modul"] = (ex["modul"] + " + " + modul).strip(" + ")
+            if datum and not ex["datum"]:
+                ex["datum"] = datum
+        else:
+            seen[bereich] = len(defizite)
+            defizite.append({
+                "level": level, "bereich": bereich, "text": text,
+                "modul": modul, "datum": datum, "prioritaet": sev,
+            })
 
     # ── FMS ──────────────────────────────────────────────────────────────────
     if fms_row:
-        s = fms_row["score"]
-        sw = str(fms_row["schwerpunkt"]).lower()
+        s  = fms_row["score"]
+        sw = str(fms_row.get("schwerpunkt") or "").lower()
+        _d = fms_row.get("datum") or fms_row.get("erstellt_am")
 
         if s <= 12:
-            add("kritisch", "Ganzkörperstabilität", "FMS-Score unter 13 — deutlicher Trainingsbedarf.", "FMS")
+            add("kritisch", "Ganzkörperstabilität", "FMS-Score unter 13 — deutlicher Trainingsbedarf.", "FMS", _d)
         elif s <= 14:
-            add("warnung", "Ganzkörperstabilität", "FMS-Score zeigt Verbesserungsbedarf.", "FMS")
+            add("warnung", "Ganzkörperstabilität", "FMS-Score zeigt Verbesserungsbedarf.", "FMS", _d)
 
         if "hüft" in sw:
-            add("kritisch", "Hüfte", "Defizite der Hüftstabilität erkannt.", "FMS")
+            add("kritisch", "Hüfte", "Auffälligkeit der Hüftstabilität im FMS erkannt.", "FMS", _d)
         if "rumpf" in sw or "core" in sw or "rotations" in sw:
-            add("kritisch", "Core / Rumpf", "Rumpfstabilität eingeschränkt.", "FMS")
+            add("kritisch", "Core / Rumpf", "Rumpfstabilität auffällig im FMS.", "FMS", _d)
         if "sprunggelenk" in sw:
-            add("warnung", "Sprunggelenk", "Sprunggelenk-Mobilität / -Stabilität auffällig.", "FMS")
+            add("warnung", "Sprunggelenk", "Sprunggelenk-Mobilität / -Stabilität auffällig.", "FMS", _d)
         if "knie" in sw:
-            add("warnung", "Knie", "Beinachsenkontrolle auffällig.", "FMS")
+            add("warnung", "Knie", "Beinachsenkontrolle auffällig im FMS.", "FMS", _d)
         if "schulter" in sw:
-            add("warnung", "Schulter", "Schulterbeweglichkeit eingeschränkt.", "FMS")
+            add("warnung", "Schulter", "Schulterbeweglichkeit eingeschränkt im FMS.", "FMS", _d)
 
     # ── Y-Balance ────────────────────────────────────────────────────────────
     if y_row:
-        asym = str(y_row["asymmetrie"]).lower()
-        sw = str(y_row["schwerpunkt"]).lower()
+        asym = str(y_row.get("asymmetrie") or "").lower()
+        sw   = str(y_row.get("schwerpunkt") or "").lower()
+        _d   = y_row.get("datum") or y_row.get("erstellt_am")
 
         if "anterior" in asym:
-            add("kritisch", "Sprunggelenk", "Anterior-Asymmetrie im Y-Balance Test.", "Y-Balance")
+            add("kritisch", "Sprunggelenk", "Anterior-Asymmetrie im Y-Balance-Test.", "Y-Balance", _d)
         if "posteromedial" in asym:
-            add("kritisch", "Hüfte", "Posteromediale Asymmetrie — Beckenstabilität prüfen.", "Y-Balance")
+            add("kritisch", "Hüfte", "Posteromediale Asymmetrie — Beckenstabilität auffällig.", "Y-Balance", _d)
         if "posterolateral" in asym:
-            add("kritisch", "Hüfte", "Posterolaterale Asymmetrie — Knie-/Hüftkontrolle prüfen.", "Y-Balance")
+            add("kritisch", "Hüfte", "Posterolaterale Asymmetrie — Knie-/Hüftkontrolle auffällig.", "Y-Balance", _d)
         if "gluteus" in sw:
-            add("warnung", "Hüfte", "Gluteus medius Training empfohlen.", "Y-Balance")
+            add("warnung", "Hüfte", "Funktioneller Schwerpunkt Gluteus medius erkannt.", "Y-Balance", _d)
         if "becken" in sw:
-            add("warnung", "Core / Rumpf", "Beckenstabilität verbessern.", "Y-Balance")
+            add("warnung", "Core / Rumpf", "Beckenstabilität als Trainingsschwerpunkt erkannt.", "Y-Balance", _d)
 
     # ── Sprint ────────────────────────────────────────────────────────────────
     if sprint_row:
         defizit_text = str(sprint_row.get("defizite") or "")
         bew10  = str(sprint_row.get("bewertung_10m") or "")
         bew30  = str(sprint_row.get("bewertung_30m") or "")
+        _d     = sprint_row.get("datum") or sprint_row.get("erstellt_am")
         if bew10 == "Verbesserungsbedarf":
-            add("kritisch", "Lineargeschwindigkeit", "10-m-Sprintzeit unter Referenzwert — Beschleunigung verbessern.", "Sprint")
+            add("kritisch", "Lineargeschwindigkeit", "10-m-Sprintzeit unter Referenzwert — Beschleunigung verbessern.", "Sprint", _d)
         elif bew10 in ("Mittel (Breitensport)",):
-            add("warnung", "Lineargeschwindigkeit", "10-m-Sprintzeit im mittleren Bereich.", "Sprint")
+            add("warnung", "Lineargeschwindigkeit", "10-m-Sprintzeit im mittleren Bereich.", "Sprint", _d)
         if bew30 == "Verbesserungsbedarf":
-            add("kritisch", "Maximalgeschwindigkeit", "30-m-Sprintzeit unter Referenzwert — Maximalgeschwindigkeit verbessern.", "Sprint")
+            add("kritisch", "Maximalgeschwindigkeit", "30-m-Sprintzeit unter Referenzwert — Maximalgeschwindigkeit verbessern.", "Sprint", _d)
         elif bew30 == "Mittel (Breitensport)":
-            add("warnung", "Maximalgeschwindigkeit", "30-m-Sprintzeit im mittleren Bereich.", "Sprint")
+            add("warnung", "Maximalgeschwindigkeit", "30-m-Sprintzeit im mittleren Bereich.", "Sprint", _d)
         if "Startexplosivität" in defizit_text:
-            add("warnung", "Startexplosivität", "Beschleunigungsindex erhöht — Reaktivkraft fördern.", "Sprint")
+            add("warnung", "Startexplosivität", "Beschleunigungsindex erhöht — Reaktivkraft fördern.", "Sprint", _d)
 
     # ── Sprung ────────────────────────────────────────────────────────────────
     if sprung_row:
-        bew_cmj = str(sprung_row.get("bewertung_cmj") or "")
-        asym    = sprung_row.get("cmj_asymmetrie") or 0
-        rsi     = sprung_row.get("rsi") or 0
+        bew_cmj      = str(sprung_row.get("bewertung_cmj") or "")
+        asym         = sprung_row.get("cmj_asymmetrie") or 0
+        rsi          = sprung_row.get("rsi") or 0
         defizit_text = str(sprung_row.get("defizite") or "")
+        _d           = sprung_row.get("datum") or sprung_row.get("erstellt_am")
 
         if bew_cmj == "Verbesserungsbedarf":
-            add("kritisch", "Explosivkraft", "CMJ-Sprunghöhe deutlich unter Normwert.", "Sprung")
+            add("kritisch", "Explosivkraft", "CMJ-Sprunghöhe deutlich unter Normwert.", "Sprung", _d)
         elif bew_cmj == "Mittel (Breitensport)":
-            add("warnung", "Explosivkraft", "CMJ-Sprunghöhe im mittleren Bereich.", "Sprung")
+            add("warnung", "Explosivkraft", "CMJ-Sprunghöhe im mittleren Bereich.", "Sprung", _d)
         if asym and float(asym) > 10:
             add("kritisch", "Sprungasymmetrie",
-                f"Einbeinige Sprungasymmetrie {float(asym):.1f} % — Asymmetrie auffällig, Trainingsschwerpunkt prüfen.", "Sprung")
+                f"Einbeinige Sprungasymmetrie {float(asym):.1f} % — Seitenunterschied auffällig.", "Sprung", _d)
         if rsi and float(rsi) < 1.5:
-            add("warnung", "Reaktivkraft", f"RSI = {float(rsi):.2f} — Drop-Jump-Reaktivkraft verbessern.", "Sprung")
+            add("warnung", "Reaktivkraft", f"RSI = {float(rsi):.2f} — Drop-Jump-Reaktivkraft verbessern.", "Sprung", _d)
         if "Horizontalexplosivkraft" in defizit_text:
-            add("warnung", "Horizontalexplosivkraft", "Standweitsprung unter Normwert.", "Sprung")
+            add("warnung", "Horizontalexplosivkraft", "Standweitsprung unter Normwert.", "Sprung", _d)
 
     # ── Agilität ─────────────────────────────────────────────────────────────
     if agil_row:
@@ -378,71 +400,74 @@ def defizite_ermitteln(
         bew_505 = str(agil_row.get("bew_505") or "")
         bew_ill = str(agil_row.get("bew_illinois") or "")
         asym505 = agil_row.get("asym_505") or 0
+        _d      = agil_row.get("datum") or agil_row.get("erstellt_am")
 
         if bew_t == "Verbesserungsbedarf":
-            add("kritisch", "Mehrdirektionale Agilität", "T-Test Zeit unter Referenzwert — Richtungswechselkraft verbessern.", "Agilität")
+            add("kritisch", "Mehrdirektionale Agilität", "T-Test unter Referenzwert — Richtungswechselkraft verbessern.", "Agilität", _d)
         elif bew_t == "Mittel (Breitensport)":
-            add("warnung", "Mehrdirektionale Agilität", "T-Test im mittleren Bereich.", "Agilität")
+            add("warnung", "Mehrdirektionale Agilität", "T-Test im mittleren Bereich.", "Agilität", _d)
         if bew_505 == "Verbesserungsbedarf":
-            add("kritisch", "Richtungswechsel", "505-Test Zeit unter Referenzwert.", "Agilität")
+            add("kritisch", "Richtungswechsel", "505-Test unter Referenzwert.", "Agilität", _d)
         if bew_ill == "Verbesserungsbedarf":
-            add("warnung", "Gesamtagilität", "Illinois-Test unter Referenzwert — Gesamtagilität verbessern.", "Agilität")
+            add("warnung", "Gesamtagilität", "Illinois-Test unter Referenzwert — Gesamtagilität verbessern.", "Agilität", _d)
         if asym505 and float(asym505) > 10:
             add("kritisch", "Richtungswechsel-Asymmetrie",
-                f"505-Test Seitenasymmetrie {float(asym505):.1f} % — Asymmetrie auffällig, Richtungswechseltraining anpassen.", "Agilität")
+                f"505-Test Seitenasymmetrie {float(asym505):.1f} % — Seitenunterschied auffällig.", "Agilität", _d)
 
     # ── Ausdauer ──────────────────────────────────────────────────────────────
     if aus_row:
         bew    = str(aus_row.get("bewertung") or "")
         vo2max = aus_row.get("vo2max") or 0
+        _d     = aus_row.get("datum") or aus_row.get("erstellt_am")
 
         if bew == "Verbesserungsbedarf":
             add("kritisch", "Intermittierende Ausdauer",
-                "Yo-Yo IR-Ergebnis unter Normwert — Ausdauerkapazität verbessern.", "Ausdauer")
+                "Yo-Yo IR-Ergebnis unter Normwert — Ausdauerkapazität verbessern.", "Ausdauer", _d)
         elif bew == "Mittel":
             add("warnung", "Intermittierende Ausdauer",
-                "Yo-Yo IR-Ergebnis im mittleren Bereich.", "Ausdauer")
+                "Yo-Yo IR-Ergebnis im mittleren Bereich.", "Ausdauer", _d)
         if vo2max and float(vo2max) < 45:
             add("kritisch", "Aerobe Kapazität",
-                f"VO₂max-Schätzung {float(vo2max):.1f} ml/kg/min — aerobe Basis stärken.", "Ausdauer")
+                f"VO₂max-Schätzung {float(vo2max):.1f} ml/kg/min — aerobe Basis stärken.", "Ausdauer", _d)
         elif vo2max and float(vo2max) < 50:
             add("warnung", "Aerobe Kapazität",
-                f"VO₂max-Schätzung {float(vo2max):.1f} ml/kg/min — Ausdauertraining intensivieren.", "Ausdauer")
+                f"VO₂max-Schätzung {float(vo2max):.1f} ml/kg/min — Ausdauertraining intensivieren.", "Ausdauer", _d)
 
     # ── Anthropometrie ────────────────────────────────────────────────────────
     if anthro_row:
-        bmi    = anthro_row.get("bmi") or 0
-        bmi_k  = str(anthro_row.get("bmi_kategorie") or "").lower()
-        reife  = str(anthro_row.get("reifestatus") or "").lower()
+        bmi   = anthro_row.get("bmi") or 0
+        reife = str(anthro_row.get("reifestatus") or "").lower()
+        _d    = anthro_row.get("datum") or anthro_row.get("erstellt_am")
 
         if float(bmi) >= 30:
             add("kritisch", "Körperzusammensetzung",
-                f"BMI {float(bmi):.1f} — Übergewicht kann Leistung und Gelenkbelastung erhöhen.", "Anthropometrie")
+                f"BMI {float(bmi):.1f} — Übergewicht kann Leistung und Gelenkbelastung erhöhen.", "Anthropometrie", _d)
         elif float(bmi) >= 25:
             add("warnung", "Körperzusammensetzung",
-                f"BMI {float(bmi):.1f} — leichtes Übergewicht, Körperfett reduzieren.", "Anthropometrie")
+                f"BMI {float(bmi):.1f} — leichtes Übergewicht, Körperfett reduzieren.", "Anthropometrie", _d)
         elif float(bmi) < 18.5 and float(bmi) > 0:
             add("warnung", "Körperzusammensetzung",
-                f"BMI {float(bmi):.1f} — Untergewicht, Ernährung prüfen.", "Anthropometrie")
+                f"BMI {float(bmi):.1f} — Untergewicht, Ernährung prüfen.", "Anthropometrie", _d)
         if "vor phv" in reife or "wachstumsschub" in reife:
             add("warnung", "Wachstum / Belastungssteuerung",
-                "Spieler befindet sich im oder vor dem Wachstumsschub — Belastung anpassen.", "Anthropometrie")
+                "Spieler befindet sich im oder vor dem Wachstumsschub — Belastung anpassen.", "Anthropometrie", _d)
 
     # ── Spiroergometrie / Stufentest ──────────────────────────────────────────
     if spiro_row:
-        vo2 = spiro_row.get("vo2_peak") or spiro_row.get("vo2_max") or spiro_row.get("geschaetzte_vo2max")
+        vo2    = spiro_row.get("vo2_peak") or spiro_row.get("vo2_max") or spiro_row.get("geschaetzte_vo2max")
         schw_v = spiro_row.get("schwelle_geschwindigkeit")
+        _d     = spiro_row.get("datum") or spiro_row.get("erstellt_am")
         if vo2:
             v = float(vo2)
             if v < 45:
-                add("kritisch", "Aerobe Kapazität (Spiro)",
-                    f"VO₂peak {v:.1f} ml·kg⁻¹·min⁻¹ — aerobe Basis dringend stärken (Spiroergometrie).", "Stufentest")
+                add("kritisch", "Aerobe Kapazität",
+                    f"VO₂peak {v:.1f} ml·kg⁻¹·min⁻¹ — aerobe Basis dringend stärken (Stufentest).", "Stufentest", _d)
             elif v < 50:
-                add("warnung", "Aerobe Kapazität (Spiro)",
-                    f"VO₂peak {v:.1f} ml·kg⁻¹·min⁻¹ — Ausdauertraining intensivieren.", "Stufentest")
+                add("warnung", "Aerobe Kapazität",
+                    f"VO₂peak {v:.1f} ml·kg⁻¹·min⁻¹ — Ausdauertraining intensivieren.", "Stufentest", _d)
         if schw_v and float(schw_v) < 12:
             add("warnung", "Laktatschwelle",
-                f"Schwellengeschwindigkeit {float(schw_v):.1f} km/h — Schwellentraining empfohlen.", "Stufentest")
+                f"Schwellengeschwindigkeit {float(schw_v):.1f} km/h — Schwellentraining empfohlen.", "Stufentest", _d)
 
     return defizite
 
@@ -529,6 +554,32 @@ ERHALTUNGS_BEGRUENDUNG = (
     "Ziel ist es, die aktuelle Leistungsfähigkeit langfristig zu sichern, "
     "Verletzungen vorzubeugen und gezielt weitere Leistungsreize zu setzen."
 )
+
+
+def testdaten_uebersicht(
+    fms_row=None, y_row=None, sprint_row=None, sprung_row=None,
+    agil_row=None, aus_row=None, spiro_row=None,
+) -> dict[str, tuple[str, str | None]]:
+    """Gibt pro Test {name: (status, datum)} zurück.
+    Status: 'NO_DATA' | 'VALID_DATA'
+    Dient der Transparenz-Anzeige im Trainingsbereich (Spec §20)."""
+    def _s(row, *keys):
+        if not row:
+            return ("NO_DATA", None)
+        for k in keys:
+            v = row.get(k)
+            if v:
+                return ("VALID_DATA", str(v))
+        return ("VALID_DATA", None)
+    return {
+        "FMS":        _s(fms_row,    "datum", "erstellt_am"),
+        "Y-Balance":  _s(y_row,      "datum", "erstellt_am"),
+        "Sprint":     _s(sprint_row, "datum", "erstellt_am"),
+        "Sprung":     _s(sprung_row, "datum", "erstellt_am"),
+        "Agilität":   _s(agil_row,   "datum", "erstellt_am"),
+        "Ausdauer":   _s(aus_row,    "datum", "erstellt_am"),
+        "Stufentest": _s(spiro_row,  "datum", "erstellt_am"),
+    }
 
 
 def ist_unauffaellig(

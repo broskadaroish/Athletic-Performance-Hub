@@ -136,7 +136,7 @@ from y_balance import YBalanceResult
 from kraft import KraftErgebnis as _KraftErgebnis, epley_1rm as _epley_1rm
 from analytics import (
     risiko_score, risiko_label, athletik_score, athletik_sub_scores,
-    defizite_ermitteln, schwerpunkt_sammeln,
+    defizite_ermitteln, schwerpunkt_sammeln, testdaten_uebersicht,
     ist_unauffaellig, ERHALTUNGS_SCHWERPUNKT, ERHALTUNGS_BEGRUENDUNG,
 )
 from periodisierung import (zyklus_erstellen, zyklus_laden, trainingsplan_multi_erstellen,
@@ -3134,60 +3134,135 @@ def page_trainingsplan():
     agil    = agilitaet_letzter(sid)
     aus     = ausdauer_letzter(sid)
     spiro   = spiro_test_letzter(sid)
+
+    # ── SCHRITT 3: Datenstatus + Defiziterkennung (NO_DATA ≠ DEFIZIT) ────────
+    _tests_vorhanden  = any([fms, y, sprint, sprung, agil, aus, spiro])
+    defizite_valide   = defizite_ermitteln(fms, y, sprint, sprung, agil, aus, spiro_row=spiro)
+    _anzahl_defizite  = len(defizite_valide)   # nur echte, datenbasierte Defizite zählen
+
     schwerpunkt = schwerpunkt_sammeln(fms, y, sprint, sprung, agil, aus,
                                       kraft_row=kraft_letzter(sid), spiro_row=spiro)
 
-    # Erhaltungstraining-Modus: Tests vorhanden, aber keine Defizite erkannt
+    # Planmodus bestimmen: Basis / Erhaltung / Diagnostik
     _tp_unauffaellig = ist_unauffaellig(fms, y, sprint, sprung, agil, aus, spiro_row=spiro)
-    if _tp_unauffaellig and not schwerpunkt.strip():
+    if not _tests_vorhanden:
+        _plan_modus = "Basis"       # Fall A: kein Test → kein Defizit, Basis-Modus
+    elif _tp_unauffaellig:
+        _plan_modus = "Erhaltung"   # Tests vorhanden, keine Auffälligkeiten
         schwerpunkt = ERHALTUNGS_SCHWERPUNKT
+    else:
+        _plan_modus = "Diagnostik"  # echte Defizite erkannt
 
     tab_auto, tab_manual, tab_view = st.tabs(["🤖 Automatisch generieren", "✍️ Manuell hinzufügen", "📋 Plan anzeigen"])
 
     with tab_auto:
         st.markdown("### Individuellen Trainingsplan aus Diagnostikdaten")
 
-        # ── Erhaltungstraining-Banner ──────────────────────────────────────────
-        if _tp_unauffaellig:
+        # ── Modus-Banner ──────────────────────────────────────────────────────
+        if _plan_modus == "Basis":
+            # Fall A: kein Test vorhanden — Basis-Modus, keine Defizite
+            st.markdown(
+                f'<div style="background:#0d1117;border:1px solid #30363d;border-radius:10px;'
+                f'padding:14px 18px;margin-bottom:16px">'
+                f'<div style="font-size:14px;font-weight:700;color:#8b949e;margin-bottom:4px">'
+                f'📋 Trainingsmodus: <strong style="color:#e6edf3">Basis-Modus</strong></div>'
+                f'<div style="font-size:12px;color:#8b949e">'
+                f'Keine ausreichenden Diagnosedaten vorhanden. '
+                f'Der Plan wird alters- und leistungsorientiert ohne diagnostischen Schwerpunkt erstellt. '
+                f'Alle Trainingsbereiche sind <em>allgemeine Athletikbausteine</em>, keine erkannten Defizite.'
+                f'</div></div>',
+                unsafe_allow_html=True,
+            )
+        elif _plan_modus == "Erhaltung":
             st.markdown(
                 f'<div style="background:#0d2415;border:1px solid #3fb950;border-radius:10px;'
                 f'padding:14px 18px;margin-bottom:16px">'
                 f'<div style="font-size:14px;font-weight:700;color:#3fb950;margin-bottom:4px">'
-                f'✅ Unauffällige Diagnostik — Trainingsmodus: Leistung erhalten und weiterentwickeln</div>'
+                f'✅ Trainingsmodus: Leistung erhalten und weiterentwickeln</div>'
                 f'<div style="font-size:12px;color:#8b949e">{ERHALTUNGS_BEGRUENDUNG}</div>'
                 f'</div>',
                 unsafe_allow_html=True,
             )
-            st.markdown("#### 🎯 Trainingsschwerpunkte")
-            _erh_farben = {"🔴 Primär": "#58a6ff", "🟡 Sekundär": "#3fb950", "🟢 Tertiär": "#8b949e"}
-            _erh_label  = {"🔴 Primär": "Hauptschwerpunkt", "🟡 Sekundär": "Ergänzung", "🟢 Tertiär": "Basis"}
         else:
-            _erh_farben = {"🔴 Primär": "#f85149", "🟡 Sekundär": "#d29922", "🟢 Tertiär": "#3fb950"}
-            _erh_label  = None
+            # Diagnostik-Modus: echte Defizite
+            _prio_clr = {3: "#f85149", 2: "#d29922", 1: "#3fb950"}
+            _prio_lbl = {3: "🔴 Hauptschwerpunkt", 2: "🟡 Schwerpunkt", 1: "🟢 Nebenschwerpunkt"}
+            if _anzahl_defizite == 1:
+                _diag_modus_info = (
+                    "Genau <strong>1 Defizit</strong> erkannt — dieser Bereich ist Hauptschwerpunkt "
+                    "(ca. 60–70 %). Ergänzende Athletik bleibt erhalten."
+                )
+            elif _anzahl_defizite == 2:
+                _diag_modus_info = (
+                    "<strong>2 Defizite</strong> erkannt — beide als gleichgewichtete diagnostische "
+                    "Schwerpunkte (je ca. 35 %). Allgemeiner Erhalt: ca. 30 %."
+                )
+            else:
+                _diag_modus_info = (
+                    f"<strong>{_anzahl_defizite} Defizite</strong> erkannt — die wichtigsten 2–3 "
+                    "werden priorisiert, weitere als Nebenschwerpunkte geführt."
+                )
+            st.markdown(
+                f'<div style="background:#1a0000;border:1px solid #f85149;border-radius:10px;'
+                f'padding:14px 18px;margin-bottom:16px">'
+                f'<div style="font-size:14px;font-weight:700;color:#f85149;margin-bottom:4px">'
+                f'🔬 Trainingsmodus: Diagnostik-Modus</div>'
+                f'<div style="font-size:12px;color:#8b949e">{_diag_modus_info}</div>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
 
-        # ── Deficit / Focus Analysis ──────────────────────────────────────────
-        defizite = defizit_tabelle(schwerpunkt)
-        if defizite:
-            if not _tp_unauffaellig:
-                st.markdown("#### 🔍 Erkannte Defizite")
-            _farben = _erh_farben
-            _d_cols = st.columns(min(len(defizite), 4))
-            for i, d in enumerate(defizite):
-                col  = _d_cols[i % len(_d_cols)]
-                _clr = _farben.get(d["Priorität"], "#8b949e")
-                _lbl = (_erh_label[d["Priorität"]] if _erh_label and d["Priorität"] in _erh_label
-                        else d["Priorität"])
+        # ── Defizit-Anzeige (nur bei Diagnostik-Modus aus echten Daten) ──────
+        if _plan_modus == "Diagnostik" and defizite_valide:
+            st.markdown("#### 🔍 Erkannte Defizite (datenbasiert)")
+            _d_cols = st.columns(min(_anzahl_defizite, 4))
+            _prio_clr_map = {3: "#f85149", 2: "#d29922", 1: "#3fb950"}
+            _prio_lbl_map = {3: "Hauptschwerpunkt", 2: "Schwerpunkt", 1: "Nebenschwerpunkt"}
+            for i, d in enumerate(defizite_valide):
+                col = _d_cols[i % len(_d_cols)]
+                _clr = _prio_clr_map.get(d.get("prioritaet", 2), "#8b949e")
+                _lbl = _prio_lbl_map.get(d.get("prioritaet", 2), "Schwerpunkt")
+                _src = d.get("modul") or "—"
+                _dat = d.get("datum") or ""
                 col.markdown(
                     f'<div style="background:#161b22;border:2px solid {_clr};border-radius:8px;'
                     f'padding:10px 14px;margin-bottom:8px;text-align:center">'
-                    f'<div style="font-size:11px;color:{_clr};font-weight:700">{_lbl}</div>'
-                    f'<div style="font-weight:700;color:#e6edf3;font-size:14px">{d["Bereich"]}</div>'
-                    f'<div style="color:{_clr};font-size:12px">{d["Volumen/Woche"]}</div>'
+                    f'<div style="font-size:10px;color:{_clr};font-weight:700">{_lbl}</div>'
+                    f'<div style="font-weight:700;color:#e6edf3;font-size:13px;margin:3px 0">{d["bereich"]}</div>'
+                    f'<div style="color:#8b949e;font-size:10px">Quelle: {_src}</div>'
+                    f'{"<div style=color:#6e7681;font-size:10px>" + _dat + "</div>" if _dat else ""}'
                     f'</div>',
                     unsafe_allow_html=True,
                 )
-        else:
-            st.info("ℹ️ Keine Testdaten vorhanden — Standard-Plan (Hüfte + Rumpf + Knie) wird erstellt.")
+            # Begründungen anzeigen
+            with st.expander("ℹ️ Warum wird das trainiert?"):
+                for d in defizite_valide:
+                    st.markdown(
+                        f"**{d['bereich']}** *(Quelle: {d.get('modul','—')})*  \n"
+                        f"{d['text']}"
+                    )
+        elif _plan_modus == "Erhaltung":
+            st.markdown("#### 🎯 Trainingsschwerpunkte (Erhaltung)")
+
+        # ── Datenbasis-Transparenz ────────────────────────────────────────────
+        _datenbasis = testdaten_uebersicht(fms, y, sprint, sprung, agil, aus, spiro_row=spiro)
+        with st.expander("📊 Datenbasis — welche Tests wurden berücksichtigt?"):
+            _db_cols = st.columns(len(_datenbasis))
+            for col, (test_name, (status, datum)) in zip(_db_cols, _datenbasis.items()):
+                if status == "NO_DATA":
+                    col.markdown(
+                        f'<div style="text-align:center;padding:6px">'
+                        f'<div style="font-size:11px;color:#8b949e">{test_name}</div>'
+                        f'<div style="font-size:10px;color:#30363d">Noch kein Test</div>'
+                        f'</div>', unsafe_allow_html=True
+                    )
+                else:
+                    col.markdown(
+                        f'<div style="text-align:center;padding:6px">'
+                        f'<div style="font-size:11px;color:#3fb950;font-weight:700">{test_name}</div>'
+                        f'<div style="font-size:10px;color:#8b949e">{datum or "✓"}</div>'
+                        f'</div>', unsafe_allow_html=True
+                    )
 
         st.markdown("---")
 
@@ -3394,6 +3469,29 @@ def page_trainingsplan():
         if not plan:
             st.info("Noch kein Trainingsplan vorhanden. Bitte zuerst automatisch generieren oder manuell Übungen hinzufügen.")
             return
+
+        # ── Neue Diagnosedaten nach bestehendem Plan? (Spec §19) ─────────────
+        try:
+            _plan_max_datum = max(r.get("datum","") for r in plan if r.get("datum"))
+            _test_daten     = [
+                fms.get("datum") or fms.get("erstellt_am")  if fms else None,
+                y.get("datum")   or y.get("erstellt_am")    if y   else None,
+                sprint.get("datum") or sprint.get("erstellt_am") if sprint else None,
+                sprung.get("datum") or sprung.get("erstellt_am") if sprung else None,
+                agil.get("datum")   or agil.get("erstellt_am")   if agil   else None,
+                aus.get("datum")    or aus.get("erstellt_am")     if aus    else None,
+                spiro.get("datum")  or spiro.get("erstellt_am")   if spiro  else None,
+            ]
+            _neueste_diagnose = max((d for d in _test_daten if d), default=None)
+            if _neueste_diagnose and _neueste_diagnose > _plan_max_datum:
+                st.info(
+                    "📊 **Neue Diagnosedaten sind verfügbar.** "
+                    "Der bestehende Plan wurde nicht automatisch geändert. "
+                    "Möchtest du einen aktualisierten Plan erstellen? "
+                    "→ Tab **🤖 Automatisch generieren**."
+                )
+        except Exception:
+            pass
 
         df = pd.DataFrame(plan)
         # New schema: bereich, uebung, saetze, wiederholungen, haeufigkeit, woche, tag, pause_sekunden, ausfuehrung

@@ -922,9 +922,12 @@ def _generate_begruendung(
 def defizit_score(schwerpunkt_text: str) -> dict[str, int]:
     """
     Parse the combined schwerpunkt text and return a priority score per area.
-    Score: 3 = primary, 2 = secondary, 1 = tertiary.  Rumpf always ≥ 1.
+    Score: 3 = primary, 2 = secondary, 1 = tertiary.
+    Returns {} for empty/missing input (NO_DATA → Basis-Modus, caller handles).
     """
-    txt = schwerpunkt_text.lower()
+    txt = schwerpunkt_text.lower().strip()
+    if not txt:
+        return {}  # NO_DATA: keine Defizite, Basis-Modus aktiv
     _mapping = [
         (["hüft", "huft", "gluteus", "becken", "seitenasymmetrie"],     "Hüfte"),
         (["knie", "valgus", "landungskontrolle", "sprungasymmetrie"],   "Knie"),
@@ -951,7 +954,6 @@ def defizit_score(schwerpunkt_text: str) -> dict[str, int]:
                 scores[area] = 2
             else:
                 scores[area] = 1
-    scores.setdefault("Rumpf", 1)
     return scores
 
 
@@ -1074,6 +1076,18 @@ def verletzung_aktive_bereiche(verletzungen: list) -> set[str]:
     return bereiche
 
 
+# Basis-Modus: ausgewogene Schwerpunkte je Altersgruppe wenn keine Diagnosedaten vorliegen
+# KEINE Defizite — diese Bereiche sind altersgerechte Trainingsschwerpunkte, keine Diagnosen
+_BASIS_MODUS_BEREICHE: dict[str, dict[str, int]] = {
+    "U10":   {"Schnelligkeit": 2, "Agilität": 2, "Explosivität": 1, "Rumpf": 1, "Hüfte": 1},
+    "U14":   {"Schnelligkeit": 2, "Agilität": 2, "Explosivität": 2, "Rumpf": 1, "Knie": 1},
+    "U18":   {"Schnelligkeit": 2, "Explosivität": 2, "Agilität": 2, "Rumpf": 1, "Hüfte": 1},
+    "Senior": {"Schnelligkeit": 2, "Explosivität": 2, "Rumpf": 2, "Hüfte": 1, "Agilität": 1},
+    "Ü40":   {"Rumpf": 2, "Hüfte": 2, "Knie": 1, "Schnelligkeit": 1, "Agilität": 1},
+    "Ü55":   {"Rumpf": 2, "Hüfte": 2, "Knie": 2, "Schnelligkeit": 1},
+}
+
+
 def trainingsplan_multi_erstellen(spieler_id: int, schwerpunkt_text: str,
                                   wochen: int = 8,
                                   alter: float | None = None,
@@ -1110,6 +1124,10 @@ def trainingsplan_multi_erstellen(spieler_id: int, schwerpunkt_text: str,
     wochen       = wochen if wochen in (4, 6, 8, 12) else 8
     basis_scores = defizit_score(schwerpunkt_text)
     plangruppe   = _alter_zu_plangruppe(alter)
+    if not basis_scores:
+        # Basis-Modus: keine Diagnosedaten → altersgerechte ausgewogene Schwerpunkte
+        # Diese Bereiche sind KEINE Defizite, sondern allgemeine Trainingsschwerpunkte
+        basis_scores = dict(_BASIS_MODUS_BEREICHE.get(plangruppe, _BASIS_MODUS_BEREICHE["Senior"]))
     cfg          = _PLANGRUPPEN_CONFIG[plangruppe]
     woche_config = _WOCHE_PLAN[wochen]
 
