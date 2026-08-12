@@ -27,6 +27,7 @@ _log = logging_config.logger
 
 from theme import APP_CSS, C, PLOTLY_LAYOUT as _PL_BASE
 from mobile import (
+    inject_mobile_player_selector,
     handle_mobile_nav_params,
     inject_mobile_nav,
     inject_mobile_player_header,
@@ -9865,23 +9866,30 @@ def _mob_player():
 if section == "🏠  Startseite":
     page_saas_dashboard()
 elif section == "👤  Spieler":
+    # Mobile: inline player selector at top of Spieler page (sidebar hidden on ≤768px)
+    inject_mobile_player_selector(alle_spieler, st.session_state.get("global_player_id"))
     _SUB_SPIELER[sub_choice]()
 elif section == "🔬  Diagnostik":
     inject_mobile_player_header(_mob_player(), section)
+    inject_mobile_player_selector(alle_spieler, st.session_state.get("global_player_id"))
     _SUB_DIAGNOSTIK[sub_choice]()
 elif section == "📅  Training":
     inject_mobile_player_header(_mob_player(), section)
+    inject_mobile_player_selector(alle_spieler, st.session_state.get("global_player_id"))
     _SUB_TRAINING[sub_choice]()
 elif section == "📈  Entwicklung":
     inject_mobile_player_header(_mob_player(), section)
+    inject_mobile_player_selector(alle_spieler, st.session_state.get("global_player_id"))
     page_fortschritt()
 elif section == "⚖️  Vergleich":
     inject_mobile_player_header(_mob_player(), section)
+    inject_mobile_player_selector(alle_spieler, st.session_state.get("global_player_id"))
     page_spieler_vergleich()
 elif section == "👥  Mannschaft":
     page_dashboard()
 elif section == "📄  Dokumente":
     inject_mobile_player_header(_mob_player(), section)
+    inject_mobile_player_selector(alle_spieler, st.session_state.get("global_player_id"))
     page_dokumente()
 elif section == "⚙️  Einstellungen":
     page_einstellungen()

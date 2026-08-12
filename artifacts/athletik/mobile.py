@@ -2,10 +2,12 @@
 Mobile-responsive helpers for Athletic Performance Hub.
 
 Provides:
-  - handle_mobile_nav_params()   — reads ?nav= query params, must be called
-                                   before the nav_section radio widget
-  - inject_mobile_nav()          — fixed bottom nav bar (≤768 px only)
+  - handle_mobile_nav_params()    — reads ?nav= / ?player_id= query params,
+                                    must be called before the nav_section radio
+  - inject_mobile_nav()           — fixed bottom nav bar (≤768 px only)
   - inject_mobile_player_header() — compact player pill on player pages
+  - inject_mobile_player_selector() — inline <select> for player switching on
+                                       mobile (hidden on ≥769px via CSS)
   - inject_mobile_mehr_overlay()  — full-screen "Mehr" menu overlay
 """
 import urllib.parse
@@ -42,11 +44,23 @@ _PLAYER_SECTIONS = frozenset({
 
 def handle_mobile_nav_params() -> None:
     """
-    Read ?nav= query param and update session state for navigation.
+    Read ?player_id= and ?nav= query params; update session state.
     Must be called *before* the nav_section radio widget is instantiated.
     Calls st.rerun() when a param was found (stops current script execution).
     """
     try:
+        # ── Player switching (?player_id=<int>) ──────────────────────────────
+        player_id_val = st.query_params.get("player_id", "")
+        if player_id_val:
+            st.query_params.clear()      # prevent infinite loop
+            try:
+                st.session_state["global_player_id"] = int(player_id_val)
+                st.session_state["mobile_mehr_open"] = False
+            except (ValueError, TypeError):
+                pass
+            st.rerun()
+
+        # ── Section navigation (?nav=<section_key>) ──────────────────────────
         nav_val = st.query_params.get("nav", "")
         if not nav_val:
             return
@@ -124,6 +138,44 @@ def inject_mobile_player_header(player: dict | None, section: str) -> None:
         f'<div class="aph-mph-sub">{sub}</div>'
         f'</div>'
         f'<a class="aph-mph-switch" href="?nav={spieler_param}">Wechseln&nbsp;›</a>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
+
+
+# ── Mobile inline player selector ────────────────────────────────────────────
+
+def inject_mobile_player_selector(alle_spieler: list | None, current_pid) -> None:
+    """
+    Mobile-only player switcher — native HTML <select> that navigates via
+    ?player_id= query param (same pattern as ?nav= mobile navigation).
+    Hidden on desktop (≥769px) via CSS .aph-mob-sel-wrap { display:none }.
+    Does nothing when fewer than 2 players are available.
+    """
+    if not alle_spieler or len(alle_spieler) < 2:
+        return
+
+    opts: list[str] = []
+    for p in alle_spieler:
+        pid   = p["id"]
+        name  = (
+            p.get("name") or
+            f"{p.get('vorname', '')} {p.get('nachname', '')}".strip() or
+            f"Spieler #{pid}"
+        )
+        mannsch = p.get("mannschaft") or ""
+        display = f"{name} – {mannsch}" if mannsch else name
+        sel     = " selected" if pid == current_pid else ""
+        opts.append(f'<option value="{pid}"{sel}>{display}</option>')
+
+    opts_html = "\n".join(opts)
+    st.markdown(
+        f'<div class="aph-mob-sel-wrap">'
+        f'<div class="aph-mob-sel-label">👤 Spieler wechseln</div>'
+        f'<select class="aph-mob-sel" '
+        f'onchange="window.location.href=\'?player_id=\'+encodeURIComponent(this.value)">'
+        f'{opts_html}'
+        f'</select>'
         f'</div>',
         unsafe_allow_html=True,
     )

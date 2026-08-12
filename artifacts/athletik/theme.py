@@ -422,6 +422,50 @@ html, body { overflow-x: hidden; max-width: 100vw; }
     .aph-mph-switch:hover { text-decoration: underline; color: #79bcff; }
 }
 
+/* ══ Mobile inline player selector ══════════════════════════════════════════ */
+.aph-mob-sel-wrap { display: none; }
+
+@media (max-width: 768px) {
+    .aph-mob-sel-wrap {
+        display: block;
+        margin-bottom: 14px;
+    }
+    .aph-mob-sel-label {
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: .8px;
+        color: #8b949e;
+        text-transform: uppercase;
+        margin-bottom: 6px;
+    }
+    .aph-mob-sel {
+        width: 100%;
+        background: #161b22;
+        color: #e6edf3;
+        border: 1px solid #30363d;
+        border-radius: 10px;
+        padding: 12px 36px 12px 14px;
+        font-size: 15px;
+        font-weight: 500;
+        -webkit-appearance: none;
+        appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%238b949e' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 14px center;
+        cursor: pointer;
+        min-height: 48px;
+    }
+    .aph-mob-sel:focus {
+        outline: none;
+        border-color: #58a6ff;
+        box-shadow: 0 0 0 2px rgba(88,166,255,0.15);
+    }
+    .aph-mob-sel option {
+        background: #161b22;
+        color: #e6edf3;
+    }
+}
+
 /* ══ "Mehr" overlay ══════════════════════════════════════════════════════════ */
 .aph-mehr-overlay { display: none; }
 
