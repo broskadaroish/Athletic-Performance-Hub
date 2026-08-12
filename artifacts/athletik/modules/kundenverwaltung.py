@@ -525,6 +525,41 @@ def _kunde_detail(verein_id: int | None, benutzer_id: int | None) -> None:
     _detail_audit(daten)
 
 
+def _widerruf_frist_badge(eingegangen_str: str | None) -> str:
+    """
+    Gibt HTML-Badge für Widerruf-Frist zurück, oder '' wenn keine Frist konfiguriert.
+    Liest KUENDIGUNG_WIDERRUF_STUNDEN aus der Umgebung (0 = unbegrenzt).
+    """
+    import os, datetime
+    if not eingegangen_str:
+        return ""
+    try:
+        frist_stunden = int(os.environ.get("KUENDIGUNG_WIDERRUF_STUNDEN", "0"))
+    except (ValueError, TypeError):
+        frist_stunden = 0
+    if frist_stunden <= 0:
+        return ""
+    try:
+        eingegangen = datetime.datetime.fromisoformat(eingegangen_str)
+        ablauf      = eingegangen + datetime.timedelta(hours=frist_stunden)
+        jetzt       = datetime.datetime.utcnow()
+        ablauf_fmt  = ablauf.strftime("%d.%m.%Y %H:%M")
+        if jetzt > ablauf:
+            return (
+                f'<span style="background:#3b0d0d;color:#f85149;border:1px solid #f85149;'
+                f'border-radius:6px;padding:3px 9px;font-size:11px;font-weight:600">'
+                f'⏰ Widerruf-Frist abgelaufen ({ablauf_fmt} Uhr)</span>'
+            )
+        rest_h = int((ablauf - jetzt).total_seconds() // 3600)
+        return (
+            f'<span style="background:#0d3b2e;color:#3fb950;border:1px solid #3fb950;'
+            f'border-radius:6px;padding:3px 9px;font-size:11px;font-weight:600">'
+            f'⏰ Widerruf möglich bis {ablauf_fmt} Uhr ({rest_h}h verbleibend)</span>'
+        )
+    except Exception:
+        return ""
+
+
 def _kuendigungen_uebersicht() -> None:
     """Superadmin-Tab: alle eingegangenen Kündigungen verwalten."""
     st.markdown("### 🚫 Kündigungen")
@@ -560,16 +595,28 @@ def _kuendigungen_uebersicht() -> None:
             c1, c2 = st.columns(2)
             c1.markdown(f"**Kundentyp:** {k['kundentyp']}")
             c1.markdown(f"**Paket:** {k.get('lizenztyp') or '—'}")
+            # Letzte Statusänderung ermitteln
+            eingegangen_ts = k.get("kuendigung_eingegangen") or ""
+            bestaetigt_ts  = k.get("kuendigung_bestaetigung_am") or ""
+            letzte_ts      = (bestaetigt_ts or eingegangen_ts)[:16].replace("T", " ") or "—"
+
             c1.markdown(f"**Kündigung eingegangen:**  "
-                        f"{(k.get('kuendigung_eingegangen') or '')[:10]}")
+                        f"{eingegangen_ts[:16].replace('T',' ') or '—'}")
             c1.markdown(f"**Vertrag endet am:**  "
                         f"{k.get('gekuendigt_zum') or 'Nicht festgelegt'}")
+            c1.markdown(f"**Letzte Statusänderung:**  {letzte_ts}")
             c2.markdown(f"**Lizenzstatus:** {k.get('lizenz_status') or '—'}")
             c2.markdown(f"**Kündigungsstatus:** {kst}")
             c2.markdown(f"**Kündigungsgrund:**  "
                         f"{k.get('kuendigung_grund') or 'Kein Grund angegeben'}")
             c2.markdown(f"**Bestätigt am:**  "
-                        f"{(k.get('kuendigung_bestaetigung_am') or '—')[:10]}")
+                        f"{bestaetigt_ts[:16].replace('T',' ') or '—'}")
+
+            # Widerruf-Frist-Badge (nur für 'eingegangen', nur wenn Frist konfiguriert)
+            if kst == "eingegangen":
+                badge = _widerruf_frist_badge(eingegangen_ts)
+                if badge:
+                    st.markdown(badge, unsafe_allow_html=True)
 
             st.markdown("")
 

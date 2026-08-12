@@ -120,47 +120,90 @@ def page_mein_vertrag() -> None:
         k_status  = data.get("kuendigungsstatus") or ""
 
         if k_status == "eingegangen":
-            # Noch nicht vom Admin bestätigt → Widerruf möglich
+            # ── Widerruf-Frist prüfen ────────────────────────────────────────
+            import os as _os_mv, datetime as _dt_mv
+            frist_ok   = True   # True = Widerruf noch innerhalb der Frist
+            frist_text = ""
+            try:
+                _frist_h = int(_os_mv.environ.get("KUENDIGUNG_WIDERRUF_STUNDEN", "0"))
+                if _frist_h > 0 and data.get("kuendigung_eingegangen"):
+                    _eingeg = _dt_mv.datetime.fromisoformat(data["kuendigung_eingegangen"])
+                    _ablauf = _eingeg + _dt_mv.timedelta(hours=_frist_h)
+                    _jetzt  = _dt_mv.datetime.utcnow()
+                    _ablauf_fmt = _ablauf.strftime("%d.%m.%Y %H:%M")
+                    if _jetzt > _ablauf:
+                        frist_ok   = False
+                        frist_text = f"Die Widerruf-Frist ist abgelaufen ({_ablauf_fmt} Uhr)."
+                    else:
+                        _rest_h = int((_ablauf - _jetzt).total_seconds() // 3600)
+                        _rest_m = int(((_ablauf - _jetzt).total_seconds() % 3600) // 60)
+                        frist_text = (
+                            f"Widerruf möglich bis **{_ablauf_fmt} Uhr** "
+                            f"(noch {_rest_h}h {_rest_m}min)"
+                        )
+            except Exception:
+                pass
+
+            # Noch nicht vom Admin bestätigt → Widerruf ggf. möglich
             st.warning(
                 f"**Deine Kündigung ist eingegangen und wird geprüft.**\n\n"
                 f"Eingangsdatum: **{eingang}**  \n"
-                "Solange sie noch nicht bestätigt wurde, kannst du sie zurückziehen."
+                "Solange sie noch nicht bestätigt wurde, kannst du sie "
+                "ggf. zurückziehen."
             )
+            if frist_text:
+                if frist_ok:
+                    st.info(f"⏰ {frist_text}")
+                else:
+                    st.error(f"⏰ {frist_text}")
             st.caption(
                 "Bei Fragen wende dich an "
                 "[support@aphsystem.de](mailto:support@aphsystem.de)."
             )
 
-            st.markdown("")
-            st.markdown("#### Kündigung zurückziehen")
-            st.markdown(
-                "Wenn du deine Meinung geändert hast, kannst du die Kündigung "
-                "jetzt noch zurückziehen. Dein Vertrag läuft dann wie gewohnt weiter."
-            )
-            wid_confirm = st.checkbox(
-                "Ja, ich möchte meine Kündigung zurückziehen und meinen Vertrag fortführen.",
-                key="wid_confirm",
-            )
-            if st.button(
-                "✅ Kündigung zurückziehen",
-                key="wid_btn",
-                disabled=not wid_confirm,
-                type="primary",
-            ):
-                ok, _ = kuendigung_widerrufen(eid, ist_verein)
-                if ok:
-                    _sende_widerruf_email(user, data, ist_verein=ist_verein)
-                    st.success(
-                        "✅ Deine Kündigung wurde zurückgezogen. "
-                        "Dein Vertrag läuft weiter."
-                    )
-                    st.rerun()
-                else:
-                    st.error(
-                        "Die Kündigung kann nicht mehr zurückgezogen werden — "
-                        "sie wurde bereits vom Support bestätigt. "
-                        "Bitte wende dich an support@aphsystem.de."
-                    )
+            if frist_ok:
+                st.markdown("")
+                st.markdown("#### Kündigung zurückziehen")
+                st.markdown(
+                    "Wenn du deine Meinung geändert hast, kannst du die Kündigung "
+                    "jetzt noch zurückziehen. Dein Vertrag läuft dann wie gewohnt weiter."
+                )
+                wid_confirm = st.checkbox(
+                    "Ja, ich möchte meine Kündigung zurückziehen und meinen Vertrag fortführen.",
+                    key="wid_confirm",
+                )
+                if st.button(
+                    "✅ Kündigung zurückziehen",
+                    key="wid_btn",
+                    disabled=not wid_confirm,
+                    type="primary",
+                ):
+                    ok, grund = kuendigung_widerrufen(eid, ist_verein)
+                    if ok:
+                        _sende_widerruf_email(user, data, ist_verein=ist_verein)
+                        st.success(
+                            "✅ Deine Kündigung wurde zurückgezogen. "
+                            "Dein Vertrag läuft weiter."
+                        )
+                        st.rerun()
+                    elif grund == "frist_abgelaufen":
+                        st.error(
+                            "Die Widerruf-Frist ist soeben abgelaufen. "
+                            "Ein Widerruf ist leider nicht mehr möglich. "
+                            "Bitte wende dich an support@aphsystem.de."
+                        )
+                    else:
+                        st.error(
+                            "Die Kündigung kann nicht mehr zurückgezogen werden — "
+                            "sie wurde bereits vom Support bestätigt. "
+                            "Bitte wende dich an support@aphsystem.de."
+                        )
+            else:
+                st.info(
+                    "Ein Widerruf ist nicht mehr möglich, da die Widerruf-Frist "
+                    "abgelaufen ist. Bitte wende dich bei Fragen an "
+                    "[support@aphsystem.de](mailto:support@aphsystem.de)."
+                )
         else:
             # Bereits bestätigt oder beendet → nur Information, kein Widerruf
             st.info(

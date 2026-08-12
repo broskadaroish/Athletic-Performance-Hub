@@ -3933,26 +3933,53 @@ def kuendigung_einreichen(entity_id: int, ist_verein: bool,
 def kuendigung_widerrufen(entity_id: int, ist_verein: bool) -> tuple[bool, str]:
     """Zieht eine eingereichte Kündigung zurück.
 
-    Nur möglich solange kuendigungsstatus='eingegangen' (noch nicht vom Admin bestätigt).
-    Setzt kuendigung_eingegangen=NULL, kuendigungsstatus='aktiv', kuendigung_grund=NULL.
+    Nur möglich solange kuendigungsstatus='eingegangen' UND die optionale
+    Widerruf-Frist (KUENDIGUNG_WIDERRUF_STUNDEN, 0 = unbegrenzt) noch nicht
+    abgelaufen ist.
 
-    Atomisches bedingtes UPDATE — kein TOCTOU-Risiko: der Widerruf greift nur,
-    wenn der Status zum Zeitpunkt des Schreibens noch 'eingegangen' ist.
-    rowcount == 0 bedeutet, dass ein Admin die Kündigung inzwischen bestätigt hat.
+    Atomisches bedingtes UPDATE — kein TOCTOU-Risiko: die Frist- und
+    Statusprüfung erfolgt direkt in der WHERE-Klausel des UPDATEs.
 
-    Gibt (True, 'ok') oder (False, 'nicht_widerrufbar') zurück.
+    Gibt zurück:
+      (True,  'ok')                — Widerruf erfolgreich
+      (False, 'frist_abgelaufen')  — Frist überschritten, Status noch 'eingegangen'
+      (False, 'nicht_widerrufbar') — Status bereits 'bestaetigt' oder 'beendet'
     """
+    import os as _os
+    import datetime as _dt
+
     tabelle = "vereine" if ist_verein else "benutzer"
+
+    # Optionale Widerruf-Frist: ältester erlaubter Eingangszeitpunkt (UTC-ISO)
+    frist_cutoff: str | None = None
+    try:
+        frist_stunden = int(_os.environ.get("KUENDIGUNG_WIDERRUF_STUNDEN", "0"))
+        if frist_stunden > 0:
+            frist_cutoff = (
+                _dt.datetime.utcnow() - _dt.timedelta(hours=frist_stunden)
+            ).isoformat(timespec="seconds")
+    except (ValueError, TypeError):
+        pass
+
     with get_conn() as conn:
         cur = conn.execute(
             f"UPDATE {tabelle} SET "
             f"kuendigung_eingegangen=NULL, "
             f"kuendigungsstatus='aktiv', "
             f"kuendigung_grund=NULL "
-            f"WHERE id=? AND kuendigungsstatus='eingegangen'",
-            (entity_id,),
+            f"WHERE id=? AND kuendigungsstatus='eingegangen' "
+            f"AND (? IS NULL OR kuendigung_eingegangen >= ?)",
+            (entity_id, frist_cutoff, frist_cutoff),
         )
         if cur.rowcount == 0:
+            # Unterscheiden: Frist abgelaufen vs. Status bereits geändert
+            row = conn.execute(
+                f"SELECT kuendigungsstatus FROM {tabelle} WHERE id=?",
+                (entity_id,),
+            ).fetchone()
+            if row and row["kuendigungsstatus"] == "eingegangen" and frist_cutoff:
+                # Status noch 'eingegangen' → UPDATE scheiterte an der Frist
+                return False, "frist_abgelaufen"
             return False, "nicht_widerrufbar"
     return True, "ok"
 
