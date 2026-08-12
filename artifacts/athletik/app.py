@@ -317,13 +317,16 @@ if "user" not in st.session_state:
             from database import pw_reset_token_validieren as _prtv, pw_reset_anwenden as _pra
             _reset_bid = _prtv(_qp_reset)
             if not _reset_bid:
-                st.error("❌ Der Reset-Link ist ungültig oder abgelaufen. Bitte fordere einen neuen an.")
+                # §5: ungültiger/abgelaufener Token
+                st.error("Dieser Link ist ungültig oder abgelaufen.")
                 st.query_params.clear()
+                if st.button("Neuen Passwort-Link anfordern", key="rp_new_request"):
+                    st.rerun()
             else:
-                st.markdown("### 🔑 Neues Passwort vergeben")
+                st.markdown("### Neues Passwort vergeben")
                 _rp1 = st.text_input("Neues Passwort",       type="password", key="rp_new1")
-                _rp2 = st.text_input("Passwort wiederholen", type="password", key="rp_new2")
-                if st.button("✅ Passwort speichern", type="primary",
+                _rp2 = st.text_input("Passwort bestätigen",  type="password", key="rp_new2")
+                if st.button("Passwort ändern", type="primary",
                              use_container_width=True, key="rp_save"):
                     if len(_rp1) < 6:
                         st.error("Das Passwort muss mindestens 6 Zeichen lang sein.")
@@ -331,12 +334,13 @@ if "user" not in st.session_state:
                         st.error("Die Passwörter stimmen nicht überein.")
                     else:
                         if _pra(_qp_reset, _rp1):
-                            st.success("✅ Passwort geändert — du wirst zur Anmeldung weitergeleitet…")
+                            # §5: Erfolgsmeldung + [Zur Anmeldung]-Button
+                            st.success("Dein Passwort wurde erfolgreich geändert.")
                             st.query_params.clear()
-                            import time as _t; _t.sleep(1.5)
-                            st.rerun()
+                            if st.button("Zur Anmeldung", type="primary", key="rp_to_login"):
+                                st.rerun()
                         else:
-                            st.error("❌ Reset-Link ungültig oder bereits verwendet.")
+                            st.error("Dieser Link ist ungültig oder abgelaufen.")
             st.stop()
 
         # 4. Erste Einrichtung — noch kein Benutzer vorhanden
