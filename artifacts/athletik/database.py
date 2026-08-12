@@ -3902,11 +3902,19 @@ def kuendigung_einreichen(entity_id: int, ist_verein: bool,
 def kuendigung_bestaetigen(entity_id: int, ist_verein: bool,
                             vertragsende: str | None = None,
                             status: str = "bestaetigt") -> None:
-    """Superadmin bestätigt eine Kündigung; setzt optional Vertragsende."""
+    """Superadmin bestätigt / beendet eine Kündigung; setzt optional Vertragsende.
+
+    Wenn status='beendet':
+      - lizenz_status wird auf 'cancelled' gesetzt
+      - aktiv=0 wird auf die Entität gesetzt
+      - Bei Verein: alle zugehörigen Benutzer werden ebenfalls deaktiviert (aktiv=0)
+      - Audit-Log-Eintrag wird geschrieben
+    """
     from datetime import datetime
     jetzt = datetime.utcnow().isoformat()
     tabelle = "vereine" if ist_verein else "benutzer"
     with get_conn() as conn:
+        # Basisfelder setzen
         conn.execute(
             f"UPDATE {tabelle} "
             f"SET kuendigungsstatus=?, "
@@ -3915,6 +3923,31 @@ def kuendigung_bestaetigen(entity_id: int, ist_verein: bool,
             f"WHERE id=?",
             (status, vertragsende, jetzt, entity_id),
         )
+        # Status-Kaskade bei "beendet"
+        if status == "beendet":
+            conn.execute(
+                f"UPDATE {tabelle} SET lizenz_status='cancelled', aktiv=0 WHERE id=?",
+                (entity_id,),
+            )
+            if ist_verein:
+                # Alle Benutzer des Vereins deaktivieren
+                conn.execute(
+                    "UPDATE benutzer SET aktiv=0 WHERE verein_id=?",
+                    (entity_id,),
+                )
+    # Audit-Log (darf nie blockieren)
+    _audit_benutzer_id = None if ist_verein else entity_id
+    _audit_details = (
+        f"{'Verein' if ist_verein else 'Trainer'} id={entity_id} "
+        f"kuendigungsstatus='{status}'"
+        + (f" gekuendigt_zum={vertragsende}" if vertragsende else "")
+        + (" → lizenz_status=cancelled, aktiv=0" if status == "beendet" else "")
+    )
+    audit_log_eintragen(
+        _audit_benutzer_id,
+        f"kuendigung_{status}",
+        _audit_details,
+    )
 
 
 def kuendigung_liste_laden(status_filter: str | None = None) -> list[dict]:

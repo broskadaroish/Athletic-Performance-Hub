@@ -509,6 +509,12 @@ if "user" not in st.session_state:
                                 "Dein Zugang wartet noch auf die **Freischaltung durch den Administrator**. "
                                 "Du erhältst eine E-Mail, sobald dein Konto freigeschaltet wurde."
                             )
+                        elif isinstance(_user_obj, dict) and _user_obj.get("lizenz_gekuendigt"):
+                            st.error(
+                                "🚫 Dein Vertrag wurde beendet und dein Zugang ist nicht mehr aktiv.\n\n"
+                                "Bei Fragen zur Reaktivierung kontaktiere uns unter "
+                                "**support@aphsystem.de**."
+                            )
                         elif isinstance(_user_obj, dict) and _user_obj.get("konto_deaktiviert"):
                             import os as _os_kd
                             _support = _os_kd.environ.get("SUPPORT_EMAIL", "support@aphsystem.de")
@@ -5010,6 +5016,76 @@ def _sprint_eingabe(distanz_label: str, key_prefix: str, letzter_row, col,
     return v1, v2, v3, bester
 
 
+# ─── Sprint-Analyse Hilfsfunktionen ──────────────────────────────────────────
+
+def _sprint_leistungsbereiche_ui(sprint_row: dict, alter_j=None) -> None:
+    """Zeigt Sprint-Leistungsbereiche aus validen Testdaten (NO_DATA → keine Anzeige)."""
+    b10  = sprint_row.get("beste_10m") or 0
+    b20  = sprint_row.get("beste_20m") or 0
+    b30  = sprint_row.get("beste_30m") or 0
+    b40  = sprint_row.get("beste_40m") or 0
+    bew10 = sprint_row.get("bewertung_10m") or ""
+    bew30 = sprint_row.get("bewertung_30m") or ""
+
+    bereiche = []
+    if b10 > 0:
+        _fc = "#da3633" if "Verbesserung" in bew10 else ("#d29922" if "Mittel" in bew10 else "#238636" if bew10 else "#58a6ff")
+        bereiche.append(("Beschleunigung 0–10 m", f"{b10:.2f} s", bew10 or "Gemessen", _fc))
+    if b10 > 0 and b20 > 0:
+        bereiche.append(("Beschleunigung 10–20 m", f"{round(b20-b10,2):.2f} s", "Segment", "#58a6ff"))
+    if b20 > 0 and b30 > 0:
+        bereiche.append(("Übergang 20–30 m", f"{round(b30-b20,2):.2f} s", "Segment", "#58a6ff"))
+    if b30 > 0:
+        _fc30 = "#da3633" if "Verbesserung" in bew30 else ("#d29922" if "Mittel" in bew30 else "#238636" if bew30 else "#58a6ff")
+        bereiche.append(("Maximalgeschwindigkeit (30 m)", f"{b30:.2f} s", bew30 or "Gemessen", _fc30))
+    if b30 > 0 and b40 > 0:
+        bereiche.append(("Speed Maintenance 30–40 m", f"{round(b40-b30,2):.2f} s", "Segment", "#8b949e"))
+
+    if not bereiche:
+        st.caption("Keine validen Sprint-Daten für Leistungsbereichsanalyse verfügbar.")
+        return
+
+    cols = st.columns(len(bereiche))
+    for col, (lbl, zeit, bew, farbe) in zip(cols, bereiche):
+        col.markdown(
+            f"<div style='background:#161b22;border:1px solid #30363d;border-radius:8px;"
+            f"padding:10px 8px;text-align:center'>"
+            f"<div style='font-size:9px;color:#8b949e;margin-bottom:4px;line-height:1.3'>{lbl}</div>"
+            f"<div style='font-size:20px;font-weight:700;color:#e6edf3'>{zeit}</div>"
+            f"<div style='font-size:10px;color:{farbe};margin-top:4px'>{bew}</div>"
+            f"</div>",
+            unsafe_allow_html=True,
+        )
+
+
+def _sprint_muskulatur_info_ui() -> None:
+    """Zeigt die 7 wissenschaftlich relevanten Muskelgruppen (Spec §3)."""
+    _MUSKELN = [
+        ("Psoas major",    "Hüftbeugung · Beinvorführung · Schwungbeinphase",                   "R²=0,499 ★"),
+        ("Gluteus medius", "Beckenstabilität · Hüftstabilität · einbeinige Kontrolle",           "R²=0,451 ★"),
+        ("Gluteus maximus","Explosive Hüftstreckung · Kraftübertragung · Beschleunigung",        "R²=0,365"),
+        ("Piriformis",     "Hüftstabilität · Kontrolle der Hüftposition",                        "R²=0,303"),
+        ("Rectus femoris", "Hüftbeugung · Kniestreckung",                                        "R²=0,321"),
+        ("Adduktoren",     "Stabilisierung · Kraftübertragung · Hüftkontrolle",                 "—"),
+        ("Hamstrings",     "Hüftstreckung · Kniekontrolle · Schwungbein-/Stützphase",           "R²=0,269"),
+    ]
+    for i in range(0, len(_MUSKELN), 4):
+        gruppe = _MUSKELN[i:i+4]
+        cols = st.columns(len(gruppe))
+        for col, (name, funktion, r2) in zip(cols, gruppe):
+            col.markdown(
+                f"<div style='background:#161b22;border:1px solid #30363d;border-radius:8px;"
+                f"padding:12px;height:100%'>"
+                f"<div style='font-size:12px;font-weight:700;color:#58a6ff;margin-bottom:6px'>{name}</div>"
+                f"<div style='font-size:11px;color:#8b949e;line-height:1.5'>{funktion}</div>"
+                f"<div style='font-size:10px;color:#6e7681;margin-top:6px'>{r2}</div>"
+                f"</div>",
+                unsafe_allow_html=True,
+            )
+        st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+    st.caption("★ Stärkster Zusammenhang mit Sprintgeschwindigkeit in der Referenzstudie.")
+
+
 def page_sprint():
     st.markdown("# ⚡ Sprint-Diagnostik")
     st.markdown("Lineare Beschleunigung und Maximalgeschwindigkeit — 5 m bis 40 m, je 3 Versuche.")
@@ -5034,7 +5110,7 @@ def page_sprint():
     letzter = sprint_letzter(sid)
     hist    = sprint_history(sid)
 
-    tab_neu, tab_verlauf = st.tabs(["📋 Neuer Test", "📈 Verlauf"])
+    tab_neu, tab_verlauf, tab_analyse = st.tabs(["📋 Neuer Test", "📈 Verlauf", "🔬 Sprint-Analyse"])
 
     with tab_neu:
         datum = st.date_input("Testdatum", value=date.today(), key="sprint_datum")
@@ -5195,6 +5271,108 @@ def page_sprint():
                 if rows_cmp:
                     st.dataframe(pd.DataFrame(rows_cmp), use_container_width=True, hide_index=True)
                     st.caption("Differenz: negativ = schneller, positiv = langsamer")
+
+    # ── Sprint-Analyse Tab (Spec §3, §4, §6, §22, §23, §24, §34) ────────────
+    with tab_analyse:
+        # Wissenschaftlicher Hinweis — IMMER sichtbar, nie versteckt (Spec §4)
+        st.info(
+            "**Wissenschaftlicher Hinweis:** Die dargestellten Studienergebnisse zeigen "
+            "statistische Zusammenhänge zwischen Muskelvolumen und Sprintgeschwindigkeit. "
+            "Sie erlauben keine direkte Diagnose einzelner Muskelschwächen und bedeuten "
+            "nicht, dass Muskelgröße allein Sprintleistung verursacht."
+        )
+
+        if not letzter:
+            st.info("Noch keine Sprint-Tests vorhanden. Bitte zuerst einen Sprint-Test durchführen.")
+        else:
+            # ── Leistungsbereiche (Spec §6, §34) ─────────────────────────────
+            st.markdown("### Sprint-Leistungsbereiche")
+            _sprint_leistungsbereiche_ui(letzter, alter_sprint)
+            st.caption(f"Letzter Test: **{letzter.get('datum', '—')}**  — nur VALID_DATA wird bewertet.")
+
+            st.markdown("---")
+
+            # ── Mögliche Trainingsschwerpunkte — Mehrquellen-Analyse ────────
+            _fms_sa = fms_letzter(sid)
+            _yb_sa  = y_balance_letzter(sid)
+            from analytics import sprint_trainingsschwerpunkte_ermitteln as _ste6
+            _schwerpunkte = _ste6(letzter, _fms_sa, _yb_sa)
+
+            if _schwerpunkte:
+                st.markdown("### Mögliche Trainingsschwerpunkte")
+                st.caption(
+                    "Formulierungen als *mögliche Trainingsbereiche* — keine Muskeldiagnosen aus "
+                    "Sprintzeiten allein (Spec §35). Mehrere Testquellen erhöhen die Priorität (Spec §21)."
+                )
+                _PRIO_FARBE = {3: "#da3633", 2: "#d29922", 1: "#238636"}
+                _PRIO_LABEL = {3: "Deutliche Auffälligkeit", 2: "Relevante Auffälligkeit", 1: "Leichte Auffälligkeit"}
+                for _sp in _schwerpunkte:
+                    _pf = _PRIO_FARBE.get(_sp["prioritaet"], "#58a6ff")
+                    _pl = _PRIO_LABEL.get(_sp["prioritaet"], "—")
+                    st.markdown(
+                        f"<div style='background:#161b22;border-left:3px solid {_pf};"
+                        f"border:1px solid {_pf};border-radius:8px;padding:14px;margin-bottom:8px'>"
+                        f"<div style='display:flex;justify-content:space-between;align-items:center;"
+                        f"margin-bottom:6px'>"
+                        f"<span style='font-size:14px;font-weight:700;color:#e6edf3'>{_sp['bereich']}</span>"
+                        f"<span style='font-size:10px;color:{_pf};background:#21262d;padding:2px 8px;"
+                        f"border-radius:10px'>{_pl}</span></div>"
+                        f"<div style='font-size:12px;color:#8b949e;line-height:1.5'>{_sp['beschreibung']}</div>"
+                        f"<div style='font-size:10px;color:#6e7681;margin-top:8px'>"
+                        f"📊 Grundlage: {', '.join(_sp['quellen'])}</div>"
+                        f"</div>",
+                        unsafe_allow_html=True,
+                    )
+
+                # Warum wird das trainiert? (Spec §23)
+                with st.expander("❓ Warum wird das trainiert?"):
+                    _bereiche_txt = ", ".join(sp["bereich"] for sp in _schwerpunkte)
+                    _quellen_alle = sorted({q for sp in _schwerpunkte for q in sp["quellen"]})
+                    st.markdown(
+                        f"**Schwerpunkt:** {_bereiche_txt}\n\n"
+                        f"**Grundlage:** {', '.join(_quellen_alle)}\n\n"
+                        "**Begründung:** Die vorhandenen Sprint- und Bewegungstests zeigen "
+                        "Auffälligkeiten in Bereichen, die für eine effiziente Kraftübertragung "
+                        "beim Sprint funktionell relevant sein können. Diese Empfehlungen "
+                        "beziehen sich auf Trainingsbereiche — keine medizinischen Diagnosen "
+                        "oder Muskelbehauptungen aus Sprintzeiten."
+                    )
+
+            elif letzter.get("bewertung_10m") or letzter.get("bewertung_30m"):
+                st.success(
+                    "✅ Aktuelle Sprintwerte zeigen keine relevanten Auffälligkeiten. "
+                    "Weiter auf Leistungserhalt und -entwicklung fokussieren."
+                )
+            else:
+                st.info(
+                    "Keine ausreichende Bewertungsgrundlage — bitte vollständigen "
+                    "Sprint-Test mit 10-m- und 30-m-Zeit durchführen."
+                )
+
+            st.markdown("---")
+
+            # ── Wissenschaftlich relevante Muskulatur (Spec §3) ─────────────
+            st.markdown("### Wissenschaftlich relevante Muskulatur für Sprintleistung")
+            _sprint_muskulatur_info_ui()
+
+            # Wissenschaftlicher Hintergrund (Spec §24)
+            with st.expander("📚 Wissenschaftlicher Hintergrund"):
+                st.markdown(
+                    "Untersuchungen bei College-Footballspielern zeigten deutliche Zusammenhänge "
+                    "zwischen maximaler Sprintgeschwindigkeit und insbesondere dem Muskelvolumen "
+                    "des **Psoas major** (R²=0,499), **Gluteus medius** (R²=0,451) und "
+                    "**Gluteus maximus** (R²=0,365). Eine Kombination aus Psoas major, Gluteus medius "
+                    "und Piriformis erklärte dabei ca. **57–59 % der Varianz** der maximalen "
+                    "Sprintgeschwindigkeit.\n\n"
+                    "**Wichtige Einschränkung:** Diese Ergebnisse zeigen statistische Zusammenhänge "
+                    "und bedeuten nicht, dass Muskelgröße allein die Sprintgeschwindigkeit bestimmt. "
+                    "Sprintleistung ist **multifaktoriell** — Technik, Explosivkraft, neuromuskuläre "
+                    "Ansteuerung, Koordination, Mobilität, Ermüdung und weitere Faktoren spielen "
+                    "eine wesentliche Rolle. Aus Sprintzeiten kann *nicht* auf einzelne "
+                    "Muskelschwächen geschlossen werden.\n\n"
+                    "*Quelle: Studie an 66 College-Footballspielern — Zusammenhang zwischen "
+                    "Muskelvolumen unterer Extremität und maximaler Sprintgeschwindigkeit.*"
+                )
 
 
 # ──────────────────────────────────────────────────────────────────────────────

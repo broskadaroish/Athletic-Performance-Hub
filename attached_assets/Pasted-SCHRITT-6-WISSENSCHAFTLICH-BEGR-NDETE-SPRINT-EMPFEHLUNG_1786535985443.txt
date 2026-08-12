@@ -1,0 +1,950 @@
+SCHRITT 6 – WISSENSCHAFTLICH BEGRÜNDETE SPRINT-EMPFEHLUNGEN UND INTEGRATION IN DIE TRAININGSPLAN-LOGIK
+
+Arbeite auf Basis von SCHRITT 1 bis SCHRITT 5 weiter.
+
+WICHTIG:
+
+* Bestehenden Code nicht löschen.
+* Bestehende FMS-, Y-Balance-, Sprint- und Trainingsplanfunktionen nicht ersetzen.
+* Bestehende Defizitlogik aus Schritt 3 weiterverwenden.
+* Bestehende Trainingsplan-Versionierung und Bearbeitung aus Schritt 4 weiterverwenden.
+* Bestehende Benutzer-, Vertrags-, Paket- und Lizenzlogik nicht verändern.
+* Keine bestehenden Preise oder Pakete verändern.
+* Keine zweite parallele Sprint-Engine erstellen, wenn bereits eine Sprintlogik vorhanden ist.
+* Neue Funktionen modular in das bestehende System integrieren.
+* Keine medizinischen Diagnosen erstellen.
+* Korrelationen nicht als Ursache darstellen.
+
+==================================================
+0. VERBINDLICHE ARBEITSREGEL
+============================
+
+Prüfe für jeden Punkt zuerst:
+
+A) vollständig vorhanden
+→ behalten und testen
+
+B) teilweise vorhanden
+→ bestehende Funktion ergänzen
+
+C) nicht vorhanden
+→ neu erstellen und sauber integrieren
+
+Keine funktionierende bestehende Logik unnötig ersetzen.
+
+==================================================
+
+1. WISSENSCHAFTLICHE GRUNDLAGE
+   ==================================================
+
+Eine Studie mit 66 College-Footballspielern untersuchte Zusammenhänge zwischen Muskelvolumen der unteren Extremität und maximaler Sprintgeschwindigkeit.
+
+Ergebnisse:
+
+Psoas major:
+R² = 0,499
+
+Gluteus medius:
+R² = 0,451
+
+Gluteus maximus:
+R² = 0,365
+
+Pectineus:
+R² = 0,323
+
+Rectus femoris:
+R² = 0,321
+
+Piriformis:
+R² = 0,303
+
+Adductor magnus:
+R² = 0,287
+
+Gluteus minimus:
+R² = 0,280
+
+Semitendinosus:
+R² = 0,269
+
+Semimembranosus:
+R² = 0,266
+
+Die Kombination:
+
+Psoas major
++
+Gluteus medius
++
+Piriformis
+
+erklärte ungefähr 57–59 % der Varianz der maximalen Sprintgeschwindigkeit.
+
+==================================================
+2. WICHTIGE INTERPRETATIONSREGEL
+================================
+
+Diese Studie zeigt Zusammenhänge.
+
+Sie beweist NICHT:
+
+* dass ein großer Psoas automatisch schneller macht
+* dass ein langsamer Spieler automatisch einen schwachen Psoas besitzt
+* dass Muskelgröße allein Sprintleistung bestimmt
+* dass aus einer Sprintzeit ein bestimmtes Muskeldefizit diagnostiziert werden kann
+
+Daher darf das System NIEMALS allein aufgrund einer schlechten Sprintzeit anzeigen:
+
+"Psoas schwach"
+
+oder:
+
+"Gluteus medius Defizit"
+
+oder vergleichbare kausale Aussagen.
+
+Stattdessen nur Formulierungen wie:
+
+* möglicher Trainingsschwerpunkt
+* leistungsrelevanter Bereich
+* Trainingsfeld
+* funktioneller Schwerpunkt
+* auffälliger Leistungsbereich
+
+==================================================
+3. SPRINT-RELEVANTE MUSKULATUR
+==============================
+
+Erstelle im Bereich Sprintdiagnostik einen Abschnitt:
+
+"Wissenschaftlich relevante Muskulatur für Sprintleistung"
+
+Darstellen:
+
+Psoas major
+Funktion:
+
+* Hüftbeugung
+* Beinvorführung
+* Schwungbeinphase
+
+Gluteus medius
+Funktion:
+
+* Beckenstabilität
+* Hüftstabilität
+* einbeinige Kontrolle
+
+Gluteus maximus
+Funktion:
+
+* explosive Hüftstreckung
+* Kraftübertragung
+* Beschleunigung
+
+Piriformis
+Funktion:
+
+* Hüftstabilität
+* Kontrolle der Hüftposition
+
+Rectus femoris
+Funktion:
+
+* Hüftbeugung
+* Kniestreckung
+
+Adduktoren
+Funktion:
+
+* Stabilisierung
+* Kraftübertragung
+* Hüftkontrolle
+
+Hamstrings
+Funktion:
+
+* Hüftstreckung
+* Kniekontrolle
+* Schwungbein-/Stützphasenfunktion
+
+==================================================
+4. WISSENSCHAFTLICHER HINWEIS DIREKT IM UI
+==========================================
+
+Unter diesem Bereich klar anzeigen:
+
+"Die dargestellten Studienergebnisse zeigen statistische Zusammenhänge zwischen Muskelvolumen und Sprintgeschwindigkeit. Sie erlauben keine direkte Diagnose einzelner Muskelschwächen und bedeuten nicht, dass Muskelgröße allein Sprintleistung verursacht."
+
+Dieser Hinweis darf nicht versteckt werden.
+
+==================================================
+5. VORHANDENE SPRINTTESTS VERWENDEN
+===================================
+
+Prüfe die bestehenden Sprintmodule.
+
+Vorhandene Distanzen möglichst weiterverwenden:
+
+* 5 m
+* 10 m
+* 20 m
+* 30 m
+* 40 m, falls vorhanden
+* maximale Geschwindigkeit, falls vorhanden
+
+Keine bestehenden Sprintfelder löschen.
+
+Wenn einzelne Distanzen nicht vorhanden sind:
+nicht zwingend neue Testfelder erzwingen, außer die bestehende Architektur unterstützt es sauber.
+
+==================================================
+6. SPRINT-LEISTUNGSBEREICHE
+===========================
+
+Aus validen Sprintdaten dürfen Leistungsbereiche abgeleitet werden.
+
+Unterscheide soweit Daten verfügbar sind:
+
+A) Beschleunigung 0–10 m
+
+B) Beschleunigung 10–20 m
+
+C) Übergang 20–30 m
+
+D) maximale Sprintgeschwindigkeit
+
+E) Geschwindigkeitsabfall / Speed Maintenance
+
+F) Links-/Rechts-Asymmetrie aus anderen geeigneten vorhandenen Tests
+
+WICHTIG:
+
+Nur Bereiche bewerten, für die VALID_DATA vorhanden ist.
+
+NO_DATA-Regel aus Schritt 3 weiterverwenden.
+
+Fehlende Sprintwerte erzeugen keine Defizite.
+
+==================================================
+7. KEINE PAUSCHALEN GRENZWERTE ERFINDEN
+=======================================
+
+Prüfe, ob bereits:
+
+* Altersnormen
+* Positionsnormen
+* Leistungsgruppen
+* individuelle Verlaufswerte
+* Vergleichswerte
+
+im Sprintsystem existieren.
+
+Wenn vorhanden:
+weiterverwenden.
+
+Keine willkürlichen neuen "gut/schlecht"-Grenzwerte erfinden.
+
+Falls keine belastbare Norm vorhanden ist:
+eher Entwicklungsverlauf und vorhandene interne Bewertungslogik verwenden.
+
+==================================================
+8. MULTIFAKTORIELLE SPRINTLOGIK
+===============================
+
+Sprintleistung ist multifaktoriell.
+
+Das System muss dies ausdrücklich berücksichtigen.
+
+Mögliche Einflussbereiche:
+
+* Maximalkraft
+* Explosivkraft
+* Reaktivkraft
+* Sprinttechnik
+* neuromuskuläre Ansteuerung
+* Muskel-Sehnen-Eigenschaften
+* Körpergewicht
+* Koordination
+* Trainingszustand
+* Mobilität
+* Stabilität
+* Seitenunterschiede
+* Ermüdung
+
+Keine einzelne Muskelgruppe darf automatisch als alleinige Ursache ausgegeben werden.
+
+==================================================
+9. TRAININGSBEREICHE AUS SPRINTDEFIZITEN
+========================================
+
+Wenn ein valides Sprint-Leistungsdefizit erkannt wurde, dürfen passende Trainingsbereiche priorisiert werden.
+
+Mögliche Bereiche:
+
+* Hüftbeugung
+* Hüftstreckung
+* Beckenstabilität
+* einbeinige Stabilität
+* hintere Kette
+* Explosivkraft
+* Reaktivkraft
+* Sprinttechnik
+* horizontale Kraftentwicklung
+* Beschleunigung
+* maximale Geschwindigkeit
+
+Diese Bereiche sind TRAININGSSCHWERPUNKTE, keine medizinischen Diagnosen.
+
+==================================================
+10. ÜBUNGEN – HÜFTBEUGER / PSOAS-ORIENTIERT
+===========================================
+
+Nutze aus der bestehenden Trainingsbibliothek, falls vorhanden:
+
+* Psoas March
+* Resistance Band Psoas March
+* Standing Knee Drive
+* Dead Bug
+* Hanging Knee Raise
+* High Knee Drill
+
+WICHTIG:
+
+Diese Übungen nicht automatisch nur deshalb auswählen, weil ein Spieler langsam ist.
+
+Auswahl nur im Zusammenspiel mit dem gesamten Leistungsprofil.
+
+==================================================
+11. ÜBUNGEN – GLUTEUS MAXIMUS / HÜFTSTRECKUNG
+=============================================
+
+Bevorzugte bestehende Übungen:
+
+* Hip Thrust
+* Bulgarian Split Squat
+* Romanian Deadlift
+* Step-up
+* Sled Push
+* Broad Jump
+
+==================================================
+12. ÜBUNGEN – GLUTEUS MEDIUS / BECKENSTABILITÄT
+===============================================
+
+Bevorzugte bestehende Übungen:
+
+* Lateral Band Walk
+* Single Leg Squat
+* Single Leg RDL
+* Side Plank mit Abduktion
+* Step-down
+* Single Leg Balance
+
+==================================================
+13. ÜBUNGEN – HAMSTRINGS / HINTERE KETTE
+========================================
+
+Bevorzugte bestehende Übungen:
+
+* Nordic Hamstring
+* Romanian Deadlift
+* Single Leg RDL
+* Hamstring Bridge
+* passende Sprint Drills
+
+==================================================
+14. ÜBUNGEN – EXPLOSIVE SPRINTLEISTUNG
+======================================
+
+Bevorzugte bestehende Übungen:
+
+* kurze maximale Sprints
+* Resisted Sprints
+* leichte Schlitten-Sprints
+* Bounds
+* Pogos
+* horizontale Sprünge
+* Broad Jumps
+
+Keine Übungen doppelt in der Bibliothek anlegen, wenn sie bereits existieren.
+
+==================================================
+15. VERKNÜPFUNG MIT FMS
+=======================
+
+Bestehende FMS-Ergebnisse zusätzlich berücksichtigen.
+
+Beispiel:
+
+Sprintauffälligkeit
++
+FMS zeigt relevante Hüft-/Becken-/Rumpfstabilitätsauffälligkeit
+
+→ Stabilitätsbereich höher priorisieren.
+
+Aber:
+
+FMS darf nicht als direkter Sprintleistungsnachweis interpretiert werden.
+
+==================================================
+16. VERKNÜPFUNG MIT Y-BALANCE
+=============================
+
+Bestehende Y-Balance-Daten berücksichtigen.
+
+Wenn:
+
+Sprintauffälligkeit
++
+relevante Y-Balance-Asymmetrie
+
+dann:
+
+* Seitenunterschied berücksichtigen
+* einbeinige Kontrolle/Stabilität priorisieren
+* Training nicht ausschließlich auf maximale Sprintbelastung fokussieren
+
+Keine medizinische Aussage daraus ableiten.
+
+==================================================
+17. SPRINTDEFIZIT OHNE FMS/Y-BALANCE-AUFFÄLLIGKEIT
+==================================================
+
+Wenn:
+
+valide Sprintauffälligkeit vorhanden
+
+aber:
+
+keine relevante FMS-/Y-Balance-Auffälligkeit
+
+dann stärker fokussieren auf:
+
+* Sprinttechnik
+* Sprintbelastung
+* Explosivkraft
+* Reaktivkraft
+* Maximalkraft
+* horizontale Kraftentwicklung
+* spezifische Beschleunigung
+
+==================================================
+18. SPRINT + RUMPFSTABILITÄT
+============================
+
+Wenn:
+
+Sprintauffälligkeit
++
+valide Rumpfstabilitätsauffälligkeit
+
+dann:
+
+Core-/Beckenstabilität ergänzen.
+
+Aber nicht den gesamten Trainingsplan zu einem Core-Plan machen.
+
+==================================================
+19. SPRINT + HÜFTSTABILITÄT
+===========================
+
+Wenn:
+
+Sprintauffälligkeit
++
+valide Hüft-/einbeinige Stabilitätsauffälligkeit
+
+dann:
+
+Gluteus-medius-/Becken-/einbeinige Stabilitätsübungen sinnvoll höher gewichten.
+
+Nicht automatisch anzeigen:
+
+"Gluteus medius schwach"
+
+==================================================
+20. PRIORITÄTSSYSTEM
+====================
+
+Prüfe zuerst das bereits bestehende Prioritätssystem aus Schritt 3.
+
+Wenn kompatibel:
+dieses erweitern.
+
+Keine parallele zweite Prioritätsengine bauen.
+
+Bereiche können sein:
+
+* Beschleunigung
+* Maximalgeschwindigkeit
+* Hüftstabilität
+* Beckenstabilität
+* einbeinige Stabilität
+* hintere Kette
+* Explosivkraft
+* Reaktivkraft
+
+Punkte:
+
+0 = keine Auffälligkeit
+1 = leichte Auffälligkeit
+2 = relevante Auffälligkeit
+3 = deutliche Auffälligkeit
+
+WICHTIG:
+
+Nur VALID_DATA erzeugt Punkte.
+
+NO_DATA = keine Bewertung.
+
+==================================================
+21. MEHRERE QUELLEN ERHÖHEN PRIORITÄT
+=====================================
+
+Wenn mehrere valide Testquellen denselben funktionellen Bereich stützen:
+
+Beispiel:
+
+Sprint:
+Beschleunigung auffällig
+
+FMS:
+Hüftstabilität auffällig
+
+Y-Balance:
+einbeinige Kontrolle auffällig
+
+Dann darf der gemeinsame funktionelle Bereich stärker priorisiert werden.
+
+Aber:
+
+Keine Punktzahl künstlich unbegrenzt aufsummieren.
+
+Bestehende maximale Prioritätslogik beachten.
+
+==================================================
+22. QUELLEN TRANSPARENT ANZEIGEN
+================================
+
+Bei einem Trainingsschwerpunkt anzeigen können:
+
+Schwerpunkt:
+Hüft- und Beckenstabilität
+
+Grundlage:
+
+* Sprintdiagnostik
+* FMS
+* Y-Balance
+
+Nur Quellen anzeigen, die tatsächlich Daten beigetragen haben.
+
+==================================================
+23. "WARUM WIRD DAS TRAINIERT?"
+===============================
+
+Für sprintbezogene Trainingsschwerpunkte einen aufklappbaren Bereich:
+
+"Warum wird das trainiert?"
+
+Beispiel:
+
+"Schwerpunkt: Hüft- und Beckenstabilität.
+
+Begründung:
+Die vorhandenen Sprint- und Bewegungstests zeigen Auffälligkeiten in Bereichen, die für eine effiziente Kraftübertragung beim Sprint relevant sein können."
+
+Keine kausalen Muskelbehauptungen.
+
+==================================================
+24. WISSENSCHAFTLICHER HINTERGRUND
+==================================
+
+Zusätzlich aufklappbarer Bereich:
+
+"Wissenschaftlicher Hintergrund"
+
+Text sinngemäß:
+
+"Untersuchungen bei College-Footballspielern zeigten deutliche Zusammenhänge zwischen maximaler Sprintgeschwindigkeit und insbesondere dem Muskelvolumen des Psoas major, Gluteus medius und Gluteus maximus. Eine Kombination aus Psoas major, Gluteus medius und Piriformis erklärte in dieser Untersuchung einen großen Teil der Unterschiede in der maximalen Sprintgeschwindigkeit. Diese Ergebnisse zeigen statistische Zusammenhänge und bedeuten nicht, dass Muskelgröße allein die Sprintgeschwindigkeit bestimmt."
+
+Keine übertriebene Aussage wie:
+
+"wissenschaftlich bewiesen, dass..."
+
+==================================================
+25. TRAININGSPLAN-INTEGRATION
+=============================
+
+Die neuen Sprint-Schwerpunkte müssen in die bestehende Trainingsplan-Engine aus Schritt 3 und 4 integriert werden.
+
+Keine separate Sprint-Trainingsplanseite erzeugen, die unabhängig vom Hauptplan arbeitet.
+
+Sprintschwerpunkte sollen Teil des normalen Trainingsplans werden.
+
+==================================================
+26. BESTEHENDE DEFIZIT-REGELN BLEIBEN
+=====================================
+
+Schritt 3 bleibt verbindlich:
+
+0 Defizite
+→ Basis-Modus
+
+1 Defizit
+→ dieses Defizit Hauptschwerpunkt
+
+2 Defizite
+→ genau diese zwei diagnostischen Hauptschwerpunkte
+
+3+ Defizite
+→ Priorisierung
+
+Sprintbereiche werden in dieses bestehende System integriert.
+
+Keine automatische zusätzlichen Defizite erfinden.
+
+==================================================
+27. BESTEHENDE TRAININGSREIHENFOLGE
+===================================
+
+Weiterhin verbindlich:
+
+1. Schnelligkeits- und Sprintübungen zuerst
+2. Explosiv-/Plyometrie
+3. koordinativ anspruchsvolle Kraftübungen
+4. Mehrgelenksübungen vor Eingelenksübungen
+5. große Muskelgruppen vor kleinen
+6. Druck/Zug sinnvoll abwechseln
+7. Oberkörper/Beine sinnvoll abwechseln
+8. ermüdende Ausdauer zuletzt, wenn vorgesehen
+
+Sprinttraining immer vor ermüdendem Kraft- oder Ausdauertraining.
+
+==================================================
+28. SPRINTQUALITÄT VOR VOLUMEN
+==============================
+
+Bei maximalen Sprintübungen:
+
+Qualität priorisieren.
+
+Keine übermäßigen Wiederholungen erzeugen.
+
+Ausreichende Pausen berücksichtigen.
+
+Bestehende Alters-/Belastungslogik verwenden.
+
+==================================================
+29. ALTERSGERECHTE SPRINTPLANUNG
+================================
+
+Bestehende Alterslogik aus Schritt 3 weiterverwenden.
+
+Bei Kindern/Jugendlichen:
+
+* Sprinttechnik
+* kurze hochwertige Sprints
+* Koordination
+* spielerische Schnelligkeit
+* Sprung-/Landetechnik
+* geringe bis moderate Zusatzwiderstände, wenn überhaupt
+* saubere Bewegungsausführung
+
+priorisieren.
+
+Keine Erwachsenen-Kraftprogramme unkritisch auf Kinder übertragen.
+
+==================================================
+30. TRAININGSZEIT AUS SCHRITT 4
+===============================
+
+Sprintempfehlungen müssen die gewählte Trainingszeit berücksichtigen.
+
+Beispiel:
+
+30-Minuten-Einheit
+→ wenige hochwertige Schwerpunkte
+
+60-Minuten-Einheit
+→ mehr ergänzende Kraft/Stabilität möglich
+
+Nicht einfach zusätzliche Sprintübungen oben drauf packen und dadurch die gewünschte Trainingszeit überschreiten.
+
+==================================================
+31. BESTEHENDE PLÄNE NICHT AUTOMATISCH ÄNDERN
+=============================================
+
+Wenn das neue Sprint-Modul installiert wird:
+
+bestehende gespeicherte Trainingspläne NICHT automatisch verändern.
+
+Die neue Logik gilt für:
+
+* neu erstellte Pläne
+* bewusst aktualisierte Pläne
+
+Bei bestehenden aktiven Plänen:
+
+Hinweis auf neue Daten/Empfehlungen möglich.
+
+Kein automatisches Überschreiben.
+
+==================================================
+32. ÜBUNGSBIBLIOTHEK
+====================
+
+Prüfe, ob alle genannten Übungen bereits vorhanden sind.
+
+Für jede Übung kennzeichnen:
+
+* bereits vorhanden
+* ähnlicher Eintrag vorhanden
+* fehlt
+
+Wenn eine Übung fehlt:
+nur dann neu in die bestehende Trainingsbibliothek aufnehmen.
+
+Vorher auf Dubletten prüfen.
+
+Keine zweite Bibliothek erstellen.
+
+==================================================
+33. NEUE ÜBUNGEN – METADATEN
+============================
+
+Falls Übungen neu ergänzt werden müssen, vorhandenes Bibliotheksschema verwenden.
+
+Soweit das System diese Felder unterstützt:
+
+* Name
+* Kategorie
+* Trainingsziel
+* Muskel-/Funktionsbereich
+* Equipment
+* Schwierigkeitsgrad
+* Altersfreigabe
+* Sätze
+* Wiederholungen
+* Dauer
+* Pause
+* Coaching-Hinweise
+
+Keine medizinischen Heilversprechen.
+
+==================================================
+34. SPRINT-SEITE – ERGEBNISANZEIGE
+==================================
+
+Nach einem Sprinttest soll die Anzeige möglichst unterscheiden:
+
+* aktuelle Sprintwerte
+* Bewertung nach vorhandener Logik
+* erkannte Leistungsbereiche
+* mögliche Trainingsschwerpunkte
+* wissenschaftlicher Hintergrund
+
+Nicht alles als "Defizit" bezeichnen.
+
+Beispiel:
+
+SPRINTLEISTUNG
+
+10 m:
+2,01 s
+
+Beschleunigung:
+auffällig / entwicklungsfähig
+
+Mögliche Trainingsschwerpunkte:
+
+* horizontale Kraftentwicklung
+* Explosivkraft
+* Sprinttechnik
+
+Nur anzeigen, wenn die bestehende Bewertung dies unterstützt.
+
+==================================================
+35. KEINE DIREKTE MUSKELDIAGNOSE
+================================
+
+Verbindliche Sperrregel:
+
+Aus Sprintzeit allein niemals ausgeben:
+
+* Psoas schwach
+* Gluteus schwach
+* Hamstrings schwach
+* Piriformis schwach
+* Muskel unterentwickelt
+
+Stattdessen:
+
+"Möglicher leistungsrelevanter Trainingsbereich: ..."
+
+==================================================
+36. KEINE VERLETZUNGSRISIKO-AUSSAGE AUS STUDIE
+==============================================
+
+Die Muskelvolumenstudie darf NICHT verwendet werden, um Verletzungsrisiko zu berechnen.
+
+Sie ist eine Sprintleistungsstudie.
+
+Keine Aussagen wie:
+
+"erhöhtes Verletzungsrisiko wegen kleinem Psoas"
+
+==================================================
+37. DATENBASIS PRO EMPFEHLUNG
+=============================
+
+Wenn technisch sinnvoll, bei jeder Empfehlung intern festhalten:
+
+* Spieler
+* Sprinttest-ID / Datum
+* relevante Sprintwerte
+* FMS-Test-ID / Datum, falls verwendet
+* Y-Balance-Test-ID / Datum, falls verwendet
+* Priorität
+* Trainingsbereich
+
+Dadurch muss nachvollziehbar bleiben, warum eine Empfehlung erzeugt wurde.
+
+==================================================
+38. TESTFÄLLE
+=============
+
+TEST A:
+Spieler ohne Sprinttest.
+
+Erwartung:
+
+* kein Sprintdefizit
+* keine Muskelbehauptung
+* NO_DATA
+
+TEST B:
+Sprinttest vorhanden, FMS/Y-Balance unauffällig.
+
+Erwartung:
+
+* Sprinttraining / Explosivität stärker berücksichtigen
+* keine erfundene Stabilitätsstörung
+
+TEST C:
+Sprintauffälligkeit + Hüftstabilitätsauffälligkeit.
+
+Erwartung:
+
+* Hüft-/Beckenstabilität höher priorisiert
+* keine Aussage "Gluteus medius schwach"
+
+TEST D:
+Sprintauffälligkeit + Rumpfstabilitätsauffälligkeit.
+
+Erwartung:
+
+* Core ergänzen
+* Sprint bleibt Bestandteil
+
+TEST E:
+Sprintauffälligkeit + Y-Balance-Asymmetrie.
+
+Erwartung:
+
+* Seitenunterschied / Stabilität berücksichtigen
+
+TEST F:
+Gute Sprintwerte.
+
+Erwartung:
+
+* kein künstliches Sprintdefizit
+* Erhaltungs-/Leistungsentwicklung möglich
+
+TEST G:
+Bestehender Plan vor Schritt 6.
+
+Erwartung:
+
+* Plan bleibt unverändert
+
+TEST H:
+Neuer Plan mit Sprintdefizit.
+
+Erwartung:
+
+* Sprint-/Explosivübungen stehen vor ermüdender Kraft
+
+TEST I:
+30-Minuten-Plan.
+
+Erwartung:
+
+* Trainingszeit wird eingehalten
+
+TEST J:
+Keine Diagnosedaten.
+
+Erwartung:
+
+* Basis-Modus aus Schritt 3
+* keine neuen Sprintdefizite
+
+==================================================
+39. REGRESSIONSTEST
+===================
+
+Prüfe zusätzlich:
+
+* FMS funktioniert
+* Y-Balance funktioniert
+* Sprinttesteingabe funktioniert
+* bestehende Sprintauswertung funktioniert
+* Trainingsplanerstellung funktioniert
+* Planversionierung funktioniert
+* Übungsbearbeitung funktioniert
+* Trainingsbibliothek funktioniert
+* Login funktioniert
+* Kunden-/Lizenzverwaltung funktioniert
+* Verträge/Kündigung funktionieren
+* keine bestehenden Pläne verändert
+* keine Pakete oder Preise verändert
+
+==================================================
+40. ABSCHLUSSBERICHT
+====================
+
+Nach Abschluss berichten:
+
+1. Welche bestehende Sprintlogik war bereits vorhanden?
+2. Was wurde ergänzt?
+3. Welche neuen wissenschaftlichen Informationen werden angezeigt?
+4. Wie verhindert das System eine falsche "Psoas schwach"-Aussage?
+5. Wie werden Sprint-, FMS- und Y-Balance-Daten kombiniert?
+6. Wie funktioniert das Prioritätssystem?
+7. Wie werden NO_DATA-Fälle behandelt?
+8. Welche Übungen waren bereits in der Bibliothek?
+9. Welche Übungen wurden neu ergänzt?
+10. Wie werden Sprintempfehlungen in den normalen Trainingsplan integriert?
+11. Wie wird die Trainingsreihenfolge eingehalten?
+12. Wie wird Trainingszeit berücksichtigt?
+13. Wurden bestehende Trainingspläne verändert? Erwartet: NEIN.
+14. Welche Dateien wurden geändert?
+15. Welche Datenbankänderungen wurden vorgenommen?
+16. Welche bestehenden Funktionen wurden bewusst nicht verändert?
+17. Welche Tests wurden erfolgreich durchgeführt?
+18. Welche 10 Punkte soll ich selbst testen?
+
+Für jeden Hauptbereich kennzeichnen:
+
+* BEREITS VORHANDEN
+* ERGÄNZT
+  oder
+* NEU ERSTELLT
+
+Danach STOPPEN.
+
+Keine Mobile-Design-Phase und keine weiteren wissenschaftlichen Module ohne meine Freigabe automatisch starten.

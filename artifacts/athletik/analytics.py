@@ -474,6 +474,149 @@ def defizite_ermitteln(
 
 # ─── Schwerpunkt-Text ─────────────────────────────────────────────────────────
 
+def sprint_trainingsschwerpunkte_ermitteln(
+    sprint_row=None,
+    fms_row=None,
+    y_row=None,
+) -> list[dict]:
+    """
+    Ermittelt mögliche Trainingsschwerpunkte aus Sprint + FMS + Y-Balance.
+
+    Strenge Interpretationsregel (Spec §2, §35):
+      - Keine Muskeldiagnosen aus Sprintzeiten allein.
+      - Keine kausalen Aussagen ("Psoas schwach" o.ä.).
+      - NO_DATA → leere Liste.
+      - Nur VALID_DATA erzeugt Schwerpunkte.
+
+    Rückgabe: Liste von dicts mit keys:
+      bereich     : str  — Trainingsbereich
+      beschreibung: str  — vorsichtige Formulierung
+      quellen     : list[str]  — welche Tests diesen Bereich stützen
+      prioritaet  : int  — 1 (gering) bis 3 (deutlich)
+    """
+    if not sprint_row:
+        return []  # NO_DATA → keine Schwerpunkte
+
+    bew10       = str(sprint_row.get("bewertung_10m") or "")
+    bew30       = str(sprint_row.get("bewertung_30m") or "")
+    beschl_idx  = sprint_row.get("beschl_index") or 0
+
+    # Auffälligkeiten aus validen Sprint-Daten ableiten
+    sprint_beschl_auff = bew10 in ("Verbesserungsbedarf", "Mittel (Breitensport)")
+    sprint_max_auff    = bew30 in ("Verbesserungsbedarf", "Mittel (Breitensport)")
+    sprint_auff        = sprint_beschl_auff or sprint_max_auff
+
+    if not sprint_auff:
+        return []  # Gute Sprintwerte → keine künstlichen Schwerpunkte (TEST F)
+
+    # FMS-Auffälligkeiten (§15)
+    fms_hueft_auff = False
+    fms_rumpf_auff = False
+    if fms_row:
+        sw = str(fms_row.get("schwerpunkt") or "").lower()
+        s  = fms_row.get("score") or 21
+        fms_hueft_auff = "hüft" in sw or (s is not None and int(s) <= 12)
+        fms_rumpf_auff = any(kw in sw for kw in ("rumpf", "core", "rotations"))
+
+    # Y-Balance-Auffälligkeiten (§16)
+    yb_asymm_auff    = False
+    yb_einbeinig_auff = False
+    if y_row:
+        asym = str(y_row.get("asymmetrie") or "").lower()
+        sw   = str(y_row.get("schwerpunkt") or "").lower()
+        yb_asymm_auff    = any(kw in asym for kw in ("posteromedial", "posterolateral", "anterior"))
+        yb_einbeinig_auff = any(kw in sw for kw in ("gluteus", "becken")) or yb_asymm_auff
+
+    schwerpunkte: list[dict] = []
+
+    def _add(bereich: str, beschreibung: str, quellen: list, prioritaet: int = 2) -> None:
+        for sp in schwerpunkte:
+            if sp["bereich"] == bereich:
+                if prioritaet > sp["prioritaet"]:
+                    sp["prioritaet"] = prioritaet
+                    sp["beschreibung"] = beschreibung
+                for q in quellen:
+                    if q not in sp["quellen"]:
+                        sp["quellen"].append(q)
+                return
+        schwerpunkte.append({
+            "bereich":      bereich,
+            "beschreibung": beschreibung,
+            "quellen":      list(quellen),
+            "prioritaet":   prioritaet,
+        })
+
+    # ── Beschleunigung ────────────────────────────────────────────────────────
+    if sprint_beschl_auff and (fms_hueft_auff or yb_einbeinig_auff):
+        # §21: Mehrere Quellen → Bereich stärker priorisieren
+        q = ["Sprintdiagnostik"]
+        if fms_hueft_auff:    q.append("FMS")
+        if yb_einbeinig_auff: q.append("Y-Balance")
+        _add(
+            "Hüft- und Beckenstabilität",
+            "Möglicher leistungsrelevanter Trainingsbereich: Hüft- und Beckenstabilität — "
+            "mehrere Tests zeigen Auffälligkeiten in für die Sprintbeschleunigung "
+            "funktionell relevanten Bereichen.",
+            q, 3,
+        )
+    elif sprint_beschl_auff:
+        # §17: Sprint-Auffälligkeit ohne FMS/Y-Balance → Explosivkraft und Technik
+        _add(
+            "Beschleunigung und Explosivkraft",
+            "Möglicher leistungsrelevanter Trainingsbereich: horizontale Kraftentwicklung "
+            "und Sprintbeschleunigung.",
+            ["Sprintdiagnostik"], 2,
+        )
+        _add(
+            "Sprinttechnik",
+            "Mögliches Trainingsfeld: Sprinttechnik und Antrittsoptimierung.",
+            ["Sprintdiagnostik"], 1,
+        )
+
+    # ── Maximalgeschwindigkeit ────────────────────────────────────────────────
+    if sprint_max_auff and (fms_rumpf_auff or yb_asymm_auff):
+        q = ["Sprintdiagnostik"]
+        if fms_rumpf_auff: q.append("FMS")
+        if yb_asymm_auff:  q.append("Y-Balance")
+        _add(
+            "Rumpf- und Beckenstabilität",
+            "Möglicher leistungsrelevanter Trainingsbereich: Core und Beckenstabilität "
+            "als funktionelle Grundlage für die Maximalgeschwindigkeitsphase.",
+            q, 2,
+        )
+
+    if sprint_max_auff:
+        _add(
+            "Hintere Kette und Reaktivkraft",
+            "Mögliches Trainingsfeld: Maximal- und Reaktivkraft der hinteren Kette "
+            "für die Maximalgeschwindigkeitsphase.",
+            ["Sprintdiagnostik"], 2,
+        )
+
+    # ── Asymmetrie / einbeinige Kontrolle ─────────────────────────────────────
+    if sprint_auff and yb_asymm_auff:
+        _add(
+            "Einbeinige Kontrolle und Seitenausgleich",
+            "Möglicher Trainingsbereich: einbeinige Stabilität und Seitenausgleich — "
+            "Sprintauffälligkeit liegt gleichzeitig mit einem Seitenunterschied vor.",
+            ["Sprintdiagnostik", "Y-Balance"], 2,
+        )
+
+    # §18: Rumpfstabilität ergänzen bei Sprint + Core-Auffälligkeit
+    if sprint_auff and fms_rumpf_auff and not any(
+        sp["bereich"] == "Rumpf- und Beckenstabilität" for sp in schwerpunkte
+    ):
+        _add(
+            "Rumpf- und Beckenstabilität",
+            "Mögliches ergänzendes Trainingsfeld: Core-Stabilität — "
+            "Rumpfauffälligkeit im FMS bei gleichzeitiger Sprintauffälligkeit.",
+            ["Sprintdiagnostik", "FMS"], 1,
+        )
+
+    schwerpunkte.sort(key=lambda x: x["prioritaet"], reverse=True)
+    return schwerpunkte
+
+
 def schwerpunkt_sammeln(
     fms_row,
     y_row,

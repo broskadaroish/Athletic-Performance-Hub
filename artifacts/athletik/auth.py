@@ -59,7 +59,8 @@ def login(email_oder_benutzername: str, passwort: str) -> dict | None:
         conn = sqlite3.connect(DB_PATH, timeout=10)
         conn.row_factory = sqlite3.Row
         user = conn.execute(
-            """SELECT b.*, v.name AS verein_name
+            """SELECT b.*, v.name AS verein_name,
+                      v.kuendigungsstatus AS verein_kuendigungsstatus
                FROM benutzer b
                LEFT JOIN vereine v ON b.verein_id = v.id
                WHERE (LOWER(b.email)=?
@@ -97,6 +98,13 @@ def login(email_oder_benutzername: str, passwort: str) -> dict | None:
 
     # 4b. Account-Status prüfen (Spec §2: email_verifiziert=1, aktiv=0 → auf Freischaltung warten)
     if not user["aktiv"]:
+        # Kündigung abgeschlossen? (eigene oder Vereins-Kündigung)
+        _kuend_keys = dict(user).keys()
+        _b_kuend = user["kuendigungsstatus"] if "kuendigungsstatus" in _kuend_keys else None
+        _v_kuend = (user["verein_kuendigungsstatus"]
+                    if "verein_kuendigungsstatus" in _kuend_keys else None)
+        if _b_kuend == "beendet" or _v_kuend == "beendet":
+            return {"lizenz_gekuendigt": True}
         # Unterscheide: noch nie aktiviert (Neuregistrierung) vs. explizit gesperrt
         # Beide erhalten den gleichen Rückgabetyp — UI differenziert bei Bedarf
         return {"wartend_auf_freischaltung": True}

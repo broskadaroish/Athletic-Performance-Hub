@@ -72,6 +72,9 @@ _POOL: dict[str, dict[str, list]] = {
             ("Copenhagen Plank (kurz)",     "3", "20 Sekunden",   "3×/Woche"),
             ("Monster Walk (Band)",         "3", "15 Meter",      "3×/Woche"),
             ("Side-Lying Clam Shell",       "3", "15 je Seite",   "3×/Woche"),
+            ("Psoas March",                 "3", "10 je Seite",   "2×/Woche"),
+            ("Resistance Band Psoas March", "3", "10 je Seite",   "2×/Woche"),
+            ("Side Plank mit Abduktion",    "3", "10 je Seite",   "2×/Woche"),
         ],
         "kraft": [
             ("Copenhagen Plank",            "3", "30 Sekunden",   "3×/Woche"),
@@ -153,6 +156,7 @@ _POOL: dict[str, dict[str, list]] = {
             ("Gluteal Bridge Variante",     "3", "12",            "2×/Woche"),
             ("Prone Hip Ext. (isometr.)",   "3", "20 Sekunden",   "2×/Woche"),
             ("Hamstring Wall Bridge",       "3", "10",            "2×/Woche"),
+            ("Hamstring Bridge",            "3", "12",            "3×/Woche"),
         ],
         "kraft": [
             ("Nordic Hamstring Curl",       "3", "6",             "2×/Woche"),
@@ -180,6 +184,8 @@ _POOL: dict[str, dict[str, list]] = {
             ("Anfersen / Knieheben",        "4", "20 Meter",      "2×/Woche"),
             ("Koordinationsleiter Sprint",  "4", "Durchgänge",    "2×/Woche"),
             ("Schrittfrequenz-Drills",      "3", "15 Meter",      "2×/Woche"),
+            ("High Knee Drill",             "4", "20 Meter",      "2×/Woche"),
+            ("Standing Knee Drive",         "3", "10 je Seite",   "2×/Woche"),
         ],
         "kraft": [
             ("10 m Sprintstarts",           "6", "10 m",          "2×/Woche"),
@@ -188,6 +194,7 @@ _POOL: dict[str, dict[str, list]] = {
             ("Resistenz-Sprints (Band)",    "4", "20 Meter",      "1×/Woche"),
             ("Gewichtete Sprintstarts",     "5", "10 m",          "2×/Woche"),
             ("Fallsprints (Partnerfreigabe)","6","10 m",          "2×/Woche"),
+            ("Sled Push (leicht)",          "4", "20 Meter",      "1×/Woche"),
         ],
         "power": [
             ("20–30 m Maximalsprints",      "6", "30 m",          "1×/Woche"),

@@ -52,11 +52,44 @@ _STANDARD_UEBUNGEN = [
     ("Fußball",      "RSA-Fähigkeit",     "Repeated Sprint Ability",              "6", "30 m",            "1x Woche"),
 ]
 
+# ─── Schritt 6: Sprint-spezifische Ergänzungen ────────────────────────────────
+# Nur Übungen, die noch nicht im Standardsatz enthalten sind.
+_SPRINT6_NEUE_UEBUNGEN = [
+    # Hüftbeuger / Psoas-orientiert
+    ("Hüfte",        "Hüftbeuger",        "Psoas March",                          "3", "10 je Seite",    "2x Woche"),
+    ("Hüfte",        "Hüftbeuger",        "Resistance Band Psoas March",          "3", "10 je Seite",    "2x Woche"),
+    ("Hüfte",        "Hüftbeuger",        "Standing Knee Drive",                  "3", "10 je Seite",    "2x Woche"),
+    # Gluteus medius / Beckenstabilität
+    ("Hüfte",        "Beckenstabilität",  "Side Plank mit Abduktion",             "3", "10 je Seite",    "2x Woche"),
+    ("Hüfte",        "Beckenstabilität",  "Single Leg Balance",                   "3", "30 Sekunden",    "3x Woche"),
+    # Hamstrings / hintere Kette
+    ("Oberschenkel", "Hintere Kette",     "Hamstring Bridge",                     "3", "12",              "3x Woche"),
+    # Sprint-Kraft / Explosivität
+    ("Schnelligkeit","Antritt",           "High Knee Drill",                      "4", "20 Meter",        "2x Woche"),
+    ("Schnelligkeit","Horizontalkraft",   "Sled Push (leicht)",                   "4", "20 Meter",        "1x Woche"),
+]
+
 
 def init_training_bibliothek():
     """Idempotent: inserts default exercises only if the table is empty."""
     if training_count() == 0:
         training_bulk_insert(_STANDARD_UEBUNGEN)
+    # Schritt-6-Ergänzungen immer prüfen und bei Bedarf nachfüllen
+    ensure_sprint6_uebungen()
+
+
+def ensure_sprint6_uebungen():
+    """Fügt fehlende Sprint-6-Übungen in die Bibliothek ein (idempotent nach Name)."""
+    from database import get_conn
+    fehlend = []
+    with get_conn() as conn:
+        for row in _SPRINT6_NEUE_UEBUNGEN:
+            name = row[2]
+            exists = conn.execute("SELECT 1 FROM training WHERE uebung=?", (name,)).fetchone()
+            if not exists:
+                fehlend.append(row)
+    if fehlend:
+        training_bulk_insert(fehlend)
 
 
 def empfehlung_bereiche(schwerpunkt_text: str) -> list[str]:
