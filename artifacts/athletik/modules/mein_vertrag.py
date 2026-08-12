@@ -1,0 +1,266 @@
+"""
+modules/mein_vertrag.py — "Mein Vertrag" Seite für Trainer und Vereinsadmin.
+Zeigt Vertragsdaten (read-only) und bietet den Online-Kündigungsflow.
+"""
+from __future__ import annotations
+import logging
+import streamlit as st
+from database import get_conn, kuendigung_einreichen
+
+_log = logging.getLogger("athletik.kuendigung")
+
+_STATUS_BADGE: dict[str, tuple[str, str]] = {
+    "active":    ("#238636", "AKTIV"),
+    "trial":     ("#1f6feb", "TESTPHASE"),
+    "expired":   ("#da3633", "ABGELAUFEN"),
+    "cancelled": ("#da3633", "GEKÜNDIGT"),
+    "suspended": ("#d29922", "GESPERRT"),
+}
+
+
+# ── Hilfsfunktionen ───────────────────────────────────────────────────────────
+
+def _laden(user: dict) -> dict:
+    """Lädt Vertragsdaten für den aktuellen Benutzer aus der passenden Tabelle."""
+    ist_verein = user.get("rolle") == "Vereinsadmin"
+    eid = user.get("verein_id") if ist_verein else user.get("id")
+    tabelle = "vereine" if ist_verein else "benutzer"
+    with get_conn() as conn:
+        row = conn.execute(f"SELECT * FROM {tabelle} WHERE id=?", (eid,)).fetchone()
+    return dict(row) if row else {}
+
+
+def _feld(label: str, wert) -> None:
+    """Zeigt ein read-only Datenfeld mit Label und Wert."""
+    v = str(wert) if wert else "Nicht hinterlegt"
+    st.markdown(
+        f"<div style='display:flex;justify-content:space-between;align-items:center;"
+        f"padding:9px 0;border-bottom:1px solid #21262d'>"
+        f"<span style='color:#8b949e;font-size:13px'>{label}</span>"
+        f"<span style='color:#e6edf3;font-size:13px;text-align:right;"
+        f"max-width:65%;word-break:break-word'>{v}</span>"
+        f"</div>",
+        unsafe_allow_html=True,
+    )
+
+
+def _preis_str(lizenztyp: str | None) -> str:
+    """Versucht den Monatspreis aus LIZENZ_TYPEN zu lesen."""
+    if not lizenztyp:
+        return "Nicht hinterlegt"
+    try:
+        from license import LIZENZ_TYPEN  # noqa: F401
+        td = LIZENZ_TYPEN.get(lizenztyp, {})
+        pm = td.get("preis_monat") or td.get("preis") or td.get("preis_monatlich")
+        if pm is not None:
+            return f"€ {float(pm):.2f} / Monat"
+    except Exception:
+        pass
+    return "Nicht hinterlegt"
+
+
+# ── Hauptseite ────────────────────────────────────────────────────────────────
+
+def page_mein_vertrag() -> None:
+    """Hauptseite: Mein Vertrag."""
+    user = st.session_state.get("user", {})
+    ist_verein = user.get("rolle") == "Vereinsadmin"
+    eid: int = user.get("verein_id") if ist_verein else user.get("id")
+
+    st.title("📋 Mein Vertrag")
+
+    data = _laden(user)
+    if not data:
+        st.error("Vertragsdaten konnten nicht geladen werden.")
+        return
+
+    # ── Vertragsinformationen (read-only) ────────────────────────────────────
+    st.markdown("### Vertragsinformationen")
+
+    lizenztyp    = data.get("lizenztyp") or data.get("lizenz_typ")
+    lizenz_status = data.get("lizenz_status") or "unbekannt"
+    sc, sl = _STATUS_BADGE.get(lizenz_status, ("#6e7681", lizenz_status.upper()))
+
+    _feld("Kundennummer",                          data.get("kundennummer"))
+    _feld("Kundentyp",                             "Verein" if ist_verein else "Trainer")
+    _feld("Aktuelles Paket",                       lizenztyp)
+    _feld("Paketpreis",                            _preis_str(lizenztyp))
+    _feld("Abrechnungsintervall",                  "Monatlich")
+    _feld("Vertragsbeginn",                        data.get("vertragsbeginn"))
+    _feld("Vertragsende / Nächste Verlängerung",
+          data.get("vertragsende") or data.get("lizenz_bis"))
+
+    # Lizenzstatus-Badge
+    st.markdown(
+        f"<div style='display:flex;justify-content:space-between;align-items:center;"
+        f"padding:9px 0;border-bottom:1px solid #21262d'>"
+        f"<span style='color:#8b949e;font-size:13px'>Lizenzstatus</span>"
+        f"<span style='background:{sc};color:#fff;font-size:11px;font-weight:700;"
+        f"padding:3px 12px;border-radius:12px;letter-spacing:.5px'>{sl}</span>"
+        f"</div>",
+        unsafe_allow_html=True,
+    )
+
+    kuend_status = data.get("kuendigungsstatus")
+    _feld("Kündigungsstatus",
+          kuend_status if kuend_status and kuend_status != "aktiv"
+          else "Kein Kündigungsvorgang")
+
+    if data.get("kuendigung_eingegangen"):
+        _feld("Kündigung eingegangen am",
+              (data["kuendigung_eingegangen"] or "")[:10])
+        if data.get("gekuendigt_zum"):
+            _feld("Vertrag endet am", data["gekuendigt_zum"])
+
+    # ── Aktive Kündigung: Info ───────────────────────────────────────────────
+    if data.get("kuendigung_eingegangen"):
+        st.markdown("---")
+        vende = data.get("gekuendigt_zum") or "Beendigungsdatum wird noch bestätigt."
+        st.info(
+            f"**Deine Kündigung ist eingegangen.**\n\n"
+            f"Eingangsdatum: **{(data['kuendigung_eingegangen'] or '')[:10]}**  \n"
+            f"Vertragsende: **{vende}**"
+        )
+        st.caption(
+            "Bei Fragen wende dich an "
+            "[support@aphsystem.de](mailto:support@aphsystem.de)."
+        )
+        return
+
+    # ── Kündigungsbereich ────────────────────────────────────────────────────
+    st.markdown("---")
+
+    if lizenz_status not in ("active", "trial"):
+        st.info("Eine Kündigung ist für den aktuellen Vertragsstatus nicht möglich.")
+        return
+
+    _kuendigung_flow(user, eid, ist_verein, data)
+
+
+# ── Kündigungsflow ────────────────────────────────────────────────────────────
+
+def _kuendigung_flow(user: dict, eid: int, ist_verein: bool, data: dict) -> None:
+    """Dreistufiger Kündigungsflow (Schritt 0 → 1 → 2)."""
+    step: int = st.session_state.get("_kuend_step", 0)
+
+    # ── Schritt 0: Info + Einstieg ──────────────────────────────────────────
+    if step == 0:
+        st.markdown("### Vertrag kündigen")
+        st.warning(
+            "Eine Kündigung beendet deinen Vertrag zum vorgesehenen Termin. "
+            "Der Zugang bleibt bis dahin vollständig erhalten. "
+            "Deine Daten werden entsprechend der Datenschutzrichtlinie behandelt."
+        )
+        if st.button("Kündigung starten", key="kuend_start"):
+            st.session_state["_kuend_step"] = 1
+            st.rerun()
+        return
+
+    # ── Schritt 1: Grund + Bestätigung ─────────────────────────────────────
+    if step == 1:
+        st.markdown("### Kündigung bestätigen")
+
+        lizenztyp    = data.get("lizenztyp") or data.get("lizenz_typ") or "—"
+        lizenz_status = data.get("lizenz_status") or "—"
+        vertragsende = data.get("vertragsende") or data.get("lizenz_bis") or "Nicht hinterlegt"
+
+        st.markdown(
+            f"**Aktuelles Paket:** {lizenztyp}  \n"
+            f"**Vertragsstatus:** {lizenz_status}  \n"
+            f"**Vertragsende / Nächste Verlängerung:** {vertragsende}"
+        )
+        st.markdown("")
+
+        grund_opts = [
+            "Kein Grund angeben",
+            "Produkt wird nicht mehr benötigt",
+            "Preis",
+            "Funktionsumfang",
+            "Wechsel zu anderer Lösung",
+            "Sonstiges",
+        ]
+        auswahl = st.selectbox("Kündigungsgrund (optional)", grund_opts, key="kuend_grund_sel")
+        grund: str | None = None
+        if auswahl == "Sonstiges":
+            grund = st.text_area("Freitext (optional)", key="kuend_freitext", max_chars=500) or None
+        elif auswahl != "Kein Grund angeben":
+            grund = auswahl
+
+        st.markdown("")
+        confirmed = st.checkbox(
+            "Ich bestätige hiermit, meinen Vertrag verbindlich zu kündigen.",
+            key="kuend_confirm",
+        )
+
+        c1, c2 = st.columns([1, 2])
+        if c1.button("← Zurück", key="kuend_back"):
+            st.session_state["_kuend_step"] = 0
+            st.rerun()
+
+        if c2.button(
+            "Vertrag verbindlich kündigen",
+            type="primary",
+            key="kuend_final",
+            disabled=not confirmed,
+        ):
+            ok, ergebnis = kuendigung_einreichen(eid, ist_verein, grund)
+            if ok:
+                _sende_email(user, data, ergebnis[:10])
+                st.session_state["_kuend_step"] = 2
+                st.session_state["_kuend_datum"] = ergebnis[:10]
+                st.rerun()
+            else:
+                st.error("Für diesen Vertrag liegt bereits eine Kündigung vor.")
+        return
+
+    # ── Schritt 2: Bestätigungsseite ────────────────────────────────────────
+    if step == 2:
+        datum  = st.session_state.get("_kuend_datum", "—")
+        data2  = _laden(user)
+        vende  = (data2.get("gekuendigt_zum")
+                  or data2.get("vertragsende")
+                  or "Beendigungsdatum wird noch bestätigt.")
+
+        st.success("✅ Kündigung erfolgreich übermittelt")
+        st.markdown(
+            f"**Eingangsdatum:** {datum}  \n"
+            f"**Paket:** {data2.get('lizenztyp') or '—'}  \n"
+            f"**Vertragsende:** {vende}  \n\n"
+            "Eine Bestätigungs-E-Mail wurde an deine hinterlegte E-Mail-Adresse gesendet."
+        )
+        st.markdown("Bei Fragen: [support@aphsystem.de](mailto:support@aphsystem.de)")
+
+        with st.expander("📄 Kündigungsbestätigung anzeigen"):
+            st.markdown(
+                f"**Kundennummer:** {data2.get('kundennummer') or '—'}  \n"
+                f"**Kündigung eingegangen am:** "
+                f"{(data2.get('kuendigung_eingegangen') or '')[:10]}  \n"
+                f"**Kündigungsstatus:** {data2.get('kuendigungsstatus') or '—'}  \n"
+                f"**Vertragsende:** {vende}"
+            )
+
+        if st.button("Zur Vertragsübersicht", key="kuend_done"):
+            st.session_state["_kuend_step"] = 0
+            st.rerun()
+
+
+def _sende_email(user: dict, data: dict, datum: str) -> None:
+    """Sendet die Kündigungsbestätigungs-E-Mail; fehlertolerante Ausführung."""
+    try:
+        from email_service import send_kuendigung_bestaetigung
+        email = user.get("email") or ""
+        if not email:
+            return
+        send_kuendigung_bestaetigung(
+            to=email,
+            name=user.get("vorname") or user.get("name") or "Kunde",
+            kundennummer=data.get("kundennummer") or "—",
+            lizenztyp=data.get("lizenztyp") or data.get("lizenz_typ") or "—",
+            kuendigung_datum=datum,
+            vertragsende=(data.get("vertragsende")
+                          or data.get("lizenz_bis")
+                          or "Wird noch bestätigt"),
+        )
+        _log.info("Kündigungsbestätigung an %s... gesendet", email[:4])
+    except Exception as exc:
+        _log.error("Kündigungsbestätigungs-E-Mail fehlgeschlagen: %s", type(exc).__name__)

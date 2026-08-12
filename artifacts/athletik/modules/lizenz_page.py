@@ -247,9 +247,9 @@ def page_lizenz_vereinsadmin() -> None:
     with tab_tarife:
         st.markdown(
             f'<p style="color:{_C["muted"]};font-size:13px;margin-bottom:16px">'
-            'Vergleiche die verfügbaren Tarife. Für Upgrades oder Kündigungen '
-            'wende dich an <a href="mailto:support@brucefootball.de" style="color:{}">'
-            'support@brucefootball.de</a>.</p>'.format(_C["blue"]),
+            'Vergleiche die verfügbaren Tarife. Für Upgrades wende dich an '
+            '<a href="mailto:support@aphsystem.de" style="color:{}">'
+            'support@aphsystem.de</a>.</p>'.format(_C["blue"]),
             unsafe_allow_html=True,
         )
 
@@ -284,19 +284,13 @@ def page_lizenz_vereinsadmin() -> None:
                 except Exception as e:
                     st.error(f"Fehler beim Öffnen des Portals: {e}")
 
-        # Kündigung (ohne Stripe)
+        # Kündigung — Verweis auf "Mein Vertrag" Seite
         if info["lizenz_status"] in ("active", "trial") and not info.get("stripe_subscription_id"):
             st.markdown("---")
-            with st.expander("⚠ Lizenz kündigen"):
-                st.warning(
-                    "Nach der Kündigung läuft die Lizenz bis zum Ablaufdatum weiter. "
-                    "Danach ist kein Zugriff mehr möglich."
-                )
-                if st.button("Kündigung beantragen", type="secondary"):
-                    st.info(
-                        "Bitte sende eine E-Mail an: "
-                        "**kuendigung@brucefootball.de** mit deiner Vereins-E-Mail."
-                    )
+            st.info(
+                "Möchtest du deinen Vertrag kündigen? "
+                "Nutze dafür die Seite **📋 Mein Vertrag** in der Navigation."
+            )
 
     with tab_rechnungen:
         rechnungen = rechnungen_laden(verein_id)

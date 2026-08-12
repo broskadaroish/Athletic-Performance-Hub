@@ -2414,6 +2414,14 @@ def _migrate_multitenant():
                 conn.execute(f"ALTER TABLE benutzer ADD COLUMN {col} {typ}")
             except Exception:
                 pass
+        # ── SCHRITT 5: Kündigungsgrund + Bestätigungsdatum ──────────────────
+        for _tbl in ("benutzer", "vereine"):
+            for _col, _typ in [("kuendigung_grund", "TEXT"),
+                                ("kuendigung_bestaetigung_am", "TEXT")]:
+                try:
+                    conn.execute(f"ALTER TABLE {_tbl} ADD COLUMN {_col} {_typ}")
+                except Exception:
+                    pass
         # Bestehende Benutzer sofort als verifiziert markieren — verhindert Lockout
         conn.execute(
             # Nur Altdaten ohne ausstehenden Verifizierungstoken (email_token IS NULL)
@@ -3869,6 +3877,71 @@ def pw_reset_token_validieren(token: str) -> int | None:
             except (ValueError, TypeError):
                 return None
         return bid
+
+
+def kuendigung_einreichen(entity_id: int, ist_verein: bool,
+                          grund: str | None = None) -> tuple[bool, str]:
+    """Speichert eine Kündigung. Gibt (True, iso-zeitstempel) oder (False, 'bereits_gekuendigt')."""
+    from datetime import datetime
+    jetzt = datetime.utcnow().isoformat()
+    tabelle = "vereine" if ist_verein else "benutzer"
+    with get_conn() as conn:
+        row = conn.execute(
+            f"SELECT kuendigung_eingegangen FROM {tabelle} WHERE id=?", (entity_id,)
+        ).fetchone()
+        if row and row[0]:
+            return False, "bereits_gekuendigt"
+        conn.execute(
+            f"UPDATE {tabelle} SET kuendigung_eingegangen=?, "
+            f"kuendigungsstatus='eingegangen', kuendigung_grund=? WHERE id=?",
+            (jetzt, grund, entity_id),
+        )
+    return True, jetzt
+
+
+def kuendigung_bestaetigen(entity_id: int, ist_verein: bool,
+                            vertragsende: str | None = None,
+                            status: str = "bestaetigt") -> None:
+    """Superadmin bestätigt eine Kündigung; setzt optional Vertragsende."""
+    from datetime import datetime
+    jetzt = datetime.utcnow().isoformat()
+    tabelle = "vereine" if ist_verein else "benutzer"
+    with get_conn() as conn:
+        conn.execute(
+            f"UPDATE {tabelle} "
+            f"SET kuendigungsstatus=?, "
+            f"    gekuendigt_zum=COALESCE(?, gekuendigt_zum), "
+            f"    kuendigung_bestaetigung_am=? "
+            f"WHERE id=?",
+            (status, vertragsende, jetzt, entity_id),
+        )
+
+
+def kuendigung_liste_laden(status_filter: str | None = None) -> list[dict]:
+    """Gibt alle Kündigungen (Vereine + Trainer) für die Superadmin-Übersicht."""
+    with get_conn() as conn:
+        rows_v = conn.execute("""
+            SELECT 'Verein' AS kundentyp, id AS entity_id, 1 AS ist_verein,
+                   kundennummer, name, lizenztyp, lizenz_status,
+                   kuendigung_eingegangen, gekuendigt_zum, kuendigungsstatus,
+                   kuendigung_grund, kuendigung_bestaetigung_am
+            FROM vereine
+            WHERE kuendigung_eingegangen IS NOT NULL
+        """).fetchall()
+        rows_b = conn.execute("""
+            SELECT 'Trainer' AS kundentyp, id AS entity_id, 0 AS ist_verein,
+                   kundennummer,
+                   COALESCE(benutzername, email) AS name,
+                   lizenztyp, lizenz_status,
+                   kuendigung_eingegangen, gekuendigt_zum, kuendigungsstatus,
+                   kuendigung_grund, kuendigung_bestaetigung_am
+            FROM benutzer
+            WHERE kuendigung_eingegangen IS NOT NULL AND rolle='Trainer'
+        """).fetchall()
+    result = [dict(r) for r in rows_v] + [dict(r) for r in rows_b]
+    if status_filter and status_filter != "Alle":
+        result = [r for r in result if r.get("kuendigungsstatus") == status_filter]
+    return sorted(result, key=lambda x: x.get("kuendigung_eingegangen") or "", reverse=True)
 
 
 def pw_reset_anwenden(token: str, neues_passwort: str) -> bool:

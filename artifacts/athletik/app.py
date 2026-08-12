@@ -1,12 +1,12 @@
 """
-Bruce Football Performance Diagnostics
+Athletic Performance Hub
 ────────────────────────────────────────
 Main Streamlit entry point.  All pages live in this single file to keep
 imports simple; shared logic is delegated to the module layer.
 """
 
 # ─── Branding & Version ───────────────────────────────────────────────────────
-APP_NAME      = "Bruce Football Performance Diagnostics"
+APP_NAME      = "Athletic Performance Hub"
 APP_VERSION   = "1.0.0"
 APP_DEVELOPER = "Broska Daroish"
 APP_EMAIL     = "Broska_daroish@hotmail.de"
@@ -82,6 +82,7 @@ from modules.trainerportal import page_trainerportal, page_mein_profil
 from modules.saas_dashboard import page_saas_dashboard
 from modules.lizenz_page import page_lizenz_vereinsadmin, page_lizenz_superadmin
 from modules.kundenverwaltung import page_kundenverwaltung
+from modules.mein_vertrag import page_mein_vertrag
 from testprotokoll_pdf import (
     generate_testprotokoll, TEST_NAMEN, TEST_REIHENFOLGE,
 )
@@ -228,7 +229,7 @@ if not os.path.exists(_APP_ICON_PATH):
 _app_icon_img = _PILImage.open(_APP_ICON_PATH) if os.path.exists(_APP_ICON_PATH) else "⚽"
 
 st.set_page_config(
-    page_title="Bruce Football Performance Diagnostics",
+    page_title="Athletic Performance Hub",
     page_icon=_app_icon_img,
     layout="wide",
     initial_sidebar_state="expanded",
@@ -289,9 +290,9 @@ if "user" not in st.session_state:
             _li1, _li2, _li3 = st.columns([1, 2, 1])
             _li2.image(_APP_ICON_PATH, width=72)
         st.markdown(
-            '<h2 style="color:#e6edf3;text-align:center;margin:16px 0 4px">Bruce Football</h2>'
+            '<h2 style="color:#e6edf3;text-align:center;margin:16px 0 4px">Athletic Performance Hub</h2>'
             '<p style="color:#8b949e;text-align:center;font-size:13px;margin-bottom:20px">'
-            'Performance Diagnostics</p>',
+            'Football Performance &amp; Diagnostics</p>',
             unsafe_allow_html=True,
         )
 
@@ -894,7 +895,7 @@ if "splash_done" not in st.session_state:
             f'<div style="font-size:80px;line-height:1">{"" if os.path.exists(_APP_ICON_PATH) else "⚽"}</div>'
             f'<h1 style="color:#e6edf3;font-size:26px;font-weight:800;'
             f'letter-spacing:1px;margin:20px 0 6px;line-height:1.3">'
-            f'Bruce Football<br>Performance Diagnostics</h1>'
+            f'Athletic Performance Hub</h1>'
             f'<div style="color:#58a6ff;font-size:13px;font-weight:600;'
             f'letter-spacing:2px;margin-bottom:12px">VERSION {APP_VERSION}</div>'
             f'<div style="color:#8b949e;font-size:11px">{APP_COPYRIGHT}</div>'
@@ -9253,7 +9254,7 @@ def page_ueber_software():
             unsafe_allow_html=True,
         )
         mailto_link = (
-            f"mailto:{APP_EMAIL}?subject=Bruce Football Performance Diagnostics — Supportanfrage"
+            f"mailto:{APP_EMAIL}?subject=Athletic Performance Hub — Supportanfrage"
             f"&body=Hallo Herr Daroish,%0D%0A%0D%0A"
         )
         st.link_button(
@@ -9318,6 +9319,8 @@ _MAIN_SECTIONS = [
 _user_rolle_nav = st.session_state.get("user", {}).get("rolle", "Trainer")
 if _user_rolle_nav in ("Superadmin", "Vereinsadmin"):
     _MAIN_SECTIONS = _MAIN_SECTIONS + ["🧑‍💼  Trainerportal", "🔑  Benutzerverwaltung"]
+if _user_rolle_nav in ("Trainer", "Vereinsadmin"):
+    _MAIN_SECTIONS = _MAIN_SECTIONS + ["📋  Mein Vertrag"]
 if _user_rolle_nav == "Vereinsadmin":
     _MAIN_SECTIONS = _MAIN_SECTIONS + ["💳  Lizenz"]
 if _user_rolle_nav == "Superadmin":
@@ -9327,8 +9330,8 @@ with st.sidebar:
     # ── Logo ──────────────────────────────────────────────────────────────────
     st.markdown(
         f'<div style="padding:10px 0 8px;text-align:center">'
-        f'<div style="font-weight:800;font-size:13px;color:{C["text"]};letter-spacing:0.5px;margin-top:6px">BRUCE FOOTBALL</div>'
-        f'<div style="font-weight:700;font-size:11px;color:{C["text"]};letter-spacing:0.5px">PERFORMANCE DIAGNOSTICS</div>'
+        f'<div style="font-weight:800;font-size:13px;color:{C["text"]};letter-spacing:0.5px;margin-top:6px">ATHLETIC PERFORMANCE HUB</div>'
+        f'<div style="font-weight:700;font-size:11px;color:{C["text"]};letter-spacing:0.5px">APH · Football Diagnostics</div>'
         f'<div style="font-size:9px;color:{C["muted"]};margin-top:2px">v{APP_VERSION}</div>'
         f'</div>',
         unsafe_allow_html=True,
@@ -9675,5 +9678,7 @@ elif section == "💳  Lizenz":
     page_lizenz_vereinsadmin()
 elif section == "💳  Lizenzverwaltung":
     page_lizenz_superadmin()
+elif section == "📋  Mein Vertrag":
+    page_mein_vertrag()
 elif section == "👥  Kundenverwaltung":
     page_kundenverwaltung()

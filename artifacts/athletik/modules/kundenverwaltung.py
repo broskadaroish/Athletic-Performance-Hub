@@ -19,6 +19,8 @@ from database import (
     lizenz_setzen,
     trainer_lizenz_setzen,
     normalize_email,
+    kuendigung_liste_laden,
+    kuendigung_bestaetigen,
 )
 from license import LIZENZ_TYPEN, FEATURE_LABELS
 
@@ -523,6 +525,84 @@ def _kunde_detail(verein_id: int | None, benutzer_id: int | None) -> None:
     _detail_audit(daten)
 
 
+def _kuendigungen_uebersicht() -> None:
+    """Superadmin-Tab: alle eingegangenen Kündigungen verwalten."""
+    st.markdown("### 🚫 Kündigungen")
+
+    filter_status = st.selectbox(
+        "Status filtern",
+        ["Alle", "eingegangen", "bestaetigt", "beendet"],
+        key="kuend_sa_filter",
+        label_visibility="visible",
+    )
+
+    kuendigungen = kuendigung_liste_laden(
+        None if filter_status == "Alle" else filter_status
+    )
+
+    if not kuendigungen:
+        st.info("Keine Kündigungen gefunden.")
+        return
+
+    st.caption(f"{len(kuendigungen)} Kündigung(en) gefunden")
+
+    for k in kuendigungen:
+        icon = "🏢" if k["kundentyp"] == "Verein" else "👤"
+        kst  = k.get("kuendigungsstatus") or "—"
+        eid  = k["entity_id"]
+        iv   = bool(k["ist_verein"])
+        kid  = f"{k['kundentyp']}_{eid}"
+
+        with st.expander(
+            f"{icon} {k.get('kundennummer','—')} — {k.get('name','—')}  |  {kst}",
+            expanded=False,
+        ):
+            c1, c2 = st.columns(2)
+            c1.markdown(f"**Kundentyp:** {k['kundentyp']}")
+            c1.markdown(f"**Paket:** {k.get('lizenztyp') or '—'}")
+            c1.markdown(f"**Kündigung eingegangen:**  "
+                        f"{(k.get('kuendigung_eingegangen') or '')[:10]}")
+            c1.markdown(f"**Vertrag endet am:**  "
+                        f"{k.get('gekuendigt_zum') or 'Nicht festgelegt'}")
+            c2.markdown(f"**Lizenzstatus:** {k.get('lizenz_status') or '—'}")
+            c2.markdown(f"**Kündigungsstatus:** {kst}")
+            c2.markdown(f"**Kündigungsgrund:**  "
+                        f"{k.get('kuendigung_grund') or 'Kein Grund angegeben'}")
+            c2.markdown(f"**Bestätigt am:**  "
+                        f"{(k.get('kuendigung_bestaetigung_am') or '—')[:10]}")
+
+            st.markdown("")
+
+            if kst == "eingegangen":
+                vende_input = st.text_input(
+                    "Vertragsende setzen (YYYY-MM-DD, optional)",
+                    key=f"kuend_vende_{kid}",
+                    placeholder="z. B. 2026-09-30",
+                )
+                col_best, col_end, _ = st.columns([1, 1, 2])
+                if col_best.button("✅ Bestätigen", key=f"kuend_best_{kid}",
+                                   type="primary"):
+                    kuendigung_bestaetigen(
+                        eid, iv,
+                        vende_input.strip() or None,
+                        "bestaetigt",
+                    )
+                    st.success("Kündigung bestätigt.")
+                    st.rerun()
+
+            if kst in ("eingegangen", "bestaetigt"):
+                col_end2, _ = st.columns([1, 3])
+                if col_end2.button("🏁 Als beendet markieren",
+                                   key=f"kuend_end_{kid}"):
+                    kuendigung_bestaetigen(
+                        eid, iv,
+                        k.get("gekuendigt_zum") or None,
+                        "beendet",
+                    )
+                    st.success("Kündigung als beendet markiert.")
+                    st.rerun()
+
+
 def page_kundenverwaltung():
     """Hauptseite der Kundenverwaltung (nur Superadmin)."""
     user = st.session_state.get("user", {})
@@ -530,48 +610,51 @@ def page_kundenverwaltung():
         st.error("❌ Nur Superadmins können die Kundenverwaltung aufrufen.")
         return
 
-    # Detail-Ansicht?
+    # Detail-Ansicht — geht direkt rein ohne Tab-Wrap
     auswahl = st.session_state.get("kunden_auswahl")
     if auswahl:
         verein_id, benutzer_id = auswahl
         _kunde_detail(verein_id, benutzer_id)
         return
 
-    # ── Listansicht ────────────────────────────────────────────────────────────
     st.title("👥 Kundenverwaltung")
 
-    # Filter-Controls
-    fc1, fc2, fc3, fc4 = st.columns([3, 1, 1, 1])
-    such        = fc1.text_input("🔍 Suche", placeholder="Kundennummer, Name, E-Mail, Benutzername…",
-                                  key="kv_such", label_visibility="collapsed")
-    filter_typ  = fc2.selectbox("Kundentyp", ["Alle", "Verein", "Trainer"],
-                                 key="kv_typ", label_visibility="collapsed")
-    filter_st   = fc3.selectbox(
-        "Accountstatus", ["Alle","Aktiv","Deaktiviert","Gesperrt","E-Mail nicht bestätigt"],
-        key="kv_status", label_visibility="collapsed",
-    )
-    # Lizenzstatus-Werte aus dem System
-    _liz_opts = ["Alle", "trial", "active", "expired", "suspended", "cancelled", "unbekannt"]
-    filter_liz  = fc4.selectbox("Lizenzstatus", _liz_opts, key="kv_lizenz",
-                                 label_visibility="collapsed")
+    tab_kunden, tab_kuend = st.tabs(["👥 Kunden", "🚫 Kündigungen"])
 
-    alle_kunden = kunden_liste_laden(
-        such=such,
-        filter_typ=filter_typ,
-        filter_status=filter_st,
-        filter_lizenz=filter_liz,
-    )
+    # ── Tab: Kunden ────────────────────────────────────────────────────────────
+    with tab_kunden:
+        # Filter-Controls
+        fc1, fc2, fc3, fc4 = st.columns([3, 1, 1, 1])
+        such        = fc1.text_input("🔍 Suche", placeholder="Kundennummer, Name, E-Mail, Benutzername…",
+                                      key="kv_such", label_visibility="collapsed")
+        filter_typ  = fc2.selectbox("Kundentyp", ["Alle", "Verein", "Trainer"],
+                                     key="kv_typ", label_visibility="collapsed")
+        filter_st   = fc3.selectbox(
+            "Accountstatus", ["Alle","Aktiv","Deaktiviert","Gesperrt","E-Mail nicht bestätigt"],
+            key="kv_status", label_visibility="collapsed",
+        )
+        _liz_opts = ["Alle", "trial", "active", "expired", "suspended", "cancelled", "unbekannt"]
+        filter_liz  = fc4.selectbox("Lizenzstatus", _liz_opts, key="kv_lizenz",
+                                     label_visibility="collapsed")
 
-    # KPI-Zeile (auf Basis aller Kunden ohne Filter für Überblick)
-    alle_kunden_gesamt = kunden_liste_laden()
-    _kpis(alle_kunden_gesamt)
+        alle_kunden = kunden_liste_laden(
+            such=such,
+            filter_typ=filter_typ,
+            filter_status=filter_st,
+            filter_lizenz=filter_liz,
+        )
 
-    # Ergebnisanzahl
-    st.caption(f"{len(alle_kunden)} Kunden gefunden")
+        alle_kunden_gesamt = kunden_liste_laden()
+        _kpis(alle_kunden_gesamt)
 
-    if not alle_kunden:
-        st.info("Keine Kunden gefunden.")
-        return
+        st.caption(f"{len(alle_kunden)} Kunden gefunden")
 
-    for k in alle_kunden:
-        _kunden_karte(k)
+        if not alle_kunden:
+            st.info("Keine Kunden gefunden.")
+        else:
+            for k in alle_kunden:
+                _kunden_karte(k)
+
+    # ── Tab: Kündigungen ───────────────────────────────────────────────────────
+    with tab_kuend:
+        _kuendigungen_uebersicht()

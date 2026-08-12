@@ -288,6 +288,72 @@ def send_lizenz_ablauf_warnung(to: str, vereine: list[dict]) -> bool:
         return False
 
 
+def send_kuendigung_bestaetigung(
+    to: str,
+    name: str,
+    kundennummer: str,
+    lizenztyp: str,
+    kuendigung_datum: str,
+    vertragsende: str,
+) -> bool:
+    """Sendet eine Kündigungsbestätigung an den Kunden."""
+    subject = f"{_APP_NAME} – Kündigungsbestätigung"
+    text = (
+        f"Hallo {name},\n\n"
+        f"wir bestätigen den Eingang deiner Kündigung für {_APP_NAME}.\n\n"
+        f"Kundennummer:              {kundennummer}\n"
+        f"Paket:                     {lizenztyp}\n"
+        f"Kündigung eingegangen am:  {kuendigung_datum}\n"
+        f"Vertragsende:              {vertragsende}\n\n"
+        f"Deine Daten bleiben entsprechend unserer Datenschutzrichtlinie erhalten.\n"
+        f"Bei Fragen erreichst du uns unter {_SUPPORT_EMAIL}.\n\n"
+        f"Viele Grüße\n{_APP_NAME}"
+    )
+    html = (
+        "<!DOCTYPE html><html><body style='font-family:Arial,sans-serif;"
+        "background:#f6f8fa;padding:24px;margin:0'>"
+        "<div style='max-width:580px;margin:0 auto;background:#ffffff;"
+        "border:1px solid #d0d7de;border-radius:8px;padding:40px 32px'>"
+        f"<h2 style='color:#24292f;margin:0 0 4px'>{_APP_NAME}</h2>"
+        "<p style='color:#57606a;font-size:13px;margin:0 0 24px'>"
+        "Football Performance &amp; Diagnostics</p>"
+        "<hr style='border:none;border-top:1px solid #d0d7de;margin:0 0 24px'>"
+        f"<p style='color:#24292f'>Hallo <strong>{name}</strong>,</p>"
+        "<p style='color:#24292f'>wir bestätigen den Eingang deiner Kündigung.</p>"
+        "<table style='width:100%;border-collapse:collapse;margin:20px 0 28px;"
+        "background:#f6f8fa;border-radius:6px;padding:16px'>"
+        "<tbody>"
+        f"<tr><td style='padding:8px 12px;color:#57606a;font-size:13px;"
+        f"white-space:nowrap'>Kundennummer</td>"
+        f"<td style='padding:8px 12px;color:#24292f;font-size:13px;"
+        f"font-weight:600'>{kundennummer}</td></tr>"
+        f"<tr style='background:#ffffff'><td style='padding:8px 12px;"
+        f"color:#57606a;font-size:13px'>Paket</td>"
+        f"<td style='padding:8px 12px;color:#24292f;font-size:13px'>{lizenztyp}</td></tr>"
+        f"<tr><td style='padding:8px 12px;color:#57606a;font-size:13px;"
+        f"white-space:nowrap'>Kündigung eingegangen</td>"
+        f"<td style='padding:8px 12px;color:#24292f;font-size:13px'>{kuendigung_datum}</td></tr>"
+        f"<tr style='background:#ffffff'><td style='padding:8px 12px;"
+        f"color:#57606a;font-size:13px'>Vertragsende</td>"
+        f"<td style='padding:8px 12px;color:#24292f;font-size:13px'>{vertragsende}</td></tr>"
+        "</tbody></table>"
+        "<p style='color:#24292f;font-size:13px'>"
+        "Deine Daten bleiben entsprechend unserer Datenschutzrichtlinie erhalten.</p>"
+        "<hr style='border:none;border-top:1px solid #d0d7de;margin:24px 0'>"
+        f"<p style='color:#57606a;font-size:12px'>Fragen? "
+        f"<a href='mailto:{_SUPPORT_EMAIL}' style='color:#0969da'>{_SUPPORT_EMAIL}</a></p>"
+        f"<p style='color:#57606a;font-size:12px;margin-bottom:0'>"
+        f"Viele Grüße<br><strong>{_APP_NAME}</strong></p>"
+        "</div></body></html>"
+    )
+    try:
+        _send(to, subject, text, html)
+        return True
+    except Exception as exc:
+        log.error("send_kuendigung_bestaetigung fehlgeschlagen (%s)", type(exc).__name__)
+        return False
+
+
 def send_test_mail(to: str) -> None:
     """Testmail für Superadmin — prüft ob SMTP-Konfiguration funktioniert."""
     subject = f"{_APP_NAME} – E-Mail-Test"

@@ -1,0 +1,720 @@
+SCHRITT 5 – ATHLETIC PERFORMANCE HUB BRANDING, VERTRAGSANZEIGE UND ONLINE-KÜNDIGUNG
+
+Arbeite auf Basis von SCHRITT 1 bis SCHRITT 4 weiter.
+
+WICHTIG:
+
+* Bestehende Benutzerkonten nicht verändern.
+* Bestehende Spieler nicht verändern.
+* Bestehende Diagnosewerte nicht verändern.
+* Bestehende Trainingspläne nicht verändern.
+* Bestehende Pakete nicht verändern.
+* Bestehende Preise nicht verändern.
+* Bestehende Laufzeiten nicht verändern.
+* Bestehende Lizenzlimits nicht verändern.
+* Bestehende Authentifizierung weiterverwenden.
+* Bestehende E-Mail-Funktion weiterverwenden.
+* Bestehende Kunden-/Lizenzverwaltung weiterverwenden.
+* Keine zweite Vertrags- oder Kündigungslogik erstellen, wenn bereits eine vorhanden ist.
+* Bestehende Funktionen zuerst prüfen, dann nur ergänzen.
+* Noch keine Sprint-Wissenschaftserweiterung implementieren.
+* Noch keine allgemeine Mobile-Design-Phase durchführen.
+
+==================================================
+0. VERBINDLICHE ARBEITSREGEL
+============================
+
+Für jeden Punkt zuerst prüfen:
+
+A) vollständig vorhanden
+→ behalten und testen
+
+B) teilweise vorhanden
+→ bestehende Funktion ergänzen
+
+C) nicht vorhanden
+→ neu erstellen und sauber integrieren
+
+Keine doppelten Systeme erstellen.
+
+==================================================
+
+1. PRODUKTNAME
+   ==================================================
+
+Der öffentliche Produktname soll ab jetzt lauten:
+
+ATHLETIC PERFORMANCE HUB
+
+Kurzname:
+
+APH
+
+Domain:
+
+aphsystem.de
+
+Die bisherigen öffentlichen Bezeichnungen wie:
+
+* Bruce Football Leistungsdiagnostik
+* Bruce Football Leistungsdiagnostik Diagnostics
+* Bruce Football
+* vergleichbare alte öffentliche Produktnamen
+
+sollen in der Benutzeroberfläche ersetzt werden.
+
+WICHTIG:
+
+Nur sichtbares Branding und benutzerseitige Texte ändern.
+
+Interne:
+
+* Python-Klassennamen
+* Dateinamen
+* Datenbanktabellen
+* Datenbankschlüssel
+* API-Namen
+* technische IDs
+
+NICHT unnötig umbenennen.
+
+Keine technische Refaktorierung nur wegen des neuen Produktnamens durchführen.
+
+==================================================
+2. BRANDING SYSTEMWEIT PRÜFEN
+=============================
+
+Durchsuche die Benutzeroberfläche nach dem alten Branding.
+
+Prüfe insbesondere:
+
+* Login
+* Registrierung
+* Dashboard
+* Sidebar
+* Header
+* Footer
+* Superadmin
+* Kundenverwaltung
+* Diagnose
+* Training
+* Berichte
+* PDF-/Exportüberschriften, falls vorhanden
+* E-Mail-Betreff
+* E-Mail-Inhalte
+* Passwort-Reset
+* Benutzername vergessen
+* E-Mail-Verifizierung
+* Account-Freischaltung
+* Support-Hinweise
+
+Sichtbar verwenden:
+
+Athletic Performance Hub
+
+oder wo kompakter sinnvoll:
+
+APH
+
+==================================================
+3. E-MAIL-BRANDING
+==================
+
+Automatische System-E-Mails sollen zukünftig konsistent mit:
+
+Athletic Performance Hub
+
+gebrandet sein.
+
+Absender:
+[noreply@aphsystem.de](mailto:noreply@aphsystem.de)
+
+Support:
+[support@aphsystem.de](mailto:support@aphsystem.de)
+
+Bestehende E-Mail-Funktion weiterverwenden.
+
+Keine SMTP-Konfiguration neu erstellen.
+
+==================================================
+4. VERTRAGSBEREICH FÜR JEDEN KUNDEN
+===================================
+
+Sowohl TRAINER als auch VEREINE müssen einen Vertragsbereich besitzen.
+
+Kundentyp darf den Vertrag nicht grundsätzlich ausschließen.
+
+Im Kundenkonto soll ein Bereich vorhanden sein:
+
+"Mein Vertrag"
+
+Dort anzeigen:
+
+* Kundennummer
+* Kundentyp
+* aktuelles Paket
+* aktueller Paketpreis
+* Abrechnungsintervall
+* Vertragsbeginn
+* Vertragsende bzw. nächste Verlängerung
+* Lizenzstatus
+* Kündigungsstatus
+
+Bestehende Paket-/Preisdaten verwenden.
+
+Keine Preise neu definieren.
+
+==================================================
+5. VERTRAGSDATEN NICHT ERFINDEN
+===============================
+
+Wenn bei Alt-Konten Vertragsdaten fehlen:
+
+nicht automatisch fiktive Werte setzen.
+
+Stattdessen:
+
+"Nicht hinterlegt"
+
+oder vergleichbaren neutralen Status anzeigen.
+
+Der Superadmin kann diese Werte später pflegen.
+
+==================================================
+6. VERTRAGSINFORMATIONEN FÜR KUNDEN
+===================================
+
+Der Kunde soll seine Vertragsinformationen nur lesen können.
+
+Er darf NICHT selbst:
+
+* Paketpreis ändern
+* Vertragsbeginn ändern
+* Vertragsende ändern
+* Lizenzstatus ändern
+* Spielerlimit ändern
+
+Diese Verwaltungsrechte bleiben beim Superadmin bzw. bei bestehender Vertragslogik.
+
+==================================================
+7. KÜNDIGUNGSMÖGLICHKEIT
+========================
+
+Der Kunde soll seinen Vertrag online kündigen können.
+
+WICHTIG:
+
+Bestehende Kündigungsfunktionen zuerst prüfen.
+
+Falls vorhanden:
+ergänzen.
+
+Falls nicht vorhanden:
+neu erstellen.
+
+Kündigung muss sowohl für:
+
+* Trainer
+* Verein
+
+funktionieren.
+
+==================================================
+8. KÜNDIGUNG NICHT MIT ACCOUNT-LÖSCHUNG VERWECHSELN
+===================================================
+
+Eine Vertragskündigung bedeutet NICHT:
+
+* Benutzer sofort löschen
+* Spieler löschen
+* Diagnosedaten löschen
+* Trainingspläne löschen
+* Rechnungsdaten löschen
+
+Kündigung bedeutet zunächst:
+
+Vertrag wird zum vorgesehenen Termin beendet.
+
+Account und Daten bleiben entsprechend der bestehenden Vertrags-/Datenschutzlogik erhalten.
+
+==================================================
+9. KÜNDIGUNGSBEREICH
+====================
+
+Erstelle bzw. ergänze im Kundenbereich:
+
+"Vertrag kündigen"
+
+Dort vor der Kündigung anzeigen:
+
+* aktuelles Paket
+* aktueller Vertragsstatus
+* Kündigungstermin bzw. Vertragsende
+* ggf. bestehende Kündigungsfrist, sofern bereits im System hinterlegt
+
+Keine Kündigungsfrist erfinden.
+
+Wenn die Vertragslogik keine Kündigungsfrist kennt:
+nicht automatisch eine neue geschäftliche Regel festlegen.
+
+==================================================
+10. KÜNDIGUNGSVORGANG
+=====================
+
+Ein sinnvoller Ablauf:
+
+1. Kunde öffnet "Vertrag kündigen".
+2. Kunde sieht Vertragsinformationen.
+3. Kunde klickt:
+   "Kündigung starten"
+4. Kündigungsdaten prüfen.
+5. Optional Kündigungsgrund auswählen oder Freitext eingeben.
+6. Kunde bestätigt ausdrücklich:
+   "Vertrag verbindlich kündigen"
+7. Kündigung persistent speichern.
+8. Bestätigungsseite anzeigen.
+9. Kündigungsbestätigung per E-Mail versenden.
+
+Keine Kündigung durch einen einfachen versehentlichen Klick auslösen.
+
+==================================================
+11. KÜNDIGUNGSGRUND
+===================
+
+Kündigungsgrund darf optional sein.
+
+Beispiele:
+
+* Produkt wird nicht mehr benötigt
+* Preis
+* Funktionsumfang
+* Wechsel zu anderer Lösung
+* Sonstiges
+
+Bei Sonstiges optional Freitext.
+
+Kündigungsgrund darf nicht zur Bedingung für die Kündigung gemacht werden.
+
+==================================================
+12. KÜNDIGUNGSDATEN SPEICHERN
+=============================
+
+Prüfe bestehende Struktur.
+
+Falls erforderlich, mindestens speichern:
+
+* Kunde
+* Vertrags-/Lizenzreferenz
+* Kündigung eingegangen am
+* gekündigt zum
+* Kündigungsstatus
+* Kündigungsgrund, optional
+* Bestätigung versendet am
+* Bearbeitungsstatus, falls vorhanden
+
+Bestehende Tabellen bevorzugt erweitern.
+
+Keine parallele Kündigungstabelle erstellen, wenn bereits eine geeignete Struktur existiert.
+
+==================================================
+13. KÜNDIGUNGSSTATUS
+====================
+
+Der Kunde soll nach erfolgter Kündigung deutlich sehen:
+
+"Deine Kündigung ist eingegangen."
+
+Zusätzlich:
+
+"Kündigung eingegangen am: [Datum]"
+
+"Vertrag endet am: [Datum]"
+
+oder falls noch nicht festgelegt:
+
+"Beendigungsdatum wird noch bestätigt."
+
+Nur echte gespeicherte Daten anzeigen.
+
+==================================================
+14. SUPERADMIN – KÜNDIGUNGEN
+============================
+
+Im Superadmin soll eine Übersicht vorhanden sein:
+
+"Kündigungen"
+
+Mindestens:
+
+* Kundennummer
+* Kunde
+* Trainer / Verein
+* Paket
+* Kündigung eingegangen am
+* gekündigt zum
+* Status
+
+Filter:
+
+* offen
+* bestätigt
+* beendet
+
+Bestehende Statuslogik bevorzugen.
+
+==================================================
+15. SUPERADMIN – KÜNDIGUNG BEARBEITEN
+=====================================
+
+Superadmin soll eine Kündigung öffnen können.
+
+Anzeigen:
+
+* Kundendaten
+* Vertragsdaten
+* Paket
+* Kündigungsdatum
+* gewünschtes/ermitteltes Vertragsende
+* Kündigungsgrund
+* Status
+
+Superadmin darf entsprechend bestehender Rechte:
+
+* Kündigung bestätigen
+* Beendigungsdatum setzen/korrigieren
+* Status ändern
+
+Vor kritischen Änderungen Bestätigung anzeigen.
+
+==================================================
+16. KÜNDIGUNGSBESTÄTIGUNG PER E-MAIL
+====================================
+
+Nach erfolgreicher Online-Kündigung automatisch E-Mail an die hinterlegte Kundenadresse senden.
+
+Betreff:
+
+Athletic Performance Hub – Kündigungsbestätigung
+
+Inhalt sinngemäß:
+
+Hallo [Vorname],
+
+wir bestätigen den Eingang deiner Kündigung für Athletic Performance Hub.
+
+Kundennummer:
+[Kundennummer]
+
+Paket:
+[Paketname]
+
+Kündigung eingegangen am:
+[Datum/Uhrzeit]
+
+Vertragsende:
+[Datum oder Status]
+
+Bei Fragen:
+[support@aphsystem.de](mailto:support@aphsystem.de)
+
+Viele Grüße
+Athletic Performance Hub
+
+Keine Preise oder Vertragsdaten erfinden.
+
+==================================================
+17. BESTÄTIGUNG IM KUNDENBEREICH
+================================
+
+Nach einer Kündigung soll der Kunde jederzeit im Vertragsbereich sehen können:
+
+Kündigungsstatus:
+Gekündigt / Kündigung eingegangen
+
+Kündigung eingegangen:
+[Datum]
+
+Vertragsende:
+[Datum]
+
+Ein Kunde soll nicht mehrfach denselben Vertrag kündigen können.
+
+Wenn Kündigung bereits vorhanden:
+
+"Für diesen Vertrag liegt bereits eine Kündigung vor."
+
+==================================================
+18. KEINE SOFORTIGE SPERRUNG
+============================
+
+Ein gekündigter Vertrag darf nicht automatisch sofort den Login sperren, wenn Vertragsende in der Zukunft liegt.
+
+Beispiel:
+
+Kündigung am 12.08.
+Vertragsende am 31.08.
+
+→ Zugang bleibt bis Vertragsende aktiv, sofern bestehende Geschäftslogik dies vorsieht.
+
+Erst bei tatsächlichem Vertragsende kann die bestehende Lizenzlogik den Zugang entsprechend behandeln.
+
+==================================================
+19. DATEN NACH VERTRAGSENDE
+===========================
+
+In diesem Schritt KEINE automatische Datenlöschung implementieren.
+
+Keine Spieler, Tests oder Trainingspläne automatisch löschen.
+
+Datenschutz-/Löschkonzept kommt separat, falls noch nicht vorhanden.
+
+==================================================
+20. ONLINE-KÜNDIGUNG AUF ÖFFENTLICHER WEBSITE
+=============================================
+
+Prüfe, ob für die öffentliche Website bereits eine Kündigungsfunktion / Kündigungsschaltfläche existiert.
+
+Falls bereits vorhanden:
+bestehende Funktion weiterverwenden und mit der neuen Vertragslogik verbinden.
+
+Falls nicht vorhanden:
+eine öffentliche Möglichkeit vorbereiten, über die ein Kunde eine Kündigung einleiten kann.
+
+WICHTIG:
+Nicht einfach nur einen versteckten Button tief im eingeloggten Kundenkonto vorsehen, wenn für die rechtliche Ausgestaltung eine öffentlich erreichbare Kündigungsschaltfläche erforderlich ist.
+
+Die technische Umsetzung soll modular erfolgen.
+
+Keine neuen Vertragsbedingungen oder Kündigungsfristen erfinden.
+
+==================================================
+21. KÜNDIGUNG OHNE LOGIN
+========================
+
+Falls eine öffentliche Kündigungsstrecke erforderlich/umgesetzt wird:
+
+Kunde muss sich eindeutig identifizieren können, z.B. durch:
+
+* Kundennummer
+* E-Mail-Adresse
+* weitere passende Vertragsinformation
+
+Dabei keine fremden Vertragsdaten preisgeben.
+
+Nach Absenden keine Information anzeigen, die eine unbefugte Person nutzen könnte.
+
+Bestehende Sicherheitslogik beachten.
+
+==================================================
+22. BESTÄTIGUNGSSEITE
+=====================
+
+Nach erfolgreicher Kündigung klare Bestätigung:
+
+"Kündigung erfolgreich übermittelt"
+
+Darunter:
+
+* Eingangsdatum
+* Vertrags-/Paketbezug
+* Vertragsende, sofern feststehend
+* Hinweis, dass eine E-Mail-Bestätigung versendet wurde
+* Supportadresse
+
+==================================================
+23. DOWNLOAD / NACHWEIS
+=======================
+
+Falls ohne großen Eingriff möglich:
+
+Möglichkeit anbieten:
+
+"Kündigungsbestätigung anzeigen"
+
+bzw. später als PDF.
+
+In diesem Schritt ist PDF-Generierung optional.
+
+Mindestens müssen die Kündigungsinformationen dauerhaft im Kundenkonto abrufbar sein.
+
+==================================================
+24. KEINE ÄNDERUNG AN PAKETEN UND PREISEN
+=========================================
+
+Verbindlich:
+
+KEINE bestehenden:
+
+* Paketnamen
+* Preise
+* Laufzeiten
+* Abrechnungsintervalle
+* Spielerlimits
+* Trainerlimits
+* Modulfreigaben
+
+verändern.
+
+Kündigungslogik greift nur auf bestehende Vertrags-/Paketdaten zu.
+
+==================================================
+25. BRANDING IM LOGIN
+=====================
+
+Loginseite sichtbar umstellen auf:
+
+Athletic Performance Hub
+
+Optional kleiner Untertitel:
+
+Football Performance & Diagnostics
+
+nur falls ein Untertitel bereits zum Design gehört.
+
+Nicht erneut "Bruce Football Leistungsdiagnostik Diagnostics" anzeigen.
+
+==================================================
+26. BRANDING IM HEADER / SIDEBAR
+================================
+
+Öffentlich sichtbares Branding konsistent:
+
+Athletic Performance Hub
+
+bzw.:
+
+APH
+
+Logo-Struktur nicht unnötig verändern.
+
+Das visuelle Redesign kommt später.
+
+Jetzt nur Name/Text konsistent machen.
+
+==================================================
+27. SEITENTITEL / BROWSER-TITEL
+===============================
+
+Falls technisch vorhanden:
+
+Browser-/Seitentitel auf:
+
+Athletic Performance Hub
+
+ändern.
+
+Keine Domainänderung vornehmen.
+
+==================================================
+28. ALT-DATEN
+=============
+
+Falls alte Daten intern noch alten Produktnamen enthalten:
+
+Nicht blind historische Datensätze verändern.
+
+Nur benutzerseitige Darstellung aktualisieren, sofern fachlich sinnvoll.
+
+Historische Verträge/Dokumente nicht nachträglich verfälschen.
+
+==================================================
+29. TESTFÄLLE – BRANDING
+========================
+
+Teste:
+
+1. Login
+2. Registrierung
+3. Dashboard
+4. Superadmin
+5. Kundenverwaltung
+6. Training
+7. Diagnostik
+8. E-Mail-Verifizierung
+9. Passwort-Reset
+10. Benutzername-Reminder
+
+Erwartung:
+sichtbar Athletic Performance Hub / APH.
+
+==================================================
+30. TESTFÄLLE – TRAINERKUNDE
+============================
+
+1. Trainer registrieren
+2. E-Mail bestätigen
+3. Superadmin freischalten
+4. Paket zuweisen
+5. Vertragsdaten setzen
+6. Trainer einloggen
+7. "Mein Vertrag" öffnen
+8. Vertragsdaten korrekt sichtbar
+9. Kündigung starten
+10. Kündigung bestätigen
+11. E-Mail kommt an
+12. Kündigungsstatus im Kundenkonto sichtbar
+13. Kündigung im Superadmin sichtbar
+
+==================================================
+31. TESTFÄLLE – VEREINSKUNDE
+============================
+
+Dasselbe mit Verein testen.
+
+Erwartung:
+Trainer und Verein besitzen dieselbe grundlegende Vertrags-/Kündigungsfähigkeit.
+
+==================================================
+32. REGRESSIONSTEST
+===================
+
+Prüfe zusätzlich:
+
+* Login funktioniert
+* E-Mail-Verifizierung funktioniert
+* Passwort vergessen funktioniert
+* Benutzername vergessen funktioniert
+* Session bleibt erhalten
+* Kundenverwaltung funktioniert
+* Paketzuweisung funktioniert
+* bestehende Preise unverändert
+* Diagnose funktioniert
+* Trainingsplan funktioniert
+* keine Spieler verloren
+* keine Trainingspläne verloren
+
+==================================================
+33. ABSCHLUSSBERICHT
+====================
+
+Nach Abschluss berichten:
+
+1. Wo wurde altes Branding gefunden?
+2. Welche sichtbaren Bereiche wurden auf Athletic Performance Hub geändert?
+3. Welche internen technischen Namen wurden bewusst nicht geändert?
+4. Gab es bereits eine Vertragsansicht für Kunden?
+5. Was wurde dort ergänzt?
+6. Gab es bereits eine Kündigungsfunktion?
+7. Was wurde ergänzt bzw. neu erstellt?
+8. Funktioniert Kündigung für Trainer?
+9. Funktioniert Kündigung für Vereine?
+10. Wie wird Kündigung persistent gespeichert?
+11. Wie wird die Bestätigungs-E-Mail versendet?
+12. Wie wird verhindert, dass mehrfach gekündigt wird?
+13. Bleibt Zugang bis zum tatsächlichen Vertragsende erhalten?
+14. Welche Dateien wurden geändert?
+15. Welche Datenbankänderungen wurden vorgenommen?
+16. Wurden Pakete oder Preise verändert? Erwartet: NEIN.
+17. Welche Tests wurden durchgeführt?
+18. Welche Punkte soll ich selbst testen?
+
+Für jeden Hauptpunkt kennzeichnen:
+
+* BEREITS VORHANDEN
+* ERGÄNZT
+  oder
+* NEU ERSTELLT
+
+Danach STOPPEN.
+
+Noch keine Sprint-Wissenschaftserweiterung und keine allgemeine Mobile-Design-Phase automatisch starten.
