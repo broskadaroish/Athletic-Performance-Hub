@@ -2399,8 +2399,11 @@ def _migrate_multitenant():
                 pass
         # Bestehende Benutzer sofort als verifiziert markieren — verhindert Lockout
         conn.execute(
+            # Nur Altdaten ohne ausstehenden Verifizierungstoken (email_token IS NULL)
+            # NIEMALS neu registrierte Benutzer mit laufendem Token überschreiben!
             "UPDATE benutzer SET email_verifiziert=1 "
-            "WHERE email_verifiziert IS NULL OR email_verifiziert=0"
+            "WHERE (email_verifiziert IS NULL OR email_verifiziert=0) "
+            "AND (email_token IS NULL OR email_token = '')"
         )
         # Sessions-Tabelle (server-seitige Session-Persistenz)
         conn.execute("""

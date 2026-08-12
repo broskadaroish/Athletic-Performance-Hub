@@ -31,4 +31,9 @@ timeoutMs = 120000
     [nix]
     channel = "stable-25_05"
 packages = ["glibcLocales"]
+
+[userenv]
+
+[userenv.shared]
+APP_BASE_URL = "https://aphsystem.de"
     

@@ -132,24 +132,17 @@ def page_benutzerverwaltung():
                 if rolle == "Superadmin":
                     st.markdown("---")
                     st.markdown("**🔍 Auth-Status**")
-                    _as1, _as2, _as3 = st.columns(3)
-                    _ev_label  = "✅ Ja" if _ev else "❌ Nein"
-                    _as1.metric("E-Mail bestätigt",    _ev_label)
-                    _as2.metric("Registriert am",      u.get("erstellt_am") or "—")
-                    _as3.metric("Letzter Login",        u.get("letzter_login") or "—")
 
-                    _as4, _as5 = st.columns(2)
-                    if _aktiv and _ev:
-                        _acc_status = "🟢 Aktiv"
-                    elif not _aktiv:
-                        _acc_status = "⛔ Inaktiv"
-                    elif not _ev:
-                        _acc_status = "📧 E-Mail ausstehend"
-                    else:
-                        _acc_status = "⚠️ Unbekannt"
-                    _as4.metric("Account-Status", _acc_status)
+                    # Spec §9: E-Mail und Account als getrennte Zustandsanzeigen
+                    _ev_label    = "✅ bestätigt"  if _ev     else "❌ nicht bestätigt"
+                    _aktiv_label = "✅ freigeschaltet" if _aktiv else "⏳ wartet auf Freischaltung"
+                    _as1, _as2, _as3, _as4 = st.columns(4)
+                    _as1.metric("E-Mail",          _ev_label)
+                    _as2.metric("Account",         _aktiv_label)
+                    _as3.metric("Registriert am",  u.get("erstellt_am") or "—")
+                    _as4.metric("Letzter Login",   u.get("letzter_login") or "—")
 
-                    # Lizenz-Status vom Verein
+                    # Lizenz-Status
                     _lizenz_lbl = "—"
                     if u.get("verein_id"):
                         try:
@@ -158,33 +151,58 @@ def page_benutzerverwaltung():
                             _lizenz_lbl = _vr.get("lizenz_status", "—")
                         except Exception:
                             pass
-                    _as5.metric("Lizenz-Status", _lizenz_lbl)
+                    st.caption(f"Lizenz-Status: **{_lizenz_lbl}**")
 
-                    # E-Mail-Verifikation manuell auslösen
-                    if not _ev:
-                        if st.button("📧 Bestätigungs-E-Mail senden", key=f"verify_send_{u['id']}"):
+                    def _get_base_url_bv() -> str:
+                        import os as _os_bv
+                        _custom = _os_bv.environ.get("APP_BASE_URL", "")
+                        if _custom:
+                            return _custom.rstrip("/")
+                        _dev = _os_bv.environ.get("REPLIT_DEV_DOMAIN", "")
+                        if _dev:
+                            return f"https://{_dev}/athletik/app"
+                        return "http://localhost:8082/app"
+
+                    # Spec §9: Account freischalten (wenn E-Mail bestätigt aber noch nicht aktiv)
+                    if _ev and not _aktiv:
+                        if st.button(f"✅ Account freischalten", key=f"freischalten_{u['id']}",
+                                     type="primary", use_container_width=True):
+                            benutzer_aktivieren(u["id"], 1)
+                            # Freischaltungs-E-Mail senden (Spec §10)
                             try:
-                                from database import (
-                                    email_token_erzeugen as _ete,
-                                    benutzer_by_id as _bbi,
+                                from email_service import send_freischaltung_email as _sfe
+                                from database import benutzer_by_id as _bbi_f
+                                _bdata_f = _bbi_f(u["id"]) or {}
+                                _sfe(_bdata_f.get("email",""),
+                                     _bdata_f.get("vorname","Benutzer"),
+                                     _get_base_url_bv())
+                                st.success("✅ Account freigeschaltet — Freischaltungs-E-Mail gesendet.")
+                            except Exception as _fee:
+                                import logging as _log_bv
+                                _log_bv.getLogger("athletik.email").error(
+                                    "Freischaltungs-E-Mail fehlgeschlagen (%s)", type(_fee).__name__
                                 )
-                            except ImportError:
-                                st.error("Datenbank-Funktion nicht verfügbar.")
-                            else:
-                                import os as _os
-                                _bdata = _bbi(u["id"]) or {}
-                                _btoken = _ete(u["id"])
-                                _dev = _os.environ.get("REPLIT_DEV_DOMAIN", "")
-                                _base = (f"https://{_dev}/athletik/app" if _dev
-                                         else "http://localhost:8082/app")
-                                _base_custom = _os.environ.get("APP_BASE_URL", _base)
-                                try:
-                                    from email_service import send_verification_email as _sve
-                                    _sve(_bdata.get("email",""), _bdata.get("vorname","Benutzer"),
-                                         _btoken, _base_custom)
-                                    st.success("✅ Bestätigungs-E-Mail gesendet.")
-                                except Exception as _ee:
-                                    st.warning(f"E-Mail konnte nicht gesendet werden: {_ee}")
+                                st.success("✅ Account freigeschaltet.")
+                                st.caption(f"⚠️ Freischaltungs-E-Mail konnte nicht gesendet werden ({type(_fee).__name__}).")
+                            st.rerun()
+
+                    # Spec §3: E-Mail-Verifikation manuell auslösen
+                    if not _ev:
+                        if st.button("📧 Bestätigungs-E-Mail erneut senden",
+                                     key=f"verify_send_{u['id']}"):
+                            from database import (
+                                email_token_erzeugen as _ete,
+                                benutzer_by_id as _bbi,
+                            )
+                            _bdata = _bbi(u["id"]) or {}
+                            _btoken = _ete(u["id"])
+                            try:
+                                from email_service import send_verification_email as _sve
+                                _sve(_bdata.get("email",""), _bdata.get("vorname","Benutzer"),
+                                     _btoken, _get_base_url_bv())
+                                st.success("✅ Bestätigungs-E-Mail gesendet.")
+                            except Exception as _ee:
+                                st.warning(f"E-Mail konnte nicht gesendet werden: {type(_ee).__name__}")
 
     # ── Neuen Benutzer anlegen ────────────────────────────────────────────────
     st.divider()

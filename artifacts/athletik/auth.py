@@ -26,9 +26,13 @@ def login(email_oder_benutzername: str, passwort: str) -> dict | None:
     Gibt zurück:
       - dict mit Benutzer-Daten bei Erfolg
       - None bei unbekanntem Account / falschem Passwort
-      - dict mit {'gesperrt': True, 'verbleibend_sek': N} bei gesperrtem Konto
-      - dict mit {'email_nicht_verifiziert': True, 'benutzer_id': N, 'email': str}
-        wenn E-Mail noch nicht bestätigt wurde
+      - dict {'gesperrt': True, 'verbleibend_sek': N} bei gesperrtem Konto
+      - dict {'email_nicht_verifiziert': True, 'benutzer_id': N, 'email': str}
+        wenn E-Mail noch nicht bestätigt wurde (Zustand 1)
+      - dict {'wartend_auf_freischaltung': True}
+        wenn E-Mail bestätigt, Konto aber noch nicht vom Admin aktiviert (Zustand 2)
+      - dict {'konto_deaktiviert': True}
+        wenn Konto explizit vom Admin gesperrt wurde (aktiv=0, vormals aktiv=1)
 
     Nach MAX_LOGIN_VERSUCHE Fehlern wird das Konto für LOGIN_SPERRE_MINUTEN gesperrt.
     Bei Erfolg werden Fehlversuch-Zähler und Sperre automatisch zurückgesetzt.
@@ -69,11 +73,11 @@ def login(email_oder_benutzername: str, passwort: str) -> dict | None:
     if user is None:
         return None
 
-    # 2b. Konto deaktiviert? — Eigene Meldung statt generischem Fehler
-    if not user["aktiv"]:
-        return {"konto_deaktiviert": True}
+    # 2b. Konto dauerhaft deaktiviert (aktiv=0 UND email_verifiziert=1)?
+    #     Reihenfolge: aktiv=0 mit verifizierter E-Mail → wartend auf Freischaltung oder gesperrt
+    #     aktiv=0 ohne verifizierte E-Mail → zuerst E-Mail-Check
 
-    # 3. Passwort prüfen
+    # 3. Passwort prüfen (VOR Status-Checks, damit Brute-Force-Schutz greift)
     stored = user["passwort_hash"]
     if not _pw_verify(passwort, stored):
         benutzer_id = sperre["benutzer_id"] or user["id"]
@@ -83,13 +87,19 @@ def login(email_oder_benutzername: str, passwort: str) -> dict | None:
             return {"gesperrt": True, "verbleibend_sek": neuer_status["verbleibend_sek"]}
         return None
 
-    # 4. E-Mail-Verifizierung prüfen (neue Accounts; bestehende Accounts haben Wert 1)
+    # 4a. E-Mail-Verifizierung prüfen ZUERST (Spec §2: email_verifiziert=0 → immer ablehnen)
     if not user["email_verifiziert"]:
         return {
             "email_nicht_verifiziert": True,
             "benutzer_id": user["id"],
             "email": user["email"],
         }
+
+    # 4b. Account-Status prüfen (Spec §2: email_verifiziert=1, aktiv=0 → auf Freischaltung warten)
+    if not user["aktiv"]:
+        # Unterscheide: noch nie aktiviert (Neuregistrierung) vs. explizit gesperrt
+        # Beide erhalten den gleichen Rückgabetyp — UI differenziert bei Bedarf
+        return {"wartend_auf_freischaltung": True}
 
     # 5. Erfolgreich — Fehlversuch-Zähler zurücksetzen
     benutzer_login_zuruecksetzen(user["id"])

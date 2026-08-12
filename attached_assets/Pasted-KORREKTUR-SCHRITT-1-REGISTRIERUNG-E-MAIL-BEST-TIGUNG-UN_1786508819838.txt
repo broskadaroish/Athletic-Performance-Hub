@@ -1,0 +1,427 @@
+KORREKTUR SCHRITT 1 – REGISTRIERUNG, E-MAIL-BESTÄTIGUNG UND SUPERADMIN-FREISCHALTUNG
+
+Bei einem realen Test der Registrierung ist folgendes Problem aufgetreten:
+
+* Registrierung funktioniert.
+* Es wurde KEINE E-Mail zur Bestätigung der E-Mail-Adresse zugestellt.
+* Stattdessen erscheint die Meldung, dass der Superadmin den Account freischalten muss.
+
+Das entspricht noch nicht dem gewünschten Ablauf.
+
+WICHTIG:
+Bestehende Authentifizierungs-, Session-, Benutzer- und Lizenzlogik nicht neu schreiben.
+
+Zuerst analysieren, warum die Bestätigungs-E-Mail nicht versendet wurde.
+
+==================================================
+
+1. GEWÜNSCHTER REGISTRIERUNGSABLAUF
+   ==================================================
+
+Der verbindliche Ablauf soll sein:
+
+SCHRITT A
+Kunde registriert sich vollständig.
+
+↓
+
+SCHRITT B
+Benutzerkonto wird angelegt.
+
+Status:
+E-Mail noch nicht bestätigt.
+
+↓
+
+SCHRITT C
+Das System erzeugt einen sicheren E-Mail-Verifizierungstoken.
+
+↓
+
+SCHRITT D
+Unmittelbar nach erfolgreicher Registrierung wird automatisch eine Bestätigungs-E-Mail über:
+
+[noreply@aphsystem.de](mailto:noreply@aphsystem.de)
+
+an die registrierte E-Mail-Adresse gesendet.
+
+↓
+
+SCHRITT E
+Kunde klickt in der E-Mail:
+
+"E-Mail-Adresse bestätigen"
+
+↓
+
+SCHRITT F
+E-Mail-Adresse wird als bestätigt gespeichert:
+
+email_verifiziert = true
+
+↓
+
+SCHRITT G
+Danach wartet der Kunde auf die Freischaltung durch den Superadmin.
+
+↓
+
+SCHRITT H
+Superadmin aktiviert den Kunden.
+
+↓
+
+SCHRITT I
+Erst wenn BEIDE Bedingungen erfüllt sind:
+
+1. E-Mail bestätigt
+   UND
+2. Account vom Superadmin aktiviert
+
+darf der Kunde sich vollständig anmelden.
+
+==================================================
+2. STATUS KLAR TRENNEN
+======================
+
+E-Mail-Verifizierung und Account-Freischaltung sind zwei unterschiedliche Zustände.
+
+Sie dürfen nicht miteinander verwechselt werden.
+
+Beispielsweise:
+
+email_verifiziert:
+0 / 1
+
+account_aktiv:
+0 / 1
+
+Daraus ergibt sich:
+
+email_verifiziert = 0
+account_aktiv = 0
+
+→ "Bitte bestätige zuerst deine E-Mail-Adresse."
+
+email_verifiziert = 1
+account_aktiv = 0
+
+→ "Deine E-Mail-Adresse wurde bestätigt. Dein Zugang wartet noch auf die Freischaltung durch den Administrator."
+
+email_verifiziert = 1
+account_aktiv = 1
+
+→ Login erlaubt.
+
+email_verifiziert = 0
+account_aktiv = 1
+
+→ Login trotzdem NICHT erlauben, solange die E-Mail nicht bestätigt wurde.
+
+Bestehende Feldnamen verwenden, wenn entsprechende Felder bereits existieren.
+
+Keine doppelten Statusfelder erstellen.
+
+==================================================
+3. WARUM WURDE KEINE E-MAIL VERSENDET?
+======================================
+
+Analysiere den tatsächlichen Registrierungsablauf.
+
+Prüfe insbesondere:
+
+* Wird send_verification_email() nach erfolgreicher Registrierung tatsächlich aufgerufen?
+* Wird ein Verifizierungstoken erzeugt?
+* Wird der Token gespeichert?
+* Ist email_verifiziert beim neuen Benutzer zunächst false?
+* Ist SMTP konfiguriert?
+* Ist SMTP_PASSWORD vorhanden?
+* Sind alle benötigten Environment Variables vorhanden?
+* Wird eine SMTP-Exception verschluckt?
+* Wird ein Fehler nur im Server-Log ausgegeben?
+* Wird die Registrierung abgeschlossen, obwohl der E-Mail-Versand fehlschlägt?
+* Wird versehentlich nur bei bestimmten Accounttypen eine E-Mail gesendet?
+* Funktioniert es sowohl bei Trainer als auch bei Verein?
+
+==================================================
+4. SMTP-KONFIGURATION PRÜFEN
+============================
+
+Verwende weiterhin ausschließlich Replit Secrets / Environment Variables.
+
+Erwartete Werte:
+
+SMTP_HOST
+SMTP_PORT
+SMTP_USERNAME
+SMTP_PASSWORD
+SMTP_FROM
+SUPPORT_EMAIL
+APP_BASE_URL
+
+Für meine Konfiguration:
+
+SMTP_HOST = smtp.ionos.de
+SMTP_PORT = 465
+SMTP_USERNAME = [noreply@aphsystem.de](mailto:noreply@aphsystem.de)
+SMTP_FROM = [noreply@aphsystem.de](mailto:noreply@aphsystem.de)
+SUPPORT_EMAIL = [support@aphsystem.de](mailto:support@aphsystem.de)
+
+APP_BASE_URL soll auf meine produktive Domain zeigen:
+
+https://aphsystem.de
+
+SMTP_PASSWORD muss ausschließlich aus Replit Secrets gelesen werden.
+
+NIEMALS:
+
+* Passwort im Code anzeigen
+* Passwort loggen
+* Passwort im Git-Repository speichern
+* Passwort in einer Fehlermeldung anzeigen
+
+==================================================
+5. FEHLENDE SMTP-KONFIGURATION
+==============================
+
+Wenn SMTP nicht vollständig konfiguriert ist, darf das System nicht einfach so tun, als sei die Bestätigungs-E-Mail erfolgreich verschickt worden.
+
+Stattdessen intern einen sicheren Fehler erzeugen/loggen.
+
+Dem Benutzer eine verständliche Meldung anzeigen:
+
+"Dein Konto wurde erstellt, aber die Bestätigungs-E-Mail konnte momentan nicht versendet werden. Bitte versuche, die Bestätigungs-E-Mail erneut anzufordern."
+
+Button:
+
+"Bestätigungs-E-Mail erneut senden"
+
+Keine SMTP-Zugangsdaten oder technischen Interna anzeigen.
+
+==================================================
+6. BESTÄTIGUNGS-E-MAIL
+======================
+
+Nach erfolgreicher Registrierung automatisch senden.
+
+Absender:
+
+Athletic Performance Hub
+[noreply@aphsystem.de](mailto:noreply@aphsystem.de)
+
+Reply-To:
+
+[support@aphsystem.de](mailto:support@aphsystem.de)
+
+Betreff:
+
+Athletic Performance Hub – E-Mail-Adresse bestätigen
+
+Inhalt sinngemäß:
+
+Hallo [Vorname],
+
+vielen Dank für deine Registrierung bei Athletic Performance Hub.
+
+Bitte bestätige deine E-Mail-Adresse über den folgenden Button:
+
+[E-Mail-Adresse bestätigen]
+
+Nach der Bestätigung wird dein Konto zur Freischaltung durch den Administrator vorbereitet.
+
+Bei Fragen:
+[support@aphsystem.de](mailto:support@aphsystem.de)
+
+Viele Grüße
+Athletic Performance Hub
+
+Der Button muss auf einen gültigen Verifizierungslink zeigen.
+
+==================================================
+7. VERIFIZIERUNGSLINK
+=====================
+
+Für Produktions-E-Mails soll der Link die produktive Domain verwenden.
+
+Beispiel:
+
+https://aphsystem.de/?verify=SICHERER_TOKEN
+
+Nicht dauerhaft eine Replit-Development-Domain verwenden, wenn APP_BASE_URL gesetzt ist.
+
+Token:
+
+* kryptografisch sicher
+* zeitlich begrenzt
+* nur einmal verwendbar
+
+==================================================
+8. NACH KLICK AUF BESTÄTIGUNGSLINK
+==================================
+
+Nach erfolgreicher E-Mail-Verifizierung anzeigen:
+
+"E-Mail-Adresse erfolgreich bestätigt."
+
+Danach:
+
+"Dein Konto wartet jetzt auf die Freischaltung durch den Administrator."
+
+Nicht behaupten, dass der Account bereits vollständig aktiviert ist.
+
+==================================================
+9. SUPERADMIN
+=============
+
+Im Superadmin muss eindeutig getrennt sichtbar sein:
+
+E-Mail:
+✅ bestätigt
+oder
+❌ nicht bestätigt
+
+Account:
+✅ freigeschaltet
+oder
+⏳ wartet auf Freischaltung
+
+Bei einem neuen Kunden mit bestätigter E-Mail:
+
+[Account freischalten]
+
+Nach Klick:
+
+Account aktivieren.
+
+Keine erneute E-Mail-Verifizierung erforderlich.
+
+==================================================
+10. OPTIONAL: E-MAIL NACH ADMIN-FREISCHALTUNG
+=============================================
+
+Wenn der Superadmin den Account freischaltet, automatisch eine zweite E-Mail senden:
+
+Betreff:
+
+Athletic Performance Hub – Dein Zugang wurde freigeschaltet
+
+Inhalt:
+
+Hallo [Vorname],
+
+dein Zugang zu Athletic Performance Hub wurde freigeschaltet.
+
+Du kannst dich jetzt anmelden.
+
+[Jetzt anmelden]
+
+Bei Fragen:
+[support@aphsystem.de](mailto:support@aphsystem.de)
+
+Viele Grüße
+Athletic Performance Hub
+
+Diese E-Mail soll an die bestätigte Kunden-E-Mail-Adresse gesendet werden.
+
+==================================================
+11. SUPERADMIN TESTMAIL
+=======================
+
+Die bereits implementierte Funktion:
+
+"E-Mail-Versand testen"
+
+nicht neu erstellen.
+
+Prüfe zuerst damit den SMTP-Versand.
+
+Wenn diese Testmail bereits fehlschlägt:
+zuerst SMTP-Konfiguration korrigieren.
+
+Erst wenn die Testmail funktioniert:
+Registrierungs-E-Mail testen.
+
+==================================================
+12. KEINE DOPPELTEN E-MAILS
+===========================
+
+Eine normale Registrierung soll genau eine initiale Verifizierungs-E-Mail erzeugen.
+
+Streamlit-Reruns dürfen nicht dazu führen, dass dieselbe Registrierung mehrfach E-Mails versendet.
+
+"Bestätigungs-E-Mail erneut senden" darf weiterhin funktionieren und das bestehende Rate-Limit beachten.
+
+==================================================
+13. TESTABLAUF
+==============
+
+Führe anschließend folgende Tests durch:
+
+TEST 1:
+Superadmin-Testmail
+→ E-Mail kommt an.
+
+TEST 2:
+Neuen Trainer registrieren.
+→ Konto wird erstellt.
+→ Bestätigungs-E-Mail wird automatisch versendet.
+→ Account noch nicht freigeschaltet.
+
+TEST 3:
+Vor E-Mail-Bestätigung Login versuchen.
+→ Login blockiert.
+→ Hinweis E-Mail bestätigen.
+
+TEST 4:
+Bestätigungslink anklicken.
+→ E-Mail wird bestätigt.
+→ Hinweis auf Admin-Freischaltung.
+
+TEST 5:
+Vor Admin-Freischaltung Login versuchen.
+→ Login blockiert.
+→ Hinweis auf ausstehende Freischaltung.
+
+TEST 6:
+Superadmin öffnet Kunden.
+→ E-Mail bestätigt sichtbar.
+→ Account wartet auf Freischaltung.
+
+TEST 7:
+Superadmin klickt "Account freischalten".
+→ Account wird aktiviert.
+
+TEST 8:
+Freischaltungs-E-Mail wird versendet.
+
+TEST 9:
+Kunde meldet sich an.
+→ Login erfolgreich.
+
+TEST 10:
+Browser aktualisieren.
+→ Kunde bleibt angemeldet.
+
+TEST 11:
+Dasselbe mit Vereinsregistrierung testen.
+
+==================================================
+14. ABSCHLUSSBERICHT
+====================
+
+Danach STOPPEN und berichten:
+
+1. Warum wurde bei meinem Test keine Verifizierungs-E-Mail verschickt?
+2. Wurde send_verification_email() tatsächlich aufgerufen?
+3. Funktioniert die SMTP-Testmail?
+4. Welche SMTP-Environment-Variablen wurden erkannt?
+5. FEHLENDE Secrets nur mit NAMEN nennen – niemals deren Werte.
+6. Wird APP_BASE_URL=https://aphsystem.de verwendet?
+7. Funktioniert die Trainerregistrierung?
+8. Funktioniert die Vereinsregistrierung?
+9. Funktioniert die E-Mail-Verifizierung?
+10. Sind E-Mail-Verifizierung und Superadmin-Freischaltung jetzt sauber getrennt?
+11. Wird nach Superadmin-Freischaltung eine Freischaltungs-E-Mail gesendet?
+12. Welche Dateien wurden geändert?
+
+Keine anderen Funktionen verändern.

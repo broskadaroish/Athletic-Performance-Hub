@@ -472,6 +472,12 @@ if "user" not in st.session_state:
                                 f"🔒 Konto vorübergehend gesperrt — zu viele Fehlversuche. "
                                 f"Bitte in ca. **{_min_rest} Minute(n)** erneut versuchen."
                             )
+                        elif isinstance(_user_obj, dict) and _user_obj.get("wartend_auf_freischaltung"):
+                            st.info(
+                                "✅ Deine E-Mail-Adresse wurde bereits bestätigt.\n\n"
+                                "Dein Zugang wartet noch auf die **Freischaltung durch den Administrator**. "
+                                "Du erhältst eine E-Mail, sobald dein Konto freigeschaltet wurde."
+                            )
                         elif isinstance(_user_obj, dict) and _user_obj.get("konto_deaktiviert"):
                             import os as _os_kd
                             _support = _os_kd.environ.get("SUPPORT_EMAIL", "support@aphsystem.de")
@@ -607,22 +613,53 @@ if "user" not in st.session_state:
                                  ust_id=_r_ra_ustid.strip() or None)
                             from database import email_token_erzeugen as _ete
                             _vtoken = _ete(_bid)
+                            _reg_email_ok = False
                             try:
                                 from email_service import send_verification_email as _sve
                                 _sve(_r_email.strip(), _r_vorname.strip(),
                                      _vtoken, _app_base_url())
+                                _reg_email_ok = True
+                            except Exception as _smtp_err:
+                                import logging as _log_reg
+                                _log_reg.getLogger("athletik.email").error(
+                                    "Verein-Reg: Bestätigungs-E-Mail konnte nicht gesendet werden "
+                                    "(%s). SMTP-Passwort wird nicht geloggt.",
+                                    type(_smtp_err).__name__,
+                                )
+                                st.session_state["_reg_pending_bid"]   = _bid
+                                st.session_state["_reg_pending_email"] = _r_email.strip()
+                            if _reg_email_ok:
                                 st.success(
                                     "✅ Verein erfolgreich registriert! "
                                     "Bitte bestätige deine E-Mail-Adresse — "
                                     "wir haben dir eine Bestätigungs-E-Mail gesendet."
                                 )
-                            except Exception:
-                                st.success(
-                                    "✅ Verein erfolgreich registriert! "
-                                    "Bitte bestätige deine E-Mail-Adresse "
-                                    "(E-Mail-Versand noch nicht konfiguriert — "
-                                    "wende dich an den Administrator)."
+                            else:
+                                st.warning(
+                                    "✅ Dein Konto wurde erstellt, aber die Bestätigungs-E-Mail "
+                                    "konnte momentan nicht versendet werden. "
+                                    "Bitte versuche, die Bestätigungs-E-Mail erneut anzufordern."
                                 )
+                                if st.button("📧 Bestätigungs-E-Mail erneut senden",
+                                             key="reg_resend_verein_btn"):
+                                    _rpb = st.session_state.get("_reg_pending_bid")
+                                    _rpe = st.session_state.get("_reg_pending_email","")
+                                    if _rpb:
+                                        from database import (
+                                            email_token_erzeugen as _ete2,
+                                            email_token_resend_erlaubt as _etra2,
+                                            benutzer_by_id as _bbi2,
+                                        )
+                                        if _etra2(_rpb):
+                                            _nt2 = _ete2(_rpb)
+                                            _bu2 = _bbi2(_rpb) or {}
+                                            try:
+                                                from email_service import send_verification_email as _sve2
+                                                _sve2(_rpe, _bu2.get("vorname","Benutzer"),
+                                                      _nt2, _app_base_url())
+                                                st.success("✅ Bestätigungs-E-Mail gesendet.")
+                                            except Exception as _e2:
+                                                st.warning(f"E-Mail konnte nicht gesendet werden: {type(_e2).__name__}")
                         except ValueError as _ve:
                             st.error(str(_ve))
                         except Exception as _ex:
@@ -710,20 +747,54 @@ if "user" not in st.session_state:
                                  ust_id=_t_ra_ustid.strip() or None)
                             from database import email_token_erzeugen as _ete
                             _tvtoken = _ete(_tbid)
+                            _treg_email_ok = False
                             try:
                                 from email_service import send_verification_email as _sve
                                 _sve(_t_email.strip(), _t_vorname.strip(),
                                      _tvtoken, _app_base_url())
+                                _treg_email_ok = True
+                            except Exception as _tsmtp_err:
+                                import logging as _log_treg
+                                _log_treg.getLogger("athletik.email").error(
+                                    "Trainer-Reg: Bestätigungs-E-Mail konnte nicht gesendet werden "
+                                    "(%s). SMTP-Passwort wird nicht geloggt.",
+                                    type(_tsmtp_err).__name__,
+                                )
+                                st.session_state["_reg_pending_bid"]   = _tbid
+                                st.session_state["_reg_pending_email"] = _t_email.strip()
+                            if _treg_email_ok:
                                 st.success(
                                     "✅ Registrierung erfolgreich! "
-                                    "Bitte bestätige deine E-Mail. "
+                                    "Bitte bestätige deine E-Mail-Adresse — "
+                                    "wir haben dir eine Bestätigungs-E-Mail gesendet. "
                                     "Danach schaltet ein Administrator dein Konto frei."
                                 )
-                            except Exception:
-                                st.success(
-                                    "✅ Registrierung erfolgreich! "
-                                    "Ein Administrator schaltet dein Konto frei."
+                            else:
+                                st.warning(
+                                    "✅ Dein Konto wurde erstellt, aber die Bestätigungs-E-Mail "
+                                    "konnte momentan nicht versendet werden. "
+                                    "Bitte versuche, die Bestätigungs-E-Mail erneut anzufordern."
                                 )
+                                if st.button("📧 Bestätigungs-E-Mail erneut senden",
+                                             key="reg_resend_trainer_btn"):
+                                    _rpbt = st.session_state.get("_reg_pending_bid")
+                                    _rpet = st.session_state.get("_reg_pending_email","")
+                                    if _rpbt:
+                                        from database import (
+                                            email_token_erzeugen as _ete3,
+                                            email_token_resend_erlaubt as _etra3,
+                                            benutzer_by_id as _bbi3,
+                                        )
+                                        if _etra3(_rpbt):
+                                            _nt3 = _ete3(_rpbt)
+                                            _bu3 = _bbi3(_rpbt) or {}
+                                            try:
+                                                from email_service import send_verification_email as _sve3
+                                                _sve3(_rpet, _bu3.get("vorname","Benutzer"),
+                                                      _nt3, _app_base_url())
+                                                st.success("✅ Bestätigungs-E-Mail gesendet.")
+                                            except Exception as _e3:
+                                                st.warning(f"E-Mail konnte nicht gesendet werden: {type(_e3).__name__}")
                         except ValueError as _ve:
                             st.error(str(_ve))
                         except Exception as _ex:

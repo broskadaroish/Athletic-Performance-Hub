@@ -147,6 +147,32 @@ def send_username_reminder(to: str, name: str, benutzername: str) -> None:
     _send(to, subject, text, html)
 
 
+def send_freischaltung_email(to: str, name: str, base_url: str) -> None:
+    """Sendet die Freischaltungsbenachrichtigung nach der Admin-Aktivierung."""
+    login_url = base_url.rstrip("/")
+    subject = f"{_APP_NAME} – Dein Zugang wurde freigeschaltet"
+    text = (
+        f"Hallo {name},\n\n"
+        f"dein Zugang zu {_APP_NAME} wurde freigeschaltet. "
+        "Du kannst dich jetzt anmelden.\n\n"
+        f"Anmelden: {login_url}\n\n"
+        f"Support: {_SUPPORT_EMAIL}\n\n"
+        f"Viele Grüße\n{_APP_NAME}"
+    )
+    html = (
+        f"<p>Hallo <strong>{name}</strong>,</p>"
+        f"<p>dein Zugang zu <strong>{_APP_NAME}</strong> wurde freigeschaltet. "
+        "Du kannst dich jetzt anmelden.</p>"
+        f'<p><a href="{login_url}" style="background:#238636;color:#fff;'
+        f'padding:10px 24px;border-radius:6px;text-decoration:none;display:inline-block;font-weight:bold">'
+        f"Jetzt anmelden</a></p>"
+        f"<hr><p style='font-size:12px;color:#666'>Support: "
+        f"<a href='mailto:{_SUPPORT_EMAIL}'>{_SUPPORT_EMAIL}</a></p>"
+        f"<p style='font-size:12px;color:#666'>Viele Grüße<br><strong>{_APP_NAME}</strong></p>"
+    )
+    _send(to, subject, text, html)
+
+
 def send_test_mail(to: str) -> None:
     """Testmail für Superadmin — prüft ob SMTP-Konfiguration funktioniert."""
     subject = f"{_APP_NAME} – E-Mail-Test"
