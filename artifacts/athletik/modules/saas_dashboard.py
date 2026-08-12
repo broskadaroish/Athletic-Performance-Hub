@@ -610,21 +610,317 @@ def _dash_vereinsadmin(user: dict):
     _aktivitaeten(dashboard_letzte_logins(verein_id=verein_id, limit=8))
 
 
-# ── Trainer ───────────────────────────────────────────────────────────────────
+# ── Trainer ── Hilfsfunktionen ────────────────────────────────────────────────
 
-def _dash_trainer(user: dict):
-    trainer_id = user.get("id")
-    vorname    = user.get("vorname") or user.get("email","Coach")
-
-    # ── Begrüßung ─────────────────────────────────────────────────────────────
+def _trainer_greeting(vorname: str) -> None:
+    """Kompakte Begrüßungszeile ohne Trenner darunter."""
     st.markdown(
-        f'<div style="margin-bottom:4px">'
-        f'<h2 style="color:{_C["text"]};margin:0">{_gruss(vorname)}</h2>'
-        f'<p style="color:{_C["muted"]};font-size:13px;margin:3px 0 0">{_datum_de()}</p>'
+        f'<div style="margin-bottom:16px">'
+        f'<div style="font-size:22px;font-weight:700;color:{_C["text"]};line-height:1.2">'
+        f'{_gruss(vorname)}</div>'
+        f'<div style="font-size:12px;color:{_C["muted"]};margin-top:3px">{_datum_de()}</div>'
         f'</div>',
         unsafe_allow_html=True,
     )
-    st.divider()
+
+
+def _trainer_leer(trainer_id) -> None:  # noqa: ARG001
+    """Onboarding-Ansicht für neue Accounts ohne Spieler."""
+    st.markdown(
+        f'<div style="background:{_C["surf"]};border:1px solid {_C["border"]};'
+        f'border-radius:14px;padding:48px 24px;text-align:center;margin:8px 0 20px">'
+        f'<div style="font-size:52px;margin-bottom:14px">⚽</div>'
+        f'<div style="font-size:18px;font-weight:700;color:{_C["text"]};margin-bottom:8px">'
+        f'Willkommen bei Athletic Performance Hub</div>'
+        f'<div style="font-size:13px;color:{_C["muted"]};max-width:380px;margin:0 auto">'
+        f'Lege deinen ersten Spieler an, um mit Diagnostik und Trainingsplanung zu starten.'
+        f'</div></div>',
+        unsafe_allow_html=True,
+    )
+    _c1, _c2, _c3 = st.columns([1, 2, 1])
+    with _c2:
+        if st.button("➕ Ersten Spieler anlegen", key="leer_spieler_btn",
+                     use_container_width=True, type="primary"):
+            _navigate("👤  Spieler")
+
+
+def _compute_team_score(alle_spieler: list) -> tuple[int, int, int]:
+    """
+    Berechnet (avg_score, high_risk_count, n_scored).
+    avg_score: Stichprobe max. 12 Spieler — bestehende Logik beibehalten.
+    high_risk: alle Spieler (risiko_score >= 2).
+    """
+    scores = []
+    for p in alle_spieler[:12]:
+        pid = p["id"]
+        sc  = athletik_score(
+            fms_letzter(pid), y_balance_letzter(pid), sprint_letzter(pid),
+            sprung_letzter(pid), agilitaet_letzter(pid), ausdauer_letzter(pid),
+            spiro_row=spiro_test_letzter(pid),
+        )
+        scores.append(sc)
+    avg_score = round(sum(scores) / len(scores)) if scores else 0
+
+    high_risk = 0
+    for p in alle_spieler:
+        pid = p["id"]
+        rs  = risiko_score(fms_letzter(pid), y_balance_letzter(pid), verletzungen_laden(pid))
+        if rs >= 2:
+            high_risk += 1
+
+    return avg_score, high_risk, len(scores)
+
+
+def _trainer_kpi_strip(n_spieler: int, faellig: int,
+                        high_risk: int, verletz: int, diag_monat: int) -> None:
+    """Kompakter KPI-Streifen — eine Zeile, alle Kennzahlen."""
+    items: list[tuple] = [
+        ("⚽", "Spieler",      n_spieler,  _C["blue"],   False),
+        ("📋", "Fällige Tests", faellig,    _C["orange"], faellig > 0),
+        ("⚠",  "Erhöhtes Risiko", high_risk, _C["red"],   high_risk > 0),
+    ]
+    if verletz > 0:
+        items.append(("🩺", "Verletzungen", verletz, _C["red"], True))
+    items.append(("🔬", "Tests/Monat", diag_monat, _C["purple"], False))
+
+    cols = st.columns(len(items))
+    for col, (icon, label, value, color, warn) in zip(cols, items):
+        c = _C["red"] if warn else color
+        with col:
+            st.markdown(
+                f'<div style="background:{_C["surf"]};border:1px solid {_C["border"]};'
+                f'border-radius:10px;padding:12px 8px;text-align:center">'
+                f'<div style="font-size:9px;color:{_C["muted"]};letter-spacing:.7px;'
+                f'margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'
+                f'{icon} {label.upper()}</div>'
+                f'<div style="font-size:24px;font-weight:800;color:{c};line-height:1">'
+                f'{value}</div></div>',
+                unsafe_allow_html=True,
+            )
+    st.markdown('<div style="height:14px"></div>', unsafe_allow_html=True)
+
+
+def _trainer_score_card(avg_score: int, data_ok: bool, n_scored: int) -> None:
+    """Prominente Team-Athletikscore-Karte mit Fortschrittsbalken."""
+    if avg_score >= 70:
+        sc_color, sc_label = _C["green"],  "Gut"
+    elif avg_score >= 40:
+        sc_color, sc_label = _C["orange"], "Verbesserungsbedarf"
+    else:
+        sc_color, sc_label = _C["red"],    "Kritisch"
+
+    if not data_ok or avg_score == 0:
+        sc_color, sc_label = _C["muted"], "—"
+        note = "Keine ausreichenden Diagnosedaten für Team-Score."
+        score_txt = "—"
+        pct = 0
+    else:
+        note = ("Basierend auf den aktuell verfügbaren Diagnosedaten."
+                if n_scored >= 3
+                else f"Score basiert auf {n_scored} Spieler(n) — unvollständige Datenbasis.")
+        score_txt = str(avg_score)
+        pct = avg_score
+
+    st.markdown(
+        f'<div style="background:{_C["surf"]};border:1px solid {_C["border"]};'
+        f'border-radius:12px;padding:20px;min-height:160px">'
+        f'<div style="font-size:10px;color:{_C["muted"]};letter-spacing:.8px;margin-bottom:14px">'
+        f'📊 TEAM-ATHLETIKSCORE</div>'
+        f'<div style="display:flex;align-items:flex-end;gap:8px;margin-bottom:10px">'
+        f'<div style="font-size:46px;font-weight:800;color:{sc_color};line-height:1">'
+        f'{score_txt}</div>'
+        f'<div style="font-size:15px;color:{_C["muted"]};margin-bottom:6px">/100</div>'
+        f'</div>'
+        f'<div style="background:#21262d;border-radius:6px;height:8px;margin-bottom:8px">'
+        f'<div style="background:{sc_color};width:{pct}%;height:8px;border-radius:6px"></div>'
+        f'</div>'
+        f'<div style="font-size:12px;font-weight:600;color:{sc_color}">{sc_label}</div>'
+        f'<div style="font-size:10px;color:{_C["muted"]};margin-top:6px;line-height:1.4">'
+        f'{note}</div></div>',
+        unsafe_allow_html=True,
+    )
+
+
+def _trainer_handlung(faellig: int, high_risk: int, verletz: int) -> None:
+    """Handlungsbedarf-Karte + Aktions-Buttons."""
+    items = []
+    if faellig > 0:
+        items.append(("📋", _C["orange"],
+                       f"{faellig} Spieler ohne aktuellen Test (> 30 Tage)",
+                       "faellig", "👥  Mannschaft"))
+    if high_risk > 0:
+        items.append(("⚠", _C["red"],
+                       f"{high_risk} Spieler mit erhöhtem Risiko",
+                       "risiko", "👥  Mannschaft"))
+    if verletz > 0:
+        items.append(("🩺", _C["red"],
+                       f"{verletz} neue Verletzung(en) – letzte 14 Tage",
+                       "verletzt", "👥  Mannschaft"))
+
+    items_html = (
+        "".join(
+            f'<div style="display:flex;align-items:flex-start;gap:10px;'
+            f'border-left:3px solid {c};padding:8px 10px;'
+            f'background:{c}15;border-radius:0 8px 8px 0;margin-bottom:8px">'
+            f'<span style="font-size:14px;flex-shrink:0">{icon}</span>'
+            f'<span style="font-size:12px;color:{_C["text"]};line-height:1.5">{txt}</span>'
+            f'</div>'
+            for icon, c, txt, _, __ in items
+        )
+        if items else
+        f'<div style="display:flex;flex-direction:column;align-items:center;'
+        f'justify-content:center;padding:20px 0">'
+        f'<div style="font-size:28px;margin-bottom:6px">✅</div>'
+        f'<div style="font-size:12px;color:{_C["muted"]}">Kein dringender Handlungsbedarf</div>'
+        f'</div>'
+    )
+
+    st.markdown(
+        f'<div style="background:{_C["surf"]};border:1px solid {_C["border"]};'
+        f'border-radius:12px;padding:20px;min-height:160px">'
+        f'<div style="font-size:10px;color:{_C["muted"]};letter-spacing:.8px;margin-bottom:14px">'
+        f'⚡ HANDLUNGSBEDARF</div>'
+        f'{items_html}</div>',
+        unsafe_allow_html=True,
+    )
+    for i, (icon, _, txt, kpi_val, section) in enumerate(items):
+        if st.button(f"{icon} Anzeigen →", key=f"hdl_btn_{i}", use_container_width=True):
+            st.session_state["kpi_filter"] = kpi_val
+            _navigate(section)
+
+
+def _trainer_schnellaktionen() -> None:
+    """Kompakte Schnellaktionen — 4 Buttons in einer Zeile."""
+    st.markdown(
+        f'<div style="font-size:10px;color:{_C["muted"]};letter-spacing:.8px;'
+        f'margin:18px 0 8px">⚡ SCHNELLAKTIONEN</div>',
+        unsafe_allow_html=True,
+    )
+    _q1, _q2, _q3, _q4 = st.columns(4)
+    with _q1:
+        if st.button("👤 Spieler", key="qa2_spieler", use_container_width=True):
+            _navigate("👤  Spieler")
+    with _q2:
+        if st.button("🧪 Diagnostik", key="qa2_diag", use_container_width=True):
+            _navigate("🔬  Diagnostik")
+    with _q3:
+        if st.button("📅 Training", key="qa2_training", use_container_width=True):
+            _navigate("📅  Training")
+    with _q4:
+        if st.button("📄 PDF", key="qa2_pdf", use_container_width=True):
+            _navigate("📄  Dokumente")
+
+
+def _trainer_letzte_spieler(trainer_id) -> None:
+    """Zuletzt verwendete Spieler — max 3, kompakte Karten."""
+    st.markdown(
+        f'<div style="font-size:10px;color:{_C["muted"]};letter-spacing:.8px;'
+        f'margin:20px 0 12px">👤 ZULETZT VERWENDET</div>',
+        unsafe_allow_html=True,
+    )
+    letzte = dashboard_trainer_letzte_spieler(trainer_id, limit=3) if trainer_id else []
+    if not letzte:
+        st.caption("Keine kürzlich verwendeten Spieler.")
+        if st.button("👥 Alle Spieler anzeigen →", key="lsp_alle_leer",
+                     use_container_width=True):
+            _navigate("👤  Spieler")
+        return
+
+    _FARBEN = ["#58a6ff", "#3fb950", "#d29922"]
+    ncols = max(1, len(letzte))
+    cols  = st.columns(ncols)
+
+    for i, s in enumerate(letzte):
+        pid     = s["id"]
+        name    = (f"{s.get('vorname','')} {s.get('nachname','')}".strip()
+                   or s.get("name", "—"))
+        mannsch = s.get("mannschaft") or "—"
+        letzte_m = s.get("letzte_messung") or "Noch kein Test"
+        sc      = athletik_score(
+            fms_letzter(pid), y_balance_letzter(pid), sprint_letzter(pid),
+            sprung_letzter(pid), agilitaet_letzter(pid), ausdauer_letzter(pid),
+            spiro_row=spiro_test_letzter(pid),
+        )
+        sc_c    = _C["green"] if sc >= 70 else _C["orange"] if sc >= 40 else _C["red"]
+        sc_txt  = f"{sc}/100" if sc else "—"
+        farbe   = _FARBEN[i % len(_FARBEN)]
+        initial = name[0].upper() if name else "?"
+
+        with cols[i]:
+            st.markdown(
+                f'<div style="background:{_C["surf"]};border:1px solid {_C["border"]};'
+                f'border-radius:10px;padding:14px;margin-bottom:8px">'
+                f'<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">'
+                f'<div style="width:36px;height:36px;border-radius:50%;'
+                f'background:{farbe}22;border:2px solid {farbe};'
+                f'display:flex;align-items:center;justify-content:center;'
+                f'font-size:15px;font-weight:800;color:{farbe};flex-shrink:0">{initial}</div>'
+                f'<div style="min-width:0">'
+                f'<div style="font-size:13px;font-weight:700;color:{_C["text"]};'
+                f'white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{name}</div>'
+                f'<div style="font-size:10px;color:{_C["muted"]}">{mannsch}</div>'
+                f'</div></div>'
+                f'<div style="display:flex;justify-content:space-between;'
+                f'border-top:1px solid {_C["border"]};padding-top:8px">'
+                f'<div><div style="font-size:9px;color:{_C["muted"]}">SCORE</div>'
+                f'<div style="font-size:16px;font-weight:800;color:{sc_c}">{sc_txt}</div></div>'
+                f'<div style="text-align:right">'
+                f'<div style="font-size:9px;color:{_C["muted"]}">LETZTER TEST</div>'
+                f'<div style="font-size:10px;color:{_C["muted"]}">{letzte_m}</div>'
+                f'</div></div></div>',
+                unsafe_allow_html=True,
+            )
+            if st.button("Profil →", key=f"lsp_{pid}", use_container_width=True):
+                st.session_state["global_player_id"]  = pid
+                st.session_state["_nav_goto"]         = "👤  Spieler"
+                st.session_state["nav_sub_spieler"]   = "🏃 Profil & Diagnostik"
+                st.rerun()
+
+    st.markdown('<div style="height:6px"></div>', unsafe_allow_html=True)
+    if st.button("👥 Alle Spieler →", key="lsp_alle", use_container_width=True):
+        _navigate("👤  Spieler")
+
+
+# ── Trainer-Dashboard ─────────────────────────────────────────────────────────
+
+def _dash_trainer(user: dict):
+    trainer_id = user.get("id")
+    vorname    = user.get("vorname") or user.get("email", "Coach")
+
+    # 1. Kompakte Begrüßung
+    _trainer_greeting(vorname)
+
+    # 2. Daten laden — gebündelt, kein Divider darunter
+    alle_spieler = spieler_laden(trainer_id, "Trainer", user.get("verein_id"))
+    n_spieler    = len(alle_spieler) if alle_spieler else 0
+
+    # Leerer Account → Onboarding
+    if not alle_spieler:
+        _trainer_leer(trainer_id)
+        return
+
+    faellig    = dashboard_trainer_ohne_test(trainer_id)    if trainer_id else 0
+    verletz    = dashboard_trainer_neue_verletzungen(trainer_id) if trainer_id else 0
+    diag_monat = dashboard_trainer_diagnostiken_monat(trainer_id) if trainer_id else 0
+
+    # Team-Score + Risiko (bestehende Berechnung, keine neue Logik)
+    avg_score, high_risk, n_scored = _compute_team_score(alle_spieler)
+
+    # 3. KPI-Streifen
+    _trainer_kpi_strip(n_spieler, faellig, high_risk, verletz, diag_monat)
+
+    # 4. Score-Karte + Handlungsbedarf (Desktop: nebeneinander; Mobile: gestapelt)
+    _col_l, _col_r = st.columns([1, 1], gap="small")
+    with _col_l:
+        _trainer_score_card(avg_score, n_scored > 0, n_scored)
+    with _col_r:
+        _trainer_handlung(faellig, high_risk, verletz)
+
+    # 5. Schnellaktionen
+    _trainer_schnellaktionen()
+
+    # 6. Zuletzt verwendete Spieler
+    _trainer_letzte_spieler(trainer_id)
 
     # ── Daten laden ───────────────────────────────────────────────────────────
     alle_spieler = spieler_laden(trainer_id, "Trainer", user.get("verein_id"))

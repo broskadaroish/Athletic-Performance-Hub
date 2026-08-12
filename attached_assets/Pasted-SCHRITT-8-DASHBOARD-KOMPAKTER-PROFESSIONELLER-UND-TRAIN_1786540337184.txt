@@ -1,0 +1,737 @@
+SCHRITT 8 – DASHBOARD KOMPAKTER, PROFESSIONELLER UND TRAINERORIENTIERT GESTALTEN
+
+Arbeite auf Basis von SCHRITT 1 bis SCHRITT 7 weiter.
+
+WICHTIG:
+
+* Keine Login-/Session-Logik ändern.
+* Keine Kunden-/Lizenzverwaltung ändern.
+* Keine Pakete oder Preise verändern.
+* Keine Vertrags-/Kündigungslogik ändern.
+* Keine FMS-, Y-Balance- oder Sprintlogik ändern.
+* Keine Defizitlogik ändern.
+* Keine Trainingsplanlogik ändern.
+* Keine Datenbankstruktur ändern, sofern für reine Dashboard-Darstellung nicht nötig.
+* Keine bestehenden Werte neu berechnen.
+* Bestehende Scores ausschließlich anzeigen, nicht neu definieren.
+* Mobile Navigation aus Schritt 7 erhalten.
+* Desktop-/Laptop-Darstellung weiterhin unterstützen.
+
+==================================================
+0. VERBINDLICHE ARBEITSREGEL
+============================
+
+Prüfe zuerst das bestehende Dashboard.
+
+Für jeden Punkt:
+
+A) vollständig vorhanden
+→ behalten und nur optimieren, wenn nötig
+
+B) teilweise vorhanden
+→ ergänzen
+
+C) nicht vorhanden
+→ neu erstellen
+
+Keine doppelten Kennzahlen oder parallelen Dashboard-Systeme erstellen.
+
+==================================================
+
+1. ZIEL
+   ==================================================
+
+Das Dashboard soll auf den ersten Blick folgende Fragen beantworten:
+
+* Wie viele Spieler betreue ich?
+* Gibt es fällige Tests?
+* Gibt es Spieler mit erhöhtem Handlungsbedarf?
+* Wie ist der aktuelle Athletikstatus?
+* Welche Aufgaben sollte ich als Trainer als Nächstes erledigen?
+* Welche Spieler habe ich zuletzt bearbeitet?
+
+Das Dashboard soll deutlich weniger Scrollen erfordern.
+
+==================================================
+2. BEGRÜSSUNGSBEREICH KOMPAKTER
+===============================
+
+Oben beibehalten:
+
+"Guten Tag, [Name] 👋"
+
+Darunter:
+aktuelles Datum.
+
+Auf Mobile kompakt darstellen.
+
+Keine große Leerfläche zwischen Begrüßung und Dashboard-Inhalt.
+
+==================================================
+3. TRAINERÜBERSICHT
+===================
+
+Direkt unter der Begrüßung einen Bereich:
+
+TRAINERÜBERSICHT
+
+Erstelle kompakte KPI-Karten.
+
+Mindestens:
+
+* Spieler
+* fällige Tests
+* erhöhtes Risiko / Handlungsbedarf
+
+Optional, wenn echte Daten vorhanden:
+
+* neue Verletzungen
+* Tests diesen Monat
+* aktive Trainingspläne
+
+WICHTIG:
+Keine Werte erfinden.
+
+Bestehende Datenquellen verwenden.
+
+==================================================
+4. MOBILE KPI-LAYOUT
+====================
+
+Auf Smartphone:
+
+2 oder 3 kleine KPI-Karten pro Zeile.
+
+Beispiel:
+
+[ 👥 Spieler ] [ 📋 Fällig ] [ ⚠ Risiko ]
+[     12     ] [     3     ] [    2     ]
+
+Die Karten sollen deutlich kompakter sein als die bisherigen großen Einzelkarten.
+
+==================================================
+5. DESKTOP KPI-LAYOUT
+=====================
+
+Auf Laptop/Desktop:
+
+Kennzahlen nebeneinander anzeigen.
+
+Zum Beispiel 4–6 Karten in einer Zeile, wenn Platz vorhanden.
+
+Keine übergroßen Karten.
+
+==================================================
+6. ATHLETIKSCORE ALS ZENTRALE KARTE
+===================================
+
+Der bestehende Athletikscore soll prominent angezeigt werden.
+
+Beispiel:
+
+TEAM-ATHLETIKSCORE
+
+39 / 100
+
+[Fortschrittsbalken]
+
+Verbesserungsbedarf
+
+WICHTIG:
+Bestehende Score-Berechnung verwenden.
+
+Keine neue Score-Formel erstellen.
+
+Statusfarbe entsprechend bestehender Bewertungslogik.
+
+==================================================
+7. SCORE-FARBE KORREKT
+======================
+
+Keine rein optische Farbzuordnung, die der bestehenden Bewertungslogik widerspricht.
+
+Wenn ein Score laut bestehender Logik kritisch ist:
+rot/orange entsprechend vorhandener Bewertung.
+
+Wenn gut:
+grün.
+
+==================================================
+8. SCORE-ERKLÄRUNG
+==================
+
+Unter dem Athletikscore optional klein anzeigen:
+
+"Basierend auf den aktuell verfügbaren Diagnosedaten."
+
+Wenn Daten fehlen:
+
+"Score basiert auf unvollständigen Diagnosedaten."
+
+Keine falsche Vollständigkeit suggerieren.
+
+==================================================
+9. HANDLUNGSBEDARF
+==================
+
+Direkt nach dem Score einen Bereich:
+
+HANDLUNGSBEDARF
+
+Nur echte relevante Punkte anzeigen.
+
+Beispiele:
+
+⚠ 2 Spieler mit erhöhtem Risiko
+📋 3 Tests sind fällig
+🩺 1 neue Verletzung
+📈 2 Trainingspläne sollten überprüft werden
+
+Keine künstlichen Aufgaben erzeugen.
+
+==================================================
+10. 0-WERTE WENIGER PROMINENT
+=============================
+
+Wenn ein Wert 0 ist, muss er nicht als große Warnkarte erscheinen.
+
+Beispiel:
+
+0 neue Verletzungen
+
+kann klein oder gar nicht dargestellt werden.
+
+Dashboard soll wichtige Dinge priorisieren.
+
+==================================================
+11. AUFGABEN ANZEIGEN
+=====================
+
+Button:
+
+"Aufgaben anzeigen →"
+
+Dieser soll auf bestehende relevante Seiten verlinken.
+
+Keine neue Task-Engine bauen.
+
+==================================================
+12. SCHNELLAKTIONEN
+===================
+
+Ergänze kompakte Schnellaktionen:
+
+* Neuer Test
+* Spieler auswählen
+* Training öffnen
+
+Optional:
+
+* neuen Spieler anlegen
+
+Nur bestehende Funktionen verlinken.
+
+Keine neuen Prozesse erstellen.
+
+==================================================
+13. MOBILE SCHNELLAKTIONEN
+==========================
+
+Auf Smartphone maximal 2–4 kompakte Aktionen.
+
+Keine riesigen Buttons über mehrere Bildschirmhöhen.
+
+==================================================
+14. ZULETZT VERWENDETE SPIELER
+==============================
+
+Bereich:
+
+ZULETZT VERWENDET
+
+Maximal 3 Spieler anzeigen.
+
+Beispiel:
+
+Lion Daroish
+FC Heidenheim
+
+Athletikscore:
+78 / 100
+
+Letzter Test:
+03.08.2026
+
+[Spieler öffnen]
+
+Danach:
+
+[Alle Spieler →]
+
+==================================================
+15. EIGENNAMEN NICHT ÜBERSETZEN
+===============================
+
+Spielernamen exakt aus der Datenbank anzeigen.
+
+Beispiel:
+
+Lion
+
+muss:
+
+Lion
+
+bleiben.
+
+Keine Übersetzung zu:
+
+Löwe
+
+oder andere Sprache.
+
+==================================================
+16. SPIELERKARTE KOMPAKTER
+==========================
+
+Auf Smartphone Spielerkarte kompakt.
+
+Möglichst:
+
+* Initialen / Avatar
+* Name
+* Verein
+* Position
+* Score
+* letzter Test
+
+Keine übergroße Karte für nur wenige Werte.
+
+==================================================
+17. FÄLLIGE TESTS
+=================
+
+Wenn Tests fällig sind:
+
+einen kompakten Bereich anzeigen.
+
+Beispiel:
+
+FÄLLIGE TESTS
+
+Lion Daroish
+FMS
+seit 5 Tagen fällig
+
+[Öffnen]
+
+Maximal wenige Einträge direkt anzeigen.
+
+Danach:
+
+[Alle fälligen Tests]
+
+Bestehende Fälligkeitslogik verwenden.
+
+==================================================
+18. RISIKOSPIELER / HANDLUNGSBEDARF
+===================================
+
+Wenn Spieler erhöhten Handlungsbedarf haben:
+
+kompakt anzeigen.
+
+Beispiel:
+
+HANDLUNGSBEDARF
+
+Devin Daroish
+Y-Balance-Asymmetrie
+
+[Details]
+
+Keine medizinische Diagnose neu erzeugen.
+
+Nur vorhandene Bewertungslogik anzeigen.
+
+==================================================
+19. VERLETZUNGEN
+================
+
+Falls das bestehende Verletzungsmodul neue / aktive Verletzungen kennt:
+
+kompakte Anzeige möglich.
+
+Beispiel:
+
+AKTIVE VERLETZUNGEN
+
+1 Spieler
+
+[Details]
+
+Keine neue Verletzungslogik bauen.
+
+==================================================
+20. AKTIVE TRAININGSPLÄNE
+=========================
+
+Falls möglich:
+
+Bereich:
+
+AKTIVE TRAININGSPLÄNE
+
+Beispiel:
+
+10 aktive Pläne
+2 mit neuen Diagnosedaten
+
+[Training öffnen]
+
+Bestehende Logik aus Schritt 3/4 verwenden.
+
+==================================================
+21. DIAGNOSEABDECKUNG
+=====================
+
+Optional einen kompakten Bereich:
+
+DIAGNOSESTATUS
+
+Beispiel:
+
+FMS:
+8 / 12 aktuell
+
+Y-Balance:
+7 / 12 aktuell
+
+Sprint:
+6 / 12 aktuell
+
+Nur wenn diese Informationen bereits zuverlässig aus vorhandenen Daten ableitbar sind.
+
+Keine neue komplexe Statistikengine bauen.
+
+==================================================
+22. KEINE DOPPELTEN INFORMATIONEN
+=================================
+
+Wenn eine Information bereits oben in KPI-Karten enthalten ist, nicht darunter erneut als riesige Karte anzeigen.
+
+Beispiel:
+
+"Meine Spieler: 12"
+
+nicht gleichzeitig:
+
+* KPI Spieler 12
+  UND
+* riesige Karte "Meine Spieler 12"
+
+Doppelte Darstellung vermeiden.
+
+==================================================
+23. REIHENFOLGE MOBILE
+======================
+
+Auf Smartphone bevorzugte Reihenfolge:
+
+1. Begrüßung
+2. Trainerübersicht
+3. Athletikscore
+4. Handlungsbedarf
+5. Schnellaktionen
+6. fällige Tests / wichtige Aufgaben
+7. zuletzt verwendete Spieler
+8. weitere Informationen
+
+Wichtige Informationen zuerst.
+
+==================================================
+24. REIHENFOLGE DESKTOP
+=======================
+
+Auf Desktop kann sinnvoll nebeneinander angeordnet werden.
+
+Zum Beispiel:
+
+Zeile 1:
+KPI-Karten
+
+Zeile 2:
+Athletikscore | Handlungsbedarf
+
+Zeile 3:
+Fällige Tests | Zuletzt verwendet
+
+Keine starre mobile Spalte auf Desktop.
+
+==================================================
+25. SCROLLLÄNGE REDUZIEREN
+==========================
+
+Ziel:
+
+Auf Smartphone sollen die wichtigsten Informationen in ungefähr den ersten 1–2 Bildschirmhöhen sichtbar sein.
+
+Reduzieren:
+
+* große Margins
+* doppelte Karten
+* unnötige Überschriften
+* große leere Container
+
+==================================================
+26. KARTENDESIGN
+================
+
+Bestehendes Dark Design beibehalten.
+
+Karten:
+
+* klare Hierarchie
+* leicht abgerundete Ecken
+* nicht zu viele Rahmen
+* dezente Trennung
+* wenige funktionale Farben
+
+Keine übermäßigen Schatten/Animationen.
+
+==================================================
+27. STATUSFARBEN
+================
+
+Weiterhin:
+
+Blau:
+Navigation / Aktion
+
+Grün:
+gut / unauffällig
+
+Gelb/Orange:
+beobachten / mittlerer Handlungsbedarf
+
+Rot:
+kritisch / Risiko / überfällig
+
+Grau/Weiß:
+neutral
+
+Keine neuen zufälligen Akzentfarben.
+
+==================================================
+28. LEERE ZUSTÄNDE
+==================
+
+Wenn Daten fehlen:
+
+saubere neutrale Meldung.
+
+Beispiele:
+
+"Noch keine Spieler angelegt."
+
+"Keine fälligen Tests."
+
+"Keine aktuellen Verletzungen."
+
+"Keine ausreichenden Diagnosedaten für Team-Score."
+
+Keine Fehleroptik für normale NO_DATA-Zustände.
+
+==================================================
+29. NEUER KUNDE / LEERES DASHBOARD
+==================================
+
+Für einen neu registrierten Trainer oder Verein ohne Spieler soll das Dashboard nicht leer oder kaputt wirken.
+
+Anzeigen:
+
+"Willkommen bei Athletic Performance Hub."
+
+"Lege deinen ersten Spieler an, um mit Diagnostik und Trainingsplanung zu starten."
+
+Button:
+
+[Ersten Spieler anlegen]
+
+Nur bestehende Spieleranlage öffnen.
+
+==================================================
+30. ROLLENBERÜCKSICHTIGUNG
+==========================
+
+Dashboard abhängig von vorhandener Rolle sinnvoll darstellen.
+
+Trainer:
+eigene Spieler / Aufgaben
+
+Verein:
+bestehende vereinsbezogene Übersicht
+
+Superadmin:
+bestehendes Superadmin-Dashboard weiterhin getrennt behandeln
+
+Keine Rechte vermischen.
+
+==================================================
+31. KLICKBARKEIT
+================
+
+KPI-/Info-Karten dürfen anklickbar sein, wenn sie zu einer sinnvollen vorhandenen Seite führen.
+
+Beispiel:
+
+Fällige Tests 3
+→ fällige Tests öffnen
+
+Risiko 2
+→ relevante Spieler öffnen
+
+Aber keine neue Navigation bauen, wenn keine passende Zielseite existiert.
+
+==================================================
+32. PERFORMANCE
+===============
+
+Dashboard soll schnell laden.
+
+Keine unnötigen schweren Diagramme.
+
+Keine zusätzlichen Dauerqueries, wenn Werte bereits in vorhandener Datenlogik verfügbar sind.
+
+Wenn mehrere Kennzahlen dieselben Daten brauchen:
+Abfragen möglichst effizient bündeln.
+
+==================================================
+33. STREAMLIT-RERUNS
+====================
+
+Dashboard-Interaktionen dürfen nicht dazu führen, dass:
+
+* Login verloren geht
+* aktiver Spieler verloren geht
+* Session verloren geht
+* unnötig vollständige App neu initialisiert wird
+
+Sessionlogik aus Schritt 1 respektieren.
+
+==================================================
+34. MOBILE BOTTOM NAVIGATION
+============================
+
+Bottom Navigation aus Schritt 7 darf durch den Dashboard-Umbau nicht beschädigt werden.
+
+Startseite soll als aktiver Punkt erkennbar sein.
+
+==================================================
+35. TESTFÄLLE MOBILE
+====================
+
+Teste mindestens bei:
+
+360 px
+390 px
+412 px
+
+Prüfen:
+
+* Begrüßung
+* KPI-Karten
+* Score
+* Handlungsbedarf
+* Schnellaktionen
+* fällige Tests
+* zuletzt verwendete Spieler
+* Bottom Navigation
+* kein horizontales Scrollen
+
+==================================================
+36. TESTFÄLLE LAPTOP/DESKTOP
+============================
+
+Teste mindestens:
+
+1366 × 768
+
+und größere Desktopbreite.
+
+Prüfen:
+
+* KPI-Karten sinnvoll nebeneinander
+* Score/Handlungsbedarf gut verteilt
+* keine übergroßen Leerräume
+* Sidebar funktioniert
+
+==================================================
+37. DATENKORREKTHEIT
+====================
+
+Prüfe bei allen angezeigten Zahlen:
+
+* Spielerzahl stimmt
+* Testzahl stimmt
+* fällige Tests stimmen
+* Risikoanzahl stimmt
+* Score stimmt
+* letzte Spieler stimmen
+* letzter Test stimmt
+
+Keine Demo-/Placeholder-Werte in produktiver Ansicht anzeigen.
+
+==================================================
+38. REGRESSIONSTEST
+===================
+
+Zusätzlich prüfen:
+
+* Login funktioniert
+* Registrierung funktioniert
+* Session bleibt erhalten
+* Spielerwechsel funktioniert
+* Diagnostik funktioniert
+* FMS funktioniert
+* Y-Balance funktioniert
+* Sprint funktioniert
+* Training funktioniert
+* Trainingsplanbearbeitung funktioniert
+* Vertrag funktioniert
+* Kunden-/Lizenzverwaltung funktioniert
+* keine Preise/Pakete verändert
+
+==================================================
+39. ABSCHLUSSBERICHT
+====================
+
+Nach Abschluss berichten:
+
+1. Wie sah das alte Dashboard strukturell aus?
+2. Welche großen/doppelten Karten wurden entfernt oder verkleinert?
+3. Welche KPI-Karten wurden erstellt?
+4. Wie wird der Athletikscore dargestellt?
+5. Wie wird Handlungsbedarf dargestellt?
+6. Welche Schnellaktionen gibt es?
+7. Wie werden zuletzt verwendete Spieler angezeigt?
+8. Wie wird ein leerer neuer Account dargestellt?
+9. Wie funktioniert Mobile?
+10. Wie funktioniert Laptop/Desktop?
+11. Welche Dateien wurden geändert?
+12. Welche CSS-/UI-Komponenten wurden geändert?
+13. Wurden Scores oder Berechnungen verändert? Erwartet: NEIN.
+14. Wurde Datenbanklogik verändert? Erwartet: NEIN, außer zwingend notwendige reine Dashboard-Metadaten.
+15. Welche Tests wurden durchgeführt?
+16. Welche 10 Punkte soll ich selbst testen?
+
+Für jeden Hauptbereich kennzeichnen:
+
+* BEREITS VORHANDEN
+* ERGÄNZT
+  oder
+* NEU ERSTELLT
+
+Danach STOPPEN.
+
+Keine weiteren Design- oder Funktionsphasen automatisch starten.
