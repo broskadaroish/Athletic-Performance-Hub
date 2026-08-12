@@ -37,3 +37,16 @@ description: Impressum, Datenschutz, AGB — Architektur, E-Mail-Austausch, Zuga
 
 **Why:** Spec §4 — private E-Mail darf nicht als Support/Kontakt erscheinen
 **How to apply:** Bei neuen Kontakt-Feldern immer support@aphsystem.de verwenden, nie hotmail
+
+## Sidebar-Footer Impressum/Datenschutz/AGB — ENTFERNT
+
+Die drei Sidebar-Buttons (Impressum, Datenschutz, AGB) aus der EINGELOGGTEN Sidebar wurden entfernt.
+
+**Begründung:** Buttons setzten `st.session_state["nav_section"]` NACH der Widget-Instanziierung
+→ StreamlitAPIException. Außerdem redundant, da die Seiten unter "ℹ️ Über" erreichbar sind.
+
+**nav_section-Regel:** NIE `st.session_state["nav_section"]` direkt nach Widget-Erstellung schreiben.
+Stattdessen `_nav_goto`-Pattern: `st.session_state["_nav_goto"] = target; st.rerun()`.
+Handler bei Zeile ~9959 liest `_nav_goto` VOR Widget-Erstellung bei Zeile ~9979.
+
+**Login-Seite:** Impressum/Datenschutz/AGB bleiben auf der öffentlichen Login-Seite (pre-login Zugang).

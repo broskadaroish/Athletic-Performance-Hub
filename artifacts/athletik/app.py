@@ -10084,18 +10084,7 @@ with st.sidebar:
         f'</div></div>',
         unsafe_allow_html=True,
     )
-    if st.button("📋 Impressum", key="footer_impressum", use_container_width=True):
-        st.session_state["nav_section"]  = "ℹ️  Über"
-        st.session_state["_ueber_sub"]   = "impressum"
-        st.rerun()
-    if st.button("🔒 Datenschutz", key="footer_datenschutz", use_container_width=True):
-        st.session_state["nav_section"]  = "ℹ️  Über"
-        st.session_state["_ueber_sub"]   = "datenschutz"
-        st.rerun()
-    if st.button("📄 AGB", key="footer_agb", use_container_width=True):
-        st.session_state["nav_section"]  = "ℹ️  Über"
-        st.session_state["_ueber_sub"]   = "agb"
-        st.rerun()
+    # Impressum/Datenschutz/AGB sind unter "ℹ️  Über" > Info erreichbar — kein Extra-Button hier.
 
 # ── Route ─────────────────────────────────────────────────────────────────────
 _check_save_ok()

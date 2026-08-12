@@ -352,7 +352,7 @@ html, body { overflow-x: hidden; max-width: 100vw; }
    Safe to target all stSegmentedControl: no other page uses this widget. */
 
 @media (max-width: 768px) {
-    /* ── Nav container ── */
+    /* ── Nav container — full-width fixed bar ── */
     [data-testid="stSegmentedControl"] {
         position: fixed !important;
         bottom: 0 !important;
@@ -361,79 +361,83 @@ html, body { overflow-x: hidden; max-width: 100vw; }
         z-index: 9999 !important;
         background: #0d1117 !important;
         border-top: 1px solid #21262d !important;
-        box-shadow: 0 -2px 16px rgba(0,0,0,.65) !important;
+        box-shadow: 0 -2px 20px rgba(0,0,0,.70) !important;
         margin: 0 !important;
-        padding: 6px 0 env(safe-area-inset-bottom, 0) !important;
+        padding: 0 0 env(safe-area-inset-bottom, 0) !important;
         border-radius: 0 !important;
         width: 100vw !important;
-        min-height: 68px !important;
+        min-height: 84px !important;
     }
-    /* ── Inner pill container — full width, 5 equal columns ── */
+    /* ── Inner container — CSS grid: 5 equal columns, no wrap ── */
     [data-testid="stSegmentedControl"] > div:first-child {
-        display: flex !important;
+        display: grid !important;
+        grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
         width: 100% !important;
         gap: 0 !important;
         background: transparent !important;
         border: none !important;
         padding: 0 !important;
         border-radius: 0 !important;
-        min-height: 68px !important;
+        min-height: 84px !important;
     }
-    /* ── Each option button ── */
+    /* ── Each option button — icon above text ── */
     [data-testid="stSegmentedControl"] button {
-        flex: 1 1 20% !important;
         border-radius: 0 !important;
         border: none !important;
+        border-top: 3px solid transparent !important;
         background: none !important;
         color: #8b949e !important;
         font-size: 13px !important;
         font-weight: 600 !important;
-        padding: 6px 2px !important;
-        min-height: 68px !important;
+        padding: 8px 2px 6px !important;
+        min-height: 84px !important;
+        width: 100% !important;
         min-width: 0 !important;
-        max-width: 20% !important;
         display: flex !important;
         flex-direction: column !important;
         align-items: center !important;
         justify-content: center !important;
-        gap: 3px !important;
+        gap: 4px !important;
         -webkit-tap-highlight-color: transparent !important;
         white-space: nowrap !important;
         overflow: hidden !important;
-        text-overflow: ellipsis !important;
+        text-overflow: clip !important;
         box-shadow: none !important;
         line-height: 1.2 !important;
+        cursor: pointer !important;
     }
-    /* ── Icon (emoji) — larger than label text ── */
+    /* ── Icon (emoji) — clearly larger than label ── */
     [data-testid="stSegmentedControl"] button > div > p,
     [data-testid="stSegmentedControl"] button > p,
     [data-testid="stSegmentedControl"] button span[data-testid="stIconEmoji"],
     [data-testid="stSegmentedControl"] button [class*="icon"],
     [data-testid="stSegmentedControl"] button [class*="Icon"],
     [data-testid="stSegmentedControl"] button img {
-        font-size: 22px !important;
+        font-size: 26px !important;
         line-height: 1 !important;
         margin: 0 !important;
+        display: block !important;
     }
-    /* ── Label text — readable size ── */
+    /* ── Label text ── */
     [data-testid="stSegmentedControl"] button span:not([class]),
     [data-testid="stSegmentedControl"] button [class*="label"],
     [data-testid="stSegmentedControl"] button [class*="Label"] {
-        font-size: 14px !important;
-        line-height: 1.1 !important;
+        font-size: 13px !important;
+        line-height: 1.15 !important;
+        max-width: 100% !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
     }
-    /* ── Selected / active option ── */
-    /* Streamlit sets kind='segmented_controlActive' on the selected button  */
-    /* (confirmed from styled-components.B5oT30oI.js source)                 */
+    /* ── Active / selected option — accent color + top indicator line ── */
     [data-testid="stSegmentedControl"] button[kind='segmented_controlActive'] {
         color: #58a6ff !important;
-        background: rgba(88,166,255,0.08) !important;
-        border: none !important;
+        background: rgba(88,166,255,0.09) !important;
+        border-top: 3px solid #58a6ff !important;
         box-shadow: none !important;
     }
-    /* ── Ensure main content is not hidden behind the taller fixed nav ── */
+    /* ── Ensure main content is not hidden behind fixed nav ── */
     [data-testid="stMainBlockContainer"] {
-        padding-bottom: 100px !important;
+        padding-bottom: 115px !important;
     }
 }
 

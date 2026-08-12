@@ -1,0 +1,500 @@
+KORREKTUR – MOBILE NAVIGATION, DESKTOP-SIDEBAR UND nav_section STREAMLIT-FEHLER
+
+Ich habe aktuell drei reale Probleme:
+
+1. SMARTPHONE:
+Die Navigation Start / Spieler / Tests / Training / Mehr ist zu klein, unübersichtlich und bricht auf zwei Zeilen um.
+
+2. DESKTOP:
+Unten in der eingeloggten Sidebar stehen zusätzlich:
+- Impressum
+- Datenschutz
+- AGB
+
+Diese Links sollen dort NICHT stehen, da sie bereits sauber unter „Info“ vorhanden sind.
+
+3. STREAMLIT-FEHLER:
+Auf Desktop tritt folgender Fehler auf:
+
+streamlit.errors.StreamlitAPIException:
+st.session_state.nav_section cannot be modified after the widget with key nav_section is instantiated.
+
+Traceback zeigt sinngemäß:
+
+st.session_state["nav_section"] = "ℹ️ Über"
+
+Dieser Fehler muss ebenfalls sauber behoben werden.
+
+WICHTIG:
+- Keine Loginlogik ändern.
+- Keine Sessiondatenbank ändern.
+- ath_sid nicht verändern.
+- CookieController nicht verändern.
+- Keine Datenbank ändern.
+- Keine Trainingslogik verändern.
+- Keine Diagnostik ändern.
+- Keine Pakete/Preise ändern.
+- Keine Rechtstexte löschen.
+- Nur Navigation/UI und den konkreten nav_section-State-Fehler reparieren.
+
+==================================================
+TEIL A – STREAMLIT nav_section FEHLER BEHEBEN
+==================================================
+
+1. URSACHE
+
+Der Fehler entsteht, weil der Wert:
+
+st.session_state["nav_section"]
+
+nach Instanziierung eines Streamlit-Widgets mit:
+
+key="nav_section"
+
+direkt verändert wird.
+
+Das ist in Streamlit nicht erlaubt.
+
+Suche ALLE Stellen wie:
+
+st.session_state["nav_section"] = ...
+
+oder:
+
+st.session_state.nav_section = ...
+
+die ausgeführt werden können, nachdem das Widget mit key="nav_section" bereits erstellt wurde.
+
+==================================================
+2. KEIN DIREKTES SCHREIBEN NACH WIDGET-ERSTELLUNG
+
+Folgende Struktur ist NICHT erlaubt:
+
+nav = st.radio(..., key="nav_section")
+
+...
+
+st.session_state["nav_section"] = "Info"
+
+Das entfernen.
+
+==================================================
+3. ZENTRALE NAVIGATION VERWENDEN
+
+Erstelle bzw. verwende eine zentrale Navigationsfunktion.
+
+Beispielprinzip:
+
+def navigate_to(target):
+    st.session_state["_nav_target"] = target
+    st.rerun()
+
+Dann GANZ VOR der Erstellung des nav_section-Widgets:
+
+if "_nav_target" in st.session_state:
+    st.session_state["nav_section"] = st.session_state.pop("_nav_target")
+
+Erst DANACH:
+
+st.radio(...)
+oder
+st.segmented_control(...)
+mit key="nav_section"
+
+erzeugen.
+
+==================================================
+4. ALTERNATIV CALLBACK
+
+Falls die bestehende Architektur besser mit on_change/on_click funktioniert:
+saubere Streamlit-Callbacks verwenden.
+
+Aber weiterhin:
+
+NICHT nach Widget-Erstellung direkt in dessen Session-State-Key schreiben.
+
+==================================================
+5. ALLE NAVIGATIONSPFADE PRÜFEN
+
+Prüfe insbesondere:
+
+- Start
+- Spieler
+- Tests
+- Training
+- Mehr
+- Info
+- Impressum
+- Datenschutz
+- AGB
+- Superadmin
+- Kundenverwaltung
+- Lizenzverwaltung
+
+Keine dieser Aktionen darf den nav_section-Fehler mehr verursachen.
+
+==================================================
+TEIL B – MOBILE BOTTOM NAVIGATION
+==================================================
+
+6. EINE ZEILE
+
+Auf Smartphone bis einschließlich 768 px müssen exakt 5 Navigationspunkte in EINER EINZIGEN Zeile stehen:
+
+🏠
+Start
+
+👤
+Spieler
+
+🧪
+Tests
+
+📅
+Training
+
+⋯
+Mehr
+
+Kein Zeilenumbruch.
+
+Kein zweiter Navigationsblock.
+
+==================================================
+7. VOLLE BILDSCHIRMBREITE
+
+Die Navigation soll die komplette Displaybreite nutzen.
+
+Ziel:
+
+position: fixed;
+left: 0;
+right: 0;
+bottom: 0;
+width: 100vw;
+
+Nicht innerhalb des normalen Streamlit-Inhaltscontainers begrenzen.
+
+==================================================
+8. 5 GLEICH BREITE ELEMENTE
+
+Verwende visuell z.B.:
+
+display: grid;
+grid-template-columns: repeat(5, minmax(0, 1fr));
+
+Alle fünf Elemente exakt gleich breit.
+
+Jeweils ungefähr 20 %.
+
+Kein flex-wrap.
+
+==================================================
+9. DEUTLICH GRÖSSER
+
+Die Navigation ist aktuell zu klein.
+
+Gesamthöhe:
+
+ca. 80–88 px
+
+Mindestens:
+
+min-height: 80px
+
+Große Touch-Flächen für Daumenbedienung.
+
+==================================================
+10. ICON OBEN – TEXT UNTEN
+
+Nicht mehr:
+
+🏠 Start
+
+sondern:
+
+🏠
+Start
+
+Das für alle fünf Punkte.
+
+==================================================
+11. ICON-GRÖSSE
+
+Icons:
+
+ca. 24–28 px
+
+==================================================
+12. TEXT-GRÖSSE
+
+Text:
+
+ca. 13–15 px
+
+„Training“ muss vollständig lesbar sein.
+
+==================================================
+13. WIE EINE ECHTE APP-LEISTE
+
+Die fünf Punkte sollen NICHT wie fünf normale Streamlit-Buttons mit großen Rahmen wirken.
+
+Ziel:
+eine zusammenhängende Bottom Navigation.
+
+Also:
+
+- gemeinsamer dunkler Hintergrund
+- keine dicken Einzelrahmen
+- dezente Trennung
+- aktiver Punkt farblich hervorheben
+
+==================================================
+14. AKTIVER MENÜPUNKT
+
+Aktiver Punkt klar erkennen.
+
+Zum Beispiel:
+
+- Icon + Text in APH-Akzentfarbe
+- leichter Hintergrund
+- kleine obere Akzentlinie
+
+Keine riesige rote Umrandung.
+
+==================================================
+15. FIXED BOTTOM
+
+Die Navigation bleibt beim Scrollen unten sichtbar.
+
+Hoher z-index.
+
+==================================================
+16. SAFE AREA
+
+Falls sinnvoll:
+
+padding-bottom: env(safe-area-inset-bottom);
+
+==================================================
+17. INHALT NICHT VERDECKEN
+
+Hauptinhalt unten ausreichend Abstand geben:
+
+ca. 105–120 px
+
+Damit z.B. „Spieler speichern“ nicht hinter der Navigation liegt.
+
+==================================================
+18. SCROLL-TO-TOP
+
+Bei echtem Wechsel einer Hauptseite:
+
+Start → Spieler
+Spieler → Tests
+Tests → Training
+Training → Mehr
+
+muss die neue Seite oben beginnen.
+
+Aber normale Formular-Reruns dürfen NICHT automatisch nach oben springen.
+
+==================================================
+19. KEIN ERNEUTER LOGIN
+
+Mobile Navigation muss weiterhin dieselbe Session nutzen.
+
+Kein erneuter Login.
+
+Nicht verändern:
+
+- ath_sid
+- CookieController
+- Session-Lifetime
+- Session-Datenbank
+
+==================================================
+20. KEINE ALTEN TRIGGER-HACKS
+
+Nicht wieder einbauen:
+
+- 0–20 Triggerbuttons
+- ⬡-Buttons
+- versteckte Navigationstasten
+- img onload
+- img onerror
+- React-Hacks
+- <a href="?nav=..."> Vollreload-Navigation
+
+==================================================
+TEIL C – DESKTOP SIDEBAR AUFRÄUMEN
+==================================================
+
+21. RECHTLICHE LINKS AUS DER EINGELOGGTEN SIDEBAR ENTFERNEN
+
+Im Desktop-/Laptop-Modus stehen aktuell unten direkt:
+
+- Impressum
+- Datenschutz
+- AGB
+
+Diese drei großen Sidebar-Buttons vollständig aus der EINGELOGGTEN Sidebar entfernen.
+
+==================================================
+22. INFO BLEIBT ERHALTEN
+
+„Info“ bleibt als Menüpunkt bestehen.
+
+Unter Info bleiben erreichbar:
+
+- Impressum
+- Datenschutz
+- AGB / Nutzungsbedingungen
+- Support kontaktieren
+
+Keine Rechtstexte löschen.
+
+==================================================
+23. LOGIN-SEITE
+
+Auf der ÖFFENTLICHEN Login-Seite dürfen weiterhin direkt sichtbar sein:
+
+Impressum
+Datenschutz
+AGB
+
+Diese Links sind dort sinnvoll, da sie ohne Login erreichbar sein müssen.
+
+NICHT von der Login-Seite entfernen.
+
+==================================================
+24. SIDEBAR FOOTER
+
+In der eingeloggten Sidebar unten nur kompakt:
+
+© 2026 Athletic Performance Hub
+v1.0.0
+
+bzw. die bestehende dynamische Versionsnummer.
+
+Keine zusätzlichen großen Buttons:
+
+Impressum
+Datenschutz
+AGB
+
+darunter.
+
+==================================================
+25. MOBILE RECHTLICHES
+
+Auf Mobile:
+
+Mehr
+→ Info
+
+Dort:
+
+Impressum
+Datenschutz
+AGB
+Support
+
+Nicht in die Haupt-Bottom-Bar aufnehmen.
+
+==================================================
+TEIL D – TESTS
+==================================================
+
+26. DESKTOP-FEHLER TESTEN
+
+Superadmin anmelden.
+
+Dann mehrfach navigieren:
+
+Start
+Benutzerverwaltung
+Vereinsverwaltung
+Lizenzverwaltung
+Kundenverwaltung
+Info
+
+Erwartung:
+
+KEINE:
+
+StreamlitAPIException
+
+und insbesondere keine Meldung:
+
+st.session_state.nav_section cannot be modified after the widget with key nav_section is instantiated.
+
+==================================================
+27. MOBILE TEST
+
+Teste:
+
+360 px
+390 px
+412 px
+430 px
+
+Erwartung:
+
+- alle 5 Navigationselemente in EINER Zeile
+- volle Displaybreite
+- keine zweite Zeile
+- Icon oben
+- Text unten
+- große Touch-Flächen
+- keine horizontale Scrollbar
+- Login bleibt erhalten
+
+==================================================
+28. DESKTOP SIDEBAR TEST
+
+Erwartung:
+
+Sidebar enthält KEINE direkten großen Buttons mehr für:
+
+- Impressum
+- Datenschutz
+- AGB
+
+Info bleibt vorhanden.
+
+Über Info sind alle drei weiterhin erreichbar.
+
+==================================================
+29. LOGIN-SEITE TEST
+
+Ohne Login:
+
+Impressum
+Datenschutz
+AGB
+
+weiterhin erreichbar.
+
+==================================================
+30. ABSCHLUSSBERICHT
+
+Berichte danach:
+
+1. Wo wurde nav_section nach Widget-Erstellung verändert?
+2. Wie wurde der StreamlitAPIException behoben?
+3. Gibt es noch direkte Zuweisungen an nav_section nach Widget-Instanziierung? Erwartet: NEIN
+4. Stehen Mobile Start/Spieler/Tests/Training/Mehr jetzt in EINER Zeile? JA / NEIN
+5. Nutzt die Mobile-Bar volle Displaybreite? JA / NEIN
+6. Welche Höhe hat sie?
+7. Sind Icon und Text untereinander? JA / NEIN
+8. Bleibt Login erhalten? JA / NEIN
+9. Funktioniert Scroll-to-top? JA / NEIN
+10. Sind Impressum/Datenschutz/AGB aus der eingeloggten Desktop-Sidebar entfernt? JA / NEIN
+11. Sind sie weiterhin unter Info erreichbar? JA / NEIN
+12. Sind sie ohne Login weiterhin erreichbar? JA / NEIN
+13. Welche Dateien wurden geändert?
+
+Danach STOPPEN.
+
+Keine weiteren Funktionen verändern.
