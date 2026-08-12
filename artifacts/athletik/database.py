@@ -4598,3 +4598,128 @@ def kundenstamm_aendern(
         f"verein_id={verein_id} vorname={vorname} nachname={nachname}",
         superadmin_id,
     )
+
+
+# ── SCHRITT 9 — Datensicherheit, Persistenz, Mandantentrennung ────────────────
+
+def spieler_mandant_pruefen(
+    spieler_id: int,
+    benutzer_id: int | None,
+    rolle: str,
+    verein_id: int | None,
+) -> bool:
+    """
+    IDOR-Schutz: prüft ob spieler_id zum aktuellen Mandanten gehört.
+
+    Superadmin  → immer erlaubt.
+    Vereinsadmin → Spieler muss zur selben verein_id gehören.
+    Trainer      → Spieler muss trainer_id oder verein_id des Trainers besitzen.
+
+    Gibt False zurück, wenn der Spieler nicht existiert oder nicht zugehörig.
+    """
+    if rolle == "Superadmin":
+        return True
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT trainer_id, verein_id FROM spieler WHERE id=?",
+            (spieler_id,),
+        ).fetchone()
+    if not row:
+        return False
+    sp_verein  = row["verein_id"]
+    sp_trainer = row["trainer_id"]
+    if rolle == "Vereinsadmin":
+        return verein_id is not None and sp_verein == verein_id
+    # Trainer: eigener Spieler ODER Spieler im selben Verein
+    return sp_trainer == benutzer_id or (
+        verein_id is not None and sp_verein == verein_id
+    )
+
+
+def backup_status_laden() -> dict:
+    """
+    Gibt Backup-Status für die Datensicherheitsanzeige im Superadmin-Bereich zurück.
+    Liest aus dem konfigurierten Backup-Verzeichnis (uploads/backups/).
+    Keine sensiblen Pfade oder Secrets werden zurückgegeben.
+    """
+    import datetime as _dt
+    from pathlib import Path as _P
+
+    data_dir   = _P(_os.environ.get("ATHLETIK_DATA_DIR", str(_P(DB_PATH).parent)))
+    backup_dir = data_dir / "uploads" / "backups"
+
+    result: dict = {
+        "db_erreichbar":             False,
+        "db_groesse_kb":             None,
+        "backup_anzahl":             0,
+        "letztes_backup_datum":      None,
+        "letztes_backup_groesse_kb": None,
+        "backups":                   [],
+    }
+
+    # DB-Erreichbarkeit prüfen — Datei muss existieren UND lesbar sein
+    # (SQLite erzeugt sonst eine neue leere Datei, was kein echter Betriebszustand wäre)
+    _db_path = _P(DB_PATH)
+    if _db_path.exists():
+        try:
+            with get_conn() as conn:
+                conn.execute("SELECT 1")
+            result["db_erreichbar"] = True
+            result["db_groesse_kb"] = round(_db_path.stat().st_size / 1024, 1)
+        except Exception:
+            pass
+
+    # Backup-Verzeichnis auslesen
+    try:
+        if backup_dir.exists():
+            backups = sorted(backup_dir.glob("athletik_*.db"), reverse=True)
+            result["backup_anzahl"] = len(backups)
+            if backups:
+                latest = backups[0]
+                mtime  = _dt.datetime.fromtimestamp(latest.stat().st_mtime)
+                result["letztes_backup_datum"]      = mtime.strftime("%d.%m.%Y %H:%M")
+                result["letztes_backup_groesse_kb"] = round(
+                    latest.stat().st_size / 1024, 1
+                )
+                result["backups"] = [
+                    {
+                        "name":       f.name,
+                        "datum":      _dt.datetime.fromtimestamp(
+                                          f.stat().st_mtime
+                                      ).strftime("%d.%m.%Y %H:%M"),
+                        "groesse_kb": round(f.stat().st_size / 1024, 1),
+                    }
+                    for f in backups[:10]
+                ]
+    except Exception:
+        pass
+
+    return result
+
+
+def db_backup_erstellen() -> tuple[bool, str]:
+    """
+    Erstellt ein Datenbank-Backup aus dem laufenden Prozess.
+    Ruft tools/backup.py als Subprocess auf (kein Import-Coupling).
+    Gibt (True, meldung) oder (False, fehlermeldung) zurück.
+    """
+    import subprocess
+    from pathlib import Path as _P
+
+    backup_script = _P(__file__).parent / "tools" / "backup.py"
+    if not backup_script.exists():
+        return False, "Backup-Skript nicht gefunden (tools/backup.py)"
+    try:
+        proc = subprocess.run(
+            ["python3", str(backup_script)],
+            capture_output=True, text=True, timeout=120,
+        )
+        if proc.returncode == 0:
+            return True, "Backup erfolgreich erstellt"
+        err = (proc.stderr or proc.stdout or "Unbekannter Fehler").strip()
+        err_short = err.splitlines()[-1] if err else "Unbekannter Fehler"
+        return False, err_short
+    except subprocess.TimeoutExpired:
+        return False, "Timeout — Backup dauerte zu lange (>120 s)"
+    except Exception as exc:
+        return False, str(exc)

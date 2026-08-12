@@ -114,6 +114,22 @@ def lizenz_check_ausfuehren() -> None:
         )
 
 
+def _backup_ausfuehren() -> None:
+    """
+    Tägliches Datenbank-Backup (SCHRITT 9 §23–24).
+    Fehler werden geloggt aber nicht weitergeworfen — Scheduler läuft weiter.
+    """
+    try:
+        from database import db_backup_erstellen
+        ok, msg = db_backup_erstellen()
+        if ok:
+            _log.info("[LizenzScheduler] Tägliches Backup erfolgreich: %s", msg)
+        else:
+            _log.warning("[LizenzScheduler] Tägliches Backup fehlgeschlagen: %s", msg)
+    except Exception as exc:
+        _log.error("[LizenzScheduler] Backup-Fehler: %s", exc)
+
+
 def _scheduler_loop() -> None:
     """Endlosschleife: Check sofort beim Start, dann alle 24 Stunden."""
     # Kurze Startpause damit die App vollständig initialisiert ist
@@ -123,6 +139,8 @@ def _scheduler_loop() -> None:
             lizenz_check_ausfuehren()
         except Exception as exc:
             _log.exception("[LizenzScheduler] Unerwarteter Fehler im Scheduler-Loop: %s", exc)
+        # Tägliches Backup nach dem Lizenz-Check (SCHRITT 9 §23–24)
+        _backup_ausfuehren()
         time.sleep(CHECK_INTERVALL_SEK)
 
 

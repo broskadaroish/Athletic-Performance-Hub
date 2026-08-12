@@ -1,0 +1,970 @@
+SCHRITT 9 – DATENSICHERHEIT, PERSISTENZ, MANDANTENTRENNUNG UND SCHUTZ VOR DATENVERLUST
+
+Arbeite auf Basis von SCHRITT 1 bis SCHRITT 8 weiter.
+
+DIESER SCHRITT HAT HÖCHSTE PRIORITÄT.
+
+ZIEL:
+Gespeicherte Kundendaten, Spieler, Tests, Trainingspläne und Konten dürfen durch Updates, Neustarts, Deployments oder Serverprobleme niemals unbeabsichtigt verloren gehen oder zwischen verschiedenen Kunden vermischt werden.
+
+==================================================
+0. VERBINDLICHE GRUNDREGEL
+==========================
+
+Folgende Daten dürfen NIEMALS automatisch gelöscht werden:
+
+* Superadmin-Konto
+* Trainerkonten
+* Vereinskonten
+* Benutzerkonten
+* Kundendaten
+* Rechnungsadressen
+* Vertragsdaten
+* Lizenzdaten
+* Spieler
+* Spielerprofile
+* FMS-Tests
+* Y-Balance-Tests
+* Sprinttests
+* Anthropometrie
+* sonstige Diagnosedaten
+* Verletzungsdaten
+* Trainingspläne
+* Trainingsplan-Versionen
+* Trainingsplanhistorie
+* Trainingsnotizen
+* abgeschlossene Trainingseinheiten
+* Übungszuordnungen
+* Benutzerdefinierte Daten
+* Kalenderdaten, falls vorhanden
+* Reflexionsdaten, falls vorhanden
+
+Eine Löschung darf ausschließlich stattfinden, wenn ein berechtigter Benutzer diese bewusst und ausdrücklich ausführt.
+
+==================================================
+
+1. KEINE DATENLÖSCHUNG BEI UPDATE
+   ==================================================
+
+Prüfe den gesamten Code auf Stellen, die beim Start oder Update Datenbanken neu erstellen, überschreiben oder zurücksetzen.
+
+Insbesondere suchen nach:
+
+* DROP TABLE
+* DELETE FROM ohne eindeutige Benutzeraktion
+* TRUNCATE
+* os.remove()
+* unlink()
+* shutil.rmtree()
+* Datenbankdatei überschreiben
+* Datenbank beim Start neu erzeugen
+* Test-/Demo-Datenbank über Produktionsdaten kopieren
+* reset_database()
+* init_db() mit destruktivem Verhalten
+* CREATE TABLE ... DROP vorher
+* Tabellenlöschung bei Migration
+* automatische Seed-Funktionen, die bestehende Daten ersetzen
+
+Solche Mechanismen dürfen in Produktion keine Nutzerdaten löschen.
+
+==================================================
+2. DATENBANK-INITIALISIERUNG
+============================
+
+Die Datenbank-Initialisierung muss idempotent sein.
+
+Das bedeutet:
+
+Wenn die App startet:
+
+* fehlende Tabellen erstellen
+* fehlende Felder migrationssicher ergänzen
+
+ABER:
+
+* vorhandene Tabellen nicht löschen
+* vorhandene Datensätze nicht löschen
+* vorhandene Daten nicht überschreiben
+* vorhandene IDs nicht neu vergeben
+
+CREATE TABLE IF NOT EXISTS bzw. sichere Migrationen verwenden.
+
+==================================================
+3. SERVER-NEUSTART
+==================
+
+Nach:
+
+* Server-Neustart
+* Replit-Restart
+* Prozess-Neustart
+* Deployment
+* App-Neustart
+
+müssen alle persistenten Daten weiterhin vorhanden sein.
+
+Teste:
+
+Server stoppen
+→ neu starten
+→ anmelden
+→ Daten weiterhin vorhanden.
+
+==================================================
+4. UPDATE / DEPLOYMENT
+======================
+
+Ein neues Software-Update darf keine Kundendaten verändern.
+
+Vor Datenbankmigration:
+
+* Backup erstellen
+* Migration transaktional durchführen, soweit möglich
+* bei Fehler Rollback
+* keine halbfertige Migration hinterlassen
+
+==================================================
+5. PRODUKTIVE DATENBANK NICHT DURCH GIT ÜBERSCHREIBEN
+=====================================================
+
+Prüfe, ob die produktive Datenbankdatei versehentlich Bestandteil des Git-Repositories ist.
+
+Eine produktive SQLite-Datenbank darf nicht bei jedem Deployment durch eine Repository-Version überschrieben werden.
+
+Falls SQLite verwendet wird:
+
+* Produktionsdatenbank außerhalb des normalen Deployment-Codepfads speichern
+* Datenbankpfad über Environment Variable konfigurierbar machen
+
+Zum Beispiel:
+
+DATABASE_PATH
+
+Keine bestehende Datenbank einfach verschieben, bevor Backup und Migration sicher geplant sind.
+
+==================================================
+6. MANDANTENTRENNUNG
+====================
+
+Athletic Performance Hub ist ein Multi-Tenant-System.
+
+Jeder Kunde besitzt seinen eigenen logisch getrennten Datenbereich.
+
+Kundentyp:
+
+* Trainer
+* Verein
+
+Jeder Kunde / Mandant darf ausschließlich seine eigenen Daten sehen und verändern.
+
+==================================================
+7. TENANT-ID / KUNDEN-ZUORDNUNG
+===============================
+
+Prüfe, wie Kundendaten aktuell voneinander getrennt werden.
+
+Falls bereits eine saubere tenant_id / kunden_id / verein_id vorhanden ist:
+weiterverwenden.
+
+Falls keine einheitliche Mandanten-ID vorhanden ist:
+eine zentrale tenant_id-Struktur migrationssicher ergänzen.
+
+Jeder relevante Datensatz muss eindeutig einem Mandanten zugeordnet werden.
+
+==================================================
+8. TENANT-ZUORDNUNG FÜR DATEN
+=============================
+
+Mindestens folgende Daten müssen eindeutig zugeordnet sein:
+
+* Benutzer
+* Trainer
+* Verein
+* Spieler
+* FMS
+* Y-Balance
+* Sprint
+* Anthropometrie
+* Verletzungen
+* Trainingspläne
+* Trainingsplan-Versionen
+* Trainingsplan-Übungen
+* Notizen
+* Kalenderdaten
+* Berichte
+* Reflexionsdaten
+* sonstige kundenspezifische Daten
+
+Keine kundenspezifischen Datensätze ohne eindeutige Mandantenzuordnung.
+
+==================================================
+9. BEISPIEL TRENNUNG
+====================
+
+Beispiel:
+
+Trainer A
+→ Spieler A1
+→ Spieler A2
+→ Tests A
+→ Trainingspläne A
+
+Trainer B
+→ Spieler B1
+→ Spieler B2
+→ Tests B
+→ Trainingspläne B
+
+Trainer A darf NIEMALS:
+
+* Spieler B1 sehen
+* Tests von B sehen
+* Trainingspläne von B sehen
+* Daten von B bearbeiten
+* Daten von B löschen
+
+Trainer B ebenso nicht bei A.
+
+==================================================
+10. VEREINE
+===========
+
+Dasselbe gilt für Vereine.
+
+Verein A besitzt:
+
+* eigene Benutzer
+* eigene Trainer
+* eigene Spieler
+* eigene Diagnostik
+* eigene Trainingspläne
+
+Verein B besitzt vollständig getrennte Daten.
+
+Keine Vermischung.
+
+==================================================
+11. TRAINER INNERHALB VEREIN
+============================
+
+Falls Trainer einem Verein zugeordnet sind:
+
+Bestehendes Rollenmodell beachten.
+
+Ein Trainer darf nur Daten sehen, für die er innerhalb seines Vereins berechtigt ist.
+
+Keine automatische globale Einsicht in andere Vereine.
+
+==================================================
+12. SUPERADMIN
+==============
+
+Superadmin ist die einzige Rolle, die entsprechend der bestehenden Admin-Rechte mandantenübergreifend Daten verwalten darf.
+
+Aber auch Superadmin-Aktionen müssen eindeutig auf den ausgewählten Kunden bezogen sein.
+
+Vor Änderungen/Löschungen klar anzeigen:
+
+"Kunde:"
+"Kundennummer:"
+"Spieler:"
+
+damit keine Daten des falschen Kunden verändert werden.
+
+==================================================
+13. SERVERSEITIGE ZUGRIFFSPRÜFUNG
+=================================
+
+Mandantentrennung darf NICHT nur über die Oberfläche erfolgen.
+
+Jede Datenbankabfrage für Kundendaten muss serverseitig durch tenant_id / kunden_id eingeschränkt werden.
+
+NICHT ausreichend:
+
+nur Dropdowns filtern.
+
+Auch direkte Funktionsaufrufe dürfen keine fremden Datensätze zurückgeben.
+
+==================================================
+14. QUERY-REGEL
+===============
+
+Bei allen kundenspezifischen SELECT-Abfragen prüfen:
+
+WHERE tenant_id = current_tenant_id
+
+oder entsprechende bestehende sichere Struktur.
+
+Bei UPDATE:
+
+WHERE id = ?
+AND tenant_id = current_tenant_id
+
+Bei DELETE:
+
+WHERE id = ?
+AND tenant_id = current_tenant_id
+
+Keine kundenspezifische Änderung ausschließlich nach Datensatz-ID durchführen.
+
+==================================================
+15. IDOR-SCHUTZ
+===============
+
+Prüfe auf mögliche IDOR-Probleme.
+
+Beispiel:
+
+Trainer A kennt zufällig player_id=52.
+
+Er darf nicht durch Manipulation einer ID auf Spieler 52 eines anderen Trainers zugreifen können.
+
+Jeder Zugriff muss zusätzlich die Mandantenzugehörigkeit prüfen.
+
+==================================================
+16. SPIELERANLAGE
+=================
+
+Beim Anlegen eines neuen Spielers:
+
+Spieler automatisch dem aktuell eingeloggten Mandanten zuordnen.
+
+Der Benutzer darf tenant_id nicht selbst manipulieren können.
+
+==================================================
+17. TESTS
+=========
+
+Beim Anlegen von:
+
+* FMS
+* Y-Balance
+* Sprint
+* Anthropometrie
+* anderen Tests
+
+Mandantenzugehörigkeit vom zugehörigen Spieler ableiten.
+
+Nicht aus einem frei manipulierbaren Formularfeld übernehmen.
+
+==================================================
+18. TRAININGSPLÄNE
+==================
+
+Jeder Trainingsplan muss eindeutig:
+
+* Spieler
+* Kunde/Mandant
+* Ersteller
+
+zugeordnet sein.
+
+Trainingsplan darf niemals bei einem anderen Kunden erscheinen.
+
+==================================================
+19. LÖSCHEN VON EINZELDATEN
+===========================
+
+Wenn ein berechtigter Anwender bewusst z.B. einen Test löschen möchte:
+
+Bestätigung anzeigen.
+
+Beispiel:
+
+"FMS-Test vom 03.08.2026 für Lion Daroish wirklich löschen?"
+
+Löschung nur nach ausdrücklicher Bestätigung.
+
+==================================================
+20. SPIELER LÖSCHEN
+===================
+
+Spieler löschen ist besonders kritisch.
+
+Nicht durch einen einzigen normalen Klick löschen.
+
+Vor endgültiger Löschung:
+
+deutliche Warnung:
+
+"Dieser Spieler besitzt gespeicherte Diagnosen und Trainingspläne."
+
+Anzeigen, was betroffen ist.
+
+Dann separate Bestätigung verlangen.
+
+Bevorzugt:
+
+ARCHIVIEREN / DEAKTIVIEREN
+
+statt sofort endgültig löschen.
+
+==================================================
+21. KUNDENKONTO LÖSCHEN
+=======================
+
+Trainer-/Vereinskonto niemals automatisch löschen bei:
+
+* Kündigung
+* Vertragsende
+* Deaktivierung
+* Lizenzablauf
+
+Diese Zustände dürfen nur den Zugang/Lizenzstatus beeinflussen.
+
+Kundendaten bleiben erhalten, bis eine bewusste Löschentscheidung nach bestehendem Datenschutzprozess erfolgt.
+
+==================================================
+22. SOFT DELETE
+===============
+
+Prüfe, ob für kritische Objekte Soft Delete sinnvoll ist.
+
+Zum Beispiel:
+
+deleted_at
+archiviert
+aktiv = false
+
+Mögliche Objekte:
+
+* Spieler
+* Trainingspläne
+* Kundenkonten
+
+Wenn bereits ein Archivsystem vorhanden ist:
+weiterverwenden.
+
+Keine zweite parallele Löschlogik erstellen.
+
+==================================================
+23. DATENBANK-BACKUP
+====================
+
+Erstelle ein sicheres Backup-Konzept für die produktive Datenbank.
+
+Mindestens:
+
+* regelmäßiges automatisches Backup
+* Backup vor Datenbankmigration
+* mehrere Backup-Generationen
+* Zeitstempel
+
+Beispiel:
+
+backup_2026-08-12_0300.db
+
+Keine bestehenden Backups überschreiben.
+
+==================================================
+24. BACKUP-INTERVALL
+====================
+
+Wenn technisch passend:
+
+mindestens täglich ein Backup.
+
+Zusätzlich vor jeder Datenbankmigration.
+
+Wenn bereits eine Backup-Lösung existiert:
+prüfen und weiterverwenden.
+
+==================================================
+25. BACKUP-RETENTION
+====================
+
+Nicht nur ein einziges Backup behalten.
+
+Beispielhafte Struktur:
+
+* tägliche Backups
+* mehrere letzte Generationen
+
+Keine feste Retention implementieren, wenn Infrastruktur dafür noch nicht klar ist.
+
+Aber sicherstellen, dass ein neues Backup nicht einfach das vorherige überschreibt.
+
+==================================================
+26. BACKUP DARF NICHT IN ÖFFENTLICHEN WEBPFAD
+=============================================
+
+Backup-Dateien:
+
+* nicht öffentlich downloadbar
+* nicht in statischem Webverzeichnis
+* nicht über normale URL erreichbar
+* nicht im Git-Repository speichern
+
+==================================================
+27. RESTORE-FUNKTION
+====================
+
+Prüfe, ob ein Restore-Prozess vorhanden ist.
+
+Falls nicht:
+einen dokumentierten sicheren Restore-Prozess für Superadmin/Betreiber vorbereiten.
+
+Restore darf nicht als normaler Kundenbutton verfügbar sein.
+
+Vor Restore:
+
+* aktuelles Backup erstellen
+* Zielbackup prüfen
+* Anwendung möglichst in Wartungsmodus
+* Restore
+* Integritätsprüfung
+* Neustart
+
+==================================================
+28. DATENBANK-INTEGRITÄT
+========================
+
+Prüfe Foreign Keys und Referenzen.
+
+Beispiel:
+
+Test muss zu existierendem Spieler gehören.
+
+Trainingsplan muss zu existierendem Spieler gehören.
+
+Keine verwaisten Datensätze erzeugen.
+
+SQLite:
+PRAGMA foreign_keys = ON
+
+verwenden, sofern bestehende Architektur SQLite nutzt.
+
+==================================================
+29. CASCADE DELETE PRÜFEN
+=========================
+
+Prüfe alle ON DELETE CASCADE Regeln.
+
+Keine gefährlichen Cascades zulassen, die bei kleiner Fehlbedienung große Datenmengen löschen.
+
+Dokumentiere vorhandene Cascades.
+
+Kritische Cascades nur behalten, wenn fachlich wirklich erforderlich.
+
+==================================================
+30. TRANSAKTIONEN
+=================
+
+Mehrschrittige Datenänderungen sollen möglichst transaktional ausgeführt werden.
+
+Beispiel:
+
+Trainingsplan + Übungen speichern
+
+→ entweder alles erfolgreich
+oder
+→ nichts
+
+Keine halben Trainingspläne speichern.
+
+==================================================
+31. CONCURRENCY / GLEICHZEITIGE ZUGRIFFE
+========================================
+
+Prüfe, wie mehrere Kunden gleichzeitig mit der Anwendung arbeiten.
+
+Keine globale Variable verwenden, die den aktuell ausgewählten:
+
+* Kunden
+* Spieler
+* Benutzer
+
+für alle Sessions gemeinsam speichert.
+
+Sessionbezogene Werte müssen pro Benutzer isoliert sein.
+
+==================================================
+32. STREAMLIT SESSION STATE
+===========================
+
+st.session_state darf nur benutzerspezifische UI-/Sessioninformationen enthalten.
+
+Keine globale gemeinsame Variable verwenden, durch die Spieler A plötzlich bei Benutzer B ausgewählt wird.
+
+==================================================
+33. CACHE
+=========
+
+Prüfe st.cache_data / st.cache_resource und andere Cache-Funktionen.
+
+Kundenspezifische Daten dürfen nicht versehentlich zwischen Mandanten über Cache geteilt werden.
+
+Bei gecachten Daten muss tenant_id Teil des Cache-Schlüssels sein.
+
+Oder kundenspezifische Daten nicht global cachen.
+
+==================================================
+34. DATEIEN / UPLOADS
+=====================
+
+Falls Kunden Dateien hochladen können:
+
+Dateien ebenfalls mandantenspezifisch trennen.
+
+Pfad nicht nur:
+
+uploads/report.pdf
+
+sondern logisch getrennt, z.B.:
+
+uploads/{tenant_id}/...
+
+Dateizugriff immer gegen Mandant prüfen.
+
+==================================================
+35. EXPORT / PDF / BERICHTE
+===========================
+
+Exportierte Berichte dürfen ausschließlich Daten des aktuellen Mandanten enthalten.
+
+Keine globale Datenabfrage für PDF/CSV/Excel-Export verwenden.
+
+==================================================
+36. SUCHE
+=========
+
+Spielersuche, Testsuche und Trainingsplansuche müssen immer mandantenspezifisch sein.
+
+Trainer A darf auch über Suche keine Ergebnisse von Trainer B finden.
+
+==================================================
+37. DASHBOARD
+=============
+
+Dashboard-Zahlen müssen ebenfalls mandantenspezifisch sein.
+
+Beispiel:
+
+Trainer A:
+Spieler = 12
+
+Darf nicht globale 87 Spieler aller Kunden sehen.
+
+Superadmin darf separate globale Kennzahlen haben.
+
+==================================================
+38. LIZENZLIMITS
+================
+
+Spieleranzahl/Lizenzlimits pro Kunde nur auf Daten des jeweiligen Mandanten berechnen.
+
+Kunden dürfen nicht durch Spieler anderer Kunden ihr Limit erreichen.
+
+==================================================
+39. AUDIT LOG
+=============
+
+Wichtige Datenänderungen protokollieren.
+
+Zum Beispiel:
+
+* Spieler angelegt
+* Spieler archiviert
+* Test gelöscht
+* Trainingsplan gelöscht/archiviert
+* Account geändert
+* Restore durchgeführt
+* Datenmigration durchgeführt
+
+Speichern:
+
+* Benutzer
+* Mandant
+* Aktion
+* Objekt
+* Objekt-ID
+* Datum/Uhrzeit
+
+Keine Passwörter/Tokens/Secrets loggen.
+
+==================================================
+40. BEWUSSTE LÖSCHUNG
+=====================
+
+Verbindliche Regel:
+
+Daten werden nur gelöscht, wenn:
+
+1. Benutzer besitzt Berechtigung
+2. Datensatz gehört zu seinem Mandanten
+3. Benutzer startet bewusst die Löschfunktion
+4. Bestätigungsdialog wird bestätigt
+
+Keine automatische Hintergrundlöschung von Nutzerdaten.
+
+==================================================
+41. KEINE LÖSCHUNG BEI FEHLERN
+==============================
+
+Falls ein Import, Update, Plan-Generator oder Test fehlschlägt:
+
+bestehende Daten niemals löschen, um "neu zu starten".
+
+Fehler anzeigen und bestehende Daten erhalten.
+
+==================================================
+42. DATENBANKFEHLER
+===================
+
+Wenn die Datenbank temporär nicht erreichbar oder gesperrt ist:
+
+keine leere Ersatzdatenbank erzeugen und so tun, als wären keine Daten vorhanden.
+
+Stattdessen:
+
+Fehlerzustand anzeigen.
+
+Beispiel:
+
+"Datenbank momentan nicht verfügbar. Bitte später erneut versuchen."
+
+Bestehende Datenbankdatei nicht ersetzen.
+
+==================================================
+43. SERVER DOWN
+===============
+
+Wenn der Server offline ist:
+
+Daten bleiben persistent gespeichert.
+
+Nach Wiederherstellung des Servers:
+
+* gleiche Accounts
+* gleiche Spieler
+* gleiche Tests
+* gleiche Trainingspläne
+* gleiche Vertragsdaten
+
+müssen wieder verfügbar sein.
+
+==================================================
+44. DEPLOYMENT-SICHERHEIT
+=========================
+
+Prüfe den aktuellen Deployment-Prozess.
+
+Sicherstellen:
+
+Code-Deployment
+≠
+Datenbank-Reset
+
+Produktivdaten müssen unabhängig vom App-Code persistieren.
+
+==================================================
+45. TESTMANDANTEN
+=================
+
+Erstelle für Tests, falls möglich ohne Produktionsdaten zu verändern:
+
+Test-Trainer A
+Test-Trainer B
+Test-Verein A
+Test-Verein B
+
+Mit getrennten Testspielern.
+
+Nur falls bereits sichere Testumgebung existiert.
+
+Keine unnötigen Testkonten in Produktion erzeugen.
+
+==================================================
+46. MANDANTENTRENNUNGS-TESTS
+============================
+
+TEST A:
+
+Trainer A legt Spieler A an.
+
+Trainer B einloggen.
+
+Erwartung:
+Spieler A NICHT sichtbar.
+
+TEST B:
+
+Trainer B versucht über direkte player_id auf Spieler A zuzugreifen.
+
+Erwartung:
+Zugriff verweigert.
+
+TEST C:
+
+Verein A legt Spieler VA an.
+
+Verein B:
+
+VA nicht sichtbar.
+
+TEST D:
+
+Trainer A erstellt FMS-Test.
+
+Trainer B:
+
+Test nicht sichtbar.
+
+TEST E:
+
+Trainer A erstellt Trainingsplan.
+
+Trainer B:
+
+Plan nicht sichtbar.
+
+==================================================
+47. LÖSCHTESTS
+==============
+
+Trainer A löscht bewusst eigenen Test.
+
+Erwartung:
+nur dieser Test wird gelöscht.
+
+Trainer A darf Test von Trainer B niemals löschen.
+
+==================================================
+48. UPDATE-TEST
+===============
+
+Vor Test:
+
+* mehrere Benutzer
+* Spieler
+* Tests
+* Trainingspläne
+
+anlegen.
+
+Dann simulieren:
+
+App-Neustart / Update.
+
+Danach prüfen:
+
+alle Daten weiterhin vorhanden.
+
+==================================================
+49. BACKUP-RESTORE-TEST
+=======================
+
+In sicherer Testumgebung:
+
+1. Backup erzeugen
+2. Daten hinzufügen
+3. Restore durchführen
+4. prüfen, ob definierter Backup-Zustand korrekt wiederhergestellt wird
+
+Nicht auf Produktivdaten testen, wenn dadurch echte Daten gefährdet werden.
+
+==================================================
+50. SICHERHEITSCHECK
+====================
+
+Suche insbesondere nach Abfragen wie:
+
+SELECT * FROM spieler
+
+ohne Mandantenfilter.
+
+Oder:
+
+DELETE FROM tests WHERE id=?
+
+ohne tenant_id.
+
+Oder:
+
+UPDATE trainingsplaene SET ...
+
+ohne Mandantenprüfung.
+
+Alle kritischen Stellen absichern.
+
+==================================================
+51. KEINE DATENBANK PRO KUNDE ZWINGEND ERFORDERLICH
+===================================================
+
+WICHTIG:
+
+Mandantentrennung bedeutet nicht zwingend, dass technisch für jeden Trainer/Verein eine komplett separate physische Datenbankdatei nötig ist.
+
+Eine gemeinsame Datenbank ist zulässig, wenn:
+
+* jeder kundenspezifische Datensatz eindeutig tenant_id besitzt
+* jede Abfrage serverseitig tenant_id prüft
+* keine Datenvermischung möglich ist
+
+Wenn das bestehende System bereits getrennte Datenbanken pro Mandant verwendet und sauber funktioniert:
+nicht unnötig umbauen.
+
+Entscheide anhand der bestehenden Architektur.
+
+==================================================
+52. SUPERADMIN-BACKUPSTATUS
+===========================
+
+Falls ohne großen Eingriff möglich:
+
+Superadmin-Bereich:
+
+"Datensicherheit"
+
+anzeigen:
+
+* Datenbank erreichbar
+* letztes Backup
+* Backup-Status
+* letzter erfolgreicher Backup-Zeitpunkt
+
+Keine sensiblen Pfade oder Secrets öffentlich anzeigen.
+
+==================================================
+53. ABSCHLUSSBERICHT
+====================
+
+Nach Abschluss berichten:
+
+1. Welche Datenbank wird aktuell verwendet?
+2. Wo wird die produktive Datenbank gespeichert?
+3. Kann ein Deployment aktuell die Datenbank überschreiben?
+4. Welche Risiken wurden gefunden?
+5. Wie wird Mandantentrennung aktuell umgesetzt?
+6. Welche tenant_id / kunden_id wird verwendet?
+7. Welche Tabellen wurden mit Mandantenzuordnung geprüft?
+8. Welche Tabellen mussten ergänzt werden?
+9. Welche Abfragen wurden wegen fehlender tenant-Prüfung korrigiert?
+10. Wie werden Spieler verschiedener Trainer getrennt?
+11. Wie werden Vereine voneinander getrennt?
+12. Wie werden Tests getrennt?
+13. Wie werden Trainingspläne getrennt?
+14. Wie wird verhindert, dass fremde IDs verwendet werden?
+15. Welche Löschfunktionen wurden abgesichert?
+16. Welche automatischen Löschmechanismen wurden gefunden?
+17. Wie wird bei Update/Deployment Datenverlust verhindert?
+18. Wie funktioniert Backup?
+19. Wie funktioniert Restore?
+20. Was passiert bei Server-Neustart?
+21. Was passiert bei Datenbankfehler?
+22. Welche Dateien wurden geändert?
+23. Welche Datenbankmigrationen wurden durchgeführt?
+24. Welche Tests zur Mandantentrennung wurden durchgeführt?
+25. Welche 10 Punkte soll ich selbst testen?
+
+Für jeden Hauptbereich kennzeichnen:
+
+* BEREITS VORHANDEN
+* ERGÄNZT
+* NEU ERSTELLT
+  oder
+* SICHERHEITSRISIKO BEHOBEN
+
+Danach STOPPEN.
+
+Keine weiteren Funktionen automatisch hinzufügen.

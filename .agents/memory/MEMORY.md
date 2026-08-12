@@ -17,3 +17,4 @@
 - [Branding & Vertrag Schritt-5](schritt5-branding-vertrag.md) — SCHRITT-5: APP_NAME="Athletic Performance Hub", Mein-Vertrag-Seite, Online-Kündigung, Superadmin-Kündigungen-Tab
 - [SCHRITT 7 Mobile Responsive Design](schritt7-mobile.md) — mobile.py + theme.py @media; ?nav= query-param nav; bottom nav, Mehr overlay, player header
 - [SCHRITT 8 Dashboard Trainer](schritt8-dashboard.md) — _dash_trainer komplett ersetzt; neue Helper-Funktionen; Hilfsfunktionen vor _dash_trainer in saas_dashboard.py
+- [SCHRITT 9 Datensicherheit](schritt9-datensicherheit.md) — spieler_mandant_pruefen(), backup_status_laden(), db_backup_erstellen() in database.py; daily backup in lizenz_scheduler.py; Datensicherheit-Dashboard im Superadmin Export-Expander

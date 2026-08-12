@@ -64,6 +64,7 @@ from database import (
     kraft_speichern, kraft_letzter, kraft_history,
     einwilligung_speichern, einwilligung_letzter, einwilligung_alle,
     db_komplett_zuruecksetzen,
+    backup_status_laden, db_backup_erstellen, spieler_mandant_pruefen,
     checkliste_custom_laden, checkliste_custom_speichern,
     logo_laden, logo_speichern, logo_loeschen,
     beobachtung_speichern,
@@ -7900,13 +7901,74 @@ def page_einstellungen():
                                use_container_width=True)
 
         st.markdown("---")
-        st.markdown("### Datenbank")
-        db_path = "athletik.db"
-        import os
-        import os as _os
-        db_size = _os.path.getsize(db_path) / 1024 if _os.path.exists(db_path) else 0
-        st.metric("Datenbankgröße", f"{db_size:.1f} KB")
-        st.info("💡 Erstelle regelmäßig Sicherungen der Datei `athletik.db`.")
+        st.markdown("### 🛡️ Datensicherheit")
+
+        _bst = backup_status_laden()
+
+        # ── KPI-Zeile ─────────────────────────────────────────────────────────
+        _ds1, _ds2, _ds3 = st.columns(3)
+        _ds1.metric(
+            "Datenbank",
+            "✅ Erreichbar" if _bst["db_erreichbar"] else "❌ Nicht erreichbar",
+            f"{_bst['db_groesse_kb']} KB" if _bst["db_groesse_kb"] else None,
+        )
+        _ds2.metric(
+            "Letztes Backup",
+            _bst["letztes_backup_datum"] or "Noch keins",
+            f"{_bst['letztes_backup_groesse_kb']} KB"
+            if _bst["letztes_backup_groesse_kb"] else None,
+        )
+        _ds3.metric("Backups vorhanden", _bst["backup_anzahl"])
+
+        if not _bst["db_erreichbar"]:
+            st.error(
+                "⚠️ Datenbank momentan nicht erreichbar. "
+                "Bitte später erneut versuchen."
+            )
+        if not _bst["letztes_backup_datum"]:
+            st.warning(
+                "⚠️ Noch kein Backup vorhanden. "
+                "Erstelle jetzt ein erstes Backup."
+            )
+
+        # ── Manueller Backup-Button ───────────────────────────────────────────
+        if st.button(
+            "📦 Jetzt Backup erstellen",
+            key="dsg_backup_btn",
+            help="Erstellt sofort ein konsistentes SQLite-Backup via Online-Backup-API",
+        ):
+            with st.spinner("Backup wird erstellt …"):
+                _bk_ok, _bk_msg = db_backup_erstellen()
+            if _bk_ok:
+                st.success(f"✅ {_bk_msg}")
+                st.rerun()
+            else:
+                st.error(f"❌ Backup fehlgeschlagen: {_bk_msg}")
+
+        st.caption(
+            "Backups werden täglich automatisch erstellt und in "
+            "`uploads/backups/` gespeichert (30 Tage Aufbewahrung). "
+            "Die Datenbankdatei ist nicht im Git-Repository enthalten."
+        )
+
+        # ── Backup-Verlauf ────────────────────────────────────────────────────
+        if _bst["backups"]:
+            with st.expander(
+                f"📋 Backup-Verlauf ({_bst['backup_anzahl']} Datei(en))",
+                expanded=False,
+            ):
+                for _b in _bst["backups"]:
+                    st.markdown(
+                        f'<div style="display:flex;justify-content:space-between;'
+                        f'padding:6px 0;border-bottom:1px solid #21262d;'
+                        f'font-size:13px">'
+                        f'<span style="color:#e6edf3;font-family:monospace">'
+                        f'{_b["name"]}</span>'
+                        f'<span style="color:#8b949e">'
+                        f'{_b["datum"]} · {_b["groesse_kb"]} KB</span>'
+                        f'</div>',
+                        unsafe_allow_html=True,
+                    )
 
 
 # ══════════════════════════════════════════════════════════════════════════════
