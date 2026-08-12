@@ -1,0 +1,184 @@
+NÄCHSTER SCHRITT – E-MAIL-ZUSTELLUNG UND PRODUKTIVE LINKS PRÜFEN
+
+Aktueller bestätigter Stand:
+
+- SMTP_LOGIN mit noreply@aphsystem.de funktioniert.
+- smtp.ionos.de:465 SSL funktioniert.
+- SMTP_PASSWORD ist korrekt.
+- SUPPORT_EMAIL = support@aphsystem.de.
+- SMTP selbst soll NICHT verändert werden.
+
+ZIEL:
+Herausfinden, warum Registrierungs-/Verifizierungs-E-Mails beim Kunden nicht zuverlässig ankommen und sicherstellen, dass alle Links auf die produktive Domain zeigen.
+
+==================================================
+1. APP_BASE_URL PRÜFEN
+==================================================
+
+Prüfe den aktuell geladenen Wert von:
+
+APP_BASE_URL
+
+Nur den Wert anzeigen, keine Secrets.
+
+Wenn aktuell eine Replit-Dev-Domain verwendet wird, soll für Produktion verwendet werden:
+
+https://aphsystem.de
+
+Falls APP_BASE_URL als Environment Variable / Secret vorgesehen ist:
+bestehende Struktur weiterverwenden.
+
+Keine URL hart an mehreren Stellen im Code verteilen.
+
+==================================================
+2. ALLE E-MAIL-LINKS PRÜFEN
+==================================================
+
+Prüfe insbesondere Links in:
+
+- E-Mail-Verifizierung
+- Passwort-Reset
+- Account-Freischaltung
+- sonstigen System-E-Mails
+
+Produktive Links sollen auf:
+
+https://aphsystem.de
+
+zeigen.
+
+Beispiele:
+
+https://aphsystem.de/?verify=...
+https://aphsystem.de/?reset=...
+
+bzw. die bereits bestehende korrekte Routingstruktur verwenden.
+
+Keine Replit-Dev-Domain verwenden, wenn APP_BASE_URL gesetzt ist.
+
+==================================================
+3. ZUSTELLTEST DURCHFÜHREN
+==================================================
+
+Verwende die bestehende Superadmin-Testmail.
+
+Sende Testmails an mehrere externe Provider, soweit ich Zieladressen eingebe.
+
+Prüfe intern:
+
+- SMTP.login erfolgreich
+- send_message erfolgreich
+- IONOS akzeptiert Nachricht
+- keine SenderRejected-/RecipientRejected-Exception
+
+Berichte nicht:
+"Mail angekommen"
+
+wenn nur SMTP den Versand akzeptiert hat.
+
+Unterscheide klar:
+
+A) vom SMTP-Server akzeptiert
+B) tatsächlich im Empfängerpostfach sichtbar
+
+B kann nur durch manuellen Empfängertest bestätigt werden.
+
+==================================================
+4. MESSAGE-ID UND HEADER PRÜFEN
+==================================================
+
+Prüfe, ob ausgehende Mails saubere Header haben:
+
+From:
+Athletic Performance Hub <noreply@aphsystem.de>
+
+Reply-To:
+support@aphsystem.de
+
+Subject:
+sinnvoll gesetzt
+
+Date:
+gesetzt
+
+Message-ID:
+gesetzt
+
+MIME:
+korrekt
+
+Plain-Text-Version:
+vorhanden
+
+HTML-Version:
+vorhanden, falls verwendet
+
+Keine leeren E-Mail-Bodies.
+
+==================================================
+5. SPF / DKIM / DMARC NICHT IM CODE ERFINDEN
+==================================================
+
+Prüfe, ob die Domain aphsystem.de nach außen gültige:
+
+- SPF
+- DKIM
+- DMARC
+
+Einträge besitzt.
+
+Falls der Code selbst dies nicht zuverlässig prüfen kann:
+im Bericht sagen, dass DNS extern geprüft werden muss.
+
+Keine DNS-Einträge automatisch verändern.
+
+==================================================
+6. REGISTRIERUNGSMAIL PRÜFEN
+==================================================
+
+Nach einer echten Neuregistrierung protokollieren:
+
+- Benutzer angelegt
+- Token erzeugt
+- Verifizierungslink erzeugt
+- send_verification_email aufgerufen
+- SMTP-Verbindung erfolgreich
+- SMTP-Server hat Nachricht akzeptiert
+
+Keine Tokenwerte loggen.
+
+==================================================
+7. KEINE FALSCHE ERFOLGSMELDUNG
+==================================================
+
+Nur wenn send_verification_email() tatsächlich ohne Fehler abgeschlossen wurde, darf angezeigt werden:
+
+"Bestätigungs-E-Mail wurde versendet."
+
+Wenn der Versand fehlschlägt:
+
+"Dein Konto wurde erstellt, aber die Bestätigungs-E-Mail konnte momentan nicht versendet werden."
+
+Button:
+"Bestätigungs-E-Mail erneut senden"
+
+==================================================
+8. ABSCHLUSSBERICHT
+==================================================
+
+Berichte danach:
+
+1. APP_BASE_URL aktuell:
+2. Werden Verifizierungslinks über aphsystem.de erzeugt? JA/NEIN
+3. Werden Reset-Links über aphsystem.de erzeugt? JA/NEIN
+4. Wird die Testmail vom IONOS-SMTP akzeptiert? JA/NEIN
+5. Sind From/Reply-To korrekt gesetzt? JA/NEIN
+6. Ist Plain-Text-Mailinhalt vorhanden? JA/NEIN
+7. Ist HTML-Mailinhalt vorhanden? JA/NEIN
+8. Sind SPF/DKIM/DMARC von aphsystem.de erkennbar vorhanden? JA/NEIN/extern prüfen
+9. Wird send_verification_email bei Neuregistrierung tatsächlich aufgerufen? JA/NEIN
+10. Gibt es noch eine Stelle mit Replit-Dev-URL in E-Mails? JA/NEIN
+11. Welche konkrete Ursache ist am wahrscheinlichsten?
+
+Danach STOPPEN.
+SMTP_USERNAME und SMTP_PASSWORD nicht verändern.
