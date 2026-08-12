@@ -1,0 +1,108 @@
+PRÜFUNG – WAR SMTP VORHER AUF support@aphsystem.de UND IST DAS PASSWORT NOCH DAFÜR?
+
+Aktueller Verdacht:
+
+Der E-Mail-Versand hat früher mit:
+
+support@aphsystem.de
+
+funktioniert.
+
+Später wurde der SMTP-Benutzer auf:
+
+noreply@aphsystem.de
+
+geändert.
+
+Seitdem kommen Registrierungs-/Bestätigungs-E-Mails möglicherweise nicht mehr an.
+
+WICHTIG:
+Noch nichts ändern.
+Nur prüfen und berichten.
+
+==================================================
+1. AKTUELLE SMTP-KONFIGURATION PRÜFEN
+==================================================
+
+Melde:
+
+SMTP_USERNAME aktuell:
+SMTP_FROM aktuell:
+SUPPORT_EMAIL aktuell:
+
+SMTP_PASSWORD vorhanden:
+JA / NEIN
+
+Passwortwert niemals anzeigen.
+
+==================================================
+2. HISTORIE IM CODE PRÜFEN
+==================================================
+
+Suche im Projekt / Git-Verlauf, falls verfügbar, ob früher:
+
+SMTP_USERNAME = support@aphsystem.de
+
+oder:
+
+SMTP_FROM = support@aphsystem.de
+
+verwendet wurde.
+
+Berichte nur, was gefunden wurde.
+
+==================================================
+3. PASSWORT-ZUORDNUNG TESTEN
+==================================================
+
+Da der Passwortwert nicht angezeigt werden darf:
+
+Teste die vorhandene Kombination:
+
+noreply@aphsystem.de + aktuelles SMTP_PASSWORD
+
+direkt gegen:
+
+smtp.ionos.de:465 SSL
+
+Berichte:
+
+SMTP-Login mit noreply erfolgreich:
+JA / NEIN
+
+==================================================
+4. ALTERNATIVE SUPPORT-KOMBINATION NUR PRÜFEN
+==================================================
+
+Falls im Projekt noch ein separates Secret / Passwort für:
+
+support@aphsystem.de
+
+vorhanden ist, darf getestet werden, ob:
+
+support@aphsystem.de
+
+als SMTP-Login funktioniert.
+
+Aber:
+
+kein Passwort ausgeben.
+
+Wenn nur ein einziges SMTP_PASSWORD existiert:
+nicht raten, welches Postfach dazu gehört.
+
+==================================================
+5. URSACHE KLAR BENENNEN
+==================================================
+
+Danach berichten:
+
+1. War früher support@aphsystem.de SMTP-Absender/Login?
+2. Wann wurde auf noreply@aphsystem.de umgestellt?
+3. Funktioniert SMTP-Login mit noreply + aktuellem Secret?
+4. Funktionierte support laut bestehender Konfiguration vorher?
+5. Ist wahrscheinlich das Passwort noch das von support?
+6. Welche konkrete Änderung wäre nötig?
+
+Noch keine Änderung durchführen.
+STOPPEN.
