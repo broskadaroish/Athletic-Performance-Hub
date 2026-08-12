@@ -20,7 +20,7 @@ def hash_password(passwort: str) -> str:
     return _pw_hash(passwort)
 
 
-def login(email_oder_benutzername: str, passwort: str) -> dict | None:
+def login(email_oder_benutzername: str, passwort: str, ip: str | None = None) -> dict | None:
     """Prüft E-Mail/Benutzername + Passwort gegen die Datenbank.
 
     Gibt zurück:
@@ -34,6 +34,7 @@ def login(email_oder_benutzername: str, passwort: str) -> dict | None:
       - dict {'konto_deaktiviert': True}
         wenn Konto explizit vom Admin gesperrt wurde (aktiv=0, vormals aktiv=1)
 
+    ip wird in den Login-Audit-Log geschrieben (optional, z.B. aus st.context.ip_address).
     Nach MAX_LOGIN_VERSUCHE Fehlern wird das Konto für LOGIN_SPERRE_MINUTEN gesperrt.
     Bei Erfolg werden Fehlversuch-Zähler und Sperre automatisch zurückgesetzt.
     Login mit E-Mail oder Benutzername möglich (case-insensitiv).
@@ -44,6 +45,7 @@ def login(email_oder_benutzername: str, passwort: str) -> dict | None:
         benutzer_login_fehlversuch,
         benutzer_login_zuruecksetzen,
         benutzer_letzter_login_aktualisieren,
+        login_log_eintrag,
     )
 
     # E-Mail normalisieren (Groß-/Kleinschreibung)
@@ -52,6 +54,12 @@ def login(email_oder_benutzername: str, passwort: str) -> dict | None:
     # 1. Sperr-Status prüfen (vor dem Passwort-Check)
     sperre = benutzer_sperre_pruefen(email_oder_benutzername)
     if sperre["gesperrt"]:
+        login_log_eintrag(
+            email=login_norm,
+            ergebnis="gesperrt",
+            ip=ip,
+            benutzer_id=sperre.get("benutzer_id"),
+        )
         return {"gesperrt": True, "verbleibend_sek": sperre["verbleibend_sek"]}
 
     # 2. Benutzer + Passwort-Hash aus DB laden (E-Mail ODER Benutzername)
@@ -72,6 +80,8 @@ def login(email_oder_benutzername: str, passwort: str) -> dict | None:
         return None
 
     if user is None:
+        # Unbekannter Account — trotzdem protokollieren (kein benutzer_id / verein_id)
+        login_log_eintrag(email=login_norm, ergebnis="fehlschlag", ip=ip)
         return None
 
     # 2b. Konto dauerhaft deaktiviert (aktiv=0 UND email_verifiziert=1)?
@@ -85,11 +95,37 @@ def login(email_oder_benutzername: str, passwort: str) -> dict | None:
         benutzer_login_fehlversuch(benutzer_id, MAX_LOGIN_VERSUCHE, LOGIN_SPERRE_MINUTEN)
         neuer_status = benutzer_sperre_pruefen(email_oder_benutzername)
         if neuer_status["gesperrt"]:
+            # Erst Fehlschlag protokollieren (der Versuch, der die Sperre ausgelöst hat),
+            # dann die resultierende Konto-Sperre als eigenen Eintrag
+            login_log_eintrag(
+                email=login_norm,
+                ergebnis="fehlschlag",
+                ip=ip,
+                benutzer_id=benutzer_id,
+            )
+            login_log_eintrag(
+                email=login_norm,
+                ergebnis="gesperrt",
+                ip=ip,
+                benutzer_id=benutzer_id,
+            )
             return {"gesperrt": True, "verbleibend_sek": neuer_status["verbleibend_sek"]}
+        login_log_eintrag(
+            email=login_norm,
+            ergebnis="fehlschlag",
+            ip=ip,
+            benutzer_id=benutzer_id,
+        )
         return None
 
     # 4a. E-Mail-Verifizierung prüfen ZUERST (Spec §2: email_verifiziert=0 → immer ablehnen)
     if not user["email_verifiziert"]:
+        login_log_eintrag(
+            email=login_norm,
+            ergebnis="fehlschlag",
+            ip=ip,
+            benutzer_id=user["id"],
+        )
         return {
             "email_nicht_verifiziert": True,
             "benutzer_id": user["id"],
@@ -104,13 +140,31 @@ def login(email_oder_benutzername: str, passwort: str) -> dict | None:
         _v_kuend = (user["verein_kuendigungsstatus"]
                     if "verein_kuendigungsstatus" in _kuend_keys else None)
         if _b_kuend == "beendet" or _v_kuend == "beendet":
+            login_log_eintrag(
+                email=login_norm,
+                ergebnis="fehlschlag",
+                ip=ip,
+                benutzer_id=user["id"],
+            )
             return {"lizenz_gekuendigt": True}
         # Unterscheide: noch nie aktiviert (Neuregistrierung) vs. explizit gesperrt
         # Beide erhalten den gleichen Rückgabetyp — UI differenziert bei Bedarf
+        login_log_eintrag(
+            email=login_norm,
+            ergebnis="fehlschlag",
+            ip=ip,
+            benutzer_id=user["id"],
+        )
         return {"wartend_auf_freischaltung": True}
 
-    # 5. Erfolgreich — Fehlversuch-Zähler zurücksetzen
+    # 5. Erfolgreich — Fehlversuch-Zähler zurücksetzen + Erfolg protokollieren
     benutzer_login_zuruecksetzen(user["id"])
+    login_log_eintrag(
+        email=login_norm,
+        ergebnis="erfolg",
+        ip=ip,
+        benutzer_id=user["id"],
+    )
 
     # 6. Automatisches Upgrade: altes SHA-256 → PBKDF2 beim ersten erfolgreichen Login
     if not stored.startswith("pbkdf2:"):

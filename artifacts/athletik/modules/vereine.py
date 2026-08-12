@@ -1,12 +1,13 @@
 """Vereinsverwaltung (SaaS) — kompakte Übersicht, Nur für Superadmin."""
 
 import datetime
+import html as _html
 import streamlit as st
 from database import (
     vereine_laden, verein_speichern, verein_by_id,
     verein_aktualisieren, verein_logo_speichern,
     verein_aktivieren, verein_statistiken, verein_loeschen,
-    benutzer_laden,
+    benutzer_laden, login_log_laden,
 )
 
 _LIZENZTYPEN = ["Test (30 Tage)", "Basis", "Standard", "Premium", "Enterprise"]
@@ -81,30 +82,144 @@ def page_vereine():
     with st.expander("➕ Neuen Verein anlegen"):
         _neuer_verein_form()
 
-    if vereine:
-        st.markdown(
-            f'<div style="font-size:11px;color:#8b949e;margin:12px 0 4px;'
-            f'letter-spacing:.5px">{len(vereine)} VEREINE — KLICKEN ZUM BEARBEITEN</div>',
-            unsafe_allow_html=True,
-        )
+    tab_vereine, tab_login_log = st.tabs(["🏢 Vereine", "🔐 Login-Audit-Log"])
 
-    # ── Vereinsliste als aufklappbare Zeilen ──────────────────────────────────
-    # When navigating from the dashboard comparison table, auto-expand the target
-    goto_id = st.session_state.pop("sa_goto_verein_id", None)
+    with tab_vereine:
+        if vereine:
+            st.markdown(
+                f'<div style="font-size:11px;color:#8b949e;margin:12px 0 4px;'
+                f'letter-spacing:.5px">{len(vereine)} VEREINE — KLICKEN ZUM BEARBEITEN</div>',
+                unsafe_allow_html=True,
+            )
 
-    for v in vereine:
-        stats  = verein_statistiken(v["id"])
-        lt     = v.get("lizenztyp") or "Basis"
-        ablauf = _ablauf_text(v.get("lizenz_bis"))
-        label  = (
-            f"{_aktiv_dot(v.get('aktiv', 1))}  {v['name']}   "
-            f"{'·  ' + lt + '   ' if lt else ''}"
-            f"{'·  ' + ablauf + '   ' if ablauf else ''}"
-            f"·  {stats['trainer']} Trainer  ·  {stats['spieler']} Spieler"
+        # ── Vereinsliste als aufklappbare Zeilen ──────────────────────────────
+        # When navigating from the dashboard comparison table, auto-expand the target
+        goto_id = st.session_state.pop("sa_goto_verein_id", None)
+
+        for v in vereine:
+            stats  = verein_statistiken(v["id"])
+            lt     = v.get("lizenztyp") or "Basis"
+            ablauf = _ablauf_text(v.get("lizenz_bis"))
+            label  = (
+                f"{_aktiv_dot(v.get('aktiv', 1))}  {v['name']}   "
+                f"{'·  ' + lt + '   ' if lt else ''}"
+                f"{'·  ' + ablauf + '   ' if ablauf else ''}"
+                f"·  {stats['trainer']} Trainer  ·  {stats['spieler']} Spieler"
+            )
+            auto_open = goto_id is not None and v["id"] == goto_id
+            with st.expander(label, expanded=auto_open):
+                _verein_detail(v, stats)
+
+    with tab_login_log:
+        _page_login_log(vereine)
+
+
+# ── Login-Audit-Log ──────────────────────────────────────────────────────────
+
+_ERGEBNIS_STYLE = {
+    "erfolg":    ("🟢", "#3fb950", "Erfolg"),
+    "fehlschlag":("🔴", "#f85149", "Fehlschlag"),
+    "gesperrt":  ("🔒", "#d29922", "Konto gesperrt"),
+}
+
+
+def _page_login_log(vereine: list[dict]):
+    """Zeigt den Login-Audit-Log für den Superadmin, filterbar nach Verein."""
+    st.markdown("### 🔐 Login-Audit-Log")
+    st.caption(
+        "Protokolliert werden: erfolgreiche Logins, Fehlversuche und Konto-Sperren. "
+        "IP-Adressen werden nur gespeichert, wenn sie von der Anwendung bereitgestellt werden."
+    )
+
+    # ── Filter ────────────────────────────────────────────────────────────────
+    fc1, fc2, fc3 = st.columns([2, 1, 1])
+    verein_optionen = [{"id": None, "name": "Alle Vereine"}] + [
+        {"id": v["id"], "name": v["name"]} for v in vereine
+    ]
+    verein_sel = fc1.selectbox(
+        "Verein filtern",
+        verein_optionen,
+        format_func=lambda x: x["name"],
+        key="ll_verein_filter",
+    )
+    ergebnis_filter = fc2.selectbox(
+        "Ergebnis",
+        ["Alle", "Erfolg", "Fehlschlag", "Gesperrt"],
+        key="ll_ergebnis_filter",
+    )
+    limit = fc3.selectbox("Einträge", [50, 100, 200, 500], index=1, key="ll_limit")
+
+    _map = {"Erfolg": "erfolg", "Fehlschlag": "fehlschlag", "Gesperrt": "gesperrt"}
+    _ergebnis_sql = _map.get(ergebnis_filter)  # None → kein Filter (alle)
+
+    eintraege = login_log_laden(
+        limit=int(limit),
+        verein_id=verein_sel["id"],
+        ergebnis=_ergebnis_sql,
+    )
+
+    # ── Zusammenfassung ───────────────────────────────────────────────────────
+    n_gesamt = len(eintraege)
+    n_gesperrt   = sum(1 for e in eintraege if e.get("ergebnis") == "gesperrt")
+    n_fehlschlag = sum(1 for e in eintraege if e.get("ergebnis") == "fehlschlag")
+    n_erfolg     = sum(1 for e in eintraege if e.get("ergebnis") == "erfolg")
+
+    sm1, sm2, sm3, sm4 = st.columns(4)
+    sm1.metric("Einträge",    n_gesamt)
+    sm2.metric("🟢 Erfolge",  n_erfolg)
+    sm3.metric("🔴 Fehlschläge", n_fehlschlag)
+    sm4.metric("🔒 Sperren",  n_gesperrt)
+
+    st.markdown("")
+
+    if not eintraege:
+        st.info("Keine Login-Ereignisse für die gewählten Filter vorhanden.")
+        return
+
+    # ── Tabelle ───────────────────────────────────────────────────────────────
+    header_html = (
+        '<div style="display:grid;grid-template-columns:140px 90px 220px 180px 120px 90px;'
+        'gap:4px;padding:6px 8px;background:#161b22;border-radius:6px 6px 0 0;'
+        'border:1px solid #30363d;font-size:10px;font-weight:700;color:#8b949e;'
+        'letter-spacing:.5px">'
+        '<span>ZEITSTEMPEL</span>'
+        '<span>ERGEBNIS</span>'
+        '<span>E-MAIL</span>'
+        '<span>BENUTZER</span>'
+        '<span>VEREIN</span>'
+        '<span>IP</span>'
+        '</div>'
+    )
+    st.markdown(header_html, unsafe_allow_html=True)
+
+    for e in eintraege:
+        ts   = _html.escape((e.get("zeitstempel") or "")[:16].replace("T", " "))
+        erg  = e.get("ergebnis") or "—"
+        icon, farbe, label = _ERGEBNIS_STYLE.get(erg, ("⚪", "#8b949e", _html.escape(erg)))
+        email_str  = _html.escape(e.get("email") or "—")
+        benutzer   = _html.escape((e.get("benutzer_name") or "").strip() or "—")
+        verein_str = _html.escape(e.get("verein_name") or "—")
+        ip_str     = _html.escape(e.get("ip") or "—")
+
+        row_html = (
+            f'<div style="display:grid;grid-template-columns:140px 90px 220px 180px 120px 90px;'
+            f'gap:4px;padding:5px 8px;border-left:1px solid #30363d;border-right:1px solid #30363d;'
+            f'border-bottom:1px solid #21262d;font-size:11px;color:#e6edf3;align-items:center">'
+            f'<span style="color:#8b949e">{ts}</span>'
+            f'<span style="color:{farbe};font-weight:600">{icon} {label}</span>'
+            f'<span style="word-break:break-all">{email_str}</span>'
+            f'<span style="color:#8b949e">{benutzer}</span>'
+            f'<span style="color:#58a6ff">{verein_str}</span>'
+            f'<span style="color:#8b949e;font-size:10px">{ip_str}</span>'
+            f'</div>'
         )
-        auto_open = goto_id is not None and v["id"] == goto_id
-        with st.expander(label, expanded=auto_open):
-            _verein_detail(v, stats)
+        st.markdown(row_html, unsafe_allow_html=True)
+
+    st.markdown(
+        '<div style="height:6px;background:#161b22;border:1px solid #30363d;'
+        'border-top:0;border-radius:0 0 6px 6px"></div>',
+        unsafe_allow_html=True,
+    )
 
 
 # ── Neuer-Verein-Formular ────────────────────────────────────────────────────

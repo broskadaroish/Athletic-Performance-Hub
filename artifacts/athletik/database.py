@@ -462,6 +462,17 @@ def init_db():
             verein_id   INTEGER NOT NULL REFERENCES vereine(id) ON DELETE CASCADE,
             gesendet_am TEXT    NOT NULL DEFAULT (date('now'))
         );
+
+        -- ── Login-Audit-Log ────────────────────────────────────────────────────
+        CREATE TABLE IF NOT EXISTS login_log (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            zeitstempel TEXT    NOT NULL DEFAULT (datetime('now')),
+            email       TEXT    NOT NULL,
+            ergebnis    TEXT    NOT NULL,  -- 'erfolg' | 'fehlschlag' | 'gesperrt'
+            ip          TEXT,
+            benutzer_id INTEGER REFERENCES benutzer(id) ON DELETE SET NULL,
+            verein_id   INTEGER REFERENCES vereine(id)  ON DELETE SET NULL
+        );
         """)
     # Migrationen: neue Spalten und Indizes für bestehende Datenbanken nachträglich anlegen
     _migrate_spieler_columns()
@@ -910,6 +921,19 @@ def _migrate_db():
                 text        TEXT    NOT NULL,
                 gelesen     INTEGER NOT NULL DEFAULT 0,
                 erstellt_am TEXT    NOT NULL DEFAULT (datetime('now'))
+            )
+        """)
+
+        # ── Login-Audit-Log (für bestehende Datenbanken) ─────────────────────
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS login_log (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                zeitstempel TEXT    NOT NULL DEFAULT (datetime('now')),
+                email       TEXT    NOT NULL,
+                ergebnis    TEXT    NOT NULL,
+                ip          TEXT,
+                benutzer_id INTEGER REFERENCES benutzer(id) ON DELETE SET NULL,
+                verein_id   INTEGER REFERENCES vereine(id)  ON DELETE SET NULL
             )
         """)
 
@@ -3312,6 +3336,88 @@ def benutzer_sperre_pruefen(email_oder_benutzername: str) -> dict:
         "benutzer_id": row["id"],
         "login_versuche": row["login_versuche"] or 0,
     }
+
+
+def login_log_eintrag(
+    email: str,
+    ergebnis: str,
+    ip: str | None = None,
+    benutzer_id: int | None = None,
+) -> None:
+    """Schreibt einen Eintrag in den Login-Audit-Log.
+
+    ergebnis muss einer der Werte 'erfolg', 'fehlschlag' oder 'gesperrt' sein.
+    verein_id wird automatisch aus dem Benutzer-Datensatz ermittelt, wenn benutzer_id
+    übergeben wird.
+    """
+    verein_id: int | None = None
+    if benutzer_id is not None:
+        try:
+            with get_conn() as conn:
+                row = conn.execute(
+                    "SELECT verein_id FROM benutzer WHERE id=?", (benutzer_id,)
+                ).fetchone()
+                if row:
+                    verein_id = row["verein_id"]
+        except Exception:
+            pass
+    try:
+        with get_conn() as conn:
+            conn.execute(
+                """INSERT INTO login_log (email, ergebnis, ip, benutzer_id, verein_id)
+                   VALUES (?, ?, ?, ?, ?)""",
+                (email, ergebnis, ip, benutzer_id, verein_id),
+            )
+    except Exception:
+        pass  # Logging darf niemals einen Login blockieren
+
+
+def login_log_laden(
+    limit: int = 200,
+    verein_id: int | None = None,
+    ergebnis: str | None = None,
+) -> list[dict]:
+    """Lädt Login-Log-Einträge für das Superadmin-Dashboard.
+
+    Gibt eine Liste von Dicts zurück, sortiert nach Zeitstempel und id absteigend
+    (id als Tiebreaker, damit Ereignisse mit gleichem Sekundenbruchteil deterministisch
+    geordnet werden — z.B. Fehlschlag + Sperre im selben Timestamp).
+
+    verein_id: wenn gesetzt, nur Einträge dieses Vereins.
+    ergebnis:  wenn gesetzt ('erfolg'|'fehlschlag'|'gesperrt'), wird in SQL gefiltert
+               (vor LIMIT), sodass das Limit immer für Einträge dieses Typs gilt.
+    """
+    conditions: list[str] = []
+    params: list = []
+
+    if verein_id is not None:
+        conditions.append("ll.verein_id = ?")
+        params.append(verein_id)
+    if ergebnis is not None:
+        conditions.append("ll.ergebnis = ?")
+        params.append(ergebnis)
+
+    where_clause = ("WHERE " + " AND ".join(conditions)) if conditions else ""
+    params.append(limit)
+
+    sql = f"""
+        SELECT ll.id, ll.zeitstempel, ll.email, ll.ergebnis, ll.ip,
+               ll.benutzer_id, ll.verein_id,
+               v.name AS verein_name,
+               b.vorname || ' ' || b.nachname AS benutzer_name
+          FROM login_log ll
+          LEFT JOIN vereine  v ON ll.verein_id   = v.id
+          LEFT JOIN benutzer b ON ll.benutzer_id = b.id
+         {where_clause}
+         ORDER BY ll.zeitstempel DESC, ll.id DESC
+         LIMIT ?
+    """
+    try:
+        with get_conn() as conn:
+            rows = conn.execute(sql, params).fetchall()
+        return [dict(r) for r in rows]
+    except Exception:
+        return []
 
 
 def benutzer_profil_aktualisieren(

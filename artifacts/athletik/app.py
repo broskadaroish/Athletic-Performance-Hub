@@ -527,7 +527,11 @@ if "user" not in st.session_state:
 
                     if st.button("🔐 Anmelden", type="primary",
                                  use_container_width=True, key="login_btn"):
-                        _user_obj = login(_login_email.strip(), _login_passwort)
+                        try:
+                            _client_ip = str(st.context.ip_address) if st.context.ip_address else None
+                        except Exception:
+                            _client_ip = None
+                        _user_obj = login(_login_email.strip(), _login_passwort, ip=_client_ip)
                         if isinstance(_user_obj, dict) and _user_obj.get("gesperrt"):
                             _min_rest = max(1, round(_user_obj["verbleibend_sek"] / 60))
                             st.error(
