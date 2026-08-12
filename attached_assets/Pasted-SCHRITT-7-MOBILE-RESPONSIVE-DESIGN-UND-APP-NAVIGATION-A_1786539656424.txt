@@ -1,0 +1,786 @@
+SCHRITT 7 – MOBILE RESPONSIVE DESIGN UND APP-NAVIGATION
+
+Arbeite auf Basis von SCHRITT 1 bis SCHRITT 6 weiter.
+
+WICHTIG:
+
+* Keine Authentifizierungslogik ändern.
+* Keine Registrierung ändern.
+* Keine Session-Logik ändern.
+* Keine Kunden-/Lizenzverwaltung ändern.
+* Keine Pakete oder Preise verändern.
+* Keine Vertrags-/Kündigungslogik ändern.
+* Keine FMS-, Y-Balance- oder Sprintlogik ändern.
+* Keine Defizitlogik ändern.
+* Keine Trainingsplanlogik ändern.
+* Keine Datenbankstruktur verändern, sofern für reine UI-Anpassungen nicht zwingend notwendig.
+* Keine bestehenden Daten löschen.
+* Bestehende Funktionen nur neu darstellen, nicht neu programmieren.
+* Desktop- und Laptop-Nutzung muss vollständig erhalten bleiben.
+
+==================================================
+0. VERBINDLICHE ARBEITSREGEL
+============================
+
+Prüfe zunächst die vorhandene Responsive-/Mobile-Implementierung.
+
+Für jeden Punkt:
+
+A) vollständig vorhanden
+→ behalten und testen
+
+B) teilweise vorhanden
+→ ergänzen
+
+C) nicht vorhanden
+→ neu erstellen
+
+Keine zweite parallele Navigationsstruktur bauen, wenn bereits geeignete Komponenten vorhanden sind.
+
+ZIEL:
+
+Athletic Performance Hub soll auf:
+
+* Smartphone
+* Tablet
+* Laptop
+* Desktop
+
+professionell funktionieren.
+
+Auf dem Smartphone soll die Anwendung möglichst wie eine echte Trainer-/Performance-App wirken.
+
+==================================================
+
+1. BREAKPOINTS
+   ==================================================
+
+Verwende eine saubere responsive Struktur.
+
+Mindestens berücksichtigen:
+
+Smartphone:
+bis ca. 768 px
+
+Tablet:
+ca. 769–1024 px
+
+Laptop/Desktop:
+ab ca. 1025 px
+
+Bestehende Breakpoints bevorzugen, wenn bereits sinnvoll definiert.
+
+Nicht überall unterschiedliche Magic Numbers verwenden.
+
+==================================================
+2. MOBILE BOTTOM NAVIGATION
+===========================
+
+Auf Smartphones bis einschließlich 768 px soll eine feste Bottom Navigation verwendet werden.
+
+Hauptpunkte:
+
+* Start
+* Spieler
+* Diagnostik
+* Training
+* Mehr
+
+Beispiel:
+
+🏠        👤        🧪        📅        ⋯
+Start     Spieler   Tests     Training  Mehr
+
+Anforderungen:
+
+* position fixed
+* unten am Bildschirm
+* volle Breite
+* großer Touchbereich
+* Dark Design passend zu APH
+* aktiver Menüpunkt klar hervorgehoben
+* Text + Icon gut lesbar
+* keine Inhalte verdecken
+* Hauptinhalt mit ausreichendem bottom-padding
+
+==================================================
+3. DESKTOP-/LAPTOP-NAVIGATION ERHALTEN
+======================================
+
+Auf Laptop und Desktop:
+
+* bestehende Sidebar bzw. Desktop-Navigation beibehalten
+* keine Bottom-Navigation erzwingen
+* vorhandene Menüstruktur nicht verschlechtern
+
+Die Bottom Navigation ist primär für Smartphone.
+
+==================================================
+4. "MEHR"-MENÜ
+==============
+
+Unter "Mehr" auf dem Smartphone sollen alle übrigen vorhandenen Bereiche erreichbar sein.
+
+Zum Beispiel, abhängig von bestehender Navigation:
+
+* Dashboard
+* Entwicklung
+* Berichte
+* Kalender
+* Trainingsbibliothek
+* Verletzungen
+* Einstellungen
+* Vertrag
+* Hilfe / Support
+* Abmelden
+
+Superadmin-Menüs nur für Superadmin anzeigen.
+
+Trainer-/Vereinsrollen entsprechend bestehender Rechte berücksichtigen.
+
+Keine Rechte durch die neue Navigation umgehen.
+
+==================================================
+5. SIDEBAR AUF SMARTPHONE
+=========================
+
+Auf Smartphone soll die Sidebar nicht dauerhaft viel Bildschirmbreite belegen.
+
+Sie soll:
+
+* standardmäßig geschlossen sein
+* nur bei Bedarf geöffnet werden
+* über "Mehr" bzw. vorhandenen Menübutton erreichbar sein
+
+Das große Logo im mobilen Seitenmenü kompakter darstellen.
+
+==================================================
+6. ATHLETIC PERFORMANCE HUB BRANDING
+====================================
+
+Auf Mobile sichtbar verwenden:
+
+Athletic Performance Hub
+
+bzw. kompakt:
+
+APH
+
+Das Logo darf im Login/Start größer sein.
+
+Innerhalb der eigentlichen Arbeitsbereiche:
+Branding kompakter halten.
+
+Die Spielerdaten und Funktionen sollen im Mittelpunkt stehen.
+
+==================================================
+7. AKTIVER SPIELER IM HEADER
+============================
+
+Auf relevanten spielerbezogenen Seiten soll der aktive Spieler direkt sichtbar sein.
+
+Zum Beispiel:
+
+Diagnostik
+
+👤 Lion Daroish
+Flügel · FC Heidenheim
+
+[Spieler wechseln ▾]
+
+Relevante Seiten insbesondere:
+
+* Diagnostik
+* Training
+* Entwicklung
+* Sprint
+* FMS
+* Y-Balance
+* Berichte
+* Kalender, sofern spielerbezogen
+
+Bestehende Spieler-Auswahl verwenden.
+
+Keine neue Spielerlogik erstellen.
+
+==================================================
+8. EIGENNAMEN NICHT ÜBERSETZEN
+==============================
+
+Spielernamen, Vereinsnamen, Benutzernamen und andere Datenbank-Eigennamen niemals automatisch übersetzen.
+
+Beispiel:
+
+Lion
+
+muss:
+
+Lion
+
+bleiben.
+
+Nicht:
+
+Löwe
+
+Falls bereits eine zentrale Lösung vorhanden ist:
+weiterverwenden.
+
+==================================================
+9. SEITENHEADER KOMPAKTER
+=========================
+
+Auf Smartphone:
+
+* Überschrift kompakter
+* weniger Leerraum oben
+* Untertitel kleiner
+* Icons sauber ausrichten
+* unnötige technische Anker-/Link-Symbole neben Streamlit-Überschriften entfernen, sofern möglich
+
+Beispiel:
+
+🧪 Diagnostik
+Lion Daroish · FC Heidenheim
+
+anstatt großer mehrzeiliger Leerbereiche.
+
+==================================================
+10. ABSTÄNDE
+============
+
+Auf Smartphone vertikale Abstände reduzieren.
+
+Richtwerte:
+
+Seitenabstand links/rechts:
+ca. 16–20 px
+
+Kartenabstand:
+ca. 10–16 px
+
+Keine extrem großen Leerflächen.
+
+Trotzdem:
+
+* Touchflächen ausreichend groß
+* keine gequetschte Darstellung
+* gute Lesbarkeit
+
+==================================================
+11. SCHRIFTGRÖSSEN
+==================
+
+Responsive Typografie verwenden.
+
+Auf Smartphone:
+
+* Seitentitel kleiner als Desktop
+* Kartenüberschriften kompakt
+* Hauptwerte deutlich
+* Hilfstexte gut lesbar
+
+Keine winzige Schrift verwenden.
+
+==================================================
+12. KONTRAST
+============
+
+Bestehendes Dark Design beibehalten.
+
+Einige graue Texte sind aktuell zu dunkel.
+
+Verbessere insbesondere:
+
+* Untertitel
+* Datum
+* Statusbeschreibung
+* Hinweise
+* sekundäre Informationen
+
+Ziel:
+Auch draußen auf dem Sportplatz noch gut lesbar.
+
+==================================================
+13. STATUSFARBEN
+================
+
+Bestehende Statusfarben vereinheitlichen.
+
+Blau:
+
+* Navigation
+* Links
+* neutrale Aktionen
+
+Grün:
+
+* gut
+* unauffällig
+* erfolgreich
+
+Gelb/Orange:
+
+* beobachten
+* mittlerer Handlungsbedarf
+
+Rot:
+
+* kritisch
+* Risiko
+* Fehler
+* überfällig
+
+Grau/Weiß:
+
+* neutrale Information
+
+Keine rein dekorativen Farben verwenden, wenn sie keine funktionale Bedeutung haben.
+
+==================================================
+14. DIAGNOSTIK-ÜBERSICHT
+========================
+
+Die Diagnostikseite auf Smartphone kompakter machen.
+
+Bestehende Module z.B.:
+
+* Anthropometrie
+* FMS
+* Y-Balance
+* Sprint
+* weitere vorhandene Diagnosen
+
+Keine Diagnosefunktion entfernen.
+
+==================================================
+15. DIAGNOSTIK-KARTEN
+=====================
+
+Auf Mobile möglichst eine zusammenhängende Karte pro Diagnosemodul verwenden.
+
+Nicht:
+
+große Infokarte
++
+separater riesiger Button
+
+wenn beides sinnvoll in einer Karte kombiniert werden kann.
+
+Beispiel mit vorhandenem Ergebnis:
+
+📝 FMS
+Funktionelle Bewegungsanalyse
+
+16 / 21
+🟢 Gut
+
+Letzter Test:
+03.08.2026
+
+[Ergebnis ansehen] [Neuer Test]
+
+Beispiel ohne Test:
+
+📝 FMS
+Funktionelle Bewegungsanalyse
+
+Noch kein Test vorhanden
+
+[Test starten →]
+
+==================================================
+16. KEINE DATEN KORREKT DARSTELLEN
+==================================
+
+NO_DATA-Regel aus Schritt 3 weiterhin beachten.
+
+Wenn kein Test vorhanden:
+
+neutral anzeigen:
+
+"Noch kein Test vorhanden"
+
+Nicht automatisch:
+
+* Defizit
+* Risiko
+* schlechte Bewertung
+
+anzeigen.
+
+==================================================
+17. TRAININGSPLAN MOBILE
+========================
+
+Der Trainingsbereich muss auf Smartphone komfortabel bedienbar sein.
+
+Insbesondere:
+
+* aktiven Plan anzeigen
+* Trainingstage
+* Übungen
+* Übungen bearbeiten
+* Übungen löschen
+* Übungen austauschen
+* Übungen hinzufügen
+* Trainingszeit
+* Notizen
+* Plan speichern
+
+Buttons dürfen nicht zu klein sein.
+
+==================================================
+18. ÜBUNGSKARTEN
+================
+
+Auf Smartphone Übungen als kompakte Karten darstellen.
+
+Beispiel:
+
+Romanian Deadlift
+
+3 × 8
+Pause: 90 s
+
+Schwerpunkt:
+Hintere Kette
+
+[Bearbeiten]
+[Austauschen]
+[Entfernen]
+
+Sekundäre Funktionen dürfen über ein ⋯ Menü gebündelt werden, wenn dies die Oberfläche übersichtlicher macht.
+
+Keine Funktion verstecken, sodass sie nicht mehr erreichbar ist.
+
+==================================================
+19. MOBILE FORMULARE
+====================
+
+Alle Eingabeformulare prüfen:
+
+* Login
+* Registrierung
+* Spieler
+* FMS
+* Y-Balance
+* Sprint
+* Trainingsplan
+* Vertrag
+* Kündigung
+* Superadmin
+
+Auf Smartphone:
+
+* Eingabefelder volle bzw. sinnvolle Breite
+* Labels oberhalb der Felder
+* keine abgeschnittenen Texte
+* Zahlenfelder gut bedienbar
+* Dropdowns nicht außerhalb des Viewports
+
+==================================================
+20. REGISTRIERUNGSFORMULAR
+==========================
+
+Die umfangreiche Registrierung mit Rechnungsadresse muss mobil sauber funktionieren.
+
+Bereiche sinnvoll gruppieren:
+
+1. Kontotyp
+2. Persönliche Daten / Verein
+3. Login-Daten
+4. Rechnungsadresse
+5. Zustimmung / Abschluss
+
+Nicht alle Felder ungeordnet in einer riesigen Wand darstellen.
+
+==================================================
+21. LOGIN MOBILE
+================
+
+Login kompakt und klar.
+
+Reihenfolge:
+
+Athletic Performance Hub
+
+Benutzername / E-Mail
+[____________]
+
+Passwort
+[____________]
+
+[Benutzername vergessen?]
+[Passwort vergessen?]
+
+[Anmelden]
+
+Die beiden Recovery-Aktionen als sekundäre Buttons/Links.
+
+==================================================
+22. SUPERADMIN MOBILE
+=====================
+
+Superadmin-Funktionen müssen auch mobil erreichbar bleiben.
+
+Aber:
+
+keine extrem breite Tabellen erzwingen.
+
+Kunden auf Smartphone als Karten darstellen.
+
+Beispiel:
+
+APH-000012
+Max Mustermann
+Trainer
+
+Paket: ...
+Status: Aktiv
+
+[Details]
+
+==================================================
+23. TABELLEN RESPONSIVE
+=======================
+
+Bestehende Tabellen prüfen.
+
+Auf Mobile möglichst:
+
+* Kartenansicht
+* Accordion
+* horizontal scrollbare Tabelle nur wenn wirklich erforderlich
+
+Keine Seite darf wegen einer Tabelle komplett breiter als der Bildschirm werden.
+
+==================================================
+24. BUTTONS
+===========
+
+Auf Smartphone Buttons ausreichend groß.
+
+Primäraktionen deutlich.
+
+Beispiele:
+
+[Speichern]
+
+[Neuer Test]
+
+[Trainingsplan erstellen]
+
+Sekundär:
+
+[Bearbeiten]
+[Abbrechen]
+
+Gefährliche Aktion:
+
+[Löschen]
+
+rot bzw. entsprechend bestehender Warnlogik.
+
+==================================================
+25. BESTÄTIGUNGEN
+=================
+
+Bestehende Hinweise/Bestätigungen weiterverwenden.
+
+Bei:
+
+* Speichern
+* Löschen
+* Account deaktivieren
+* Paket ändern
+* Kündigen
+* Trainingsplan archivieren
+
+müssen Meldungen mobil gut sichtbar sein.
+
+Keine Funktion ohne Rückmeldung wirken lassen.
+
+==================================================
+26. SCROLLVERHALTEN
+===================
+
+Prüfe:
+
+* keine verschachtelten unnötigen Scrollcontainer
+* Bottom Navigation verdeckt keinen Inhalt
+* Modals/Dialogs bleiben vollständig sichtbar
+* Sidebar kann vollständig gescrollt werden
+* Formulare nicht abgeschnitten
+
+==================================================
+27. HORIZONTALES SCROLLEN VERHINDERN
+====================================
+
+Auf Standardseiten kein horizontales Seitenscrollen.
+
+Teste insbesondere:
+
+360 px
+375 px
+390 px
+412 px
+430 px
+
+Keine Karte darf über den Bildschirm hinauslaufen.
+
+==================================================
+28. TABLET
+==========
+
+Auf Tablet darf eine Zwischenlösung verwendet werden.
+
+Zum Beispiel:
+
+* zwei Karten pro Reihe
+* Sidebar kompakter
+* Bottom Navigation nur bei kleinen Tablets, wenn sinnvoll
+
+Keine harte Smartphone-Ansicht auf großen Tablets erzwingen, wenn Desktop-ähnliche Darstellung besser ist.
+
+==================================================
+29. LAPTOP
+==========
+
+Laptop muss weiterhin professionell aussehen.
+
+Prüfe z.B.:
+
+1366 × 768
+
+Keine riesigen Abstände.
+
+Sidebar darf weiterhin vorhanden sein.
+
+Mehrspaltige Layouts nutzen, wo sinnvoll.
+
+==================================================
+30. DESKTOP
+===========
+
+Auf größeren Displays:
+
+* verfügbare Breite sinnvoll nutzen
+* nicht alles auf eine schmale Smartphone-Spalte begrenzen
+* Karten nebeneinander, wenn sinnvoll
+* Tabellen lesbar
+
+==================================================
+31. STREAMLIT-SPEZIFISCHE RESPONSIVE PROBLEME
+=============================================
+
+Prüfe vorhandene Streamlit-CSS-/Component-Lösungen.
+
+Keine fragilen Selektoren verwenden, wenn stabilere Lösungen möglich sind.
+
+Bestehende streamlit-cookies-controller Session-Lösung nicht beeinflussen.
+
+Keine CSS-Regel darf Login-/Session-Komponenten versehentlich unsichtbar machen.
+
+==================================================
+32. PERFORMANCE
+===============
+
+Responsive Design soll die Anwendung nicht merklich verlangsamen.
+
+Keine unnötigen:
+
+* großen JavaScript-Bibliotheken
+* Animationen
+* Dauer-Reruns
+
+hinzufügen.
+
+==================================================
+33. KEINE FUNKTIONSLOGIK ÄNDERN
+===============================
+
+Diese Phase ist primär UI/UX.
+
+Insbesondere NICHT ändern:
+
+* Scores
+* Normwerte
+* Defizitpunkte
+* Trainingsgewichtungen
+* Sprintbewertungen
+* Paketzuteilung
+* Preise
+* Vertragslogik
+* Sessiondauer
+
+==================================================
+34. TEST – SMARTPHONE
+=====================
+
+Teste mindestens:
+
+1. Login
+2. Passwort vergessen
+3. Benutzername vergessen
+4. Registrierung Trainer
+5. Registrierung Verein
+6. Startseite
+7. Spieler auswählen
+8. Spieler wechseln
+9. Diagnostik
+10. FMS
+11. Y-Balance
+12. Sprint
+13. Training
+14. Trainingsplan bearbeiten
+15. Trainingsbibliothek
+16. Vertrag
+17. Kündigung
+18. Logout
+19. Superadmin
+20. Kundenverwaltung
+
+==================================================
+35. TEST – LAPTOP / DESKTOP
+===========================
+
+Danach dieselben Hauptbereiche auf Laptop/Desktop testen.
+
+Erwartung:
+
+Keine Verschlechterung gegenüber bisheriger Desktop-Funktion.
+
+==================================================
+36. ABSCHLUSSBERICHT
+====================
+
+Nach Abschluss berichten:
+
+1. Welche Responsive-Struktur war bereits vorhanden?
+2. Was wurde ergänzt?
+3. Wie funktioniert die Bottom Navigation?
+4. Welche Bereiche liegen unter "Mehr"?
+5. Wie bleibt die Desktop-Sidebar erhalten?
+6. Wie wird der aktive Spieler mobil angezeigt?
+7. Wie wurden Diagnostikkarten verändert?
+8. Wie wurden Trainingspläne mobil angepasst?
+9. Wie wurden Tabellen auf Mobile gelöst?
+10. Welche Breakpoints werden verwendet?
+11. Welche Dateien wurden geändert?
+12. Welche CSS-/UI-Komponenten wurden ergänzt?
+13. Wurden Backend-, Datenbank- oder Berechnungsfunktionen verändert? Erwartet: NEIN.
+14. Funktioniert die App bei 360/390/412 px?
+15. Funktioniert sie weiterhin auf Laptop/Desktop?
+16. Welche 10 Punkte soll ich selbst auf dem Handy testen?
+
+Für jeden Hauptbereich kennzeichnen:
+
+* BEREITS VORHANDEN
+* ERGÄNZT
+  oder
+* NEU ERSTELLT
+
+Danach STOPPEN.
+
+Noch keine Dashboard-Neugestaltung aus SCHRITT 8 automatisch durchführen.

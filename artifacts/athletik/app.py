@@ -26,6 +26,12 @@ import logging_config  # Logging konfigurieren + rotierende Logdatei in Produkti
 _log = logging_config.logger
 
 from theme import APP_CSS, C, PLOTLY_LAYOUT as _PL_BASE
+from mobile import (
+    handle_mobile_nav_params,
+    inject_mobile_nav,
+    inject_mobile_player_header,
+    inject_mobile_mehr_overlay,
+)
 from help_ui import sicherheitshinweis_box, show_test_info, show_field_help, field_info_col, norm_badge, show_trainer_checkliste
 from ui_components import (
     kpi_card, score_kpi, risk_kpi,
@@ -9708,6 +9714,9 @@ with st.sidebar:
                     benachrichtigungen_alle_gelesen(_nb_user["id"])
                     st.rerun()
 
+    # ── Mobile: handle ?nav= query param (must be before radio widget) ────────
+    handle_mobile_nav_params()
+
     # ── Pending navigation from quick-action buttons ───────────────────────────
     # Must be applied before the widget is instantiated to avoid StreamlitAPIException
     if "_nav_goto" in st.session_state:
@@ -9772,6 +9781,26 @@ with st.sidebar:
         unsafe_allow_html=True,
     )
 
+    # ── Mobile logout request (from ?nav=__logout__ in Mehr overlay) ─────────
+    if st.session_state.pop("__mobile_logout_request__", False):
+        _mob_token = st.session_state.get("_session_token")
+        if _mob_token:
+            try:
+                from database import session_beenden as _mob_sb
+                _mob_sb(_mob_token)
+            except Exception:
+                pass
+        if _cookie_ctrl:
+            try:
+                _cookie_ctrl.remove("ath_sid")
+            except Exception:
+                pass
+        _mob_del = [k for k in st.session_state.keys() if k != "__logout_ok__"]
+        for _mk in _mob_del:
+            del st.session_state[_mk]
+        st.session_state["__logout_ok__"] = True
+        st.rerun()
+
     # ── Benutzer-Info & Abmelden ──────────────────────────────────────────────
     _sb_user  = st.session_state.get("user", {})
     _sb_uname = (f"{_sb_user.get('vorname','')} {_sb_user.get('nachname','')}".strip()
@@ -9824,21 +9853,35 @@ with st.sidebar:
 
 # ── Route ─────────────────────────────────────────────────────────────────────
 _check_save_ok()
+
+# Mobile: "Mehr" overlay — position:fixed, covers main content on ≤768px
+inject_mobile_mehr_overlay(_MAIN_SECTIONS)
+
+# Helper: look up active player object for mobile player header
+def _mob_player():
+    _gid = st.session_state.get("global_player_id")
+    return next((p for p in (alle_spieler or []) if p["id"] == _gid), None) if _gid else None
+
 if section == "🏠  Startseite":
     page_saas_dashboard()
 elif section == "👤  Spieler":
     _SUB_SPIELER[sub_choice]()
 elif section == "🔬  Diagnostik":
+    inject_mobile_player_header(_mob_player(), section)
     _SUB_DIAGNOSTIK[sub_choice]()
 elif section == "📅  Training":
+    inject_mobile_player_header(_mob_player(), section)
     _SUB_TRAINING[sub_choice]()
 elif section == "📈  Entwicklung":
+    inject_mobile_player_header(_mob_player(), section)
     page_fortschritt()
 elif section == "⚖️  Vergleich":
+    inject_mobile_player_header(_mob_player(), section)
     page_spieler_vergleich()
 elif section == "👥  Mannschaft":
     page_dashboard()
 elif section == "📄  Dokumente":
+    inject_mobile_player_header(_mob_player(), section)
     page_dokumente()
 elif section == "⚙️  Einstellungen":
     page_einstellungen()
@@ -9860,3 +9903,6 @@ elif section == "📋  Mein Vertrag":
     page_mein_vertrag()
 elif section == "👥  Kundenverwaltung":
     page_kundenverwaltung()
+
+# ── Mobile bottom nav (visible only on ≤768px via CSS) ────────────────────────
+inject_mobile_nav(section)
