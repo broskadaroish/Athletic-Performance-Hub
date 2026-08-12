@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+    background: transparent;
+    overflow: hidden;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+}
+
+nav#aph-nav {
+    display: flex;
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    background: #0d1117;
+    border-top: 1px solid #21262d;
+    height: 62px;
+    align-items: stretch;
+    justify-content: space-around;
+    box-shadow: 0 -2px 16px rgba(0,0,0,0.65);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.aph-bn-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    background: none;
+    border: none;
+    color: #8b949e;
+    cursor: pointer;
+    padding: 6px 4px;
+    min-width: 0;
+    -webkit-tap-highlight-color: transparent;
+    transition: color 0.12s;
+    user-select: none;
+    font-family: inherit;
+    font-size: inherit;
+}
+.aph-bn-btn.active { color: #58a6ff; }
+.aph-bn-btn:active  { opacity: 0.7; }
+
+.aph-bn-icon  { font-size: 20px; line-height: 1.2; display: block; }
+.aph-bn-label {
+    font-size: 10px;
+    font-weight: 600;
+    margin-top: 2px;
+    display: block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+}
+</style>
+</head>
+<body>
+<nav id="aph-nav"></nav>
+<script>
+(function () {
+    "use strict";
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
+    function esc(s) {
+        var d = document.createElement("div");
+        d.textContent = String(s);
+        return d.innerHTML;
+    }
+
+    // ── Send navigation signal to Streamlit Python ────────────────────────────
+    // Uses the raw postMessage protocol that Streamlit's component framework
+    // listens for. No page reload, no new WebSocket — pure Streamlit rerun.
+    function sendNav(target) {
+        window.parent.postMessage({
+            type: "streamlit:setComponentValue",
+            value: { target: target, ts: Date.now() },
+            dataType: "json"
+        }, "*");
+    }
+
+    // ── Render bottom nav items from Python data ──────────────────────────────
+    function renderNav(items) {
+        var nav = document.getElementById("aph-nav");
+        nav.innerHTML = "";
+        (items || []).forEach(function (item) {
+            var btn = document.createElement("button");
+            btn.type = "button";
+            btn.className = "aph-bn-btn" + (item.active ? " active" : "");
+            btn.innerHTML =
+                '<span class="aph-bn-icon">'  + esc(item.icon)  + "</span>" +
+                '<span class="aph-bn-label">' + esc(item.label) + "</span>";
+            var target = item.target;
+            btn.addEventListener("click", function () { sendNav(target); });
+            nav.appendChild(btn);
+        });
+    }
+
+    // ── Make the component iframe fixed to the bottom of the Streamlit page ───
+    // The iframe is a child of the Streamlit app frame (same-origin when served
+    // locally). We can therefore access window.parent.document and style the
+    // iframe element itself — that is what achieves position:fixed on the page.
+    function positionIframe() {
+        try {
+            var parentDoc = window.parent.document;
+            var frames = parentDoc.querySelectorAll("iframe");
+            for (var i = 0; i < frames.length; i++) {
+                if (frames[i].contentWindow === window) {
+                    var s = frames[i].style;
+                    s.setProperty("position", "fixed",  "important");
+                    s.setProperty("bottom",   "0",      "important");
+                    s.setProperty("left",     "0",      "important");
+                    s.setProperty("right",    "0",      "important");
+                    s.setProperty("width",    "100%",   "important");
+                    s.setProperty("height",   "62px",   "important");
+                    s.setProperty("z-index",  "9999",   "important");
+                    s.setProperty("border",   "none",   "important");
+                    s.setProperty("display",  "block",  "important");
+                    break;
+                }
+            }
+        } catch (ex) { /* cross-origin guard */ }
+    }
+
+    // ── On desktop: hide entirely ─────────────────────────────────────────────
+    function applyVisibility() {
+        var mobile = (window.parent.innerWidth || window.innerWidth) <= 768;
+        document.getElementById("aph-nav").style.display = mobile ? "flex" : "none";
+        if (!mobile) {
+            // Collapse iframe height so it doesn't take up space on desktop
+            try {
+                var parentDoc = window.parent.document;
+                var frames = parentDoc.querySelectorAll("iframe");
+                for (var i = 0; i < frames.length; i++) {
+                    if (frames[i].contentWindow === window) {
+                        frames[i].style.setProperty("height", "0",    "important");
+                        frames[i].style.setProperty("display","none", "important");
+                        break;
+                    }
+                }
+            } catch (ex) {}
+        }
+    }
+
+    // ── Listen for messages ───────────────────────────────────────────────────
+    window.addEventListener("message", function (e) {
+        var data = e.data;
+        if (!data || !data.type) return;
+
+        // Streamlit sends render data when Python args change
+        if (data.type === "streamlit:render") {
+            var args = data.args || {};
+            renderNav(args.items || []);
+            applyVisibility();
+            if ((window.parent.innerWidth || window.innerWidth) <= 768) {
+                positionIframe();
+            }
+            return;
+        }
+    });
+
+    // Also listen for postMessages from unsafe_allow_html elements in the main
+    // Streamlit frame (Mehr overlay, player header). Those elements cannot call
+    // Streamlit directly, so they post {aphNav: "target"} to all iframes, and
+    // this bridge forwards to Streamlit.
+    window.addEventListener("message", function (e) {
+        var data = e.data;
+        if (data && typeof data.aphNav === "string") {
+            sendNav(data.aphNav);
+        }
+    });
+
+    // ── Signal readiness to Streamlit ─────────────────────────────────────────
+    // This is the raw protocol message that tell's Streamlit's frontend the
+    // component is ready to receive renders.
+    window.parent.postMessage({ type: "streamlit:componentReady", apiVersion: 1 }, "*");
+})();
+</script>
+</body>
+</html>

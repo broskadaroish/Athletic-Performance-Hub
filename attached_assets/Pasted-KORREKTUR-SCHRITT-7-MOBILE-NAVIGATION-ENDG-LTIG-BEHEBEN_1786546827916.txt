@@ -1,0 +1,284 @@
+KORREKTUR SCHRITT 7 – MOBILE NAVIGATION ENDGÜLTIG BEHEBEN
+
+Der zuletzt implementierte Fix funktioniert im realen Smartphone-Test NICHT.
+
+Trotz der Änderung werde ich bei Klick auf:
+
+* Start
+* Spieler
+* Tests
+* Training
+* Mehr
+
+weiterhin zur Login-Seite geleitet.
+
+Der bisherige Fix hat nur einen CookieController-Timing-Workaround eingebaut.
+
+Das reicht nicht.
+
+WICHTIG:
+Nicht erneut nur weitere Warte-Flags oder st.stop()-Workarounds hinzufügen.
+
+==================================================
+
+1. HAUPTURSACHE ENTFERNEN
+   ==================================================
+
+Die Mobile Bottom Navigation verwendet aktuell:
+
+<a href="?nav=...">
+
+Dadurch entsteht ein vollständiger Browser-Reload und eine neue Streamlit-WebSocket-Session.
+
+Diesen Navigationsmechanismus für die Mobile Bottom Navigation NICHT weiterverwenden.
+
+Die Mobile Bottom Navigation soll ohne vollständige Browser-Navigation funktionieren.
+
+==================================================
+2. INTERNE STREAMLIT-NAVIGATION VERWENDEN
+=========================================
+
+Verwende für die Bottom Navigation dieselbe interne Navigationslogik wie die funktionierende Desktop-Navigation.
+
+Prüfe zuerst, wie Desktop aktuell Seiten wechselt.
+
+Bevorzugt:
+
+* bestehende interne Navigation-Funktion
+* st.session_state-basierte Seitenauswahl
+* st.switch_page(), falls die App echte Streamlit-Seiten verwendet
+* st.rerun() nach Setzen des internen page-state
+
+Beispielprinzip:
+
+if button_start:
+st.session_state["current_page"] = "start"
+st.rerun()
+
+Keine normalen HTML-HREF-Links verwenden.
+
+==================================================
+3. BOTTOM NAVIGATION ALS ECHTE BUTTONS
+======================================
+
+Die fünf Mobile-Navigationselemente sollen funktional echte interne Buttons sein:
+
+Start
+Spieler
+Tests
+Training
+Mehr
+
+Optisch dürfen sie weiterhin wie eine Bottom Navigation aussehen.
+
+Technisch aber NICHT:
+
+<a href="...">
+
+verwenden.
+
+Möglich sind z.B.:
+
+* st.button
+* vorhandene Custom Component mit Streamlit callback
+* andere interne callback-basierte Lösung
+
+Wichtig:
+Kein vollständiger Browser-Reload.
+
+==================================================
+4. SESSION MUSS BESTEHEN BLEIBEN
+================================
+
+Bei Klick:
+
+Start → Spieler → Tests → Training → Mehr
+
+muss dieselbe bestehende Streamlit-/Server-Session weiterlaufen.
+
+Dadurch bleiben erhalten:
+
+* authenticated user
+* st.session_state
+* aktiver Spieler
+* Rolleninformationen
+* tenant_id
+* vorhandener Login-Kontext
+
+Kein Cookie-Restore darf für normalen internen Seitenwechsel notwendig sein.
+
+==================================================
+5. COOKIE NUR FÜR ECHTEN RELOAD
+===============================
+
+Der ath_sid Cookie bleibt weiterhin wichtig für:
+
+* Browser aktualisieren
+* Browser schließen/neu öffnen
+* echte neue Verbindung
+* Wiederherstellung nach Server-/WebSocket-Neustart
+
+Aber:
+
+Ein normaler Klick auf die Bottom Navigation soll gar keine neue Session erzeugen.
+
+==================================================
+6. DESKTOP-NAVIGATION ALS REFERENZ
+==================================
+
+Da die Desktop-Menübuttons bereits korrekt funktionieren:
+
+Analysiere deren Routing.
+
+Wenn möglich:
+Mobile Bottom Navigation direkt an dieselbe Routing-Funktion anbinden.
+
+Keine zwei getrennten Router-Systeme pflegen.
+
+Ziel:
+
+Desktop:
+navigate_to("training")
+
+Mobile:
+navigate_to("training")
+
+Beide verwenden dieselbe Funktion.
+
+==================================================
+7. QUERY-PARAMETER NICHT ALS HAUPTROUTER
+========================================
+
+Falls ?nav= aktuell der Hauptmechanismus der Mobile-Navigation ist:
+
+für Bottom Navigation entfernen.
+
+Query-Parameter dürfen höchstens für Deep Links verwendet werden.
+
+Normale interne Navigation soll über Streamlit-State laufen.
+
+==================================================
+8. COOKIE-TIMING-WORKAROUND PRÜFEN
+==================================
+
+Der zuletzt eingebaute Block mit:
+
+_cookie_load_done
+
+und:
+
+"Sitzung wird geprüft …"
+
+soll überprüft werden.
+
+Wenn er für echten Browser-Reload sinnvoll ist:
+beibehalten.
+
+Wenn er nach Umstellung der Navigation unnötige Probleme verursacht:
+sauber vereinfachen.
+
+Aber nicht die funktionierende Cookie-Wiederherstellung bei echtem Reload entfernen.
+
+==================================================
+9. LOGIN-GATE
+=============
+
+Login darf nur angezeigt werden, wenn nach vollständiger Sessionprüfung wirklich keine gültige Session vorhanden ist.
+
+Nicht aufgrund eines kurzfristig leeren st.session_state.
+
+Bei normaler interner Mobile-Navigation darf dieser Login-Gate überhaupt nicht neu durchlaufen müssen.
+
+==================================================
+10. AKTIVER SPIELER MUSS ERHALTEN BLEIBEN
+=========================================
+
+Test:
+
+Spieler Lion auswählen.
+
+Dann:
+
+Tests
+→ Training
+→ Start
+→ Tests
+
+Erwartung:
+
+aktiver Spieler bleibt erhalten, sofern keine bewusste Spieleränderung erfolgt.
+
+==================================================
+11. "MEHR" EBENFALLS INTERN
+===========================
+
+Auch "Mehr" darf keinen normalen href-Reload auslösen.
+
+Unterseiten aus "Mehr" sollen ebenfalls interne Navigation verwenden.
+
+==================================================
+12. KEINE AUTH-ÄNDERUNG
+=======================
+
+Nicht verändern:
+
+* Session-Lifetime
+* Session-Datenbank
+* ath_sid Erzeugung
+* Login-Validierung
+* Logout-Logik
+* Passwortsystem
+* tenant_id
+* Rollenlogik
+
+Nur Navigation korrigieren.
+
+==================================================
+13. REALER TEST – NICHT NUR CODEANNAHME
+=======================================
+
+Teste nach Änderung tatsächlich folgenden Ablauf:
+
+1. Smartphone öffnen
+2. einmal anmelden
+3. Start klicken
+4. Spieler klicken
+5. Tests klicken
+6. Training klicken
+7. Mehr klicken
+8. Unterseite aus Mehr öffnen
+9. zurück zu Start
+10. Seite manuell aktualisieren
+11. erneut Tests öffnen
+
+Erwartung:
+
+Während 3–9:
+KEIN Login
+KEIN "Sitzung wird geprüft"-Zwischenschritt notwendig
+KEINE neue Browsernavigation
+
+Bei Schritt 10:
+Cookie darf Session wiederherstellen.
+
+Danach ebenfalls kein erneuter Login.
+
+==================================================
+14. TECHNISCHER NACHWEIS
+========================
+
+Im Abschlussbericht angeben:
+
+1. Wurden die <a href="?nav=..."> Links aus der Bottom Navigation entfernt? JA / NEIN
+2. Welche interne Navigationsfunktion wird jetzt verwendet?
+3. Erzeugt ein Klick auf Bottom Navigation noch einen vollständigen Browser-Reload? Erwartet: NEIN
+4. Bleibt dieselbe Streamlit-Session bestehen? JA / NEIN
+5. Bleibt st.session_state erhalten? JA / NEIN
+6. Bleibt der aktive Spieler erhalten? JA / NEIN
+7. Funktioniert manueller Browser-Reload weiterhin über ath_sid? JA / NEIN
+8. Funktioniert Logout weiterhin? JA / NEIN
+9. Welche Dateien wurden geändert?
+
+Danach STOPPEN.
+
+Keine anderen Funktionen verändern.

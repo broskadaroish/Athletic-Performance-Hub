@@ -2,16 +2,22 @@
 Mobile-responsive helpers for Athletic Performance Hub.
 
 Provides:
-  - handle_mobile_nav_params()    — reads ?nav= / ?player_id= query params,
+  - handle_mobile_nav_params()    — reads ?player_id= query param only;
                                     must be called before the nav_section radio
-  - inject_mobile_nav()           — fixed bottom nav bar (≤768 px only)
+  - render_mobile_nav()           — fixed bottom nav bar (≤768 px only).
+                                    Uses a proper Streamlit custom component so
+                                    clicks do NOT cause a full browser reload.
+                                    The same Streamlit WebSocket session and
+                                    st.session_state are preserved on every tap.
   - inject_mobile_player_header() — compact player pill on player pages
   - inject_mobile_player_selector() — inline <select> for player switching on
                                        mobile (hidden on ≥769px via CSS)
   - inject_mobile_mehr_overlay()  — full-screen "Mehr" menu overlay
 """
+import os as _os
 import urllib.parse
 import streamlit as st
+import streamlit.components.v1 as _stc
 
 # ── Bottom nav: (icon, label, target_section_key | None=Mehr) ─────────────────
 _BOT_NAV = [
@@ -39,12 +45,18 @@ _PLAYER_SECTIONS = frozenset({
     "📄  Dokumente",
 })
 
+# ── Declare the custom component (served from the components/ directory) ───────
+_COMPONENT_DIR = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "components", "mobile_nav")
+_mobile_nav_comp = _stc.declare_component("aph_mobile_nav", path=_COMPONENT_DIR)
+
 
 # ── Query-param navigation handler ───────────────────────────────────────────
 
 def handle_mobile_nav_params() -> None:
     """
-    Read ?player_id= and ?nav= query params; update session state.
+    Read only ?player_id= query param; update session state.
+    The old ?nav= param is no longer used for navigation (the bottom nav
+    component handles all navigation internally via Streamlit's WebSocket).
     Must be called *before* the nav_section radio widget is instantiated.
     Calls st.rerun() when a param was found (stops current script execution).
     """
@@ -60,20 +72,21 @@ def handle_mobile_nav_params() -> None:
                 pass
             st.rerun()
 
-        # ── Section navigation (?nav=<section_key>) ──────────────────────────
+        # ── Legacy ?nav= param (kept for deep links / bookmarks) ─────────────
+        # If someone navigates to ?nav=xxx directly (e.g. a saved link), we
+        # honour it once and then clear it. Normal bottom-nav taps no longer
+        # use this mechanism.
         nav_val = st.query_params.get("nav", "")
         if not nav_val:
             return
-        st.query_params.clear()          # prevent infinite loop
+        st.query_params.clear()
         if nav_val == "__mehr__":
             st.session_state["mobile_mehr_open"] = True
         elif nav_val == "__close_mehr__":
             st.session_state["mobile_mehr_open"] = False
         elif nav_val == "__logout__":
-            # Handled separately by the sidebar logout block
             st.session_state["__mobile_logout_request__"] = True
         else:
-            # Exact section key (e.g. "🔬  Diagnostik")
             st.session_state["nav_section"] = nav_val
             st.session_state["mobile_mehr_open"] = False
         st.rerun()
@@ -81,38 +94,93 @@ def handle_mobile_nav_params() -> None:
         pass
 
 
-# ── Bottom navigation bar ─────────────────────────────────────────────────────
+# ── Internal nav-signal handler ───────────────────────────────────────────────
 
-def inject_mobile_nav(current_section: str) -> None:
+def _apply_nav_signal(target: str) -> None:
+    """
+    Apply a navigation signal received from the mobile nav component.
+    Updates st.session_state and triggers a Streamlit rerun.
+    No page reload — the existing WebSocket session is preserved.
+    """
+    if target == "__mehr__":
+        st.session_state["mobile_mehr_open"] = True
+    elif target == "__close_mehr__":
+        st.session_state["mobile_mehr_open"] = False
+    elif target == "__logout__":
+        st.session_state["__mobile_logout_request__"] = True
+    else:
+        st.session_state["nav_section"] = target
+        st.session_state["mobile_mehr_open"] = False
+    st.rerun()
+
+
+# ── Bottom navigation bar (component-based, no <a href>) ─────────────────────
+
+def render_mobile_nav(current_section: str) -> None:
     """
     Inject a fixed bottom nav bar visible only on mobile (≤768 px).
-    Navigation uses ?nav= query params so Streamlit re-reads state cleanly.
+
+    Uses a Streamlit custom component (components/mobile_nav/index.html) that:
+      • Renders the five nav items as real <button> elements (no <a href>).
+      • Communicates taps back to Python via Streamlit.setComponentValue().
+      • Positions itself as position:fixed at the bottom of the page by
+        directly styling its own iframe element in the parent document.
+
+    Result: tapping Start / Spieler / Tests / Training / Mehr does NOT cause
+    a full browser reload. The same Streamlit WebSocket session continues, and
+    all st.session_state (login, active player, tenant, role) is preserved.
     """
     mehr_open = bool(st.session_state.get("mobile_mehr_open"))
 
-    items_html = ""
+    items = []
     for icon, label, key in _BOT_NAV:
         if key is None:
-            # "Mehr" toggle
-            is_active  = mehr_open
             nav_target = "__close_mehr__" if mehr_open else "__mehr__"
+            is_active  = mehr_open
         else:
+            nav_target = key
             is_active  = (current_section == key) and not mehr_open
-            nav_target = urllib.parse.quote(key)
+        items.append({
+            "icon":   icon,
+            "label":  label,
+            "target": nav_target,
+            "active": is_active,
+        })
 
-        active_cls = " aph-bn-active" if is_active else ""
-        items_html += (
-            f'<a class="aph-bn-item{active_cls}" href="?nav={nav_target}">'
-            f'<span class="aph-bn-icon">{icon}</span>'
-            f'<span class="aph-bn-label">{label}</span>'
-            f'</a>'
-        )
+    # Render the component. It lives inside a hidden iframe on desktop and as
+    # a position:fixed 62 px bottom bar on mobile.
+    nav_signal = _mobile_nav_comp(
+        items=items,
+        mehr_open=mehr_open,
+        key="aph_mobile_nav",
+    )
 
-    st.markdown(
-        f'<nav class="aph-bottom-nav" aria-label="Hauptnavigation">'
-        f'{items_html}'
-        f'</nav>',
-        unsafe_allow_html=True,
+    # Process the navigation signal (with ts-based deduplication so that
+    # the same signal doesn't trigger infinite reruns across Streamlit reruns).
+    if isinstance(nav_signal, dict):
+        target = nav_signal.get("target", "")
+        ts     = nav_signal.get("ts", 0)
+        last   = st.session_state.get("_mobile_nav_last") or {}
+        if target and (last.get("target") != target or last.get("ts") != ts):
+            st.session_state["_mobile_nav_last"] = nav_signal
+            _apply_nav_signal(target)
+
+
+# ── postMessage inline JS helper ──────────────────────────────────────────────
+# Used by the Mehr overlay and player header. Since <script> tags do not
+# execute inside React's dangerouslySetInnerHTML, we use inline onclick
+# attributes with self-contained JavaScript. The JS sends {aphNav: target}
+# to all iframes; the nav component iframe picks it up and forwards it to
+# Streamlit via setComponentValue.
+
+def _pm_onclick(target: str) -> str:
+    """Return an onclick attribute value that posts {aphNav: target} to all iframes."""
+    safe = target.replace("\\", "\\\\").replace("'", "\\'")
+    return (
+        "(function(t){"
+        "var fs=window.parent.document.querySelectorAll('iframe');"
+        "for(var i=0;i<fs.length;i++){try{fs[i].contentWindow.postMessage({aphNav:t},'*');}catch(e){}}"
+        "})('" + safe + "')"
     )
 
 
@@ -122,6 +190,7 @@ def inject_mobile_player_header(player: dict | None, section: str) -> None:
     """
     On player-specific pages show a compact player pill (mobile only).
     On desktop the element is hidden via @media CSS.
+    "Wechseln" uses an onclick postMessage — no <a href>, no page reload.
     """
     if not player or section not in _PLAYER_SECTIONS:
         return
@@ -129,7 +198,6 @@ def inject_mobile_player_header(player: dict | None, section: str) -> None:
     pos  = player.get("hauptposition") or player.get("position") or ""
     team = player.get("mannschaft") or ""
     sub  = " · ".join(x for x in [pos, team] if x) or "Kein Team"
-    spieler_param = urllib.parse.quote("👤  Spieler")
     st.markdown(
         f'<div class="aph-mph">'
         f'<span class="aph-mph-icon">👤</span>'
@@ -137,7 +205,9 @@ def inject_mobile_player_header(player: dict | None, section: str) -> None:
         f'<div class="aph-mph-name">{name}</div>'
         f'<div class="aph-mph-sub">{sub}</div>'
         f'</div>'
-        f'<a class="aph-mph-switch" href="?nav={spieler_param}">Wechseln&nbsp;›</a>'
+        f'<button class="aph-mph-switch" type="button"'
+        f' onclick="{_pm_onclick("👤  Spieler")}">'
+        f'Wechseln&nbsp;›</button>'
         f'</div>',
         unsafe_allow_html=True,
     )
@@ -148,7 +218,7 @@ def inject_mobile_player_header(player: dict | None, section: str) -> None:
 def inject_mobile_player_selector(alle_spieler: list | None, current_pid) -> None:
     """
     Mobile-only player switcher — native HTML <select> that navigates via
-    ?player_id= query param (same pattern as ?nav= mobile navigation).
+    ?player_id= query param (handled by handle_mobile_nav_params()).
     Hidden on desktop (≥769px) via CSS .aph-mob-sel-wrap { display:none }.
     Does nothing when fewer than 2 players are available.
     """
@@ -188,6 +258,10 @@ def inject_mobile_mehr_overlay(alle_sektionen: list[str]) -> bool:
     If mobile_mehr_open is True, render the full-screen "Mehr" overlay.
     The overlay is position:fixed so it covers main content on mobile.
     On desktop display:none — no visual impact.
+
+    All navigation links use onclick postMessage to the nav bridge component.
+    No <a href> — no page reload — session state preserved.
+
     Returns True if the overlay is active (caller can skip heavy rendering).
     """
     if not st.session_state.get("mobile_mehr_open"):
@@ -198,27 +272,32 @@ def inject_mobile_mehr_overlay(alle_sektionen: list[str]) -> bool:
         sek_s = sek.strip()
         if sek_s in _BOT_NAV_PRIMARY:
             continue                         # already in bottom bar
-        param = urllib.parse.quote(sek)
         items_html += (
-            f'<a class="aph-mehr-item" href="?nav={param}">'
+            f'<button class="aph-mehr-item" type="button"'
+            f' onclick="{_pm_onclick(sek)}">'
             f'<span class="aph-mehr-item-text">{sek_s}</span>'
             f'<span class="aph-mehr-item-arrow">›</span>'
-            f'</a>'
+            f'</button>'
         )
+
+    close_onclick  = _pm_onclick("__close_mehr__")
+    logout_onclick = _pm_onclick("__logout__")
 
     logout_html = (
         '<div class="aph-mehr-divider"></div>'
-        '<a class="aph-mehr-item aph-mehr-logout" href="?nav=__logout__">'
+        f'<button class="aph-mehr-item aph-mehr-logout" type="button"'
+        f' onclick="{logout_onclick}">'
         '<span class="aph-mehr-item-text">🚪&nbsp;Abmelden</span>'
         '<span class="aph-mehr-item-arrow">›</span>'
-        '</a>'
+        '</button>'
     )
 
     st.markdown(
         f'<div class="aph-mehr-overlay">'
         f'<div class="aph-mehr-header">'
         f'<span class="aph-mehr-title">Weitere Bereiche</span>'
-        f'<a class="aph-mehr-close" href="?nav=__close_mehr__">✕</a>'
+        f'<button class="aph-mehr-close" type="button"'
+        f' onclick="{close_onclick}">✕</button>'
         f'</div>'
         f'<div class="aph-mehr-section-label">Navigation</div>'
         f'{items_html}'

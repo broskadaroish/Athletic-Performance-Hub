@@ -29,7 +29,7 @@ from theme import APP_CSS, C, PLOTLY_LAYOUT as _PL_BASE
 from mobile import (
     inject_mobile_player_selector,
     handle_mobile_nav_params,
-    inject_mobile_nav,
+    render_mobile_nav,
     inject_mobile_player_header,
     inject_mobile_mehr_overlay,
 )
@@ -10001,5 +10001,5 @@ elif section == "📋  Mein Vertrag":
 elif section == "👥  Kundenverwaltung":
     page_kundenverwaltung()
 
-# ── Mobile bottom nav (visible only on ≤768px via CSS) ────────────────────────
-inject_mobile_nav(section)
+# ── Mobile bottom nav (≤768px only, no <a href>, no page reload) ─────────────
+render_mobile_nav(section)

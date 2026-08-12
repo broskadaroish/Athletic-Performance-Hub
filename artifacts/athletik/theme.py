@@ -364,34 +364,9 @@ html, body { overflow-x: hidden; max-width: 100vw; }
         /* iOS safe area */
         padding-bottom: env(safe-area-inset-bottom, 0px);
     }
-    .aph-bn-item {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        flex: 1;
-        text-decoration: none !important;
-        color: #8b949e;
-        padding: 6px 4px;
-        min-width: 0;
-        -webkit-tap-highlight-color: transparent;
-        transition: color 0.12s;
-        user-select: none;
-    }
-    .aph-bn-item.aph-bn-active  { color: #58a6ff !important; }
-    .aph-bn-item:hover           { color: #c9d1d9; text-decoration: none !important; }
-    .aph-bn-item:active          { opacity: 0.7; }
-    .aph-bn-icon  { font-size: 20px; line-height: 1.2; display: block; }
-    .aph-bn-label {
-        font-size: 10px;
-        font-weight: 600;
-        margin-top: 2px;
-        display: block;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        max-width: 100%;
-    }
+    /* Bottom nav items are now rendered inside the component iframe.
+       These rules are kept for any legacy references but are no longer
+       needed for the nav bar itself — styling lives in index.html. */
 }
 
 /* ══ Mobile active-player header pill ════════════════════════════════════════ */
