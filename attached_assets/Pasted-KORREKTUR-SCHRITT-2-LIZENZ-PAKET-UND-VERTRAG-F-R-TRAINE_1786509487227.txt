@@ -1,0 +1,319 @@
+KORREKTUR SCHRITT 2 – LIZENZ/PAKET UND VERTRAG FÜR TRAINER UND VEREINE
+
+Aktuelles Problem:
+
+Wenn sich ein Kunde als TRAINER registriert, zeigt die Superadmin-Kundenverwaltung bei:
+
+C) Lizenz / Paket
+
+und
+
+D) Vertrag
+
+teilweise keine Bearbeitungsmöglichkeit an.
+
+Es erscheint sinngemäß:
+
+"Vertragsdaten nur für Vereinskunden verfügbar."
+
+Das ist falsch.
+
+VERBINDLICHE REGEL:
+
+JEDER registrierte Kunde ist ein Vertrags-/Lizenzkunde, unabhängig davon, ob Kundentyp:
+
+* TRAINER
+  oder
+* VEREIN
+
+ist.
+
+Sowohl Trainer als auch Vereine müssen daher:
+
+* ein Paket erhalten können
+* einen Lizenzstatus erhalten können
+* Vertragsdaten besitzen können
+* Vertragsbeginn / Vertragsende erhalten können
+* Kündigungsstatus besitzen können
+
+==================================================
+
+1. BESTEHENDE LOGIK PRÜFEN
+   ==================================================
+
+Prüfe zuerst den bestehenden Code.
+
+Suche insbesondere nach Bedingungen wie:
+
+if kundentyp == "verein"
+
+oder vergleichbaren Bedingungen, die:
+
+* Paketverwaltung
+* Lizenzverwaltung
+* Vertragsdaten
+* Vertragsbearbeitung
+
+nur für Vereinskunden erlauben.
+
+Entferne ausschließlich diese fachlich falsche Einschränkung.
+
+Andere Unterschiede zwischen Trainer- und Vereinskunden dürfen bestehen bleiben, wenn sie tatsächlich kundentypspezifisch sind.
+
+==================================================
+2. LIZENZ / PAKET FÜR TRAINER
+=============================
+
+Bei jedem TRAINER-Kunden soll im Superadmin unter:
+
+C) LIZENZ / PAKET
+
+derselbe Paketverwaltungsbereich verfügbar sein wie bei einem Verein.
+
+Mindestens anzeigen:
+
+* aktuelles Paket
+* bestehender Paketpreis
+* bestehendes Abrechnungsintervall
+* Lizenzstatus
+* Vertragsbeginn
+* Vertragsende / nächste Verlängerung
+* vorhandene Limits
+* aktuelle Nutzung
+
+Der Superadmin muss für einen neu registrierten Trainer ein Paket aus den BEREITS BESTEHENDEN Paketen auswählen und zuweisen können.
+
+Keine neuen Pakete erstellen.
+
+Keine Paketnamen ändern.
+
+Keine Preise ändern.
+
+Keine Limits verändern.
+
+==================================================
+3. NEU REGISTRIERTER TRAINER
+============================
+
+Ein neu registrierter Trainer darf zunächst ohne fest zugeordnetes Paket vorhanden sein, falls dies der bestehende Registrierungsablauf vorsieht.
+
+Im Superadmin muss dann klar angezeigt werden:
+
+"Paket noch nicht zugewiesen"
+
+und ein Button / Auswahlfeld:
+
+"Paket zuweisen"
+
+Der Superadmin wählt ausschließlich aus den bereits vorhandenen Paketen.
+
+Nach Auswahl:
+
+Bestätigung anzeigen:
+
+"Paket [Paketname] wirklich diesem Kunden zuweisen?"
+
+Danach persistent speichern.
+
+==================================================
+4. PAKETWECHSEL
+===============
+
+Wenn ein Trainer bereits ein Paket besitzt:
+
+Superadmin soll das Paket ändern können.
+
+Vor Wechsel:
+
+"Paket wirklich von [altes Paket] auf [neues Paket] ändern?"
+
+Bestehende Paketwechsel-Logik bevorzugt weiterverwenden.
+
+Keine parallele zweite Paketlogik erstellen.
+
+==================================================
+5. VERTRAGSDATEN FÜR TRAINER
+============================
+
+Der Bereich:
+
+D) VERTRAG
+
+muss ebenfalls für TRAINER verfügbar und bearbeitbar sein.
+
+Mindestens:
+
+* Vertragsstatus
+* Vertragsbeginn
+* Vertragsende
+* nächste Verlängerung, falls vorhanden
+* Kündigung eingegangen
+* Kündigung eingegangen am
+* gekündigt zum
+* Kündigungsstatus
+
+Keine Meldung mehr:
+
+"Vertragsdaten nur für Vereinskunden verfügbar."
+
+==================================================
+6. VEREINSKUNDEN
+================
+
+Bestehende Funktionalität für Vereine vollständig erhalten.
+
+Die Änderung darf Vereinsverträge oder Vereinslizenzen nicht beschädigen.
+
+Ziel ist:
+
+TRAINER:
+Lizenz/Paket + Vertrag
+
+VEREIN:
+Lizenz/Paket + Vertrag
+
+==================================================
+7. GEMEINSAME KUNDENLOGIK
+=========================
+
+Falls möglich, die gemeinsame Lizenz-/Vertragslogik nicht doppelt implementieren.
+
+Bevorzugte Struktur:
+
+KUNDE
+├── Kundentyp: Trainer / Verein
+├── Lizenz / Paket
+├── Vertrag
+├── Rechnungsadresse
+└── Account
+
+Kundentyp bestimmt nur kundenspezifische Zusatzfelder.
+
+Beispiel:
+
+Trainer:
+
+* Vorname
+* Nachname
+
+Verein:
+
+* Vereinsname
+* Ansprechpartner
+
+Aber Lizenz und Vertrag gehören zu BEIDEN Kundentypen.
+
+==================================================
+8. SUPERADMIN-BEARBEITUNG
+=========================
+
+Für Trainer UND Vereine soll der Superadmin bearbeiten können:
+
+C) LIZENZ / PAKET
+
+* Paket
+* Lizenzstatus
+* Vertragsbeginn
+* Vertragsende
+* vorhandene lizenzbezogene Einstellungen
+
+D) VERTRAG
+
+* Vertragsstatus
+* Vertragsbeginn
+* Vertragsende
+* Kündigungsdaten
+
+Vor kritischen Änderungen Bestätigung verwenden.
+
+==================================================
+9. BESTEHENDE PAKETE SIND VERBINDLICH
+=====================================
+
+WICHTIG:
+
+Die bereits vorhandenen Pakete, Preise, Laufzeiten und Limits dürfen NICHT verändert werden.
+
+Nur die Möglichkeit schaffen, diese bestehenden Pakete auch TRAINER-Kunden zuzuweisen.
+
+Keine neuen Standardpakete erfinden.
+
+Keine Preise hart im neuen Code hinterlegen.
+
+Bestehende zentrale Paket-/Preisquelle verwenden.
+
+==================================================
+10. DATENBANK
+=============
+
+Prüfe, ob Lizenz-/Vertragsfelder aktuell technisch an eine Vereinsstruktur gekoppelt sind.
+
+Falls JA:
+
+Nicht blind neue parallele Tabellen anlegen.
+
+Bestehende Datenbank möglichst so erweitern/refaktorieren, dass Lizenz und Vertrag eindeutig einem Kunden-/Benutzerkonto zugeordnet werden können.
+
+Dabei:
+
+* bestehende Vereinsverträge erhalten
+* bestehende Pakete erhalten
+* keine Spielerzuordnungen ändern
+* keine Kundendaten verlieren
+* Alt-Konten weiter funktionsfähig halten
+
+==================================================
+11. NEUE TRAINER-REGISTRIERUNG TESTEN
+=====================================
+
+Testablauf:
+
+1. Neuen Trainer registrieren.
+2. E-Mail bestätigen.
+3. Superadmin öffnet Kundenverwaltung.
+4. Trainer öffnen.
+5. Bereich C – Lizenz/Paket sichtbar.
+6. Bestehendes Paket auswählen.
+7. Paket speichern.
+8. Reload.
+9. Paket weiterhin korrekt zugeordnet.
+10. Bereich D – Vertrag sichtbar.
+11. Vertragsbeginn setzen.
+12. Vertragsende setzen.
+13. Speichern.
+14. Reload.
+15. Vertragsdaten weiterhin vorhanden.
+
+==================================================
+12. VEREIN REGRESSIONSTEST
+==========================
+
+Zusätzlich bestehenden Verein testen:
+
+* Paket weiterhin vorhanden
+* Paket weiterhin bearbeitbar
+* Vertrag weiterhin sichtbar
+* Vertrag weiterhin bearbeitbar
+* keine Daten verloren
+
+==================================================
+13. ABSCHLUSSBERICHT
+====================
+
+Danach berichten:
+
+1. Warum waren Vertragsdaten bisher nur für Vereinskunden verfügbar?
+2. In welcher Datei / Bedingung lag diese Einschränkung?
+3. Können Trainer jetzt Pakete erhalten?
+4. Können Trainer jetzt Pakete wechseln?
+5. Können Trainer jetzt Vertragsdaten erhalten und bearbeiten?
+6. Funktionieren Vereine weiterhin unverändert?
+7. Welche bestehenden Pakete werden verwendet?
+8. Wurden Preise oder Pakete verändert? Erwartete Antwort: NEIN.
+9. Welche Dateien wurden geändert?
+10. Gab es Datenbankänderungen?
+11. Welche Tests wurden durchgeführt?
+
+Danach STOPPEN.
+
+Keine anderen Funktionen verändern.

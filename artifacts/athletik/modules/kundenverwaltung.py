@@ -12,10 +12,12 @@ from database import (
     superadmin_email_aendern,
     superadmin_benutzername_aendern,
     vertragsfelder_setzen,
+    trainer_vertrag_setzen,
     kundenstamm_aendern,
     benutzer_aktivieren,
     audit_log_eintragen,
     lizenz_setzen,
+    trainer_lizenz_setzen,
     normalize_email,
 )
 from license import LIZENZ_TYPEN, FEATURE_LABELS
@@ -296,42 +298,49 @@ def _detail_b_rechnungsadresse(daten: dict) -> None:
 
 
 def _detail_c_lizenz(daten: dict) -> None:
-    """Section C: Lizenz/Paket — bestehende Pakete aus license.py, Paketwechsel mit Bestätigung."""
+    """Section C: Lizenz/Paket — für Verein UND Trainer.
+    Vereine: Daten aus vereine-Tabelle, schreibt via lizenz_setzen().
+    Trainer: Daten aus benutzer-Tabelle, schreibt via trainer_lizenz_setzen().
+    Bestehende Pakete aus license.py; keine Pakete/Preise verändern."""
     b = daten.get("benutzer") or {}
     v = daten.get("verein") or {}
+    ist_verein = bool(v)
 
-    if not v:
-        with st.expander("**C — Lizenz / Paket**", expanded=False):
-            st.info("Lizenzinformationen nur für Vereinskunden verfügbar.")
-        return
+    # Einheitliche Datenquelle: Verein → v-Dict, Trainer → b-Dict
+    src        = v if ist_verein else b
+    entity_id  = v["id"] if ist_verein else b["id"]   # verein_id oder benutzer_id
+    key_pfx    = f"v{entity_id}" if ist_verein else f"b{entity_id}"
 
-    verein_id   = v["id"]
-    lizenztyp   = (v.get("lizenztyp") or "BASIC").upper()
-    liz_status  = v.get("lizenz_status") or "trial"
-    liz_bis     = v.get("lizenz_bis") or "—"
-    testphase   = v.get("testphase_bis") or "—"
-    paket_def   = LIZENZ_TYPEN.get(lizenztyp, LIZENZ_TYPEN.get("BASIC", {}))
-
-    # Spieler- und Trainer-Zählung
-    from database import get_conn, _row
-    with get_conn() as conn:
-        spieler_anz = conn.execute(
-            "SELECT COUNT(*) FROM spieler WHERE verein_id=?", (verein_id,)
-        ).fetchone()[0]
-        trainer_anz = conn.execute(
-            "SELECT COUNT(*) FROM benutzer WHERE verein_id=? AND aktiv=1", (verein_id,)
-        ).fetchone()[0]
+    lizenztyp  = (src.get("lizenztyp") or "BASIC").upper()
+    liz_status = src.get("lizenz_status") or "trial"
+    liz_bis    = src.get("lizenz_bis") or "—"
+    testphase  = src.get("testphase_bis") or "—"
+    paket_def  = LIZENZ_TYPEN.get(lizenztyp, LIZENZ_TYPEN.get("BASIC", {}))
 
     with st.expander("**C — Lizenz / Paket**", expanded=False):
         c1, c2, c3 = st.columns(3)
-        c1.metric("Paket",       paket_def.get("label", lizenztyp))
-        c2.metric("Lizenzstatus", _STATUS_LABELS.get(liz_status, liz_status))
-        c3.metric("Lizenz bis",  liz_bis)
-        c1.metric("Spieler",     f"{spieler_anz} / {paket_def.get('max_spieler','∞')}")
-        c2.metric("Trainer",     f"{trainer_anz} / {paket_def.get('max_trainer','∞')}")
-        c3.metric("Testphase bis", testphase)
+        c1.metric("Paket",         paket_def.get("label", lizenztyp))
+        c2.metric("Lizenzstatus",  _STATUS_LABELS.get(liz_status, liz_status))
+        c3.metric("Lizenz bis",    liz_bis)
 
-        # Preis & Abrechnung
+        if ist_verein:
+            # Nutzungszähler nur für Vereinskunden sinnvoll
+            from database import get_conn as _gc
+            with _gc() as _conn:
+                spieler_anz = _conn.execute(
+                    "SELECT COUNT(*) FROM spieler WHERE verein_id=?", (entity_id,)
+                ).fetchone()[0]
+                trainer_anz = _conn.execute(
+                    "SELECT COUNT(*) FROM benutzer WHERE verein_id=? AND aktiv=1", (entity_id,)
+                ).fetchone()[0]
+            c1.metric("Spieler",   f"{spieler_anz} / {paket_def.get('max_spieler','∞')}")
+            c2.metric("Trainer",   f"{trainer_anz} / {paket_def.get('max_trainer','∞')}")
+            c3.metric("Testphase bis", testphase)
+        else:
+            c3.metric("Testphase bis", testphase)
+            st.caption("ℹ️ Trainer-Konto ohne Vereinsstruktur — Spieler-/Trainer-Limits entfallen.")
+
+        # Preis & Abrechnung aus bestehenden Paketen (unveränderlich)
         if paket_def:
             st.markdown(
                 f"**Preis:** {paket_def.get('preis_monat',0):.2f} € / Monat &nbsp;|&nbsp; "
@@ -339,42 +348,60 @@ def _detail_c_lizenz(daten: dict) -> None:
             )
 
         st.markdown("---")
-        st.markdown("**🔄 Paketwechsel (nur zwischen bestehenden Paketen)**")
         paket_optionen = list(LIZENZ_TYPEN.keys())
         cur_idx = paket_optionen.index(lizenztyp) if lizenztyp in paket_optionen else 0
-        neues_paket = st.selectbox("Neues Paket", paket_optionen, index=cur_idx,
-                                    format_func=lambda x: f"{x} — {LIZENZ_TYPEN[x]['label']}",
-                                    key=f"liz_paket_{verein_id}")
+
+        if lizenztyp not in paket_optionen:
+            st.info("⚠️ Noch kein Paket zugewiesen — bitte Paket auswählen und speichern.")
+            st.markdown("**📦 Paket zuweisen**")
+        else:
+            st.markdown("**🔄 Paketwechsel (nur zwischen bestehenden Paketen)**")
+
+        neues_paket = st.selectbox(
+            "Paket", paket_optionen, index=cur_idx,
+            format_func=lambda x: f"{x} — {LIZENZ_TYPEN[x]['label']}",
+            key=f"liz_paket_{key_pfx}",
+        )
         neuer_status = st.selectbox(
-            "Lizenzstatus", ["trial","active","expired","suspended","cancelled"],
-            index=["trial","active","expired","suspended","cancelled"].index(liz_status)
-                  if liz_status in ["trial","active","expired","suspended","cancelled"] else 0,
+            "Lizenzstatus",
+            ["trial", "active", "expired", "suspended", "cancelled"],
+            index=(["trial","active","expired","suspended","cancelled"].index(liz_status)
+                   if liz_status in ["trial","active","expired","suspended","cancelled"] else 0),
             format_func=lambda x: _STATUS_LABELS.get(x, x),
-            key=f"liz_status_{verein_id}",
+            key=f"liz_status_{key_pfx}",
         )
         lc1, lc2 = st.columns(2)
-        neue_liz_bis = lc1.text_input("Lizenz bis (YYYY-MM-DD)", value=v.get("lizenz_bis") or "",
-                                       key=f"liz_bis_{verein_id}")
+        neue_liz_bis  = lc1.text_input("Lizenz bis (YYYY-MM-DD)",
+                                        value=src.get("lizenz_bis") or "",
+                                        key=f"liz_bis_{key_pfx}")
         neue_test_bis = lc2.text_input("Testphase bis (YYYY-MM-DD)",
-                                        value=v.get("testphase_bis") or "",
-                                        key=f"liz_test_{verein_id}")
+                                        value=src.get("testphase_bis") or "",
+                                        key=f"liz_test_{key_pfx}")
 
-        if st.button("💾 Lizenz / Paket speichern", key=f"liz_save_{verein_id}"):
-            _pk_key = f"liz_bestaetigt_{verein_id}"
-            if neues_paket != lizenztyp and not st.session_state.get(_pk_key):
+        if st.button("💾 Lizenz / Paket speichern", key=f"liz_save_{key_pfx}"):
+            _pk_key = f"liz_bestaetigt_{key_pfx}"
+            if neues_paket != lizenztyp and lizenztyp in paket_optionen and not st.session_state.get(_pk_key):
                 st.session_state[_pk_key] = True
                 st.warning(
                     f"⚠️ **Paket wirklich von {lizenztyp} auf {neues_paket} ändern?**"
                     " Nochmals speichern zum Bestätigen."
                 )
-            else:
-                lizenz_setzen(
-                    verein_id,
-                    neues_paket,
-                    neuer_status,
-                    neue_liz_bis.strip() or None,
-                    neue_test_bis.strip() or None,
+            elif lizenztyp not in paket_optionen and not st.session_state.get(_pk_key):
+                # Erstmalige Zuweisung — einmalige Bestätigung
+                st.session_state[_pk_key] = True
+                st.warning(
+                    f"⚠️ **Paket {neues_paket} wirklich diesem Kunden zuweisen?**"
+                    " Nochmals speichern zum Bestätigen."
                 )
+            else:
+                if ist_verein:
+                    lizenz_setzen(entity_id, neues_paket, neuer_status,
+                                  neue_liz_bis.strip() or None,
+                                  neue_test_bis.strip() or None)
+                else:
+                    trainer_lizenz_setzen(entity_id, neues_paket, neuer_status,
+                                          neue_liz_bis.strip() or None,
+                                          neue_test_bis.strip() or None)
                 audit_log_eintragen(
                     b.get("id"), "paket_geaendert",
                     f"{lizenztyp} → {neues_paket} status={neuer_status}", _sa_id(),
@@ -385,51 +412,67 @@ def _detail_c_lizenz(daten: dict) -> None:
 
 
 def _detail_d_vertrag(daten: dict) -> None:
-    """Section D: Vertragsdaten — Beginn, Ende, Kündigung."""
+    """Section D: Vertragsdaten — für Verein UND Trainer.
+    Vereine: schreibt via vertragsfelder_setzen().
+    Trainer: schreibt via trainer_vertrag_setzen()."""
     b = daten.get("benutzer") or {}
     v = daten.get("verein") or {}
+    ist_verein = bool(v)
 
-    if not v:
-        with st.expander("**D — Vertrag**", expanded=False):
-            st.info("Vertragsdaten nur für Vereinskunden verfügbar.")
-        return
+    src       = v if ist_verein else b
+    entity_id = v["id"] if ist_verein else b["id"]
+    key_pfx   = f"v{entity_id}" if ist_verein else f"b{entity_id}"
 
-    verein_id = v["id"]
     with st.expander("**D — Vertrag**", expanded=False):
         c1, c2 = st.columns(2)
-        c1.markdown(f"**Vertragsstatus:** {v.get('kuendigungsstatus','aktiv')}")
-        c2.markdown(f"**Vertragsbeginn:** {v.get('vertragsbeginn','—') or '—'}")
-        c1.markdown(f"**Vertragsende:** {v.get('vertragsende','—') or '—'}")
-        c2.markdown(f"**Kündigung eingegangen:** {v.get('kuendigung_eingegangen','—') or '—'}")
-        c1.markdown(f"**Gekündigt zum:** {v.get('gekuendigt_zum','—') or '—'}")
+        c1.markdown(f"**Vertragsstatus:** {src.get('kuendigungsstatus','aktiv') or 'aktiv'}")
+        c2.markdown(f"**Vertragsbeginn:** {src.get('vertragsbeginn','—') or '—'}")
+        c1.markdown(f"**Vertragsende:** {src.get('vertragsende','—') or '—'}")
+        c2.markdown(f"**Kündigung eingegangen:** {src.get('kuendigung_eingegangen','—') or '—'}")
+        c1.markdown(f"**Gekündigt zum:** {src.get('gekuendigt_zum','—') or '—'}")
 
         st.markdown("---")
         st.markdown("**✏️ Vertragsdaten bearbeiten**")
         vc1, vc2 = st.columns(2)
-        e_vbeg   = vc1.text_input("Vertragsbeginn (YYYY-MM-DD)",
-                                   value=v.get("vertragsbeginn") or "", key=f"vt_beg_{verein_id}")
-        e_vend   = vc2.text_input("Vertragsende (YYYY-MM-DD)",
-                                   value=v.get("vertragsende") or "", key=f"vt_end_{verein_id}")
-        e_keing  = vc1.text_input("Kündigung eingegangen (YYYY-MM-DD)",
-                                   value=v.get("kuendigung_eingegangen") or "", key=f"vt_kein_{verein_id}")
-        e_kzum   = vc2.text_input("Gekündigt zum (YYYY-MM-DD)",
-                                   value=v.get("gekuendigt_zum") or "", key=f"vt_kzum_{verein_id}")
+        e_vbeg  = vc1.text_input("Vertragsbeginn (YYYY-MM-DD)",
+                                  value=src.get("vertragsbeginn") or "",
+                                  key=f"vt_beg_{key_pfx}")
+        e_vend  = vc2.text_input("Vertragsende (YYYY-MM-DD)",
+                                  value=src.get("vertragsende") or "",
+                                  key=f"vt_end_{key_pfx}")
+        e_keing = vc1.text_input("Kündigung eingegangen (YYYY-MM-DD)",
+                                  value=src.get("kuendigung_eingegangen") or "",
+                                  key=f"vt_kein_{key_pfx}")
+        e_kzum  = vc2.text_input("Gekündigt zum (YYYY-MM-DD)",
+                                  value=src.get("gekuendigt_zum") or "",
+                                  key=f"vt_kzum_{key_pfx}")
         kstatus_opts = ["aktiv", "Kündigung eingegangen", "gekündigt"]
-        cur_ks = v.get("kuendigungsstatus","aktiv")
+        cur_ks  = src.get("kuendigungsstatus", "aktiv") or "aktiv"
         e_kstat = st.selectbox("Kündigungsstatus", kstatus_opts,
                                 index=kstatus_opts.index(cur_ks) if cur_ks in kstatus_opts else 0,
-                                key=f"vt_kstat_{verein_id}")
+                                key=f"vt_kstat_{key_pfx}")
 
-        if st.button("💾 Vertragsdaten speichern", key=f"vt_save_{verein_id}"):
-            vertragsfelder_setzen(
-                verein_id,
-                vertragsbeginn=e_vbeg.strip() or None,
-                vertragsende=e_vend.strip() or None,
-                kuendigung_eingegangen=e_keing.strip() or None,
-                gekuendigt_zum=e_kzum.strip() or None,
-                kuendigungsstatus=e_kstat,
-                superadmin_id=_sa_id(),
-            )
+        if st.button("💾 Vertragsdaten speichern", key=f"vt_save_{key_pfx}"):
+            if ist_verein:
+                vertragsfelder_setzen(
+                    entity_id,
+                    vertragsbeginn=e_vbeg.strip() or None,
+                    vertragsende=e_vend.strip() or None,
+                    kuendigung_eingegangen=e_keing.strip() or None,
+                    gekuendigt_zum=e_kzum.strip() or None,
+                    kuendigungsstatus=e_kstat,
+                    superadmin_id=_sa_id(),
+                )
+            else:
+                trainer_vertrag_setzen(
+                    entity_id,
+                    vertragsbeginn=e_vbeg.strip() or None,
+                    vertragsende=e_vend.strip() or None,
+                    kuendigung_eingegangen=e_keing.strip() or None,
+                    gekuendigt_zum=e_kzum.strip() or None,
+                    kuendigungsstatus=e_kstat,
+                    superadmin_id=_sa_id(),
+                )
             st.success("✅ Vertragsdaten gespeichert.")
             st.rerun()
 

@@ -2397,6 +2397,23 @@ def _migrate_multitenant():
                 conn.execute(f"ALTER TABLE benutzer ADD COLUMN {col} {typ}")
             except Exception:
                 pass
+        # ── Lizenz/Vertragsspalten für standalone Trainer auf benutzer-Ebene ──
+        neue_benutzer_lizenz_cols = [
+            ("lizenztyp",              "TEXT DEFAULT 'BASIC'"),
+            ("lizenz_status",          "TEXT DEFAULT 'trial'"),
+            ("lizenz_bis",             "TEXT"),
+            ("testphase_bis",          "TEXT"),
+            ("vertragsbeginn",         "TEXT"),
+            ("vertragsende",           "TEXT"),
+            ("kuendigung_eingegangen", "TEXT"),
+            ("gekuendigt_zum",         "TEXT"),
+            ("kuendigungsstatus",      "TEXT DEFAULT 'aktiv'"),
+        ]
+        for col, typ in neue_benutzer_lizenz_cols:
+            try:
+                conn.execute(f"ALTER TABLE benutzer ADD COLUMN {col} {typ}")
+            except Exception:
+                pass
         # Bestehende Benutzer sofort als verifiziert markieren — verhindert Lockout
         conn.execute(
             # Nur Altdaten ohne ausstehenden Verifizierungstoken (email_token IS NULL)
@@ -2765,6 +2782,56 @@ def lizenz_setzen(
                 WHERE id=?""",
             (lizenz_typ, lizenz_status, lizenz_bis, testphase_bis, verein_id),
         )
+
+
+def trainer_lizenz_setzen(
+    benutzer_id: int,
+    lizenz_typ: str,
+    lizenz_status: str,
+    lizenz_bis: str | None = None,
+    testphase_bis: str | None = None,
+) -> None:
+    """Setzt Lizenztyp, Status und Ablaufdaten für einen Trainer-Kunden (standalone, verein_id IS NULL)."""
+    with get_conn() as conn:
+        conn.execute(
+            """UPDATE benutzer
+                  SET lizenztyp=?,
+                      lizenz_status=?,
+                      lizenz_bis=COALESCE(?, lizenz_bis),
+                      testphase_bis=COALESCE(?, testphase_bis)
+                WHERE id=?""",
+            (lizenz_typ, lizenz_status, lizenz_bis, testphase_bis, benutzer_id),
+        )
+
+
+def trainer_vertrag_setzen(
+    benutzer_id: int,
+    *,
+    vertragsbeginn: str | None = None,
+    vertragsende: str | None = None,
+    kuendigung_eingegangen: str | None = None,
+    gekuendigt_zum: str | None = None,
+    kuendigungsstatus: str | None = None,
+    superadmin_id: int | None = None,
+) -> None:
+    """Setzt Vertragsdaten für einen Trainer-Kunden (standalone). Loggt Änderung."""
+    with get_conn() as conn:
+        conn.execute(
+            """UPDATE benutzer SET
+                   vertragsbeginn         = COALESCE(?, vertragsbeginn),
+                   vertragsende           = COALESCE(?, vertragsende),
+                   kuendigung_eingegangen = COALESCE(?, kuendigung_eingegangen),
+                   gekuendigt_zum         = COALESCE(?, gekuendigt_zum),
+                   kuendigungsstatus      = COALESCE(?, kuendigungsstatus)
+               WHERE id=?""",
+            (vertragsbeginn, vertragsende, kuendigung_eingegangen,
+             gekuendigt_zum, kuendigungsstatus, benutzer_id),
+        )
+    audit_log_eintragen(
+        benutzer_id, "vertragsdaten_geaendert",
+        f"benutzer_id={benutzer_id} status={kuendigungsstatus}",
+        superadmin_id,
+    )
 
 
 def verein_sperren(verein_id: int, gesperrt: bool) -> None:
@@ -4085,15 +4152,15 @@ def kunden_liste_laden(
             b.letzter_login,
             COALESCE(b.aktiv,1)             AS aktiv,
             b.gesperrt_bis,
-            COALESCE(b.lizenz,'BASIC')      AS lizenztyp,
-            'unbekannt'                     AS lizenz_status,
-            NULL                            AS lizenz_bis,
-            NULL                            AS testphase_bis,
-            NULL                            AS vertragsbeginn,
-            NULL                            AS vertragsende,
-            'aktiv'                         AS kuendigungsstatus,
-            NULL                            AS kuendigung_eingegangen,
-            NULL                            AS gekuendigt_zum,
+            COALESCE(b.lizenztyp,'BASIC')        AS lizenztyp,
+            COALESCE(b.lizenz_status,'trial')    AS lizenz_status,
+            b.lizenz_bis,
+            b.testphase_bis,
+            b.vertragsbeginn,
+            b.vertragsende,
+            COALESCE(b.kuendigungsstatus,'aktiv') AS kuendigungsstatus,
+            b.kuendigung_eingegangen,
+            b.gekuendigt_zum,
             0                               AS verein_gesperrt,
             b.telefon
         FROM benutzer b
