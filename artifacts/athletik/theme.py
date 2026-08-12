@@ -437,6 +437,8 @@ html, body { overflow-x: hidden; max-width: 100vw; }
         white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
     .aph-mph-sub  { font-size: 11px; color: #c9d1d9; margin-top: 1px; }
+    /* "Spieler wechseln" button — hidden on desktop via adjacent-sibling rule below */
+    .aph-mob-switch-marker { display: block; margin: 0; padding: 0; height: 0; }
     .aph-mph-switch {
         font-size: 12px; color: #58a6ff;
         white-space: nowrap; flex-shrink: 0; padding: 4px 0;
@@ -444,6 +446,12 @@ html, body { overflow-x: hidden; max-width: 100vw; }
         background: none; border: none; cursor: pointer; font-family: inherit;
     }
     .aph-mph-switch:hover { text-decoration: underline; color: #79bcff; }
+}
+
+/* Hide mobile player-switch button on desktop (adjacent sibling of marker div) */
+.aph-mob-switch-marker { display: none; }
+@media (min-width: 769px) {
+    .aph-mob-switch-marker + div { display: none !important; }
 }
 
 /* ══ Mobile inline player selector ══════════════════════════════════════════ */

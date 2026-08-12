@@ -205,10 +205,18 @@ def inject_mobile_mehr_overlay(alle_sektionen: list[str]) -> bool:
 
 def inject_mobile_player_header(player: dict | None, section: str) -> None:
     """
-    On player-specific pages show a compact player info pill (mobile only).
-    Hidden on desktop via CSS (.aph-mph { display:none } / @media override).
-    Display-only: no onclick events, no navigation buttons.
-    Users can tap '👤 Spieler' in the bottom nav to switch players.
+    On player-specific pages show a compact player info pill + a native
+    "Spieler wechseln" button (both mobile-only, hidden on ≥769px via CSS).
+
+    The player pill is hidden on desktop via .aph-mph { display:none }.
+    The switch button is hidden on desktop via the .aph-mob-switch-marker
+    adjacent-sibling rule in theme.py:
+        @media (min-width: 769px) {
+            .aph-mob-switch-marker + div { display: none !important; }
+        }
+
+    Button click: sets _nav_goto = "👤  Spieler" → pending key consumed at
+    app.py line ~9812, before the nav_section widget → no StreamlitAPIException.
     """
     if not player or section not in _PLAYER_SECTIONS:
         return
@@ -226,6 +234,18 @@ def inject_mobile_player_header(player: dict | None, section: str) -> None:
         f'</div>',
         unsafe_allow_html=True,
     )
+    # Marker div — the adjacent-sibling CSS rule in theme.py hides the
+    # following button on desktop (≥769px) without affecting other elements.
+    st.markdown(
+        '<div class="aph-mob-switch-marker"></div>',
+        unsafe_allow_html=True,
+    )
+    if st.button(
+        "👤 Spieler wechseln",
+        key=f"_mob_switch_{section}",
+    ):
+        st.session_state["_nav_goto"] = "👤  Spieler"
+        st.rerun()
 
 
 # ── Mobile inline player selector ────────────────────────────────────────────
