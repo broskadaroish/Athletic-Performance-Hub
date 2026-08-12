@@ -90,7 +90,7 @@ class AthletikReport(FPDF):
         self.set_y(4)
         self.set_font("Helvetica", "B", 10)
         self.set_text_color(*self.WHITE)
-        self.cell(0, 10, "  BRUCE FOOTBALL PERFORMANCE DIAGNOSTICS", align="L")
+        self.cell(0, 10, "  ATHLETIC PERFORMANCE HUB", align="L")
         self.set_font("Helvetica", "", 7)
         self.set_xy(0, 6)
         self.cell(0, 8, f"Erstellt am {date.today().strftime('%d.%m.%Y')}  ", align="R")
@@ -209,28 +209,41 @@ class AthletikReport(FPDF):
                      font_size: float = 8.5):
         """
         Trainingsplan-Tabellenzeile mit automatischem Zeilenumbruch in der letzten
-        Spalte (Ausfuhrung). Der Hintergrund wird vorab als Rect gezeichnet, damit
-        die vollstaendige Zeilenhoehe abgedeckt wird, auch wenn der Text umgebrochen
-        wird. Alle anderen Spalten bleiben einzeilig.
+        Spalte (Ausfuhrung).
+
+        Korrekte Strategie ohne Kaskadenumbruch-Bug:
+        1. Geschaetzte Zeilenhoehe berechnen (get_string_width / Spaltenbreite).
+        2. Seitenumbruch VOR dem Zeichnen pruefen und ggf. neue Seite erzwingen.
+        3. Hintergrundrechteck auf sicher-vorhandener Seite zeichnen.
+        4. Nicht-letzte Spalten mit cell() zeichnen.
+        5. Letzte Spalte mit multi_cell() zeichnen.
+        6. KEIN nachtraegliches set_y() — multi_cell setzt Y korrekt.
+           (Altes set_y(y0+row_h) nach einem Seitenumbruch war der Kaskadenbug:
+            y0 stammte von der alten Seite, set_y(195mm) auf neuer Seite
+            erzeugte sofort den naechsten Umbruch → Kette leerer Seiten.)
         """
         import math as _tp_math
         self.set_font("Helvetica", "", font_size)
         line_h = 5
 
-        # Zeilenhoehe anhand der letzten Spalte schaetzen
+        # Zeilenhoehe schaetzen (get_string_width / Spaltenbreite)
         last_text = _safe(vals[-1]) if vals else ""
         last_w    = widths[-1] if widths else 1
         sw        = self.get_string_width(last_text)
         num_lines = max(1, _tp_math.ceil(sw / last_w)) if last_w > 0 else 1
         row_h     = num_lines * line_h
 
-        # Hintergrundflaeche fuer die gesamte Zeile vorzeichnen
+        # Seitenumbruch VOR dem Zeichnen pruefen
+        if self.get_y() + row_h > self.h - self.b_margin:
+            self.add_page()
+
+        # Hintergrundrechteck jetzt sicher auf aktueller Seite zeichnen
         self.set_fill_color(*(self.LIGHT if fill else self.WHITE))
         x0, y0  = self.get_x(), self.get_y()
         total_w = sum(widths)
         self.rect(x0, y0, total_w, row_h, "F")
 
-        # Alle Spalten ausser der letzten: einfaches cell() mit Zeilenhoehe
+        # Nicht-letzte Spalten: cell() mit voller Zeilenhoehe
         self.set_font("Helvetica", "", font_size)
         x_cur = x0
         for v, w in zip(vals[:-1], widths[:-1]):
@@ -238,14 +251,12 @@ class AthletikReport(FPDF):
             self.cell(w, row_h, _safe(v), fill=False)
             x_cur += w
 
-        # Letzte Spalte: multi_cell() mit automatischem Zeilenumbruch
+        # Letzte Spalte: multi_cell() mit Zeilenumbruch
+        # Falls Schaetzung ungenau war und multi_cell doch umbrochen hat,
+        # laesst fpdf2 Y korrekt auf der neuen Seite stehen — kein set_y() noetig.
         self.set_xy(x_cur, y0)
         self.multi_cell(last_w, line_h, last_text, fill=False,
                         new_x="LMARGIN", new_y="NEXT")
-
-        # Y mindestens auf Ende der geschaetzten Zeilenhoehe setzen
-        if self.get_y() < y0 + row_h:
-            self.set_y(y0 + row_h)
 
     def check_page_break(self, needed_mm=30):
         if self.get_y() > 270 - needed_mm:

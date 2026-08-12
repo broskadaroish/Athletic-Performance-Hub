@@ -1,0 +1,436 @@
+FEHLERBEHEBUNG – TRAININGSPLAN-PDF ERZEUGT 78 SEITEN UND VIELE LEERE SEITEN
+
+Seit der Umstellung des Trainingsplan-PDFs auf A4 Querformat ist ein neuer schwerer Layout-/Seitenumbruchfehler vorhanden.
+
+AKTUELLES FEHLERBILD:
+
+- Trainingsplan hat jetzt ca. 78 Seiten.
+- Zwischen den eigentlichen Trainingsinhalten entstehen viele komplett oder fast komplett leere Seiten.
+- Teilweise befindet sich auf einer neuen Seite nur eine einzige Übung.
+- Beispiel:
+  Seite 1 enthält fast das gesamte Warm-up.
+  „Mini-Band Walk“ wird alleine auf die nächste Seite verschoben.
+  Danach bleibt fast die gesamte Seite leer.
+- Danach kommen teilweise 3–4 leere Seiten.
+- Anschließend geht der Trainingsplan weiter.
+- Dieses Verhalten wiederholt sich.
+
+DAS IST NICHT GEWÜNSCHT.
+
+ZIEL:
+
+A4 QUERFORMAT BEIBEHALTEN.
+
+Aber der Trainingsplan muss den vorhandenen Platz jeder Seite vollständig und sinnvoll ausnutzen.
+
+==================================================
+1. ZUERST URSACHE FINDEN
+==================================================
+
+Bitte NICHT einfach zusätzliche CSS-Regeln darüberlegen.
+
+Untersuche zuerst die aktuell verwendete PDF-/Print-Implementierung.
+
+Suche insbesondere nach:
+
+page-break-before
+page-break-after
+page-break-inside
+
+break-before
+break-after
+break-inside
+
+height
+min-height
+max-height
+
+100vh
+100%
+calc(...)
+
+overflow
+
+position: absolute
+position: fixed
+
+transform
+
+display: flex
+display: grid
+
+sowie nach Klassen wie:
+
+.page
+.week
+.training-day
+.day
+.warmup
+.main-part
+.cooldown
+.section
+table
+tbody
+tr
+footer
+header
+
+Prüfe außerdem, ob durch die letzte Querformat-Änderung feste A4-Höhen oder künstliche Seitencontainer eingeführt wurden.
+
+==================================================
+2. KEINE KÜNSTLICHEN LEERSEITEN
+==================================================
+
+Entferne alle Regeln, die unnötig:
+
+- nach jedem Abschnitt
+- nach jeder Tabelle
+- nach jedem Trainingstag
+- vor jedem Hauptteil
+- vor jedem Cool-down
+- nach jedem Warm-up
+
+eine neue Seite erzwingen.
+
+NICHT verwenden:
+
+page-break-after: always
+
+oder:
+
+break-after: page
+
+für normale Trainingsabschnitte.
+
+==================================================
+3. KEINE FESTE SEITENHÖHE FÜR INHALTSBLÖCKE
+==================================================
+
+Warm-up, Hauptteil, Cool-down und Trainingstag dürfen KEINE feste A4-Seitenhöhe besitzen.
+
+Also keine Konstruktionen wie:
+
+height: 100vh;
+min-height: 100vh;
+height: 210mm;
+min-height: 210mm;
+
+für Inhaltscontainer.
+
+Inhalte sollen normal im Dokumentfluss weiterlaufen.
+
+==================================================
+4. AUTOMATISCHEN DOKUMENTFLUSS VERWENDEN
+==================================================
+
+Das PDF soll grundsätzlich automatisch von oben nach unten aufgebaut werden.
+
+Reihenfolge:
+
+WOCHE 1
+Tag 1
+Warm-up
+Hauptteil
+Cool-down
+
+danach direkt:
+
+Tag 2
+Warm-up
+Hauptteil
+Cool-down
+
+usw.
+
+Wenn auf einer Seite noch ausreichend Platz vorhanden ist, muss der nächste Abschnitt dort beginnen.
+
+Keine neue Seite nur aus optischen Gründen erzeugen.
+
+==================================================
+5. TABELLEN DÜRFEN ÜBER SEITENGRENZEN LAUFEN
+==================================================
+
+WICHTIG:
+
+Nicht die gesamte Warm-up-Tabelle oder Hauptteil-Tabelle mit:
+
+break-inside: avoid
+
+zusammenhalten.
+
+Das kann genau solche großen Leerbereiche erzeugen.
+
+Stattdessen:
+
+- einzelne Tabellenzeilen möglichst zusammenhalten
+- komplette große Tabelle darf auf mehrere Seiten verteilt werden
+
+Bevorzugt:
+
+tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
+}
+
+ABER NICHT pauschal:
+
+table {
+    break-inside: avoid;
+}
+
+und NICHT:
+
+.training-day {
+    break-inside: avoid;
+}
+
+wenn ein Trainingstag größer als der verbleibende Seitenbereich sein kann.
+
+==================================================
+6. TABELLENKOPF WIEDERHOLEN
+==================================================
+
+Wenn eine Tabelle auf der nächsten Seite fortgesetzt wird:
+
+Tabellenkopf automatisch wiederholen.
+
+Beispiel:
+
+Bereich | Übung | Sätze | Wdh./Dauer | Pause (s) | Ausführung
+
+Dafür nach Möglichkeit:
+
+thead {
+    display: table-header-group;
+}
+
+verwenden.
+
+==================================================
+7. ÜBERSCHRIFT NICHT ALLEINE UNTEN
+==================================================
+
+Eine Überschrift wie:
+
+HAUPTTEIL
+
+soll möglichst nicht als letzte Zeile einer Seite erscheinen.
+
+Überschrift + Tabellenkopf + mindestens erste Übungszeile möglichst zusammenhalten.
+
+ABER:
+
+nicht den kompletten Hauptteil auf die nächste Seite verschieben.
+
+==================================================
+8. WOCHEN-/TAGHEADER
+==================================================
+
+WOCHE 1 und Tag 1 – Montag sollen nicht automatisch jeweils eine neue Seite erzwingen.
+
+Nur wenn wirklich nötig umbrechen.
+
+Wenn ein neuer Trainingstag auf der aktuellen Seite sinnvoll beginnen kann:
+dort beginnen.
+
+==================================================
+9. FOOTER PRÜFEN
+==================================================
+
+Der vorhandene Footer:
+
+„Seite X | © 2026 Broska Daroish ...“
+
+darf nicht den normalen Dokumentfluss beeinflussen.
+
+Wenn Footer fixed position verwendet:
+
+- korrekten unteren Seitenrand reservieren
+- Footer darf Tabellen nicht überdecken
+- Footer darf keinen zusätzlichen Seitenumbruch erzeugen
+
+Im Screenshot überschneidet sich der Footer optisch bereits mit dem Ende der Warm-up-Tabelle.
+
+DAS EBENFALLS BEHEBEN.
+
+Zwischen letztem Inhalt und Footer ausreichend Abstand reservieren.
+
+==================================================
+10. HEADER PRÜFEN
+==================================================
+
+Der PDF-Header:
+
+„BRUCE FOOTBALL PERFORMANCE DIAGNOSTICS“
+
+ist außerdem veraltet.
+
+Ersetze ihn im PDF durch:
+
+ATHLETIC PERFORMANCE HUB
+
+Keine Änderung an Trainingslogik oder Datenbank.
+
+==================================================
+11. SEITENAUSNUTZUNG
+==================================================
+
+Eine A4-Querformat-Seite soll möglichst vollständig genutzt werden.
+
+NICHT:
+
+Seite 1:
+90 % Inhalt
+
+Seite 2:
+nur 1 Übung
+
+Seite 3:
+leer
+
+Seite 4:
+leer
+
+Seite 5:
+nächster Trainingsblock
+
+SONDERN:
+
+Seite 1:
+so viel Inhalt wie sauber passt
+
+Seite 2:
+direkte Fortsetzung
+
+Seite 3:
+nur wenn Seite 2 tatsächlich voll ist
+
+==================================================
+12. KEINE LEEREN SEITEN
+==================================================
+
+Nach der PDF-Erzeugung darf es keine vollständig leeren Seiten geben.
+
+Auch keine fast leeren Seiten, wenn der nachfolgende Inhalt dort noch Platz hätte.
+
+==================================================
+13. QUERFORMAT BEIBEHALTEN
+==================================================
+
+A4 Landscape bleibt bestehen.
+
+Beispiel:
+
+@page {
+    size: A4 landscape;
+    margin: 10mm 12mm 14mm 12mm;
+}
+
+Der zusätzliche untere Abstand kann für den Footer genutzt werden.
+
+==================================================
+14. AUSFÜHRUNG WEITERHIN VOLLSTÄNDIG
+==================================================
+
+Die vorherige Verbesserung NICHT zurückbauen.
+
+Spalte:
+
+Ausführung
+
+bleibt breit.
+
+Texte müssen vollständig dargestellt werden.
+
+Keine:
+
+...
+
+Keine abgeschnittenen Sätze.
+
+Lange Texte automatisch umbrechen.
+
+==================================================
+15. ALTERSANPASSUNGEN
+==================================================
+
+Der Bereich:
+
+„Folgende Übungen wurden für die Altersgruppe U14 automatisch angepasst“
+
+soll ebenfalls normal in den Dokumentfluss integriert werden.
+
+Diese Tabelle darf keinen unnötigen Seitenumbruch auslösen.
+
+==================================================
+16. TEST MIT DEM AKTUELLEN 78-SEITEN-PLAN
+==================================================
+
+Ganz wichtig:
+
+Verwende zum Test exakt einen Trainingsplan, der aktuell ungefähr 78 Seiten erzeugt.
+
+Vorher Seitenzahl dokumentieren.
+
+Dann Fehler beheben und denselben Plan erneut erzeugen.
+
+Prüfen:
+
+- keine leeren Seiten
+- keine 3–4 leeren Seiten zwischen Trainingstagen
+- keine Seite mit nur einer einzelnen Warm-up-Übung, obwohl weiterer Inhalt Platz hätte
+- Footer überschneidet keine Tabelle
+- Ausführung vollständig lesbar
+- A4 Querformat weiterhin aktiv
+- alle Wochen vorhanden
+- alle Trainingstage vorhanden
+- keine Übungen verschwunden
+
+WICHTIG:
+Nicht einfach Seiten entfernen oder Inhalte ausblenden, um die Seitenzahl zu reduzieren.
+
+Alle Trainingsinhalte müssen erhalten bleiben.
+
+==================================================
+17. KEINE TRAININGSLOGIK VERÄNDERN
+==================================================
+
+NICHT verändern:
+
+- Trainingsplan-Generator
+- Diagnostik
+- Defizitlogik
+- Alterslogik
+- Übungsauswahl
+- Warm-up-Auswahl
+- Sätze
+- Wiederholungen
+- Pausen
+- Trainingsdauer
+- Spielerzuordnung
+- Datenbank
+
+Es handelt sich ausschließlich um einen PDF-/Print-Layoutfehler.
+
+==================================================
+18. ABSCHLUSSBERICHT
+==================================================
+
+Nach der Reparatur bitte berichten:
+
+1. Was war die konkrete Ursache der leeren Seiten?
+2. Welche CSS-/PDF-Regel hat den Fehler ausgelöst?
+3. Welche Dateien wurden geändert?
+4. Wie viele Seiten hatte derselbe Testplan VORHER?
+5. Wie viele Seiten hat exakt derselbe Plan NACHHER?
+6. Gibt es noch vollständig leere Seiten? Erwartet: NEIN
+7. Gibt es noch Seiten mit nur einer einzelnen Übung aufgrund eines falschen Umbruchs? Erwartet: NEIN
+8. Überschneidet der Footer noch Tabellen? Erwartet: NEIN
+9. Ist A4 Querformat weiterhin aktiv? Erwartet: JA
+10. Ist „Ausführung“ weiterhin vollständig lesbar? Erwartet: JA
+11. Wurde „BRUCE FOOTBALL PERFORMANCE DIAGNOSTICS“ im PDF durch „ATHLETIC PERFORMANCE HUB“ ersetzt? Erwartet: JA
+12. Wurde Trainingslogik verändert? Erwartet: NEIN
+
+Danach STOPPEN.
+
+Keine weiteren Änderungen durchführen.
