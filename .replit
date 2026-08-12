@@ -35,5 +35,10 @@ packages = ["glibcLocales"]
 [userenv]
 
 [userenv.shared]
+
+[userenv.development]
+APP_BASE_URL = "https://a811f88b-e0f4-4523-9b0a-e5f8d452c15a-00-3desf7hbgs2q.picard.replit.dev/app"
+
+[userenv.production]
 APP_BASE_URL = "https://aphsystem.de"
     
