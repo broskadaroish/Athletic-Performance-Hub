@@ -108,7 +108,10 @@ def _apply_nav_signal(target: str) -> None:
     elif target == "__logout__":
         st.session_state["__mobile_logout_request__"] = True
     else:
-        st.session_state["nav_section"] = target
+        # Use the existing _nav_goto pending key — app.py applies it
+        # BEFORE the nav_section widget is instantiated (line ~9812),
+        # which avoids StreamlitAPIException when writing to a widget key.
+        st.session_state["_nav_goto"] = target
         st.session_state["mobile_mehr_open"] = False
     st.rerun()
 
