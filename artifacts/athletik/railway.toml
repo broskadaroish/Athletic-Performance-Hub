@@ -1,6 +1,7 @@
 # ============================================================
 # Railway.app Deployment-Konfiguration
 # Docs: https://docs.railway.com/reference/config-as-code
+# Vollständige Env-Var-Referenz: RAILWAY_ENV.md
 # ============================================================
 
 [build]
@@ -14,14 +15,80 @@ healthcheckTimeout = 300
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 10
 
-# Env-Variablen im Railway Dashboard setzen:
-#   APP_ENV          = production
-#   LOG_LEVEL        = WARNING
-#   BEHIND_PROXY     = 1
-#   ATHLETIK_DATA_DIR = /mnt/data
-#   ATHLETIK_DB_PATH  = /mnt/data/athletik.db
-#   SESSION_SECRET   = <zufälliger langer String>
-#   SECRET_KEY       = <zufälliger langer String>
+# ──────────────────────────────────────────────────────────────────────────────
+# Railway Dashboard → Project → Service → Variables
+# ──────────────────────────────────────────────────────────────────────────────
 #
-# Für PostgreSQL: Railway PostgreSQL-Service hinzufügen →
-# DATABASE_URL wird automatisch als Env-Var injiziert.
+# 🔴 PFLICHT (unsichere Defaults im Code — in Produktion zwingend ersetzen):
+#
+#   APP_BASE_URL      = https://aphsystem.de
+#                       KRITISCH: Reset- und Verifikations-Links werden daraus
+#                       gebaut. Standard "http://localhost:8082" → Token-Mismatch!
+#
+#   SESSION_SECRET    = <openssl rand -hex 32>
+#                       Standard "dev-secret-change-in-production" ist im Repo sichtbar.
+#
+#   SECRET_KEY        = <openssl rand -hex 32>  (anderer Wert als SESSION_SECRET)
+#                       Standard "dev-key-change-in-production" ist im Repo sichtbar.
+#
+#   SMTP_PASSWORD     = <IONOS-Passwort für noreply@aphsystem.de>
+#                       Fehlt dieser Wert → alle E-Mails schlagen fehl.
+#
+# 🟡 EMPFOHLEN (für stabile Produktion):
+#
+#   APP_ENV           = production
+#   BEHIND_PROXY      = true
+#       Parser: .lower() == "true"  →  akzeptiert true/True/TRUE
+#               NICHT akzeptiert: 1, yes, on
+#   TRUSTED_PROXIES   = 127.0.0.1
+#   ATHLETIK_DB_PATH  = /mnt/data/athletik.db
+#   ATHLETIK_DATA_DIR = /mnt/data
+#   SUPERADMIN_EMAIL  = <Superadmin-Adresse für System-Warnungen>
+#   LOG_LEVEL         = WARNING
+#
+#   Volume einrichten: Railway → Service → Storage → Add Volume
+#                      Mount Path: /mnt/data
+#       Ohne Volume-Mount gehen alle Daten bei jedem Redeploy verloren!
+#
+# 🟢 OPTIONAL (sinnvolle Defaults — nur setzen wenn abweichend):
+#
+#   SMTP_HOST         = smtp.ionos.de   (Standard in email_service.py)
+#   SMTP_PORT         = 465             (Standard in email_service.py, SSL)
+#   SMTP_USERNAME     = noreply@aphsystem.de  (Standard in email_service.py)
+#   SMTP_FROM         = noreply@aphsystem.de  (Standard in email_service.py)
+#   SUPPORT_EMAIL     = support@aphsystem.de
+#   SESSION_IDLE_TIMEOUT   = 3600   (Sekunden, Standard 1 Stunde)
+#   SESSION_MAX_LIFETIME   = 86400  (Sekunden, Standard 24 Stunden)
+#   SESSION_TIMEOUT_MINUTES= 60     (config.py, Standard 60 Minuten)
+#   MAX_LOGIN_VERSUCHE     = 5
+#   LOGIN_SPERRE_MINUTEN   = 15
+#   MAX_UPLOAD_MB          = 10
+#   MAX_LOGO_MB            = 2
+#   MAX_SPIELERBILD_MB     = 5
+#   MAX_DOC_MB             = 10
+#   BACKUP_RETENTION_DAYS  = 30
+#   MAINTENANCE_MODE       = 0   (1 = Wartungsseite anzeigen)
+#   MAINTENANCE_MESSAGE    = ""
+#
+# 🔵 STRIPE (nur wenn Zahlungen aktiv):
+#
+#   STRIPE_SECRET_KEY        = sk_live_...
+#   STRIPE_PUBLISHABLE_KEY   = pk_live_...
+#   STRIPE_WEBHOOK_SECRET    = whsec_...
+#   STRIPE_PRICE_BASIC_MONAT = price_...
+#   STRIPE_PRICE_BASIC_JAHR  = price_...
+#   STRIPE_PRICE_PRO_MONAT   = price_...
+#   STRIPE_PRICE_PRO_JAHR    = price_...
+#
+# 🔵 S3-BACKUP (nur wenn externes Backup aktiv):
+#
+#   S3_BUCKET         = <Bucket-Name>
+#   S3_ENDPOINT_URL   = <Endpunkt, z.B. für Cloudflare R2>
+#   AWS_ACCESS_KEY_ID = <Zugriffsschlüssel>
+#   AWS_SECRET_ACCESS_KEY = <Geheimschlüssel>
+#   AWS_REGION        = <Region>
+#
+# 🔵 POSTGRESQL (Railway PostgreSQL-Service):
+#
+#   DATABASE_URL  — wird automatisch von Railway injiziert wenn
+#                   ein PostgreSQL-Service zum Projekt hinzugefügt wird.
