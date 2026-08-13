@@ -1,0 +1,74 @@
+KURZFIX – SPIELER WIRD GESPEICHERT, ABER NICHT ANGEZEIGT
+
+Aktueller Fehler bei selbstregistriertem Einzeltrainer:
+
+1. Spieler → Spieler anlegen
+2. Daten eingeben
+3. Speichern
+4. Meldung „Spieler gespeichert“ erscheint
+5. Der Spieler ist danach NICHT unter „Alle Spieler“ sichtbar
+
+Bei Superadmin funktioniert es normal.
+
+Bitte:
+
+1. Prüfe beim Speichern:
+   - user.id
+   - user.verein_id
+   - trainer_id
+   - verein_id
+   - tatsächlich gespeicherten spieler-Datensatz
+
+2. Prüfe beim Laden:
+   - spieler_laden()
+   - „Alle Spieler“
+   - Dashboard-Spielerliste
+   - Player Selector
+   - verwendete WHERE-Bedingungen
+
+3. Vergleiche Speichern und Laden für:
+   - selbstregistrierten Trainer
+   - funktionierenden Admin-/Superadmin-Fall
+
+4. Prüfe besonders den neuen technischen Mandanten:
+   ist_technischer_mandant = 1
+
+   Der Spieler muss weiterhin über den richtigen Trainer sichtbar sein.
+   Technische Mandanten dürfen nicht dazu führen, dass Spieler ausgefiltert werden.
+
+5. Wenn die konkrete Ursache eindeutig gefunden ist:
+   SOFORT den kleinstmöglichen sicheren Fix umsetzen.
+
+WICHTIG:
+- keine große Refaktorierung
+- keine neue Datenbankstruktur
+- keine Produktionsdaten ändern
+- keine Navigation/Login/CSS ändern
+- Mandantentrennung erhalten
+- Trainer A darf keine Spieler von Trainer B sehen
+
+TEST:
+
+Selbstregistrierter Trainer:
+→ Spieler anlegen
+→ speichern
+→ Spieler muss sofort in „Alle Spieler“ erscheinen
+→ nach Reload weiterhin sichtbar
+
+Zusätzlich prüfen:
+- admin-angelegter Trainer funktioniert weiterhin
+- Superadmin funktioniert weiterhin
+- zwei Einzeltrainer sehen nur ihre eigenen Spieler
+
+Danach berichten:
+
+1. Was war die konkrete Ursache?
+2. Welche IDs waren beim Speichern falsch/anders?
+3. Welche Query hat den Spieler nicht gefunden?
+4. Welche Datei/Funktion wurde geändert?
+5. Funktioniert selbstregistrierter Trainer jetzt? JA/NEIN
+6. Funktionieren bestehende Accounts weiterhin? JA/NEIN
+7. Mandantentrennung korrekt? JA/NEIN
+
+Danach STOPPEN.
+Noch NICHT deployen.
