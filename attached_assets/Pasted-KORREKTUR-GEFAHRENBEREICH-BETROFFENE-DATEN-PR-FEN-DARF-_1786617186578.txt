@@ -1,0 +1,421 @@
+KORREKTUR – GEFAHRENBEREICH: „BETROFFENE DATEN PRÜFEN“ DARF NICHT ZUR STARTSEITE SPRINGEN + ENDGÜLTIGE KUNDENLÖSCHUNG VERVOLLSTÄNDIGEN
+
+Aktueller Stand in:
+
+Kundenverwaltung
+→ Kundendetails
+→ Gefahrenbereich — Endgültige Löschung
+
+Es gibt aktuell den Button:
+
+„🔍 Betroffene Daten prüfen“
+
+AKTUELLE FEHLER:
+
+1. Beim Klick auf „Betroffene Daten prüfen“ springt die App auf die Startseite.
+2. Es gibt danach keine vollständige, nutzbare Löschfunktion.
+3. Ich möchte als Superadmin die Möglichkeit haben, einen Kunden vollständig zu löschen, aber nur nach klarer Vorschau und mehrfacher Bestätigung.
+
+WICHTIG:
+- Keine Startseiten-Navigation.
+- Keine Login-Seite.
+- Keine Sessionänderung.
+- Keine automatische Löschung.
+- Nur Superadmin darf endgültig löschen.
+- Mandantentrennung strikt beachten.
+- Keine Daten anderer Kunden/Mandanten anfassen.
+- Keine Löschung ohne vorherige Vorschau und Bestätigung.
+
+==================================================
+1. „BETROFFENE DATEN PRÜFEN“ KORRIGIEREN
+==================================================
+
+Der Button:
+
+„🔍 Betroffene Daten prüfen“
+
+darf NICHT navigieren.
+
+Er soll KEIN:
+
+- href
+- Query-Param
+- navigate_to("start")
+- nav_section-Wechsel
+- Browserreload
+
+auslösen.
+
+Stattdessen:
+
+innerhalb derselben Kundendetailseite einen Vorschau-Bereich aufklappen / anzeigen.
+
+Beispiel:
+
+st.session_state[f"delete_preview_{customer_id}"] = True
+st.rerun()
+
+oder gleichwertige bestehende interne State-Logik.
+
+==================================================
+2. VORSCHAU ANZEIGEN
+==================================================
+
+Nach Klick auf „Betroffene Daten prüfen“ direkt darunter anzeigen:
+
+„Folgende Daten sind betroffen“
+
+Mindestens:
+
+- Kundenkonto
+- Benutzerkonto
+- Verein/Trainer-Zuordnung
+- Spieleranzahl
+- Testanzahl
+- Trainingsplananzahl
+- Trainingsdaten
+- Dokumente / Uploads, falls kundenbezogen
+- Notizen / Historie
+- Lizenz-/Paket-Zuordnung
+- Vertragsdaten
+- Rechnungsdaten
+
+Für jeden Bereich anzeigen:
+
+- Anzahl Datensätze
+- Status:
+  - „wird gelöscht“
+  - „wird anonymisiert“
+  - „bleibt wegen Aufbewahrungspflicht erhalten“
+  - „nicht vorhanden“
+
+Keine sensiblen Inhalte im Klartext ausgeben.
+
+==================================================
+3. KEINE STARTSEITE
+==================================================
+
+Beim Klick auf „Betroffene Daten prüfen“:
+
+bleibe exakt auf:
+
+Kundenverwaltung
+→ Kundendetail
+→ Gefahrenbereich
+
+Kein Seitenwechsel.
+
+==================================================
+4. LÖSCHLOGIK PRÜFEN
+==================================================
+
+Prüfe zuerst, ob bereits Funktionen existieren für:
+
+- Kunde deaktivieren
+- Kunde archivieren
+- Kunde endgültig löschen
+- abhängige Daten löschen
+- Rechnungsdaten anonymisieren
+- Audit-Log
+
+Wenn vorhanden:
+weiterverwenden.
+
+Wenn teilweise vorhanden:
+ergänzen.
+
+Keine zweite parallele Löschlogik bauen.
+
+==================================================
+5. DEAKTIVIEREN / ARCHIVIEREN BEIBEHALTEN
+==================================================
+
+Falls bereits vorhanden:
+
+- Deaktivieren
+- Archivieren
+
+weiterhin anbieten.
+
+Diese Aktionen dürfen keine Kundendaten löschen.
+
+==================================================
+6. ENDGÜLTIGE LÖSCHUNG ERGÄNZEN
+==================================================
+
+Nach erfolgreicher Vorschau soll ein klarer Button erscheinen:
+
+„Kunde endgültig löschen“
+
+Dieser Button darf nur sichtbar/aktiv sein, wenn:
+
+- Superadmin angemeldet
+- Kunde eindeutig ausgewählt
+- Vorschau geladen
+
+==================================================
+7. ERSTE WARNUNG
+==================================================
+
+Nach Klick auf:
+
+„Kunde endgültig löschen“
+
+anzeigen:
+
+„Achtung: Diese Aktion ist nicht rückgängig zu machen.“
+
+Zusätzlich:
+
+- Kundennummer
+- Name / Verein
+- E-Mail
+- Anzahl Spieler
+- Anzahl Tests
+- Anzahl Trainingspläne
+
+Keine sofortige Löschung.
+
+==================================================
+8. ZWEITE BESTÄTIGUNG
+==================================================
+
+Vor endgültiger Löschung muss Superadmin bewusst bestätigen.
+
+Beispiel:
+
+Eingabefeld:
+
+„Zur Bestätigung Kundennummer eingeben“
+
+oder:
+
+„LÖSCHEN“
+
+Erst wenn Eingabe exakt stimmt:
+
+Button:
+
+„Endgültig und unwiderruflich löschen“
+
+aktivieren.
+
+==================================================
+9. KEIN LÖSCHEN DES EIGENEN SUPERADMIN-KONTOS
+==================================================
+
+Superadmin darf nicht versehentlich den eigenen aktuell verwendeten Superadmin-Account löschen.
+
+Falls Zielkunde = aktuell eingeloggter Superadmin:
+Löschung blockieren.
+
+Meldung:
+
+„Das aktuell verwendete Superadmin-Konto kann nicht gelöscht werden.“
+
+==================================================
+10. MANDANTENGEBUNDENE LÖSCHUNG
+==================================================
+
+Alle DELETE-Operationen müssen eindeutig eingeschränkt sein auf:
+
+customer_id / tenant_id / verein_id / benutzer_id
+
+des ausgewählten Kunden.
+
+Keine globalen DELETEs ohne WHERE.
+
+Keine Daten anderer Kunden anfassen.
+
+==================================================
+11. SPIELERDATEN
+==================================================
+
+Bei endgültiger Löschung des Kunden:
+
+alle ausschließlich diesem Mandanten zugeordneten Spieler löschen.
+
+Dazu alle abhängigen Daten dieser Spieler:
+
+- FMS
+- Y-Balance
+- Sprint
+- Anthropometrie
+- Trainingspläne
+- Trainingshistorie
+- Entwicklungsdaten
+- Notizen
+- sonstige kundenbezogene Diagnostik
+
+Vorher zählen und in Vorschau anzeigen.
+
+==================================================
+12. VERTRAGS-/RECHNUNGSDATEN
+==================================================
+
+Nicht blind alles löschen.
+
+Prüfe bestehende gesetzliche/technische Logik.
+
+Falls Rechnungs-/Vertragsdaten aufbewahrt werden müssen:
+
+- personenbezogene Nutzungsdaten löschen
+- Rechnungs-/Buchungsdaten anonymisieren oder gesperrt archivieren
+- nicht mehr im normalen Kundenkonto anzeigen
+
+Keine erfundenen Aufbewahrungsfristen hardcoden, falls noch keine zentrale Regel vorhanden ist.
+
+==================================================
+13. BENUTZERKONTO
+==================================================
+
+Nach endgültiger Löschung:
+
+- Login nicht mehr möglich
+- Sessions ungültig machen
+- Benutzerkonto entfernen/anonymisieren gemäß bestehender Datenlogik
+- Tokens entfernen
+- E-Mail-Verifikationsdaten entfernen
+- Passwort-Reset-Tokens entfernen
+
+==================================================
+14. SESSIONS
+==================================================
+
+Alle Sessions dieses Kunden ungültig machen.
+
+Nicht Sessions anderer Nutzer löschen.
+
+==================================================
+15. DATEIEN / UPLOADS
+==================================================
+
+Falls kundenbezogene Dateien vorhanden sind:
+
+- Logos
+- Spielerbilder
+- PDFs
+- Exporte
+- Dokumente
+
+prüfen, ob eindeutig diesem Kunden zugeordnet.
+
+Nur dann löschen.
+
+Keine globalen Upload-Verzeichnisse leeren.
+
+==================================================
+16. AUDIT-LOG
+==================================================
+
+Vor endgültiger Löschung Audit-Eintrag speichern:
+
+- Aktion: customer_deleted
+- Superadmin-ID
+- betroffene Kundennummer
+- Zeitpunkt
+- Anzahl gelöschter Spieler
+- Anzahl gelöschter Tests
+- Anzahl gelöschter Trainingspläne
+
+Keine Passwörter / Tokens loggen.
+
+==================================================
+17. BACKUP-SICHERHEIT
+==================================================
+
+Vor endgültiger Löschung prüfen, ob bestehende Backup-Funktion vorhanden ist.
+
+Wenn vorhandene Backup-Funktion existiert:
+vor Löschung ausführen bzw. verwenden.
+
+Wenn nicht:
+nur Hinweis anzeigen, nicht neue komplexe Backup-Architektur bauen.
+
+==================================================
+18. TRANSAKTION
+==================================================
+
+Endgültige Datenbanklöschung möglichst in EINER Transaktion durchführen.
+
+Wenn ein Schritt fehlschlägt:
+
+Rollback.
+
+Keine halb gelöschten Kunden.
+
+==================================================
+19. ERFOLGSMELDUNG
+==================================================
+
+Nach erfolgreicher Löschung:
+
+„Kunde wurde endgültig gelöscht.“
+
+Danach erst zurück zu:
+
+Kundenverwaltung → Kundenliste
+
+NICHT zur Startseite.
+
+==================================================
+20. FEHLERMELDUNG
+==================================================
+
+Wenn Löschung fehlschlägt:
+
+„Kunde konnte nicht vollständig gelöscht werden. Es wurden keine Änderungen übernommen.“
+
+und Rollback.
+
+Technische Details nur im Log.
+
+==================================================
+21. TEST
+==================================================
+
+Nur mit Testkunde prüfen.
+
+Ablauf:
+
+1. Testkunde öffnen
+2. Gefahrenbereich
+3. Betroffene Daten prüfen
+4. Vorschau erscheint auf derselben Seite
+5. keine Startseite
+6. Löschbutton sichtbar
+7. erste Warnung
+8. Bestätigung eingeben
+9. endgültig löschen
+10. zurück zur Kundenliste
+11. Kunde nicht mehr sichtbar
+12. Login des gelöschten Kunden nicht mehr möglich
+13. andere Kunden unverändert
+
+Keine echten Produktivkunden testweise löschen.
+
+==================================================
+22. ABSCHLUSSBERICHT
+==================================================
+
+Danach berichten:
+
+1. Warum sprang „Betroffene Daten prüfen“ zur Startseite?
+2. Welche Navigation wurde entfernt/geändert?
+3. Bleibt Vorschau jetzt auf Kundendetailseite? JA/NEIN
+4. Welche Daten werden in der Vorschau gezählt?
+5. Gibt es jetzt „Kunde endgültig löschen“? JA/NEIN
+6. Gibt es zweistufige Bestätigung? JA/NEIN
+7. Ist Löschung nur für Superadmin möglich? JA/NEIN
+8. Wird eigenes Superadmin-Konto geschützt? JA/NEIN
+9. Werden Sessions des Kunden beendet? JA/NEIN
+10. Werden Spieler/Test/Trainingsdaten mandantensicher gelöscht? JA/NEIN
+11. Werden Rechnungs-/Vertragsdaten korrekt behandelt?
+12. Gibt es Transaktion/Rollback? JA/NEIN
+13. Gibt es Audit-Log? JA/NEIN
+14. Führt erfolgreiche Löschung zurück zur Kundenliste? JA/NEIN
+15. Welche Dateien wurden geändert?
+
+Danach STOPPEN.
+
+Keine weiteren Funktionen verändern.

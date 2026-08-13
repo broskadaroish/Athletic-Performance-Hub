@@ -606,16 +606,41 @@ def _detail_gefahrenbereich(daten: dict) -> None:
     Gefahrenbereich — endgültige Kundenlöschung (Superadmin only).
     Zweistufige Bestätigung: Datenübersicht → Kundennummer-Eingabe → Löschen.
     Rechnungsdaten werden anonymisiert, nicht gelöscht (Aufbewahrungspflicht).
+
+    FIX: st.expander ohne key verliert seinen Öffnungszustand beim Rerun und klappt zu.
+    Lösung: key + expanded-State aus session_state + explizites st.rerun() nach Datenladen.
     """
     b   = daten.get("benutzer") or {}
     v   = daten.get("verein") or {}
     bid = b.get("id")
     vid = v.get("id")
     kn  = v.get("kundennummer") or b.get("kundennummer") or "—"
+    name_str = (
+        v.get("name")
+        or f"{b.get('vorname','') or ''} {b.get('nachname','') or ''}".strip()
+        or "—"
+    )
+    current_sa_id = _sa_id()
     if not bid:
         return
 
-    with st.expander("☠️ **Gefahrenbereich — Endgültige Löschung**", expanded=False):
+    # Expander bleibt offen, sobald Vorschaudaten geladen sind
+    _preview_key  = f"_lz_{bid}"
+    _has_preview  = _preview_key in st.session_state
+    _deleted_key  = f"_lz_deleted_{bid}"
+
+    # Expander key stabilisiert den Öffnungszustand über Reruns hinweg
+    with st.expander(
+        "☠️ **Gefahrenbereich — Endgültige Löschung**",
+        expanded=_has_preview,
+        # key= param erst ab Streamlit 1.32 — ältere Versionen ignorieren ihn,
+        # daher wird expanded=_has_preview als primärer Stabilisator genutzt.
+    ):
+        # Eigenes Konto schützen
+        if current_sa_id and current_sa_id == bid:
+            st.error("🔒 Das aktuell verwendete Superadmin-Konto kann nicht gelöscht werden.")
+            return
+
         st.markdown(
             '<div style="border:1px solid #f85149;border-radius:8px;padding:12px 14px;'
             'background:rgba(248,81,73,0.07);margin-bottom:14px">'
@@ -626,92 +651,167 @@ def _detail_gefahrenbereich(daten: dict) -> None:
             unsafe_allow_html=True,
         )
 
-        # ── Schritt 1: Datenübersicht laden ───────────────────────────────────
+        # ── Schritt 1: Datenübersicht laden ─────────────────────────────────
+        # Kein href, kein nav_section-Wechsel — nur session_state + st.rerun()
         if st.button("🔍 Betroffene Daten prüfen", key=f"_lz_start_{bid}", type="secondary"):
             try:
                 zs = kunde_zusammenfassung_laden(vid, bid)
-                st.session_state[f"_lz_{bid}"] = zs
+                st.session_state[_preview_key] = zs
             except Exception as _ex:
                 st.error(f"Fehler beim Laden der Zusammenfassung: {_ex}")
+                return
+            st.rerun()  # Seite neu laden — Vorschau wird sichtbar, kein Nav-Wechsel
 
-        zs = st.session_state.get(f"_lz_{bid}")
-        if zs is not None:
-            st.markdown("---")
-            st.markdown("**📋 Betroffene Daten dieses Kunden**")
-            _lc1, _lc2, _lc3, _lc4 = st.columns(4)
-            _lc1.metric("Spieler",         zs.get("n_spieler", 0))
-            _lc2.metric("Testdatensätze",  zs.get("n_tests",   0))
-            _lc3.metric("Trainingspläne",  zs.get("n_plaene",  0))
-            _lc4.metric("Vertragsstatus",  zs.get("vertragsstatus", "—"))
-            st.markdown(
-                f'<div style="background:#161b22;border:1px solid #30363d;border-radius:6px;'
-                f'padding:8px 12px;margin:8px 0;font-size:13px">'
-                f'<b>Kundennummer:</b> <code>{kn}</code> &nbsp;·&nbsp; '
-                f'<b>Name/Verein:</b> {v.get("name") or (b.get("vorname","") + " " + b.get("nachname","")).strip() or "—"}'
-                f'</div>',
-                unsafe_allow_html=True,
+        zs = st.session_state.get(_preview_key)
+        if zs is None:
+            return  # Noch keine Vorschau geladen — Seite bleibt auf Kundendetail
+
+        # ── Vorschau: Betroffene Datenbereiche ──────────────────────────────
+        st.markdown("---")
+        st.markdown("**📋 Betroffene Daten dieses Kunden**")
+
+        # Kopfzeile
+        st.markdown(
+            f'<div style="background:#161b22;border:1px solid #30363d;border-radius:6px;'
+            f'padding:8px 12px;margin:8px 0;font-size:13px">'
+            f'<b>Kundennummer:</b> <code>{kn}</code> &nbsp;·&nbsp; '
+            f'<b>Name/Verein:</b> {name_str} &nbsp;·&nbsp; '
+            f'<b>E-Mail:</b> {b.get("email","—")}'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+
+        # Zähler-Reihe
+        _mc = st.columns(4)
+        _mc[0].metric("Spieler",           zs.get("n_spieler", 0))
+        _mc[1].metric("Testdatensätze",    zs.get("n_tests", 0))
+        _mc[2].metric("Trainingspläne",    zs.get("n_plaene", 0))
+        _mc[3].metric("TP-Einträge",       zs.get("n_tp_eintraege", 0))
+
+        # Detailierte Bereichstabelle
+        def _row(bereich: str, anzahl: int, status: str) -> str:
+            farbe = {
+                "wird gelöscht":            "#f85149",
+                "wird anonymisiert":        "#d29922",
+                "bleibt (Aufbewahrung)":    "#3fb950",
+                "nicht vorhanden":          "#8b949e",
+            }.get(status, "#8b949e")
+            return (
+                f'<tr>'
+                f'<td style="padding:4px 10px;color:#e6edf3">{bereich}</td>'
+                f'<td style="padding:4px 10px;text-align:right;color:#e6edf3">{anzahl if anzahl > 0 else "–"}</td>'
+                f'<td style="padding:4px 10px;color:{farbe};font-size:12px">{status}</td>'
+                f'</tr>'
             )
-            st.error(
-                "⚠️ **Achtung:** Dieser Vorgang ist **nicht rückgängig zu machen**. "
-                "Alle Spieler und deren Testergebnisse werden endgültig gelöscht."
-            )
 
-            # ── Schritt 2: Zweite Bestätigung — Kundennummer eintippen ────────
-            st.markdown("---")
-            st.markdown("**🔑 Zweite Bestätigung erforderlich**")
-            st.caption(
-                f"Gib die Kundennummer **`{kn}`** exakt ein, um die Löschung freizuschalten:"
-            )
-            _bestaetigung = st.text_input(
-                "Kundennummer zur Bestätigung",
-                key=f"_lz_confirm_{bid}",
-                placeholder=kn,
-                label_visibility="collapsed",
-            )
+        _n_sp   = zs.get("n_spieler", 0)
+        _n_ts   = zs.get("n_tests", 0)
+        _n_pl   = zs.get("n_plaene", 0)
+        _n_tp   = zs.get("n_tp_eintraege", 0)
+        _n_rech = zs.get("n_rechnungsadressen", 0)
+        _n_ses  = zs.get("n_sessions", 0)
+        _n_aud  = zs.get("n_audit_eintraege", 0)
+        _n_nb   = zs.get("n_benachrichtigungen", 0)
+        _n_pt   = zs.get("n_push_tokens", 0)
+        _n_bu   = zs.get("n_benutzerkonten", 0)
+        _logo   = zs.get("logo_vorhanden", False)
+        _vs     = zs.get("vertragsstatus", "—")
 
-            if _bestaetigung.strip() and _bestaetigung.strip() == kn.strip():
-                st.error("☠️ Bestätigung akzeptiert. Der nächste Klick löscht diesen Kunden **endgültig**.")
-                if st.button(
-                    "🗑️ Kunde endgültig löschen — NICHT RÜCKGÄNGIG",
-                    key=f"_lz_execute_{bid}",
-                    type="primary",
-                ):
-                    # Backup-Versuch vor der Löschung
-                    try:
-                        _bk_ok, _bk_msg = db_backup_erstellen()
-                    except Exception as _bke:
-                        _bk_ok, _bk_msg = False, str(_bke)
+        st.markdown(
+            '<table style="width:100%;border-collapse:collapse;background:#0d1117;'
+            'border:1px solid #30363d;border-radius:6px;font-size:13px">'
+            '<thead><tr>'
+            '<th style="padding:6px 10px;text-align:left;color:#8b949e;border-bottom:1px solid #30363d">Datenbereich</th>'
+            '<th style="padding:6px 10px;text-align:right;color:#8b949e;border-bottom:1px solid #30363d">Anzahl</th>'
+            '<th style="padding:6px 10px;text-align:left;color:#8b949e;border-bottom:1px solid #30363d">Aktion</th>'
+            '</tr></thead><tbody>'
+            + _row("Benutzerkonto(en)",         _n_bu,   "wird gelöscht")
+            + _row("Spieler (inkl. Diagnostik)",_n_sp,   "wird gelöscht" if _n_sp > 0 else "nicht vorhanden")
+            + _row("Testdatensätze",            _n_ts,   "wird gelöscht" if _n_ts > 0 else "nicht vorhanden")
+            + _row("Trainingsplan-Versionen",   _n_pl,   "wird gelöscht" if _n_pl > 0 else "nicht vorhanden")
+            + _row("Trainingsplan-Einträge",    _n_tp,   "wird gelöscht" if _n_tp > 0 else "nicht vorhanden")
+            + _row("Aktive Sessions",           _n_ses,  "wird gelöscht" if _n_ses > 0 else "nicht vorhanden")
+            + _row("Push-Tokens",               _n_pt,   "wird gelöscht" if _n_pt > 0 else "nicht vorhanden")
+            + _row("Benachrichtigungen",        _n_nb,   "wird gelöscht" if _n_nb > 0 else "nicht vorhanden")
+            + _row("Logo / Profilbild",         1 if _logo else 0,
+                   "wird gelöscht" if _logo else "nicht vorhanden")
+            + _row("Rechnungsadresse",          _n_rech, "wird anonymisiert" if _n_rech > 0 else "nicht vorhanden")
+            + _row(f"Lizenz/Paket ({_vs})",     1,       "wird gelöscht")
+            + _row("Audit-Log (Einträge)",      _n_aud,  "bleibt (Aufbewahrung)")
+            + '</tbody></table>',
+            unsafe_allow_html=True,
+        )
 
-                    try:
-                        _result = kunde_loeschen(vid, bid, _sa_id())
-                        audit_log_eintragen(
-                            None,
-                            "kunde_endgueltig_geloescht",
-                            (
-                                f"kn={kn}, n_spieler={_result.get('n_spieler', 0)}, "
-                                f"n_benutzer={_result.get('n_benutzer', 0)}, "
-                                f"backup={'ok' if _bk_ok else 'fehlgeschlagen'}"
-                            ),
-                            _sa_id(),
-                        )
-                        # Session-Cleanup → zurück zur Kundenliste
-                        for _k in [f"_lz_{bid}", f"_lz_confirm_{bid}", f"_lz_start_{bid}",
-                                   "kunden_auswahl"]:
-                            st.session_state.pop(_k, None)
-                        st.success(
-                            f"✅ Kunde **{kn}** wurde endgültig gelöscht. "
-                            f"{_result.get('n_spieler', 0)} Spieler entfernt."
-                        )
-                        if _bk_ok:
-                            st.info(f"💾 Backup: ✅ {_bk_msg}")
-                        else:
-                            st.warning(f"💾 Backup-Status: ⚠️ {_bk_msg}")
-                        st.rerun()
-                    except Exception as _le:
-                        st.error(f"❌ Löschung fehlgeschlagen: {_le}")
+        st.error(
+            "⚠️ **Achtung:** Dieser Vorgang ist **nicht rückgängig zu machen**. "
+            "Alle Spieler- und Testdaten werden endgültig entfernt. "
+            "Rechnungsdaten werden aus gesetzlichen Gründen anonymisiert — nicht gelöscht."
+        )
 
-            elif _bestaetigung.strip():
-                st.error(f"❌ Kundennummer stimmt nicht überein. Erwartet: **`{kn}`**")
+        # ── Schritt 2: Zweite Bestätigung — Kundennummer eintippen ──────────
+        st.markdown("---")
+        st.markdown("**🔑 Zweite Bestätigung erforderlich**")
+        st.caption(
+            f"Gib die Kundennummer **`{kn}`** exakt ein, um die Löschung freizuschalten:"
+        )
+        _bestaetigung = st.text_input(
+            "Kundennummer zur Bestätigung",
+            key=f"_lz_confirm_{bid}",
+            placeholder=kn,
+            label_visibility="collapsed",
+        )
+
+        if _bestaetigung.strip() and _bestaetigung.strip() == kn.strip():
+            st.error("☠️ Bestätigung akzeptiert. Der nächste Klick löscht diesen Kunden **endgültig**.")
+            if st.button(
+                "🗑️ Kunde endgültig und unwiderruflich löschen",
+                key=f"_lz_execute_{bid}",
+                type="primary",
+            ):
+                # Backup-Versuch vor der Löschung
+                try:
+                    _bk_ok, _bk_msg = db_backup_erstellen()
+                except Exception as _bke:
+                    _bk_ok, _bk_msg = False, str(_bke)
+
+                try:
+                    _result = kunde_loeschen(vid, bid, current_sa_id)
+                    audit_log_eintragen(
+                        None,
+                        "kunde_endgueltig_geloescht",
+                        (
+                            f"kn={kn}, name={name_str}, "
+                            f"n_spieler={_result.get('n_spieler', 0)}, "
+                            f"n_benutzer={_result.get('n_benutzer', 0)}, "
+                            f"backup={'ok' if _bk_ok else 'fehlgeschlagen'}"
+                        ),
+                        current_sa_id,
+                    )
+                    # Session-State bereinigen → zurück zur Kundenliste (nicht Startseite)
+                    for _k in [_preview_key, f"_lz_confirm_{bid}",
+                               f"_lz_start_{bid}", "kunden_auswahl"]:
+                        st.session_state.pop(_k, None)
+                    st.session_state["_nav_goto"] = "👥  Kundenverwaltung"
+                    st.success(
+                        f"✅ Kunde **{kn}** wurde endgültig gelöscht. "
+                        f"{_result.get('n_spieler', 0)} Spieler, "
+                        f"{_result.get('n_benutzer', 0)} Benutzerkonto(en) entfernt."
+                    )
+                    if _bk_ok:
+                        st.info(f"💾 Backup vor Löschung: ✅ {_bk_msg}")
+                    else:
+                        st.warning(f"💾 Backup vor Löschung: ⚠️ {_bk_msg}")
+                    st.rerun()
+                except Exception as _le:
+                    import logging
+                    logging.exception("Kundenlöschung fehlgeschlagen")
+                    st.error(
+                        "❌ Kunde konnte nicht vollständig gelöscht werden. "
+                        "Es wurden keine Änderungen übernommen."
+                    )
+
+        elif _bestaetigung.strip():
+            st.warning(f"❌ Kundennummer stimmt nicht überein. Erwartet: **`{kn}`**")
 
 
 def _kunde_detail(verein_id: int | None, benutzer_id: int | None) -> None:

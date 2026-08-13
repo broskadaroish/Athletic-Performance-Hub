@@ -5046,11 +5046,96 @@ def kunde_zusammenfassung_laden(verein_id: int | None, benutzer_id: int) -> dict
             except Exception:
                 pass
             vertragsstatus = "Einzeltrainer"
+        # ── Rechnungsdaten / Sessions / Weitere Zählungen ────────────────────
+        n_rechnungsadressen = 0
+        n_sessions          = 0
+        n_tp_eintraege      = 0
+        n_audit_eintraege   = 0
+        n_benachrichtigungen = 0
+        n_push_tokens       = 0
+        alle_bid_list: list[int] = []
+        if verein_id:
+            alle_bid_list = [
+                r[0] for r in conn.execute(
+                    "SELECT id FROM benutzer WHERE verein_id=? OR id=?",
+                    (verein_id, benutzer_id),
+                ).fetchall()
+            ]
+        else:
+            alle_bid_list = [benutzer_id]
+
+        for _bid in alle_bid_list:
+            try:
+                n_rechnungsadressen += conn.execute(
+                    "SELECT COUNT(*) FROM rechnungsadressen WHERE benutzer_id=?", (_bid,)
+                ).fetchone()[0]
+            except Exception:
+                pass
+            try:
+                n_sessions += conn.execute(
+                    "SELECT COUNT(*) FROM sessions WHERE benutzer_id=?", (_bid,)
+                ).fetchone()[0]
+            except Exception:
+                pass
+            try:
+                n_audit_eintraege += conn.execute(
+                    "SELECT COUNT(*) FROM audit_log WHERE benutzer_id=?", (_bid,)
+                ).fetchone()[0]
+            except Exception:
+                pass
+            try:
+                n_benachrichtigungen += conn.execute(
+                    "SELECT COUNT(*) FROM benachrichtigungen WHERE benutzer_id=?", (_bid,)
+                ).fetchone()[0]
+            except Exception:
+                pass
+            try:
+                n_push_tokens += conn.execute(
+                    "SELECT COUNT(*) FROM push_tokens WHERE benutzer_id=?", (_bid,)
+                ).fetchone()[0]
+            except Exception:
+                pass
+
+        # Trainingsplan-Einträge
+        try:
+            _sp_filter = "verein_id=?" if verein_id else "benutzer_id=?"
+            _sp_val    = verein_id if verein_id else benutzer_id
+            n_tp_eintraege = conn.execute(
+                f"SELECT COUNT(*) FROM trainingsplan te "
+                f"JOIN spieler sp ON te.spieler_id=sp.id "
+                f"WHERE sp.{_sp_filter}",
+                (_sp_val,),
+            ).fetchone()[0]
+        except Exception:
+            pass
+
+        # Logo vorhanden?
+        logo_vorhanden = False
+        try:
+            if verein_id:
+                logo_vorhanden = bool(conn.execute(
+                    "SELECT 1 FROM vereine WHERE id=? AND logo IS NOT NULL", (verein_id,)
+                ).fetchone())
+            else:
+                logo_vorhanden = bool(conn.execute(
+                    "SELECT 1 FROM benutzer WHERE id=? AND foto IS NOT NULL", (benutzer_id,)
+                ).fetchone())
+        except Exception:
+            pass
+
         return {
-            "n_spieler": n_spieler,
-            "n_tests":   n_tests,
-            "n_plaene":  n_plaene,
-            "vertragsstatus": vertragsstatus,
+            "n_spieler":          n_spieler,
+            "n_tests":            n_tests,
+            "n_plaene":           n_plaene,
+            "n_tp_eintraege":     n_tp_eintraege,
+            "n_rechnungsadressen": n_rechnungsadressen,
+            "n_sessions":         n_sessions,
+            "n_audit_eintraege":  n_audit_eintraege,
+            "n_benachrichtigungen": n_benachrichtigungen,
+            "n_push_tokens":      n_push_tokens,
+            "n_benutzerkonten":   len(alle_bid_list),
+            "logo_vorhanden":     logo_vorhanden,
+            "vertragsstatus":     vertragsstatus,
         }
 
 
