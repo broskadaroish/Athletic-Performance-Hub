@@ -1091,15 +1091,6 @@ def _dash_trainer(user: dict):
             unsafe_allow_html=True,
         )
         if st.button("➕ Spieler anlegen", key="qa_spieler", use_container_width=True):
-            import logging as _log_nd
-            _log_nd.getLogger("athletik").info(
-                "[NAV-DEBUG] BUTTON 'Spieler anlegen' CLICKED"
-                " | nav_section=%r | nav_sub_spieler=%r | _screen_width=%r | query_params=%r",
-                st.session_state.get("nav_section"),
-                st.session_state.get("nav_sub_spieler"),
-                st.session_state.get("_screen_width"),
-                dict(st.query_params),
-            )
             # Explizit auf "👥 Verwaltung" (= page_spieler mit "Neu anlegen"-Tab) navigieren.
             # Ohne dieses Assignment landet der User auf dem zuletzt aktiven Sub (z.B.
             # "🏃 Profil & Diagnostik") — was beim nächsten Widget-Rerun zum Nav-Reset führt.
