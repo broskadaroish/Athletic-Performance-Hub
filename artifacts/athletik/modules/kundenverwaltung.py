@@ -661,9 +661,13 @@ def _detail_gefahrenbereich(daten: dict) -> None:
             try:
                 zs = kunde_zusammenfassung_laden(vid, bid)
                 st.session_state[_preview_key] = zs
-                # Kundenauswahl und Navigation explizit sichern (defensive Absicherung)
+                # kunden_auswahl defensiv sichern — ist ein normaler session_state-Wert,
+                # kein Widget-Key → darf hier geschrieben werden.
+                # nav_section NICHT direkt setzen — das ist ein Widget-Key (Radio-Button),
+                # nach Widget-Erstellung raises es StreamlitAPIException → Startseiten-Sprung.
+                # nav_section bleibt unverändert auf "👥  Kundenverwaltung" (wurde beim
+                # Kunden-Öffnen gesetzt und wird nicht gelöscht).
                 st.session_state["kunden_auswahl"] = (vid, bid)
-                st.session_state["nav_section"]    = "👥  Kundenverwaltung"
             except Exception as _ex:
                 st.error(f"Fehler beim Laden der Zusammenfassung: {_ex}")
 

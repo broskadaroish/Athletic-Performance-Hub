@@ -1,0 +1,291 @@
+KRITISCHE FEHLERBEHEBUNG – GEFAHRENBEREICH:
+1) STARTSEITEN-SPRUNG
+2) SQLITE-FEHLER „no such column: benutzer_id“
+
+Aktueller realer Fehler:
+
+Kundenverwaltung
+→ Kunde öffnen
+→ Gefahrenbereich
+→ „Betroffene Daten prüfen“
+
+FEHLER A:
+Beim ersten Klick springt die App weiterhin auf die Startseite.
+
+FEHLER B:
+Beim zweiten Versuch erscheint:
+
+„Fehler beim Laden der Zusammenfassung: no such column: benutzer_id“
+
+WICHTIG:
+Nicht erneut nur st.rerun()-Logik ändern.
+Jetzt zuerst die Datenbankabfrage prüfen und den Routing-State separat reparieren.
+
+==================================================
+1. SQLITE-SCHEMA PRÜFEN
+==================================================
+
+Finde die Funktion:
+
+kunde_zusammenfassung_laden(vid, bid)
+
+und alle darin verwendeten SQL-Abfragen.
+
+Für JEDE Tabelle, die dort abgefragt wird:
+
+PRAGMA table_info(tabellenname)
+
+bzw. vorhandene Schema-Helfer verwenden.
+
+Berichte, welche Tabellen tatsächlich eine Spalte:
+
+benutzer_id
+
+haben und welche NICHT.
+
+Keine Spaltennamen raten.
+
+==================================================
+2. FEHLERHAFTE SQL-ABFRAGE FINDEN
+==================================================
+
+Suche exakt nach SQL in:
+
+kunde_zusammenfassung_laden()
+
+oder aufgerufenen Hilfsfunktionen, die enthalten:
+
+WHERE benutzer_id = ?
+JOIN ... benutzer_id
+COUNT(... benutzer_id ...)
+DELETE ... benutzer_id
+
+Finde die konkrete Abfrage, die:
+
+no such column: benutzer_id
+
+auslöst.
+
+==================================================
+3. KORREKTE RELATION VERWENDEN
+==================================================
+
+Prüfe das tatsächliche Datenmodell.
+
+Mögliche echte Schlüssel können sein:
+
+- verein_id
+- tenant_id
+- spieler_id
+- trainer_id
+- kunde_id
+- benutzer
+- id
+
+Verwende ausschließlich die Spalten, die im realen Schema vorhanden sind.
+
+Keine neue benutzer_id-Spalte hinzufügen, wenn sie fachlich nicht benötigt wird.
+
+==================================================
+4. BESTEHENDE PRODUKTIONS-DATENBANK KOMPATIBEL HALTEN
+==================================================
+
+Die Korrektur muss mit der aktuellen SQLite-Produktionsdatenbank funktionieren.
+
+Keine destructive Migration.
+
+Keine Tabellen neu erstellen.
+
+Keine Daten löschen.
+
+Keine Spaltenumbenennung.
+
+Falls unterschiedliche Alt-/Neu-Schemata existieren:
+schema-kompatibel abfragen.
+
+==================================================
+5. KUNDE_ZUSAMMENFASSUNG_LADEN ROBUST MACHEN
+==================================================
+
+Die Funktion soll für einen Kunden sauber zählen:
+
+- Benutzerkonten
+- Spieler
+- Tests
+- Trainingspläne
+- Trainingsplan-Einträge
+- Sessions
+- Push-Tokens
+- Benachrichtigungen
+- Rechnungsadresse
+- Audit-Einträge
+- Logo
+- Vertrags-/Lizenzstatus
+
+Aber nur mit real existierenden Relationen.
+
+Wenn eine optionale Tabelle nicht existiert:
+0 zurückgeben statt Exception.
+
+Wenn eine optionale Spalte nicht existiert:
+0 / nicht vorhanden statt kompletter Abbruch.
+
+==================================================
+6. KEINE „NO SUCH COLUMN“-EXCEPTION MEHR
+==================================================
+
+Ein fehlendes optionales Feld darf den ganzen Gefahrenbereich nicht zerstören.
+
+Nutze vorhandene Schema-Prüfung oder sichere Helper.
+
+==================================================
+7. ROUTING-FEHLER SEPARAT PRÜFEN
+==================================================
+
+Unabhängig vom DB-Fehler:
+
+Warum springt der erste Klick auf Start?
+
+Prüfe:
+
+- kunden_auswahl
+- _nav_goto
+- nav_section
+- page_kundenverwaltung()
+- _kunde_detail()
+- Button-Handler
+- globalen Navigationsteil in app.py
+
+==================================================
+8. BUTTON DARF NAVIGATION NICHT ÄNDERN
+==================================================
+
+Beim Klick auf:
+
+„Betroffene Daten prüfen“
+
+darf NICHT gesetzt werden:
+
+_nav_goto = Start
+nav_section = Start
+
+und Kunden-Auswahl darf nicht gelöscht werden.
+
+Explizit erhalten:
+
+st.session_state["kunden_auswahl"] = (vid, bid)
+
+Die aktive Hauptsektion muss Kundenverwaltung bleiben.
+
+==================================================
+9. KEIN DIREKTES NAV_SECTION-SCHREIBEN NACH WIDGET
+==================================================
+
+Falls nav_section ein Streamlit-Widget-Key ist:
+
+nicht nach Widget-Erstellung direkt verändern.
+
+Falls nötig:
+Pending-Key / Callback / bestehende zentrale Navigation verwenden.
+
+==================================================
+10. KEIN ZUSÄTZLICHER BROWSER-RELOAD
+==================================================
+
+Kein href.
+Keine Query-Param-Navigation.
+Kein window.location.
+
+Nur interne Streamlit-State-Logik.
+
+==================================================
+11. BUTTON-HANDLER ROBUST
+==================================================
+
+Gewünschtes Prinzip:
+
+if st.button(...):
+    st.session_state["kunden_auswahl"] = (vid, bid)
+
+    zs = kunde_zusammenfassung_laden(vid, bid)
+
+    st.session_state[_preview_key] = zs
+
+Danach:
+Vorschau direkt rendern.
+
+Kein unnötiges st.rerun(), wenn nicht nötig.
+
+==================================================
+12. FEHLERANZEIGE BLEIBT AUF DER KUNDENSEITE
+==================================================
+
+Falls kunde_zusammenfassung_laden() doch fehlschlägt:
+
+st.error(...)
+
+anzeigen,
+ABER:
+
+- nicht zur Startseite
+- nicht zur Kundenliste
+- Kundenansicht bleibt offen
+
+==================================================
+13. TEST MIT REALER DEV-DATENBANK
+==================================================
+
+Prüfe in der vorhandenen Dev-SQLite:
+
+1. Kunde öffnen
+2. „Betroffene Daten prüfen“
+3. keine Startseite
+4. keine no-such-column-Exception
+5. Vorschau erscheint
+6. Kundennummer-Bestätigung erscheint
+
+==================================================
+14. SQL-TEST
+==================================================
+
+Führe die konkrete Zusammenfassungsfunktion mit einem real existierenden Kunden direkt aus.
+
+Beispiel über Python/Unit-Test:
+
+kunde_zusammenfassung_laden(vid, bid)
+
+Erwartet:
+dict mit Zählern.
+
+Keine Streamlit-UI nötig für diesen Test.
+
+==================================================
+15. ENDGÜLTIGE LÖSCHUNG NOCH NICHT AUSFÜHREN
+==================================================
+
+Nur Vorschau testen.
+
+Keinen echten Kunden löschen.
+
+==================================================
+16. ABSCHLUSSBERICHT
+==================================================
+
+Danach berichten:
+
+1. Welche konkrete SQL-Abfrage verursachte „no such column: benutzer_id“?
+2. In welcher Tabelle existiert benutzer_id nicht?
+3. Welche reale Spalte/Relation wurde stattdessen verwendet?
+4. Wurde eine DB-Migration nötig? Erwartet: NEIN
+5. Funktioniert kunde_zusammenfassung_laden() jetzt direkt im Test? JA/NEIN
+6. Springt der erste Klick noch zur Startseite? Erwartet: NEIN
+7. Bleibt kunden_auswahl erhalten? JA/NEIN
+8. Bleibt die aktive Seite Kundenverwaltung? JA/NEIN
+9. Wird die Vorschau jetzt sichtbar? JA/NEIN
+10. Wird die Kundennummer-Bestätigung sichtbar? JA/NEIN
+11. Welche Dateien wurden geändert?
+
+Danach STOPPEN.
+
+Keine Löschung ausführen.
+Keine anderen Funktionen ändern.

@@ -5019,9 +5019,14 @@ def kunde_zusammenfassung_laden(verein_id: int | None, benutzer_id: int) -> dict
             ).fetchone()
             vertragsstatus = row[0] if row else "—"
         else:
-            n_spieler = conn.execute(
-                "SELECT COUNT(*) FROM spieler WHERE benutzer_id=?", (benutzer_id,)
-            ).fetchone()[0]
+            # Standalone-Trainer: Spieler sind über trainer_id verknüpft (nicht benutzer_id —
+            # die Spalte existiert nicht in der spieler-Tabelle)
+            try:
+                n_spieler = conn.execute(
+                    "SELECT COUNT(*) FROM spieler WHERE trainer_id=?", (benutzer_id,)
+                ).fetchone()[0]
+            except Exception:
+                n_spieler = 0
             n_tests = 0
             for tbl in [
                 "sprint_test", "sprung_test", "agilitaet_test", "ausdauer_test",
@@ -5030,7 +5035,7 @@ def kunde_zusammenfassung_laden(verein_id: int | None, benutzer_id: int) -> dict
                 try:
                     row = conn.execute(
                         f"SELECT COUNT(*) FROM {tbl} WHERE spieler_id IN "
-                        f"(SELECT id FROM spieler WHERE benutzer_id=?)",
+                        f"(SELECT id FROM spieler WHERE trainer_id=?)",
                         (benutzer_id,),
                     ).fetchone()
                     n_tests += row[0] if row else 0
@@ -5040,7 +5045,7 @@ def kunde_zusammenfassung_laden(verein_id: int | None, benutzer_id: int) -> dict
             try:
                 n_plaene = conn.execute(
                     "SELECT COUNT(*) FROM trainingsplan_versionen tv "
-                    "JOIN spieler sp ON tv.spieler_id=sp.id WHERE sp.benutzer_id=?",
+                    "JOIN spieler sp ON tv.spieler_id=sp.id WHERE sp.trainer_id=?",
                     (benutzer_id,),
                 ).fetchone()[0]
             except Exception:
@@ -5097,8 +5102,10 @@ def kunde_zusammenfassung_laden(verein_id: int | None, benutzer_id: int) -> dict
                 pass
 
         # Trainingsplan-Einträge
+        # spieler.verein_id → Verein-Kunden; spieler.trainer_id → Standalone-Trainer
+        # (spieler.benutzer_id existiert nicht im Schema)
         try:
-            _sp_filter = "verein_id=?" if verein_id else "benutzer_id=?"
+            _sp_filter = "verein_id=?" if verein_id else "trainer_id=?"
             _sp_val    = verein_id if verein_id else benutzer_id
             n_tp_eintraege = conn.execute(
                 f"SELECT COUNT(*) FROM trainingsplan te "
