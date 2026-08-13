@@ -25,23 +25,41 @@ STRIPE_WEBHOOK_SECRET  = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
 STRIPE_ENABLED         = bool(STRIPE_SECRET_KEY)
 
 # Stripe Price-IDs — 4-Paket-System (Phase A1)
+# Unterstützt beide Suffix-Varianten: _MONAT/_MONTHLY und _JAHR/_YEARLY,
+# da Secrets historisch inkonsistent benannt wurden (Mischung DE/EN).
 # Schlüssel entsprechen den LIZENZ_TYPEN-Keys aus license.py.
+
+def _price_env(base: str, short: str) -> str:
+    """Liest einen Stripe-Preis aus Env-Vars mit Fallback auf alternative Suffix-Schreibweise.
+
+    short = 'monat' → prüft {base}_MONAT, dann {base}_MONTHLY
+    short = 'jahr'  → prüft {base}_JAHR,  dann {base}_YEARLY
+    """
+    german  = "MONAT"   if short == "monat" else "JAHR"
+    english = "MONTHLY" if short == "monat" else "YEARLY"
+    return (
+        os.environ.get(f"{base}_{german}",  "") or
+        os.environ.get(f"{base}_{english}", "") or
+        ""
+    )
+
+
 STRIPE_PRICES: dict[str, dict[str, str]] = {
     "TRAINER_BASIC": {
-        "monat": os.environ.get("STRIPE_PRICE_TRAINER_BASIC_MONAT", ""),
-        "jahr":  os.environ.get("STRIPE_PRICE_TRAINER_BASIC_JAHR",  ""),
+        "monat": _price_env("STRIPE_PRICE_TRAINER_BASIC", "monat"),
+        "jahr":  _price_env("STRIPE_PRICE_TRAINER_BASIC", "jahr"),
     },
     "TRAINER_PRO": {
-        "monat": os.environ.get("STRIPE_PRICE_TRAINER_PRO_MONAT", ""),
-        "jahr":  os.environ.get("STRIPE_PRICE_TRAINER_PRO_JAHR",  ""),
+        "monat": _price_env("STRIPE_PRICE_TRAINER_PRO", "monat"),
+        "jahr":  _price_env("STRIPE_PRICE_TRAINER_PRO", "jahr"),
     },
     "VEREIN_BASIC": {
-        "monat": os.environ.get("STRIPE_PRICE_VEREIN_BASIC_MONAT", ""),
-        "jahr":  os.environ.get("STRIPE_PRICE_VEREIN_BASIC_JAHR",  ""),
+        "monat": _price_env("STRIPE_PRICE_VEREIN_BASIC", "monat"),
+        "jahr":  _price_env("STRIPE_PRICE_VEREIN_BASIC", "jahr"),
     },
     "VEREIN_PRO": {
-        "monat": os.environ.get("STRIPE_PRICE_VEREIN_PRO_MONAT", ""),
-        "jahr":  os.environ.get("STRIPE_PRICE_VEREIN_PRO_JAHR",  ""),
+        "monat": _price_env("STRIPE_PRICE_VEREIN_PRO", "monat"),
+        "jahr":  _price_env("STRIPE_PRICE_VEREIN_PRO", "jahr"),
     },
 }
 

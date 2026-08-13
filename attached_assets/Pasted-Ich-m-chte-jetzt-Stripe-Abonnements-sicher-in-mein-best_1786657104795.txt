@@ -1,0 +1,302 @@
+Ich möchte jetzt Stripe-Abonnements sicher in mein bestehendes APH-System integrieren.
+
+WICHTIG:
+- Prüfe zuerst die vorhandene Projektstruktur und den bestehenden Code.
+- Bestehende Funktionen, Datenbankstrukturen, Login-Systeme, Benutzerrollen, Seiten und Designs dürfen nicht unnötig verändert oder gelöscht werden.
+- Keine komplette Neuentwicklung.
+- Verwende die bereits vorhandene Architektur.
+- Bevor du neue Routen erstellst, prüfe, ob bereits Stripe-, Payment-, Billing- oder Webhook-Code vorhanden ist.
+- Verwende Secrets/Umgebungsvariablen. Keine geheimen Stripe-Schlüssel im Quellcode speichern.
+
+ZIEL:
+Stripe soll meinem APH-System automatisch mitteilen können, wenn ein Kunde ein Abo abschließt, bezahlt, ändert, kündigt oder eine Zahlung fehlschlägt.
+
+Meine öffentliche Domain ist:
+
+https://aphsystem.de
+
+Ich habe in Stripe folgende Produkte:
+
+1. APH Trainer Basic
+   9,99 € / Monat
+   99,00 € / Jahr
+
+2. APH Trainer Pro
+   14,99 € / Monat
+   149,00 € / Jahr
+
+3. APH Verein Basic
+   24,99 € / Monat
+   249,00 € / Jahr
+
+4. APH Verein Pro
+   39,99 € / Monat
+   399,00 € / Jahr
+
+Stripe ist momentan noch im TEST-/SANDBOX-Modus.
+
+--------------------------------------------------
+1. BESTEHENDEN CODE PRÜFEN
+--------------------------------------------------
+
+Prüfe zuerst, ob bereits Folgendes existiert:
+
+- Stripe SDK
+- Stripe Checkout
+- Stripe Customer IDs
+- Stripe Subscription IDs
+- Payment-/Billing-Routen
+- Webhook-Endpunkt
+- Benutzer-/Account-Tabelle
+- subscription_status
+- plan / tariff / subscription_plan
+- Rollen und Berechtigungen
+- Mandanten-/Kundentrennung
+
+Nutze vorhandene Strukturen, wenn möglich.
+
+--------------------------------------------------
+2. STRIPE SECRETS
+--------------------------------------------------
+
+Verwende ausschließlich Umgebungsvariablen/Secrets.
+
+Benötigt werden:
+
+STRIPE_SECRET_KEY
+STRIPE_WEBHOOK_SECRET
+
+Falls STRIPE_SECRET_KEY noch nicht vorhanden ist:
+Sag mir ausdrücklich, dass ich ihn in Replit Secrets anlegen muss.
+
+STRIPE_WEBHOOK_SECRET wird erst eingetragen, nachdem der Webhook in Stripe erstellt wurde.
+
+Der Wert darf niemals:
+- im Git Repository
+- im Frontend
+- in JavaScript für den Browser
+- in Logs
+- oder im normalen Quellcode
+
+gespeichert werden.
+
+--------------------------------------------------
+3. WEBHOOK-ENDPUNKT
+--------------------------------------------------
+
+Erstelle – sofern nicht bereits passend vorhanden – einen öffentlichen POST-Endpunkt:
+
+/api/stripe/webhook
+
+Die endgültige öffentliche URL soll damit sein:
+
+https://aphsystem.de/api/stripe/webhook
+
+WICHTIG:
+Der Endpoint muss ohne normalen Benutzer-Login von Stripe erreichbar sein.
+
+Die Sicherheit erfolgt über die Stripe Webhook-Signatur.
+
+--------------------------------------------------
+4. STRIPE SIGNATUR PRÜFEN
+--------------------------------------------------
+
+Verifiziere JEDE eingehende Stripe-Nachricht mit:
+
+STRIPE_WEBHOOK_SECRET
+
+Nutze die offizielle Stripe-Signaturprüfung.
+
+Bei ungültiger Signatur:
+- Event nicht verarbeiten
+- HTTP 400 zurückgeben
+
+Bei erfolgreicher Verarbeitung:
+- HTTP 200 zurückgeben
+
+WICHTIG:
+Für die Signaturprüfung muss der unveränderte RAW Request Body verwendet werden, falls das verwendete Framework dies verlangt.
+
+--------------------------------------------------
+5. DIESE 6 EVENTS VERARBEITEN
+--------------------------------------------------
+
+Der Stripe Webhook wird für genau diese Events eingerichtet:
+
+checkout.session.completed
+
+customer.subscription.created
+
+customer.subscription.updated
+
+customer.subscription.deleted
+
+invoice.paid
+
+invoice.payment_failed
+
+Implementiere für alle sechs eine saubere Verarbeitung.
+
+--------------------------------------------------
+6. FUNKTION DER EVENTS
+--------------------------------------------------
+
+checkout.session.completed:
+- Kunden/Benutzer eindeutig zuordnen
+- Stripe Customer ID speichern
+- Stripe Subscription ID speichern, falls vorhanden
+- gekauften Tarif bestimmen
+- NICHT allein aufgrund eines unsicheren Frontend-Werts einen Tarif vergeben
+
+customer.subscription.created:
+- Subscription speichern/aktualisieren
+- Tarif bestimmen
+- Subscription-Status speichern
+
+customer.subscription.updated:
+- Status aktualisieren
+- Tarifwechsel erkennen
+- cancel_at_period_end berücksichtigen
+- Laufzeitdaten aktualisieren
+
+customer.subscription.deleted:
+- Abo als beendet markieren
+- kostenpflichtige Berechtigungen entziehen
+- Benutzerkonto und vorhandene Kundendaten NICHT löschen
+
+invoice.paid:
+- erfolgreiche Zahlung speichern
+- Abo entsprechend dem Stripe-Status aktiv halten/aktualisieren
+
+invoice.payment_failed:
+- fehlgeschlagene Zahlung speichern
+- Status aktualisieren
+- Benutzerkonto nicht löschen
+- keine Daten löschen
+
+--------------------------------------------------
+7. TARIF-ZUORDNUNG
+--------------------------------------------------
+
+Die Tarif-Zuordnung soll NICHT anhand des Produktnamens oder des Betrags erfolgen.
+
+Nutze die Stripe Price IDs.
+
+Baue dafür eine zentrale serverseitige Zuordnung ein, beispielsweise über Umgebungsvariablen:
+
+STRIPE_PRICE_TRAINER_BASIC_MONTHLY
+STRIPE_PRICE_TRAINER_BASIC_YEARLY
+
+STRIPE_PRICE_TRAINER_PRO_MONTHLY
+STRIPE_PRICE_TRAINER_PRO_YEARLY
+
+STRIPE_PRICE_VEREIN_BASIC_MONTHLY
+STRIPE_PRICE_VEREIN_BASIC_YEARLY
+
+STRIPE_PRICE_VEREIN_PRO_MONTHLY
+STRIPE_PRICE_VEREIN_PRO_YEARLY
+
+Ordne daraus intern die Pläne zu:
+
+trainer_basic
+trainer_pro
+verein_basic
+verein_pro
+
+sowie:
+
+monthly
+yearly
+
+Falls diese Secrets/Configurations noch fehlen:
+Nicht irgendwelche IDs erfinden.
+
+Zeige mir anschließend exakt, welche Price IDs ich aus Stripe kopieren und unter welchem Namen in Replit eintragen muss.
+
+--------------------------------------------------
+8. DATENBANK
+--------------------------------------------------
+
+Prüfe zuerst meine bestehende Datenbank.
+
+Nur falls benötigte Felder fehlen, erweitere die bestehende Struktur möglichst migrationssicher um passende Felder wie:
+
+stripe_customer_id
+stripe_subscription_id
+subscription_plan
+subscription_status
+subscription_interval
+subscription_current_period_end
+cancel_at_period_end
+
+Keine vorhandenen Kundendaten löschen.
+
+Keine bestehende Datenbank ersetzen.
+
+Die bestehende Mandanten-/Kundentrennung muss erhalten bleiben.
+
+--------------------------------------------------
+9. DOPPELTE WEBHOOKS VERHINDERN
+--------------------------------------------------
+
+Stripe kann dasselbe Event mehrfach senden.
+
+Deshalb muss die Verarbeitung idempotent sein.
+
+Speichere die Stripe Event-ID oder nutze eine gleichwertige sichere Methode.
+
+Dasselbe Stripe Event darf nicht mehrfach:
+- Accounts freischalten
+- Statusänderungen doppelt durchführen
+- Datensätze mehrfach erzeugen
+
+--------------------------------------------------
+10. FEHLER UND LOGGING
+--------------------------------------------------
+
+Erstelle sinnvolles serverseitiges Logging.
+
+Aber NIEMALS loggen:
+
+- STRIPE_SECRET_KEY
+- STRIPE_WEBHOOK_SECRET
+- vollständige Zahlungsdaten
+- sensible Kundendaten
+
+Fehler sollen nachvollziehbar sein.
+
+--------------------------------------------------
+11. TEST
+--------------------------------------------------
+
+Nach der Implementierung:
+
+1. Prüfe, ob der Server weiterhin normal startet.
+2. Prüfe bestehende Funktionen auf offensichtliche Regressionen.
+3. Prüfe die Webhook-Route.
+4. Teste ungültige Signatur -> muss abgelehnt werden.
+5. Prüfe, dass vorhandene Daten nicht verändert/gelöscht wurden.
+
+--------------------------------------------------
+12. DANACH STOPPEN UND MIR BERICHTEN
+--------------------------------------------------
+
+Nach der Implementierung NICHT selbstständig weitere Stripe-Funktionen bauen.
+
+Gib mir stattdessen einen kurzen Bericht:
+
+1. Welche Dateien wurden geändert?
+2. Welcher Webhook-Endpunkt wurde eingerichtet?
+3. Ist die endgültige URL wirklich:
+   https://aphsystem.de/api/stripe/webhook
+4. Welche neuen Secrets brauche ich?
+5. Welche 8 Stripe Price IDs muss ich aus Stripe kopieren?
+6. Welche Datenbankfelder wurden ergänzt?
+7. Wie wird ein Stripe-Kunde meinem APH-Benutzer zugeordnet?
+8. Wie werden die vier Tarife voneinander unterschieden?
+9. Wie wird verhindert, dass Webhooks doppelt verarbeitet werden?
+10. Gibt es noch etwas, das ich manuell machen muss?
+
+WICHTIG:
+Erfinde keine Stripe IDs, Secrets oder vorhandenen Datenbankstrukturen.
+Wenn etwas unklar ist, berichte mir darüber, statt bestehende Funktionen auf Verdacht umzubauen.

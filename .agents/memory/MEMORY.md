@@ -24,3 +24,4 @@
 - [Mobile CSS + Formular-Stabilität](mobile-css-formular-stabilitaet.md) — Selectbox braucht [data-baseweb="select"] nicht select; Labels ohne Sidebar-Prefix brauchen eigene Regel; detect_screen_width() vor Login-Gate verhindert Post-Login-Reload
 - [Kunde deaktivieren und löschen](kunden-loeschen.md) — kunde_loeschen() + kunde_zusammenfassung_laden() in database.py; _detail_gefahrenbereich() in kundenverwaltung.py; zweistufige Bestätigung (Datenübersicht + Kundennummer-Eingabe)
 - [Produktionsarchitektur aphsystem.de](production-architecture.md) — Ubuntu-VPS Docker Compose; SQLite auf Volume /data/athletik.db; Replit Secrets ≠ Produktions-Env-Vars; niemals Volume löschen
+- [Stripe Webhook Phase A4](stripe-phase-a4.md) — esbuild-Pfad 3 Ebenen hoch; express.raw() vor json(); DE/EN-Suffix-Mix; Idempotenz via stripe_events; STRIPE_WEBHOOK_SECRET noch ausstehend

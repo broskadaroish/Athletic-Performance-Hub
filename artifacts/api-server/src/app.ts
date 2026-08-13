@@ -25,6 +25,13 @@ app.use(
     },
   }),
 );
+
+// ── Stripe Webhook: Raw Body MUSS vor express.json() registriert werden ───────
+// Die Stripe-Signaturprüfung benötigt den unveränderten Raw Request Body als Buffer.
+// express.json() würde ihn zu einem JavaScript-Objekt parsen und die
+// Signaturprüfung unmöglich machen.
+app.use("/api/stripe/webhook", express.raw({ type: "application/json" }));
+
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));

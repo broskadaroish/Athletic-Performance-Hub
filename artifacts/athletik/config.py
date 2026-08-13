@@ -71,15 +71,22 @@ STRIPE_WEBHOOK_SECRET  = os.environ.get("STRIPE_WEBHOOK_SECRET",  "")
 STRIPE_PUBLISHABLE_KEY = os.environ.get("STRIPE_PUBLISHABLE_KEY", "")
 
 # Stripe Price-IDs — 4-Paket-System (Phase A1)
-# Werden nach der Stripe-Produkt-Anlage befüllt.
-STRIPE_PRICE_TRAINER_BASIC_MONAT = os.environ.get("STRIPE_PRICE_TRAINER_BASIC_MONAT", "")
-STRIPE_PRICE_TRAINER_BASIC_JAHR  = os.environ.get("STRIPE_PRICE_TRAINER_BASIC_JAHR",  "")
-STRIPE_PRICE_TRAINER_PRO_MONAT   = os.environ.get("STRIPE_PRICE_TRAINER_PRO_MONAT",   "")
-STRIPE_PRICE_TRAINER_PRO_JAHR    = os.environ.get("STRIPE_PRICE_TRAINER_PRO_JAHR",    "")
-STRIPE_PRICE_VEREIN_BASIC_MONAT  = os.environ.get("STRIPE_PRICE_VEREIN_BASIC_MONAT",  "")
-STRIPE_PRICE_VEREIN_BASIC_JAHR   = os.environ.get("STRIPE_PRICE_VEREIN_BASIC_JAHR",   "")
-STRIPE_PRICE_VEREIN_PRO_MONAT    = os.environ.get("STRIPE_PRICE_VEREIN_PRO_MONAT",    "")
-STRIPE_PRICE_VEREIN_PRO_JAHR     = os.environ.get("STRIPE_PRICE_VEREIN_PRO_JAHR",     "")
+# Unterstützt beide Suffix-Varianten (_MONAT/_MONTHLY, _JAHR/_YEARLY).
+# Primär: deutsche Schreibweise; Fallback: englische Schreibweise.
+def _cfg_price(base: str, short: str) -> str:
+    german  = "MONAT"   if short == "monat" else "JAHR"
+    english = "MONTHLY" if short == "monat" else "YEARLY"
+    return (os.environ.get(f"{base}_{german}", "") or
+            os.environ.get(f"{base}_{english}", "") or "")
+
+STRIPE_PRICE_TRAINER_BASIC_MONAT = _cfg_price("STRIPE_PRICE_TRAINER_BASIC", "monat")
+STRIPE_PRICE_TRAINER_BASIC_JAHR  = _cfg_price("STRIPE_PRICE_TRAINER_BASIC", "jahr")
+STRIPE_PRICE_TRAINER_PRO_MONAT   = _cfg_price("STRIPE_PRICE_TRAINER_PRO",   "monat")
+STRIPE_PRICE_TRAINER_PRO_JAHR    = _cfg_price("STRIPE_PRICE_TRAINER_PRO",   "jahr")
+STRIPE_PRICE_VEREIN_BASIC_MONAT  = _cfg_price("STRIPE_PRICE_VEREIN_BASIC",  "monat")
+STRIPE_PRICE_VEREIN_BASIC_JAHR   = _cfg_price("STRIPE_PRICE_VEREIN_BASIC",  "jahr")
+STRIPE_PRICE_VEREIN_PRO_MONAT    = _cfg_price("STRIPE_PRICE_VEREIN_PRO",    "monat")
+STRIPE_PRICE_VEREIN_PRO_JAHR     = _cfg_price("STRIPE_PRICE_VEREIN_PRO",    "jahr")
 
 # Legacy-Vars (Altbestand — nicht mehr verwenden, werden in Phase B entfernt)
 STRIPE_PRICE_BASIC_MONAT = os.environ.get("STRIPE_PRICE_BASIC_MONAT", "")
