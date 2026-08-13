@@ -1,0 +1,112 @@
+PHASE A3 – STRIPE TEST-GRUNDGERÜST PRÜFEN UND VORBEREITEN
+
+Ziel:
+Die bestehende Stripe-Integration für unsere 4 Pakete und 2 Abrechnungsintervalle
+für den späteren Checkout vorbereiten.
+
+WICHTIG:
+Nur TESTMODUS.
+Keine Live-Zahlungen.
+Noch keinen bestehenden Registrierungsablauf umbauen.
+
+1. Prüfe zuerst vorhandene Dateien:
+- stripe_service.py
+- config.py
+- requirements.txt
+- vorhandene Stripe-Funktionen
+
+Bestehenden funktionierenden Code wiederverwenden.
+
+2. Prüfe die 8 Stripe-Preis-Zuordnungen:
+
+TRAINER_BASIC monat
+TRAINER_BASIC jahr
+TRAINER_PRO monat
+TRAINER_PRO jahr
+VEREIN_BASIC monat
+VEREIN_BASIC jahr
+VEREIN_PRO monat
+VEREIN_PRO jahr
+
+Alle Price-IDs ausschließlich über Environment-Variablen laden.
+
+Keine Keys oder Price-IDs hardcoden.
+
+3. Erstelle bzw. korrigiere eine zentrale Funktion:
+
+get_price_id(lizenztyp, abo_intervall)
+
+Sie muss ausschließlich die passende Stripe Price-ID zurückgeben.
+
+Ungültige Kombinationen sauber ablehnen.
+
+4. Bereite eine Funktion für Stripe Checkout im TESTMODUS vor.
+
+Anforderungen:
+
+mode="subscription"
+
+gewählte Stripe Price-ID verwenden
+
+30 Tage Testphase:
+subscription_data={"trial_period_days": 30}
+
+Die Zahlungsmethode soll während Checkout hinterlegt werden,
+damit nach der Testphase automatisch abgerechnet werden kann.
+
+5. PayPal
+
+Architektur so vorbereiten, dass Stripe Checkout später
+Kreditkarte und PayPal unterstützen kann.
+
+Keine eigene PayPal-API integrieren.
+
+PayPal soll später über Stripe laufen.
+
+6. Sicherheit
+
+STRIPE_SECRET_KEY niemals im Code speichern.
+
+Nur Environment/Secrets verwenden.
+
+Keine geheimen Schlüssel loggen.
+
+7. NOCH NICHT:
+
+- Registrierung auf Checkout umleiten
+- echte Subscription erzeugen
+- Live-Modus aktivieren
+- Webhook-Logik umbauen
+- Produktionsdaten ändern
+- DB migrieren
+- Kunden belasten
+
+8. Tests
+
+Teste ohne echten API-Aufruf:
+
+TRAINER_BASIC + monat
+TRAINER_BASIC + jahr
+TRAINER_PRO + monat
+TRAINER_PRO + jahr
+VEREIN_BASIC + monat
+VEREIN_BASIC + jahr
+VEREIN_PRO + monat
+VEREIN_PRO + jahr
+
+Alle müssen die richtige Environment-Variable verwenden.
+
+9. Abschlussbericht:
+
+- bestehende Stripe-Struktur vorher
+- Änderungen
+- alle 8 Preis-Mappings korrekt JA/NEIN
+- 30-Tage-Trial vorbereitet JA/NEIN
+- Zahlungsmethode für spätere Abbuchung vorgesehen JA/NEIN
+- PayPal über Stripe vorbereitet JA/NEIN
+- API-Aufruf durchgeführt? Erwartet NEIN
+- DB verändert? Erwartet NEIN
+- geänderte Dateien
+
+Danach STOPPEN.
+NICHT deployen.

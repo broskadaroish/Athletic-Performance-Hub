@@ -111,23 +111,57 @@ def checkout_session_erstellen(
     success_url: str | None = None,
     cancel_url: str | None = None,
     testphase_tage: int = 0,
+    payment_method_types: list[str] | None = None,
 ) -> str:
-    """Erstellt eine Stripe Checkout-Session. Gibt die URL zurück."""
+    """Erstellt eine Stripe Checkout-Session im Testmodus. Gibt die Session-URL zurück.
+
+    Immer mode="subscription".  Zahlungsmethode wird stets beim Checkout
+    hinterlegt (payment_method_collection="always"), damit nach der Testphase
+    die automatische Abbuchung funktioniert.
+
+    payment_method_types:
+        None  → Stripe wählt automatisch (Card + alle Dashboard-aktivierten
+                Methoden, inkl. PayPal sobald im Stripe-Dashboard aktiviert).
+        Liste → z. B. ["card", "paypal"] für explizite Auswahl.
+                PayPal läuft vollständig über Stripe — keine eigene PayPal-API
+                nötig.  Aktivierung: Stripe-Dashboard → Payment Methods → PayPal.
+
+    Sicherheit:
+        - STRIPE_SECRET_KEY wird nie geloggt.
+        - Keine Price-IDs im Log (nur Session-ID und verein_id).
+    """
     stripe = _get_stripe()
     params: dict = {
-        "customer":          customer_id,
-        "mode":              "subscription",
-        "line_items":        [{"price": price_id, "quantity": 1}],
-        "success_url":       success_url or f"{APP_BASE_URL}/app?checkout=success",
-        "cancel_url":        cancel_url  or f"{APP_BASE_URL}/app?checkout=cancel",
-        "metadata":          {"verein_id": str(verein_id)},
-        "allow_promotion_codes": True,
+        "customer":                  customer_id,
+        "mode":                      "subscription",
+        "line_items":                [{"price": price_id, "quantity": 1}],
+        "success_url":               success_url or f"{APP_BASE_URL}/app?checkout=success",
+        "cancel_url":                cancel_url  or f"{APP_BASE_URL}/app?checkout=cancel",
+        "metadata":                  {"verein_id": str(verein_id)},
+        "allow_promotion_codes":     True,
+        # Zahlungsmethode immer sammeln — auch während der Testphase.
+        # Ohne dies könnte die erste Abbuchung nach Trial-Ende fehlschlagen.
+        "payment_method_collection": "always",
     }
+
+    # Explizite Zahlungsmethoden-Liste (None = Stripe automatic)
+    # PayPal-Vorbereitung: payment_method_types=["card", "paypal"] übergeben,
+    # sobald PayPal im Stripe-Dashboard aktiviert ist.
+    if payment_method_types is not None:
+        params["payment_method_types"] = payment_method_types
+
     if testphase_tage > 0:
-        params["subscription_data"] = {"trial_period_days": testphase_tage}
+        params["subscription_data"] = {
+            "trial_period_days": testphase_tage,
+            # Nach Trial-Ende: Abo kündigen statt stillen Fehlschlag,
+            # wenn keine Zahlungsmethode hinterlegt wurde.
+            "trial_settings": {
+                "end_behavior": {"missing_payment_method": "cancel"}
+            },
+        }
 
     session = stripe.checkout.Session.create(**params)
-    logger.info(f"Checkout-Session erstellt: {session.id} für Verein {verein_id}")
+    logger.info("Checkout-Session erstellt: %s für Verein %d", session.id, verein_id)
     return session.url
 
 
@@ -287,13 +321,66 @@ def webhook_event_verarbeiten(event: dict) -> dict:
 # ── Preis-Hilfsfunktionen ─────────────────────────────────────────────────────
 
 def get_price_id(lizenz_typ: str, intervall: str = "monat") -> str | None:
-    """Gibt die Stripe Price-ID für einen Lizenztyp zurück.
+    """Gibt die Stripe Price-ID für einen Lizenztyp und ein Intervall zurück.
 
     Akzeptiert alte und neue Paket-Keys — normalize_lizenz_typ() wird intern
     verwendet, damit BASIC/PRO/Enterprise auf die neuen Keys gemappt werden.
+
+    Rückgabe:
+        str   — konfigurierte Stripe Price-ID aus der Umgebungsvariablen
+        None  — Env-Var ist leer oder fehlt (noch nicht konfiguriert)
+
+    Raises:
+        ValueError — bei unbekanntem Lizenztyp ODER ungültigem Intervall.
+                     (Env-Var fehlt → None, nicht ValueError.)
     """
-    from license import normalize_lizenz_typ
-    normed    = normalize_lizenz_typ(lizenz_typ)
-    typ_prices = STRIPE_PRICES.get(normed, {})
-    price_id  = typ_prices.get(intervall, "")
+    from license import normalize_lizenz_typ, LIZENZ_TYPEN, LIZENZ_TYPEN_COMPAT
+
+    # Rohwert-Prüfung: ist der Key überhaupt bekannt?
+    # normalize_lizenz_typ() gibt bei unbekannten Werten den Default zurück —
+    # deshalb muss die Validierung VOR der Normalisierung stattfinden.
+    _known_raw = frozenset(LIZENZ_TYPEN) | frozenset(LIZENZ_TYPEN_COMPAT)
+    _upper = (lizenz_typ or "").strip().upper()
+    if not lizenz_typ or _upper not in _known_raw:
+        raise ValueError(
+            f"Unbekannter Lizenztyp: {lizenz_typ!r}. "
+            f"Erlaubt (neue Keys): {sorted(LIZENZ_TYPEN)}"
+        )
+
+    normed = normalize_lizenz_typ(lizenz_typ)
+
+    # Doppelte Absicherung falls normalize etwas Unerwartetes zurückgibt
+    if normed not in STRIPE_PRICES:
+        raise ValueError(
+            f"Lizenztyp {lizenz_typ!r} → normalisiert zu {normed!r}, "
+            f"aber kein Stripe-Preis konfiguriert. Erlaubt: {sorted(STRIPE_PRICES)}"
+        )
+
+    # Ungültiges Intervall → sofort ablehnen
+    erlaubte_intervalle = ("monat", "jahr")
+    if intervall not in erlaubte_intervalle:
+        raise ValueError(
+            f"Unbekanntes Intervall: {intervall!r}. "
+            f"Erlaubt: {erlaubte_intervalle}"
+        )
+
+    price_id = STRIPE_PRICES[normed].get(intervall, "")
     return price_id if price_id else None
+
+
+def get_price_id_or_raise(lizenz_typ: str, intervall: str = "monat") -> str:
+    """Wie get_price_id(), aber wirft ValueError wenn die Price-ID nicht konfiguriert ist.
+
+    Für Checkout-Flows — stellt sicher, dass keine leere Price-ID an Stripe gesendet wird.
+    """
+    price_id = get_price_id(lizenz_typ, intervall)
+    if not price_id:
+        from license import normalize_lizenz_typ
+        normed  = normalize_lizenz_typ(lizenz_typ)
+        env_key = f"STRIPE_PRICE_{normed}_{intervall.upper()}"
+        raise ValueError(
+            f"Stripe Price-ID nicht konfiguriert. "
+            f"Umgebungsvariable '{env_key}' ist leer oder fehlt. "
+            f"Bitte in den Stripe-Einstellungen hinterlegen."
+        )
+    return price_id
