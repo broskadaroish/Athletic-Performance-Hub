@@ -1,0 +1,130 @@
+KONSISTENZ-FIX VOR WEITEREN UPDATES
+
+Bitte behebe ausschließlich die zwei bestätigten Inkonsistenzen #212 und #213.
+
+WICHTIG:
+- Keine SMTP-Secrets in Git schreiben.
+- Keine .env-Datei committen.
+- Keine Datenbank verändern.
+- Keine Authentifizierungslogik verändern.
+- Keine Trainings-/Diagnostiklogik verändern.
+- Keine Produktionsdaten löschen.
+- Keine anderen Refactorings durchführen.
+
+==================================================
+1. docker-compose.yml IM REPOSITORY AKTUALISIEREN
+==================================================
+
+Der produktive Server wurde manuell bereits so ergänzt, dass folgende Variablen aus .env an den Docker-Container weitergegeben werden:
+
+APP_BASE_URL
+SMTP_HOST
+SMTP_PORT
+SMTP_USERNAME
+SMTP_PASSWORD
+SMTP_FROM
+SUPPORT_EMAIL
+SESSION_SECRET
+SECRET_KEY
+
+Diese Struktur muss auch im Repository in docker-compose.yml enthalten sein, damit zukünftige Deployments die funktionierende Produktionskonfiguration nicht wieder entfernen.
+
+Unter environment: soll vorhanden sein:
+
+APP_BASE_URL:      ${APP_BASE_URL}
+SMTP_HOST:         ${SMTP_HOST}
+SMTP_PORT:         ${SMTP_PORT}
+SMTP_USERNAME:     ${SMTP_USERNAME}
+SMTP_PASSWORD:     ${SMTP_PASSWORD}
+SMTP_FROM:         ${SMTP_FROM}
+SUPPORT_EMAIL:     ${SUPPORT_EMAIL}
+SESSION_SECRET:    ${SESSION_SECRET}
+SECRET_KEY:        ${SECRET_KEY}
+
+WICHTIG:
+Nur Variablennamen committen.
+Keine echten Werte oder Passwörter.
+
+.env bleibt in:
+.gitignore
+.dockerignore
+
+==================================================
+2. start.sh PORT KONSISTENT MACHEN
+==================================================
+
+Aktuell:
+
+exec streamlit run app.py --server.port 8082
+
+ändern auf:
+
+exec streamlit run app.py --server.port "${PORT:-8082}"
+
+Damit gilt:
+
+- wenn PORT gesetzt ist → PORT verwenden
+- wenn PORT fehlt → 8082 als sicherer Fallback
+
+WICHTIG:
+Nicht auf 8080 erzwingen, solange der produktive Compose-Port 8082:8082 verwendet wird.
+
+Die aktuell funktionierende Produktionskonfiguration darf nicht beschädigt werden.
+
+==================================================
+3. DOCKER-COMPOSE PORT PRÜFEN
+==================================================
+
+Prüfe, dass weiterhin konsistent ist:
+
+PORT: "8082"
+
+und:
+
+ports:
+  - "8082:8082"
+
+Falls im Repository aktuell PORT=8080 gesetzt ist, korrigiere das auf 8082, weil der produktive nginx-Proxy auf 127.0.0.1:8082 zeigt.
+
+Keine nginx-Konfiguration ändern.
+
+==================================================
+4. config.py ALT-EINTRAG
+==================================================
+
+Den verwaisten SMTP_USER-Eintrag in config.py nur dokumentieren.
+
+Nicht zwingend entfernen, wenn nicht eindeutig nachgewiesen ist, dass keine andere Funktion ihn nutzt.
+
+Keine unnötige Refaktorierung.
+
+==================================================
+5. TESTS
+==================================================
+
+Prüfe danach:
+
+- docker compose config erfolgreich
+- keine Secrets im gerenderten Repo-Code
+- start.sh verwendet PORT mit Fallback
+- docker-compose.yml setzt PORT 8082
+- Mapping bleibt 8082:8082
+- SMTP-Variablen werden aus .env referenziert
+- .env bleibt ignoriert
+
+==================================================
+6. ABSCHLUSSBERICHT
+==================================================
+
+Berichte:
+
+1. Wurde docker-compose.yml im Repo ergänzt? JA/NEIN
+2. Enthält das Repo echte Secrets? Erwartet: NEIN
+3. Wurde start.sh auf ${PORT:-8082} umgestellt? JA/NEIN
+4. Ist PORT im Compose auf 8082 gesetzt? JA/NEIN
+5. Ist das Mapping 8082:8082? JA/NEIN
+6. Bleibt .env in .gitignore und .dockerignore? JA/NEIN
+7. Wurde config.py bewusst nicht weiter verändert? JA/NEIN
+8. Welche Dateien wurden geändert?
+
+Danach STOPPEN.
