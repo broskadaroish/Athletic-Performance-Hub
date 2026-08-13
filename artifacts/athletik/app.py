@@ -10143,7 +10143,10 @@ with st.sidebar:
     _sb_uname = (f"{_sb_user.get('vorname','')} {_sb_user.get('nachname','')}".strip()
                  or _sb_user.get("email", ""))
     _sb_rolle = _sb_user.get("rolle", "")
-    _sb_verein = _sb_user.get("verein_name") or _sb_user.get("verein") or ""
+    # Verein nur anzeigen wenn kein technischer Mandant (persönlicher Einzeltrainer-Verein)
+    _sb_verein = "" if _sb_user.get("ist_technischer_mandant") else (
+        _sb_user.get("verein_name") or _sb_user.get("verein") or ""
+    )
     st.markdown(
         f'<div style="margin:8px 0 4px;padding:8px 12px;background:{C["surface"]};'
         f'border-radius:8px;border:1px solid {C["border"]}">'

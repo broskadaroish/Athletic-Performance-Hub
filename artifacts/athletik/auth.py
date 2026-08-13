@@ -68,7 +68,8 @@ def login(email_oder_benutzername: str, passwort: str, ip: str | None = None) ->
         conn.row_factory = sqlite3.Row
         user = conn.execute(
             """SELECT b.*, v.name AS verein_name,
-                      v.kuendigungsstatus AS verein_kuendigungsstatus
+                      v.kuendigungsstatus AS verein_kuendigungsstatus,
+                      COALESCE(v.ist_technischer_mandant, 0) AS ist_technischer_mandant
                FROM benutzer b
                LEFT JOIN vereine v ON b.verein_id = v.id
                WHERE (LOWER(b.email)=?

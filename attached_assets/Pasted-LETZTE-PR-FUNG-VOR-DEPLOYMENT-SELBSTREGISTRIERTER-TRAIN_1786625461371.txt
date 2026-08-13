@@ -1,0 +1,215 @@
+LETZTE PRÜFUNG VOR DEPLOYMENT – SELBSTREGISTRIERTER TRAINER MUSS SPIELER STABIL ANLEGEN KÖNNEN
+
+Ausgangslage:
+
+Das ursprüngliche reale Problem ist:
+
+Ein selbstregistrierter Trainer kann nach Login unter:
+
+Spieler → Neu anlegen
+
+nicht stabil einen Spieler erfassen.
+
+Beispiel:
+
+Vorname eingeben
+→ Nachname anklicken/eingeben
+→ App springt auf Startseite.
+
+Bei einem vom Superadmin angelegten Trainer funktioniert Spieler anlegen dagegen normal.
+
+Die Analyse hat ergeben:
+
+Admin-Trainer:
+verein_id = Integer
+
+Selbstregistrierter Trainer:
+verein_id = NULL
+
+Daraufhin wurde trainer_registrieren() so geändert, dass selbstregistrierte Trainer einen persönlichen technischen Mandanten erhalten und dadurch verein_id gesetzt ist.
+
+BEVOR DEPLOYMENT:
+
+Bitte prüfen, ob dieser Fix tatsächlich das ursprüngliche Spieler-anlegen-Problem sauber löst und keine falsche Vereinslogik erzeugt.
+
+==================================================
+1. HAUPTTEST – SELBSTREGISTRIERTER TRAINER
+==================================================
+
+Neuen Trainer über normale Selbstregistrierung anlegen.
+
+Danach:
+
+- E-Mail bestätigen
+- Account freischalten
+- einmal einloggen
+- Spieler
+- Neu anlegen
+
+Dann nacheinander eingeben:
+
+Vorname
+Nachname
+Geburtsdatum
+Geschlecht
+Altersklasse
+Position
+Spielbein
+Mannschaft
+Trainingsstatus
+
+ERWARTUNG:
+
+- Seite bleibt immer bei Spieler → Neu anlegen
+- kein Sprung auf Startseite
+- kein Login-Sprung
+- bereits eingegebene Werte bleiben erhalten
+- Spieler kann gespeichert werden
+
+==================================================
+2. SPIELER MUSS KORREKT ZUGEORDNET WERDEN
+==================================================
+
+Nach Speichern prüfen:
+
+- Spieler existiert
+- trainer_id ist korrekt
+- verein_id / Mandant ist korrekt
+- Spieler gehört nur zu diesem Trainer
+- Spieler wird in dessen Spielerliste angezeigt
+
+==================================================
+3. ZWEI SELBSTREGISTRIERTE TRAINER TESTEN
+==================================================
+
+Trainer A registrieren.
+Trainer B registrieren.
+
+Trainer A legt Spieler A an.
+Trainer B legt Spieler B an.
+
+Erwartung:
+
+Trainer A sieht nur Spieler A.
+Trainer B sieht nur Spieler B.
+
+Keine Vermischung.
+
+==================================================
+4. KUNDENTYP MUSS TRAINER BLEIBEN
+==================================================
+
+Der persönliche technische Mandant darf NICHT dazu führen, dass der Kunde fachlich als Verein behandelt wird.
+
+Prüfen:
+
+- Kundenverwaltung
+- Benutzerverwaltung
+- Lizenzverwaltung
+- Pakete
+- Vertragsdaten
+
+Erwartung:
+
+Kundentyp bleibt Trainer.
+
+==================================================
+5. TECHNISCHER MANDANT DARF NICHT FALSCH SICHTBAR SEIN
+==================================================
+
+Der interne persönliche Verein darf im normalen UI möglichst nicht als echter Verein erscheinen.
+
+Nicht anzeigen:
+
+"Verein: Trainer: Max Mustermann"
+
+wenn der Kunde Einzeltrainer ist.
+
+==================================================
+6. SUPERADMIN-ANGELEGTER TRAINER
+==================================================
+
+Bestehendes Verhalten darf nicht kaputtgehen.
+
+Admin legt Trainer an
+→ Login
+→ Spieler anlegen
+
+muss weiterhin funktionieren.
+
+==================================================
+7. SELBSTREGISTRIERTER VEREIN
+==================================================
+
+Zusätzlich prüfen:
+
+Selbstregistrierter Verein
+→ Login
+→ Spieler anlegen
+
+muss ebenfalls stabil funktionieren.
+
+==================================================
+8. STARTUP-MIGRATION
+==================================================
+
+Für bestehende selbstregistrierte Trainer mit:
+
+verein_id = NULL
+
+prüfen:
+
+Nach Migration erhalten sie genau einen persönlichen Mandanten.
+
+Mehrfacher App-Start darf keine weiteren Mandanten erzeugen.
+
+Migration muss idempotent sein.
+
+==================================================
+9. KEIN NEUER STARTSEITEN-SPRUNG
+==================================================
+
+Beim gesamten Test explizit prüfen:
+
+text_input
+date_input
+selectbox
+checkbox
+number_input
+
+dürfen keinen Startseiten-Sprung auslösen.
+
+==================================================
+10. ACCOUNT-TYP NICHT ÜBER verein_id BESTIMMEN
+==================================================
+
+Prüfen, ob irgendwo gilt:
+
+verein_id != NULL → Kunde = Verein
+
+Falls ja:
+als Problem melden.
+
+Kundentyp muss über die tatsächliche Rollen-/Accountlogik bestimmt werden.
+
+==================================================
+11. ABSCHLUSSBERICHT
+==================================================
+
+Berichte danach:
+
+1. Funktioniert Spieler anlegen bei selbstregistriertem Trainer jetzt vollständig? JA/NEIN
+2. Gibt es noch einen Startseiten-Sprung? JA/NEIN
+3. Bleiben alle Eingaben erhalten? JA/NEIN
+4. Wird der Spieler korrekt mit trainer_id gespeichert? JA/NEIN
+5. Ist die Mandantentrennung zwischen zwei Einzeltrainern korrekt? JA/NEIN
+6. Bleibt der Kundentyp Trainer? JA/NEIN
+7. Wird der technische Mandant irgendwo fälschlich als echter Verein angezeigt? JA/NEIN
+8. Funktioniert admin-angelegter Trainer weiterhin? JA/NEIN
+9. Funktioniert selbstregistrierter Verein ebenfalls? JA/NEIN
+10. Ist die Startup-Migration idempotent? JA/NEIN
+11. Welche Dateien wurden geändert?
+12. Wurden Produktionsdaten verändert? MUSS NEIN sein.
+
+Danach STOPPEN.
+Noch NICHT deployen.

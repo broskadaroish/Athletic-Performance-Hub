@@ -2405,6 +2405,10 @@ def _migrate_multitenant():
             ("stripe_subscription_id", "TEXT"),
             ("zahlungsstatus",         "TEXT DEFAULT 'offen'"),
             ("registrier_code",        "TEXT"),
+            # ── Technischer Mandant (persönlicher Verein für Einzeltrainer) ──
+            # 1 = automatisch durch trainer_registrieren() angelegt;
+            # wird in Kundenliste / Sidebar NICHT als echter Verein behandelt.
+            ("ist_technischer_mandant", "INTEGER DEFAULT 0"),
         ]
         for col, typ in neue_verein_cols:
             try:
@@ -2590,10 +2594,13 @@ def _migrate_multitenant():
                 "UPDATE vereine SET kundennummer=? WHERE id=?",
                 (f"APH-{max(_max_v, _max_b)+1:06d}", vid),
             )
-        # Kundennummern für standalone Trainer (verein_id IS NULL, kein Superadmin)
+        # Kundennummern für standalone Trainer (verein_id IS NULL ODER technischer Mandant, kein Superadmin)
         for (bid,) in conn.execute(
-            "SELECT id FROM benutzer WHERE kundennummer IS NULL "
-            "AND verein_id IS NULL AND rolle != 'Superadmin' ORDER BY id"
+            "SELECT b.id FROM benutzer b "
+            "LEFT JOIN vereine v ON v.id = b.verein_id "
+            "WHERE b.kundennummer IS NULL AND b.rolle != 'Superadmin' "
+            "AND (b.verein_id IS NULL OR COALESCE(v.ist_technischer_mandant,0)=1) "
+            "ORDER BY b.id"
         ).fetchall():
             _max_v = conn.execute(
                 "SELECT MAX(CAST(SUBSTR(kundennummer,5) AS INTEGER)) "
@@ -2682,8 +2689,9 @@ def _migrate_multitenant():
                 _vcur2 = _rc2.execute(
                     """INSERT INTO vereine
                            (name, aktiv, lizenz_status, lizenztyp,
-                            testphase_bis, registrier_code)
-                       VALUES (?, 1, 'trial', 'BASIC', ?, ?)""",
+                            testphase_bis, registrier_code,
+                            ist_technischer_mandant)
+                       VALUES (?, 1, 'trial', 'BASIC', ?, ?, 1)""",
                     (_vname2, _testphase2, _code2),
                 )
                 _new_vid2 = _vcur2.lastrowid
@@ -2750,8 +2758,22 @@ def spieler_ohne_verein_zaehlen() -> int:
 # Vereine
 # ==========================================================================
 
-def vereine_laden() -> list[dict]:
+def vereine_laden(nur_echte: bool = True) -> list[dict]:
+    """Gibt alle Vereine zurück.
+
+    nur_echte=True (Standard): Filtert technische Mandanten heraus
+    (ist_technischer_mandant=1), die automatisch für selbstregistrierte
+    Einzeltrainer angelegt werden. Diese sollen in der UI nicht als
+    echte Vereine erscheinen.
+    nur_echte=False: Gibt wirklich alle Vereine zurück (interne Nutzung).
+    """
     with get_conn() as conn:
+        if nur_echte:
+            return _rows(conn.execute(
+                "SELECT * FROM vereine "
+                "WHERE COALESCE(ist_technischer_mandant, 0) = 0 "
+                "ORDER BY name"
+            ).fetchall())
         return _rows(conn.execute(
             "SELECT * FROM vereine ORDER BY name"
         ).fetchall())
@@ -3192,15 +3214,16 @@ def trainer_registrieren(
         ).fetchone():
             raise ValueError(f"Der Benutzername '{benutzername}' ist bereits vergeben.")
 
-    # Persönlichen Verein für den Trainer anlegen
+    # Persönlichen Verein für den Trainer anlegen (technischer Mandant)
     _vname = f"Trainer: {vorname} {nachname}".strip()
     _testphase_bis = (_dt.date.today() + _dt.timedelta(days=30)).isoformat()
     _reg_code = _secrets.token_urlsafe(6).upper()
     with get_conn() as conn:
         _vcur = conn.execute(
             """INSERT INTO vereine (name, aktiv, lizenz_status, lizenztyp,
-                                    testphase_bis, registrier_code)
-               VALUES (?, 1, 'trial', 'BASIC', ?, ?)""",
+                                    testphase_bis, registrier_code,
+                                    ist_technischer_mandant)
+               VALUES (?, 1, 'trial', 'BASIC', ?, ?, 1)""",
             (_vname, _testphase_bis, _reg_code),
         )
         _new_vid = _vcur.lastrowid
@@ -3680,9 +3703,10 @@ _DIAG_TBLS = [
 def dashboard_sa_kpis() -> dict:
     """KPIs für Superadmin-Dashboard."""
     with get_conn() as conn:
-        n_vereine  = conn.execute("SELECT COUNT(*) FROM vereine").fetchone()[0]
-        n_aktiv    = conn.execute("SELECT COUNT(*) FROM vereine WHERE aktiv=1").fetchone()[0]
-        n_gesperrt = conn.execute("SELECT COUNT(*) FROM vereine WHERE aktiv=0").fetchone()[0]
+        _tm_filter = "WHERE COALESCE(ist_technischer_mandant,0)=0"
+        n_vereine  = conn.execute(f"SELECT COUNT(*) FROM vereine {_tm_filter}").fetchone()[0]
+        n_aktiv    = conn.execute(f"SELECT COUNT(*) FROM vereine {_tm_filter} AND aktiv=1").fetchone()[0]
+        n_gesperrt = conn.execute(f"SELECT COUNT(*) FROM vereine {_tm_filter} AND aktiv=0").fetchone()[0]
         n_vadmin   = conn.execute(
             "SELECT COUNT(*) FROM benutzer WHERE rolle='Vereinsadmin' AND aktiv=1"
         ).fetchone()[0]
@@ -4510,7 +4534,8 @@ def session_validieren(token: str, idle_sek: int = 3600) -> dict | None:
             (jetzt.isoformat(), token),
         )
         user = _row(conn.execute(
-            """SELECT b.*, v.name AS verein_name
+            """SELECT b.*, v.name AS verein_name,
+                      COALESCE(v.ist_technischer_mandant, 0) AS ist_technischer_mandant
                FROM benutzer b
                LEFT JOIN vereine v ON b.verein_id = v.id
                WHERE b.id=?""",
@@ -4716,6 +4741,7 @@ def kunden_liste_laden(
         LEFT JOIN benutzer b
                ON b.verein_id = v.id
               AND b.rolle = 'Vereinsadmin'
+        WHERE COALESCE(v.ist_technischer_mandant, 0) = 0
 
         UNION ALL
 
@@ -4746,7 +4772,17 @@ def kunden_liste_laden(
             0                               AS verein_gesperrt,
             b.telefon
         FROM benutzer b
-        WHERE b.verein_id IS NULL AND b.rolle != 'Superadmin'
+        -- Trainer-Kunden: Rolle='Trainer' UND (kein Verein ODER technischer Mandant)
+        -- Trainer in echten Vereinen (mit Vereinsadmin) erscheinen nicht als eigene Kunden.
+        WHERE b.rolle = 'Trainer'
+          AND (
+              b.verein_id IS NULL
+              OR EXISTS (
+                  SELECT 1 FROM vereine v2
+                  WHERE v2.id = b.verein_id
+                    AND COALESCE(v2.ist_technischer_mandant, 0) = 1
+              )
+          )
 
         ORDER BY kundennummer
     """
@@ -4807,7 +4843,15 @@ def kunde_vollstaendig_laden(
             b = _row(conn.execute("SELECT * FROM benutzer WHERE id=?", (benutzer_id,)).fetchone())
             if not b:
                 return None
-            v = _row(conn.execute("SELECT * FROM vereine WHERE id=?", (b.get("verein_id"),)).fetchone()) if b.get("verein_id") else None
+            if b.get("verein_id"):
+                _v_raw = _row(conn.execute(
+                    "SELECT * FROM vereine WHERE id=?", (b.get("verein_id"),)
+                ).fetchone())
+                # Technischer Mandant (persönlicher Verein für Einzeltrainer) wird
+                # als kein echter Verein behandelt → v=None → kundentyp='Trainer'
+                v = None if (_v_raw or {}).get("ist_technischer_mandant") else _v_raw
+            else:
+                v = None
 
         ra = _row(conn.execute(
             "SELECT * FROM rechnungsadressen WHERE benutzer_id=?", (b["id"] if b else None,)
