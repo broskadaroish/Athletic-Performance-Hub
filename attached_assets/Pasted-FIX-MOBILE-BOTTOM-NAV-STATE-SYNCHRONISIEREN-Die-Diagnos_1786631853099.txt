@@ -1,0 +1,103 @@
+FIX – MOBILE BOTTOM-NAV STATE SYNCHRONISIEREN
+
+Die Diagnose hat die Root Cause eindeutig bestätigt:
+
+Beim programmatischen Seitenwechsel:
+
+Startseite → ➕ Spieler anlegen
+
+wird nav_section korrekt auf "👤  Spieler" gesetzt,
+aber der Widget-State der mobilen Bottom-Navigation:
+
+_mobile_nav_sc
+
+bleibt noch auf:
+
+"🏠 Start"
+
+Dadurch feuert st.segmented_control beim Rendern einen unerwünschten
+on_change-Callback mit dem ALTEN Wert und setzt:
+
+_nav_goto = "🏠  Startseite"
+
+Beim nächsten Formular-Rerun springt die App deshalb zurück.
+
+Bitte jetzt NUR diese Root Cause in:
+
+artifacts/athletik/mobile.py
+
+beheben.
+
+ANFORDERUNG:
+
+Bei einer PROGRAMMATISCHEN Navigation muss der State des mobilen
+segmented_control zuerst mit der tatsächlich aktiven section
+synchronisiert werden.
+
+Wenn z.B.:
+
+current_section = "👤  Spieler"
+
+dann muss vor dem Rendern des segmented_control:
+
+_mobile_nav_sc = "👤 Spieler"
+
+sein.
+
+Der on_change-Callback darf ausschließlich auf eine echte
+Benutzer-Auswahl in der Bottom-Navigation reagieren und nicht auf
+eine programmgesteuerte Änderung von current_section/default.
+
+WICHTIG:
+
+- keine Änderungen an Spieleranlage
+- keine Änderungen an Datenbank
+- keine Änderungen an Login/Cookies
+- keine Änderungen an Trainer-/Vereinslogik
+- keine neuen Browser-Reloads
+- keine Änderungen an Desktop-Navigation
+- bestehende Bottom-Navigation muss weiterhin funktionieren
+
+Danach testen:
+
+TEST 1:
+Startseite
+→ ➕ Spieler anlegen
+→ Vorname
+→ Nachname
+→ Geburtsdatum
+→ weitere Felder
+
+Erwartung:
+Bleibt dauerhaft auf Spieler → Verwaltung.
+
+TEST 2:
+Bottom-Nav bewusst auf Start tippen.
+
+Erwartung:
+Navigation auf Startseite funktioniert weiterhin.
+
+TEST 3:
+Start → Spieler → Start → Diagnostik → Spieler
+
+Erwartung:
+Bottom-Nav und nav_section bleiben immer synchron.
+
+TEST 4:
+Normaler Widget-Rerun auf Spieler-Seite.
+
+Erwartung:
+Kein on_change der Bottom-Nav und kein _nav_goto zur Startseite.
+
+Anschließend temporäre MOB-/NAV-Debug-Logs vollständig entfernen.
+
+Berichten:
+
+1. Welche konkrete Änderung wurde in mobile.py vorgenommen?
+2. Wird _mobile_nav_sc vor segmented_control synchronisiert?
+3. Kann ein programmatischer Seitenwechsel noch on_change mit dem alten Wert auslösen?
+4. Funktioniert echte Benutzer-Navigation über Bottom-Nav weiterhin?
+5. Funktioniert Startseite → Spieler anlegen → Vorname → Nachname stabil?
+6. Welche Dateien wurden geändert?
+
+Noch NICHT deployen.
