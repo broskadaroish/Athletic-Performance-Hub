@@ -1,94 +1,215 @@
 """
-Lizenzsystem — Bruce Football Performance Diagnostics.
+Lizenzsystem — Athletic Performance Hub.
 
 Saubere Trennung von Lizenz-Logik und App-Code.
-Alle Lizenzprüfungen laufen hier durch.
+Alle Lizenzprüfungen laufen zentral hier durch.
 
-Lizenztypen: BASIC | PRO
-Testphase:   30 Tage kostenlos, keine Kreditkarte erforderlich
+4-Paket-System (Phase A1):
+  TRAINER_BASIC  — 1 Trainer, 20 Spieler,      9,99 €/Monat
+  TRAINER_PRO    — 1 Trainer, unbegrenzt,      14,99 €/Monat
+  VEREIN_BASIC   — 2 Trainer, 50 Spieler,      24,99 €/Monat
+  VEREIN_PRO     — 15 Trainer, unbegrenzt,     39,99 €/Monat
+
+Testphase: 30 Tage kostenlos, keine Kreditkarte erforderlich.
+
+Abwärtskompatibilität:
+  Alte DB-Werte BASIC / PRO / Enterprise und Display-Werte (Basis, Standard,
+  Premium …) werden über LIZENZ_TYPEN_COMPAT auf neue Keys abgebildet.
+  Keine DB-Migration nötig.
 """
 
 from __future__ import annotations
 
 import os
-from datetime import date, datetime, timedelta
+from datetime import date
 from typing import TypedDict
 
 import streamlit as st
 
+
 # ─── Lizenztypen-Definition ────────────────────────────────────────────────────
 
 class LizenzTypDef(TypedDict):
-    label: str
-    max_trainer: int
-    max_spieler: int
-    preis_monat: float   # EUR
-    preis_jahr: float    # EUR
-    stripe_price_monat: str   # Stripe Price-ID Platzhalter
-    stripe_price_jahr: str    # Stripe Price-ID Platzhalter
+    label: str                   # Anzeigename in der UI
+    kundentyp: str               # "Einzeltrainer" | "Verein"
+    max_trainer: int | None      # None = unbegrenzt
+    max_spieler: int | None      # None = unbegrenzt
+    preis_monat: float           # EUR
+    preis_jahr: float            # EUR
+    stripe_price_monat: str      # Stripe Price-ID (leer = noch nicht konfiguriert)
+    stripe_price_jahr: str       # Stripe Price-ID (leer = noch nicht konfiguriert)
     features: list[str]
     geeignet_fuer: list[str]
 
 
+# Einzelner Featureset-Block für die beiden Trainer-Pakete (ohne Vereinsverwaltung)
+_FEATURES_TRAINER_BASIC: list[str] = [
+    "diagnostik_basis",
+    "spielerprofil",
+    "pdf_export",
+    "excel_export",
+    "verlauf",
+    "trainingsplanung",
+    "dashboard",
+    "email_support",
+]
+
+_FEATURES_TRAINER_PRO: list[str] = [
+    "diagnostik_basis",
+    "diagnostik_erweitert",
+    "diagnostik_spiro",
+    "spielerprofil",
+    "pdf_export",
+    "excel_export",
+    "verlauf",
+    "verletzungsmanagement",
+    "trainingsplanung",
+    "periodisierung",
+    "spielervergleich",
+    "mannschaftsdashboard",
+    "vereinslogo",
+    "prioritaets_support",
+]
+
+_FEATURES_VEREIN_BASIC: list[str] = [
+    "diagnostik_basis",
+    "spielerprofil",
+    "pdf_export",
+    "excel_export",
+    "verlauf",
+    "trainingsplanung",
+    "mannschaftsdashboard",
+    "vereinsverwaltung",
+    "vereinslogo",
+    "dashboard",
+    "email_support",
+]
+
+_FEATURES_VEREIN_PRO: list[str] = [
+    "diagnostik_basis",
+    "diagnostik_erweitert",
+    "diagnostik_spiro",
+    "spielerprofil",
+    "pdf_export",
+    "excel_export",
+    "verlauf",
+    "verletzungsmanagement",
+    "trainingsplanung",
+    "periodisierung",
+    "spielervergleich",
+    "mannschaftsdashboard",
+    "vereinsverwaltung",
+    "vereinslogo",
+    "teamanalysen",
+    "prioritaets_support",
+]
+
+
 LIZENZ_TYPEN: dict[str, LizenzTypDef] = {
-    "BASIC": {
-        "label":               "Basic",
-        "max_trainer":         1,
-        "max_spieler":         40,
-        "preis_monat":         9.90,
-        "preis_jahr":          99.0,
-        "stripe_price_monat":  os.environ.get("STRIPE_PRICE_BASIC_MONAT", "price_basic_monat_placeholder"),
-        "stripe_price_jahr":   os.environ.get("STRIPE_PRICE_BASIC_JAHR",  "price_basic_jahr_placeholder"),
-        "geeignet_fuer": [
-            "Einzeltrainer",
-            "Jugendtrainer",
-            "Kleine Vereine",
-        ],
-        "features": [
-            "diagnostik_basis",
-            "spielerprofil",
-            "pdf_export",
-            "excel_export",
-            "verlauf",
-            "trainingsplanung",
-            "dashboard",
-            "email_support",
-        ],
+    "TRAINER_BASIC": {
+        "label":              "Einzeltrainer Basic",
+        "kundentyp":          "Einzeltrainer",
+        "max_trainer":        1,
+        "max_spieler":        20,
+        "preis_monat":        9.99,
+        "preis_jahr":         99.0,
+        "stripe_price_monat": os.environ.get("STRIPE_PRICE_TRAINER_BASIC_MONAT", ""),
+        "stripe_price_jahr":  os.environ.get("STRIPE_PRICE_TRAINER_BASIC_JAHR",  ""),
+        "geeignet_fuer":      ["Einzeltrainer", "Jugendtrainer"],
+        "features":           _FEATURES_TRAINER_BASIC,
     },
-    "PRO": {
-        "label":               "Pro",
-        "max_trainer":         9999,   # unbegrenzt
-        "max_spieler":         9999,   # unbegrenzt
-        "preis_monat":         24.90,
-        "preis_jahr":          249.0,
-        "stripe_price_monat":  os.environ.get("STRIPE_PRICE_PRO_MONAT", "price_pro_monat_placeholder"),
-        "stripe_price_jahr":   os.environ.get("STRIPE_PRICE_PRO_JAHR",  "price_pro_jahr_placeholder"),
-        "geeignet_fuer": [
-            "Komplette Vereine",
-            "Mehrere Mannschaften",
-            "Leistungszentren",
-        ],
-        "features": [
-            "diagnostik_basis",
-            "diagnostik_erweitert",
-            "diagnostik_spiro",
-            "spielerprofil",
-            "pdf_export",
-            "excel_export",
-            "verletzungsmanagement",
-            "trainingsplanung",
-            "periodisierung",
-            "spielervergleich",
-            "mannschaftsdashboard",
-            "vereinsverwaltung",
-            "vereinslogo",
-            "teamanalysen",
-            "prioritaets_support",
-        ],
+    "TRAINER_PRO": {
+        "label":              "Einzeltrainer Pro",
+        "kundentyp":          "Einzeltrainer",
+        "max_trainer":        1,
+        "max_spieler":        None,      # unbegrenzt
+        "preis_monat":        14.99,
+        "preis_jahr":         149.0,
+        "stripe_price_monat": os.environ.get("STRIPE_PRICE_TRAINER_PRO_MONAT", ""),
+        "stripe_price_jahr":  os.environ.get("STRIPE_PRICE_TRAINER_PRO_JAHR",  ""),
+        "geeignet_fuer":      ["Einzeltrainer", "Akademie-Trainer"],
+        "features":           _FEATURES_TRAINER_PRO,
+    },
+    "VEREIN_BASIC": {
+        "label":              "Verein Basic",
+        "kundentyp":          "Verein",
+        "max_trainer":        2,
+        "max_spieler":        50,
+        "preis_monat":        24.99,
+        "preis_jahr":         249.0,
+        "stripe_price_monat": os.environ.get("STRIPE_PRICE_VEREIN_BASIC_MONAT", ""),
+        "stripe_price_jahr":  os.environ.get("STRIPE_PRICE_VEREIN_BASIC_JAHR",  ""),
+        "geeignet_fuer":      ["Kleine Vereine", "Jugendabteilungen"],
+        "features":           _FEATURES_VEREIN_BASIC,
+    },
+    "VEREIN_PRO": {
+        "label":              "Verein Pro",
+        "kundentyp":          "Verein",
+        "max_trainer":        15,
+        "max_spieler":        None,      # unbegrenzt
+        "preis_monat":        39.99,
+        "preis_jahr":         399.0,
+        "stripe_price_monat": os.environ.get("STRIPE_PRICE_VEREIN_PRO_MONAT", ""),
+        "stripe_price_jahr":  os.environ.get("STRIPE_PRICE_VEREIN_PRO_JAHR",  ""),
+        "geeignet_fuer":      ["Komplette Vereine", "Leistungszentren", "Akademien"],
+        "features":           _FEATURES_VEREIN_PRO,
     },
 }
 
-# Feature-Labels für die UI
+# ─── Abwärtskompatibilität: alte Paket-Werte → neue Keys ──────────────────────
+#
+# Keine DB-Migration nötig. Alle Lesepfade rufen normalize_lizenz_typ() auf,
+# das alte Werte on-the-fly auf gültige LIZENZ_TYPEN-Keys abbildet.
+#
+# Mapping-Logik:
+#   BASIC      → TRAINER_BASIC  (alter 1-Trainer-Plan)
+#   PRO        → VEREIN_PRO     (alter All-Inclusive-Plan)
+#   Enterprise → VEREIN_PRO     (Custom-Plan, war immer Premium)
+#   Basis      → TRAINER_BASIC  (alter Display-Wert aus Superadmin-UI)
+#   Standard   → TRAINER_PRO    (alter Display-Wert)
+#   Premium    → VEREIN_BASIC   (alter Display-Wert)
+
+LIZENZ_TYPEN_COMPAT: dict[str, str] = {
+    # Alte interne Keys (2-Paket-System)
+    "BASIC":           "TRAINER_BASIC",
+    "PRO":             "VEREIN_PRO",
+    "ENTERPRISE":      "VEREIN_PRO",
+    # Alte Display-Werte aus modules/vereine.py Selectbox
+    "BASIS":           "TRAINER_BASIC",
+    "STANDARD":        "TRAINER_PRO",
+    "PREMIUM":         "VEREIN_BASIC",
+    "TEST (30 TAGE)":  "TRAINER_BASIC",
+    "FREE":            "TRAINER_BASIC",
+}
+
+_DEFAULT_LIZENZ_TYP = "TRAINER_BASIC"
+
+
+def normalize_lizenz_typ(raw: str | None) -> str:
+    """Normalisiert einen rohen DB-Wert (alt oder neu) auf einen gültigen LIZENZ_TYPEN-Key.
+
+    Immer sicher aufzurufen — gibt niemals einen Key zurück, der nicht in
+    LIZENZ_TYPEN enthalten ist.  Unbekannte Werte landen bei TRAINER_BASIC.
+
+    Reihenfolge:
+      1. Leer/None → Default
+      2. Exakter Treffer in LIZENZ_TYPEN → direkt zurückgeben
+      3. UPPER-Case-Treffer in LIZENZ_TYPEN_COMPAT → gemappter Wert
+      4. Fallback → Default
+    """
+    if not raw:
+        return _DEFAULT_LIZENZ_TYP
+    upper = raw.strip().upper()
+    if upper in LIZENZ_TYPEN:
+        return upper
+    mapped = LIZENZ_TYPEN_COMPAT.get(upper)
+    if mapped and mapped in LIZENZ_TYPEN:
+        return mapped
+    return _DEFAULT_LIZENZ_TYP
+
+
+# ─── Feature-Labels für die UI ────────────────────────────────────────────────
+
 FEATURE_LABELS: dict[str, str] = {
     "diagnostik_basis":      "Alle Athletiktests",
     "diagnostik_erweitert":  "Erweiterte Diagnostik (Y-Balance, Agilität)",
@@ -117,19 +238,19 @@ TESTPHASE_TAGE = 30   # Tage kostenlose Testphase bei Neuregistrierung
 # lizenz_status Werte in der DB:
 #   "trial"     — aktive Testphase
 #   "active"    — bezahlte aktive Lizenz
-#   "expired"   — Testphase oder Lizenz abgelaufen
+#   "expired"   — Testphase oder Lizenz abgelaufen (on-the-fly berechnet, kein DB-Write)
 #   "suspended" — manuell gesperrt durch Superadmin
 #   "cancelled" — Abo gekündigt, läuft noch bis Lizenzende
 
 
 class LizenzInfo(TypedDict):
     verein_id: int
-    lizenz_typ: str           # BASIC | PRO
-    lizenz_status: str        # trial | active | expired | suspended | cancelled
-    lizenz_bis: str | None    # ISO-Date oder None
-    testphase_bis: str | None # ISO-Date oder None
+    lizenz_typ: str            # TRAINER_BASIC | TRAINER_PRO | VEREIN_BASIC | VEREIN_PRO
+    lizenz_status: str         # trial | active | expired | suspended | cancelled
+    lizenz_bis: str | None     # ISO-Date oder None
+    testphase_bis: str | None  # ISO-Date oder None
     gesperrt: bool
-    zahlungsstatus: str       # offen | bezahlt | fehlgeschlagen | storniert
+    zahlungsstatus: str        # offen | bezahlt | fehlgeschlagen | storniert
     tage_verbleibend: int | None
     ablauf_datum: date | None
     stripe_customer_id: str | None
@@ -137,9 +258,11 @@ class LizenzInfo(TypedDict):
 
 
 def get_lizenz_info(verein_row: dict) -> LizenzInfo:
-    """Berechnet den vollständigen Lizenz-Status eines Vereins."""
-    from functools import lru_cache
+    """Berechnet den vollständigen Lizenz-Status eines Vereins.
 
+    Normalisiert den rohen lizenztyp-Wert aus der DB automatisch auf einen
+    gültigen 4-Paket-Key über normalize_lizenz_typ().
+    """
     verein_id = verein_row.get("id", 0)
     cache_key = f"_lizenz_info_{verein_id}"
 
@@ -148,14 +271,10 @@ def get_lizenz_info(verein_row: dict) -> LizenzInfo:
 
     heute = date.today()
 
-    lizenz_typ     = (verein_row.get("lizenztyp") or "BASIC").upper()
+    lizenz_typ     = normalize_lizenz_typ(verein_row.get("lizenztyp"))
     lizenz_status  = verein_row.get("lizenz_status") or "trial"
     gesperrt       = bool(verein_row.get("gesperrt", 0))
     zahlungsstatus = verein_row.get("zahlungsstatus") or "offen"
-
-    # Normalize: FREE → BASIC, ENTERPRISE → PRO (Altdaten-Kompatibilität)
-    if lizenz_typ not in LIZENZ_TYPEN:
-        lizenz_typ = "BASIC"
 
     # Ablaufdatum bestimmen
     ablauf_datum: date | None = None
@@ -178,7 +297,7 @@ def get_lizenz_info(verein_row: dict) -> LizenzInfo:
             except ValueError:
                 pass
 
-    # Abgelaufen-Check
+    # Abgelaufen-Check (on-the-fly — kein DB-Update)
     if tage_verbleibend is not None and tage_verbleibend < 0:
         lizenz_status = "expired"
 
@@ -204,8 +323,8 @@ def get_lizenz_info(verein_row: dict) -> LizenzInfo:
 
 
 def enforce_license_gate() -> None:
-    """
-    Prüft den Lizenzstatus bei jedem Re-Run.
+    """Prüft den Lizenzstatus bei jedem Re-Run.
+
     Blockiert die App bei gesperrten oder abgelaufenen Lizenzen.
     Superadmins werden nie blockiert.
     """
@@ -241,8 +360,13 @@ def enforce_license_gate() -> None:
 
 
 def feature_erlaubt(feature: str, lizenz_typ: str) -> bool:
-    """Prüft ob ein Feature im aktuellen Lizenztyp enthalten ist."""
-    typ_def = LIZENZ_TYPEN.get(lizenz_typ.upper())
+    """Prüft ob ein Feature im aktuellen Lizenztyp enthalten ist.
+
+    Akzeptiert alte und neue Paket-Keys — normalize_lizenz_typ() wird intern
+    aufgerufen.
+    """
+    normed  = normalize_lizenz_typ(lizenz_typ)
+    typ_def = LIZENZ_TYPEN.get(normed)
     if not typ_def:
         return False
     feats = typ_def["features"]
@@ -250,7 +374,11 @@ def feature_erlaubt(feature: str, lizenz_typ: str) -> bool:
 
 
 def trainer_limit_erreicht(verein_id: int, lizenz_typ: str) -> bool:
-    """Gibt True zurück wenn das Trainer-Limit erreicht ist."""
+    """Gibt True zurück wenn das Trainer-Limit erreicht ist.
+
+    None in max_trainer bedeutet unbegrenzt → gibt immer False zurück.
+    Akzeptiert alte und neue Paket-Keys.
+    """
     try:
         from database import get_conn
         with get_conn() as conn:
@@ -258,14 +386,22 @@ def trainer_limit_erreicht(verein_id: int, lizenz_typ: str) -> bool:
                 "SELECT COUNT(*) FROM benutzer WHERE verein_id=? AND aktiv=1 AND rolle='Trainer'",
                 (verein_id,)
             ).fetchone()[0]
-        typ_def = LIZENZ_TYPEN.get(lizenz_typ.upper(), LIZENZ_TYPEN["BASIC"])
-        return count >= typ_def["max_trainer"]
+        normed  = normalize_lizenz_typ(lizenz_typ)
+        typ_def = LIZENZ_TYPEN.get(normed, LIZENZ_TYPEN[_DEFAULT_LIZENZ_TYP])
+        max_t   = typ_def["max_trainer"]
+        if max_t is None:       # unbegrenzt
+            return False
+        return count >= max_t
     except Exception:
         return False
 
 
 def spieler_limit_erreicht(verein_id: int, lizenz_typ: str) -> bool:
-    """Gibt True zurück wenn das Spieler-Limit erreicht ist."""
+    """Gibt True zurück wenn das Spieler-Limit erreicht ist.
+
+    None in max_spieler bedeutet unbegrenzt → gibt immer False zurück.
+    Akzeptiert alte und neue Paket-Keys.
+    """
     try:
         from database import get_conn
         with get_conn() as conn:
@@ -273,8 +409,12 @@ def spieler_limit_erreicht(verein_id: int, lizenz_typ: str) -> bool:
                 "SELECT COUNT(*) FROM spieler WHERE verein_id=? AND aktiv=1",
                 (verein_id,)
             ).fetchone()[0]
-        typ_def = LIZENZ_TYPEN.get(lizenz_typ.upper(), LIZENZ_TYPEN["BASIC"])
-        return count >= typ_def["max_spieler"]
+        normed  = normalize_lizenz_typ(lizenz_typ)
+        typ_def = LIZENZ_TYPEN.get(normed, LIZENZ_TYPEN[_DEFAULT_LIZENZ_TYP])
+        max_s   = typ_def["max_spieler"]
+        if max_s is None:       # unbegrenzt
+            return False
+        return count >= max_s
     except Exception:
         return False
 

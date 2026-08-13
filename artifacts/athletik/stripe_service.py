@@ -24,15 +24,24 @@ STRIPE_SECRET_KEY      = os.environ.get("STRIPE_SECRET_KEY", "")
 STRIPE_WEBHOOK_SECRET  = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
 STRIPE_ENABLED         = bool(STRIPE_SECRET_KEY)
 
-# Stripe Price-IDs (müssen im Stripe-Dashboard angelegt werden)
+# Stripe Price-IDs — 4-Paket-System (Phase A1)
+# Schlüssel entsprechen den LIZENZ_TYPEN-Keys aus license.py.
 STRIPE_PRICES: dict[str, dict[str, str]] = {
-    "BASIC": {
-        "monat": os.environ.get("STRIPE_PRICE_BASIC_MONAT", ""),
-        "jahr":  os.environ.get("STRIPE_PRICE_BASIC_JAHR",  ""),
+    "TRAINER_BASIC": {
+        "monat": os.environ.get("STRIPE_PRICE_TRAINER_BASIC_MONAT", ""),
+        "jahr":  os.environ.get("STRIPE_PRICE_TRAINER_BASIC_JAHR",  ""),
     },
-    "PRO": {
-        "monat": os.environ.get("STRIPE_PRICE_PRO_MONAT", ""),
-        "jahr":  os.environ.get("STRIPE_PRICE_PRO_JAHR",  ""),
+    "TRAINER_PRO": {
+        "monat": os.environ.get("STRIPE_PRICE_TRAINER_PRO_MONAT", ""),
+        "jahr":  os.environ.get("STRIPE_PRICE_TRAINER_PRO_JAHR",  ""),
+    },
+    "VEREIN_BASIC": {
+        "monat": os.environ.get("STRIPE_PRICE_VEREIN_BASIC_MONAT", ""),
+        "jahr":  os.environ.get("STRIPE_PRICE_VEREIN_BASIC_JAHR",  ""),
+    },
+    "VEREIN_PRO": {
+        "monat": os.environ.get("STRIPE_PRICE_VEREIN_PRO_MONAT", ""),
+        "jahr":  os.environ.get("STRIPE_PRICE_VEREIN_PRO_JAHR",  ""),
     },
 }
 
@@ -265,8 +274,10 @@ def webhook_event_verarbeiten(event: dict) -> dict:
         # Tarif geändert
         plan = data_obj.get("items", {}).get("data", [{}])[0].get("plan", {})
         nick = plan.get("nickname", "").upper()
-        if nick in ("BASIC", "PRO", "ENTERPRISE"):
-            result["lizenz_typ"] = nick
+        # Neue 4-Paket-Keys und Legacy-Keys normalisieren
+        from license import normalize_lizenz_typ
+        normed = normalize_lizenz_typ(nick)
+        result["lizenz_typ"] = normed
         result["aktion"] = "tarif_aendern"
 
     logger.info(f"Webhook verarbeitet: {event_type} → Aktion: {result['aktion']}")
@@ -276,7 +287,13 @@ def webhook_event_verarbeiten(event: dict) -> dict:
 # ── Preis-Hilfsfunktionen ─────────────────────────────────────────────────────
 
 def get_price_id(lizenz_typ: str, intervall: str = "monat") -> str | None:
-    """Gibt die Stripe Price-ID für einen Lizenztyp zurück."""
-    typ_prices = STRIPE_PRICES.get(lizenz_typ.upper(), {})
-    price_id = typ_prices.get(intervall, "")
+    """Gibt die Stripe Price-ID für einen Lizenztyp zurück.
+
+    Akzeptiert alte und neue Paket-Keys — normalize_lizenz_typ() wird intern
+    verwendet, damit BASIC/PRO/Enterprise auf die neuen Keys gemappt werden.
+    """
+    from license import normalize_lizenz_typ
+    normed    = normalize_lizenz_typ(lizenz_typ)
+    typ_prices = STRIPE_PRICES.get(normed, {})
+    price_id  = typ_prices.get(intervall, "")
     return price_id if price_id else None

@@ -338,6 +338,12 @@ def _vereins_vergleich_tabelle() -> None:
 
     # ── Zeilen ────────────────────────────────────────────────────────────────
     _LIZ_C = {
+        # Neue 4-Paket-Keys
+        "TRAINER_BASIC": _C["muted"],
+        "TRAINER_PRO":   _C["green"],
+        "VEREIN_BASIC":  _C["blue"],
+        "VEREIN_PRO":    _C["orange"],
+        # Legacy-Werte (Altdaten — Abwärtskompatibilität)
         "Enterprise":    _C["orange"],
         "Premium":       _C["blue"],
         "Standard":      _C["green"],
@@ -544,8 +550,12 @@ def _dash_vereinsadmin(user: dict):
                 f'justify-content:center;font-size:32px;border:1px solid {primaer}44">🏟</div>',
                 unsafe_allow_html=True)
     with hc2:
-        liz_c = {"Enterprise": _C["orange"], "Premium": _C["blue"],
-                 "Standard": _C["green"]}.get(lizenz, _C["muted"])
+        liz_c = {
+            "TRAINER_BASIC": _C["muted"],   "TRAINER_PRO": _C["green"],
+            "VEREIN_BASIC":  _C["blue"],    "VEREIN_PRO":  _C["orange"],
+            "Enterprise": _C["orange"], "Premium": _C["blue"],
+            "Standard": _C["green"],
+        }.get(lizenz, _C["muted"])
         st.markdown(
             f'<div style="padding-top:4px">'
             f'<h2 style="color:{_C["text"]};margin:0 0 4px">{vname}</h2>'

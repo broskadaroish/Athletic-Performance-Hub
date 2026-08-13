@@ -1,0 +1,164 @@
+PHASE A1 – 4-PAKET-SYSTEM VORBEREITEN
+
+Ziel:
+Das bestehende 2-Paket-System BASIC/PRO sauber auf 4 Pakete erweitern.
+
+WICHTIG:
+Noch KEIN Stripe.
+Keine Zahlung.
+Keine Kreditkarte.
+Kein PayPal.
+Keine Webhooks.
+Keine Rechnungslogik ändern.
+Keine Registrierung ändern.
+Keine Produktionsdaten löschen.
+
+Bestehende Funktionen weiterverwenden:
+- trainer_limit_erreicht()
+- spieler_limit_erreicht()
+- feature_erlaubt()
+- get_lizenz_info()
+- enforce_license_gate()
+
+==================================================
+1. NEUE PAKETE
+==================================================
+
+Einzeltrainer Basic
+- interner Schlüssel: TRAINER_BASIC
+- 9,99 €/Monat
+- 99 €/Jahr
+- max. 1 Trainer
+- max. 20 Spieler
+
+Einzeltrainer Pro
+- interner Schlüssel: TRAINER_PRO
+- 14,99 €/Monat
+- 149 €/Jahr
+- max. 1 Trainer
+- Spieler unbegrenzt
+
+Verein Basic
+- interner Schlüssel: VEREIN_BASIC
+- 24,99 €/Monat
+- 249 €/Jahr
+- max. 2 Trainer
+- max. 50 Spieler
+
+Verein Pro
+- interner Schlüssel: VEREIN_PRO
+- 39,99 €/Monat
+- 399 €/Jahr
+- max. 15 Trainer
+- Spieler unbegrenzt
+
+==================================================
+2. ZENTRALE PAKETDEFINITION
+==================================================
+
+Prüfe license.py.
+
+Die Paketdefinition soll zentral an EINER Stelle liegen.
+
+Nicht Preise/Limits mehrfach hardcoden.
+
+Für jedes Paket mindestens:
+- key
+- name
+- kundentyp
+- preis_monat
+- preis_jahr
+- max_trainer
+- max_spieler
+- features
+
+==================================================
+3. EINZELTRAINER VS. VEREIN
+==================================================
+
+Einzeltrainer erkennen über:
+- Benutzerrolle Trainer
+- technischer Mandant: ist_technischer_mandant = 1
+
+Verein:
+- echter Verein
+- ist_technischer_mandant = 0
+
+Technischer Mandant darf fachlich NICHT als Verein angezeigt werden.
+
+==================================================
+4. BESTEHENDE LIMIT-FUNKTIONEN ANPASSEN
+==================================================
+
+trainer_limit_erreicht()
+spieler_limit_erreicht()
+feature_erlaubt()
+
+müssen mit den 4 neuen Paketkeys funktionieren.
+
+Unbegrenzt bitte intern sauber darstellen, z.B. None oder bestehendes 9999-Pattern, aber zentral und konsistent.
+
+==================================================
+5. ABWÄRTSKOMPATIBILITÄT
+==================================================
+
+Bestehende Kunden mit alten Werten:
+BASIC
+PRO
+Enterprise
+
+dürfen nach dieser Änderung NICHT kaputtgehen.
+
+Bitte zuerst prüfen, wo diese Werte aktuell verwendet werden.
+
+Eine sichere Kompatibilitätszuordnung einbauen, ohne Produktionsdaten zu migrieren.
+
+Noch keine DB-Migration.
+
+==================================================
+6. SUPERADMIN
+==================================================
+
+Prüfe nur, ob Superadmin-Seiten die neuen Paketkeys grundsätzlich lesen können.
+
+Noch keine große UI-Überarbeitung.
+
+Keine Zahlungslogik.
+
+==================================================
+7. TESTS
+==================================================
+
+Testen:
+
+TRAINER_BASIC:
+1 Trainer, 20 Spieler
+
+TRAINER_PRO:
+1 Trainer, unbegrenzt Spieler
+
+VEREIN_BASIC:
+2 Trainer, 50 Spieler
+
+VEREIN_PRO:
+15 Trainer, unbegrenzt Spieler
+
+Zusätzlich:
+alte BASIC/PRO-Werte verursachen keinen Fehler.
+
+==================================================
+8. ABSCHLUSSBERICHT
+==================================================
+
+Berichten:
+1. Welche Paketdefinition existierte vorher?
+2. Welche zentrale Struktur existiert jetzt?
+3. Welche Dateien wurden geändert?
+4. Funktionieren trainer_limit_erreicht() und spieler_limit_erreicht() mit allen 4 Paketen?
+5. Funktioniert feature_erlaubt() weiterhin?
+6. Wie werden alte BASIC/PRO/Enterprise-Werte behandelt?
+7. Wurde irgendeine DB-Migration gemacht? Erwartet: NEIN
+8. Wurde Zahlungs-/Stripe-Code geändert? Erwartet: NEIN
+
+Danach STOPPEN.
+Noch NICHT deployen.

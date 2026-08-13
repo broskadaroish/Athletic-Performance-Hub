@@ -66,11 +66,22 @@ MAINTENANCE_MODE    = os.environ.get("MAINTENANCE_MODE", "0") == "1"
 MAINTENANCE_MESSAGE = os.environ.get("MAINTENANCE_MESSAGE", "")
 
 # ── Stripe ────────────────────────────────────────────────────────────────────
-STRIPE_SECRET_KEY     = os.environ.get("STRIPE_SECRET_KEY",     "")
-STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
+STRIPE_SECRET_KEY      = os.environ.get("STRIPE_SECRET_KEY",      "")
+STRIPE_WEBHOOK_SECRET  = os.environ.get("STRIPE_WEBHOOK_SECRET",  "")
 STRIPE_PUBLISHABLE_KEY = os.environ.get("STRIPE_PUBLISHABLE_KEY", "")
 
-# Stripe Price-IDs (werden nach der Stripe-Produkt-Anlage befüllt)
+# Stripe Price-IDs — 4-Paket-System (Phase A1)
+# Werden nach der Stripe-Produkt-Anlage befüllt.
+STRIPE_PRICE_TRAINER_BASIC_MONAT = os.environ.get("STRIPE_PRICE_TRAINER_BASIC_MONAT", "")
+STRIPE_PRICE_TRAINER_BASIC_JAHR  = os.environ.get("STRIPE_PRICE_TRAINER_BASIC_JAHR",  "")
+STRIPE_PRICE_TRAINER_PRO_MONAT   = os.environ.get("STRIPE_PRICE_TRAINER_PRO_MONAT",   "")
+STRIPE_PRICE_TRAINER_PRO_JAHR    = os.environ.get("STRIPE_PRICE_TRAINER_PRO_JAHR",    "")
+STRIPE_PRICE_VEREIN_BASIC_MONAT  = os.environ.get("STRIPE_PRICE_VEREIN_BASIC_MONAT",  "")
+STRIPE_PRICE_VEREIN_BASIC_JAHR   = os.environ.get("STRIPE_PRICE_VEREIN_BASIC_JAHR",   "")
+STRIPE_PRICE_VEREIN_PRO_MONAT    = os.environ.get("STRIPE_PRICE_VEREIN_PRO_MONAT",    "")
+STRIPE_PRICE_VEREIN_PRO_JAHR     = os.environ.get("STRIPE_PRICE_VEREIN_PRO_JAHR",     "")
+
+# Legacy-Vars (Altbestand — nicht mehr verwenden, werden in Phase B entfernt)
 STRIPE_PRICE_BASIC_MONAT = os.environ.get("STRIPE_PRICE_BASIC_MONAT", "")
 STRIPE_PRICE_BASIC_JAHR  = os.environ.get("STRIPE_PRICE_BASIC_JAHR",  "")
 STRIPE_PRICE_PRO_MONAT   = os.environ.get("STRIPE_PRICE_PRO_MONAT",   "")

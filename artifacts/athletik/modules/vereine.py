@@ -10,8 +10,20 @@ from database import (
     benutzer_laden, login_log_laden,
 )
 
-_LIZENZTYPEN = ["Test (30 Tage)", "Basis", "Standard", "Premium", "Enterprise"]
+# Neue 4-Paket-Keys zuerst; alte Werte danach für Abwärtskompatibilität
+# (bestehende DB-Einträge erscheinen weiterhin korrekt im Selectbox-Fallback)
+_LIZENZTYPEN = [
+    "TRAINER_BASIC", "TRAINER_PRO", "VEREIN_BASIC", "VEREIN_PRO",
+    # Legacy-Werte (Altdaten — nicht mehr neu vergeben)
+    "Test (30 Tage)", "Basis", "Standard", "Premium", "Enterprise",
+]
 _LIZ_COLOR   = {
+    # Neue Keys
+    "TRAINER_BASIC": "#6e7681",
+    "TRAINER_PRO":   "#3fb950",
+    "VEREIN_BASIC":  "#58a6ff",
+    "VEREIN_PRO":    "#d29922",
+    # Legacy-Werte (Altdaten)
     "Enterprise":    "#d29922",
     "Premium":       "#58a6ff",
     "Standard":      "#3fb950",
@@ -394,7 +406,7 @@ def _verein_detail(v: dict, stats: dict):
         with st.form(f"l_{vid}"):
             lc1, lc2 = st.columns(2)
             cur_liz = v.get("lizenztyp") or "Basis"
-            li_idx  = _LIZENZTYPEN.index(cur_liz) if cur_liz in _LIZENZTYPEN else 1
+            li_idx  = _LIZENZTYPEN.index(cur_liz) if cur_liz in _LIZENZTYPEN else 0
             f_liz   = lc1.selectbox("Lizenztyp", _LIZENZTYPEN, index=li_idx)
 
             cur_bis = None
