@@ -1,0 +1,434 @@
+VORANALYSE ZAHLUNGS-, ABO-, LIZENZ- UND RECHNUNGSSYSTEM
+ATHLETIC PERFORMANCE HUB / APHSYSTEM
+
+WICHTIG:
+Dies ist ausschließlich eine Bestandsaufnahme.
+
+NOCH NICHTS PROGRAMMIEREN.
+KEINE Datenbankmigration.
+KEINE Tabellen oder Spalten verändern.
+KEINE Produktionsdaten verändern.
+KEINE Stripe-/PayPal-Integration einbauen.
+KEINE bestehenden Funktionen entfernen.
+
+Ziel:
+Vor der Einführung echter automatischer Zahlungen soll exakt festgestellt
+werden, welche Zahlungs-, Paket-, Lizenz-, Vertrags- und Rechnungslogik
+bereits vorhanden ist und wie sie aktuell zusammenarbeitet.
+
+==================================================
+1. GEPLANTES GESCHÄFTSMODELL
+==================================================
+
+Geplant sind vier Pakete:
+
+EINZELTRAINER BASIC
+- 9,99 € / Monat
+- 99 € / Jahr
+- maximal 20 Spieler
+- 1 Trainer
+
+EINZELTRAINER PRO
+- 14,99 € / Monat
+- 149 € / Jahr
+- unbegrenzt Spieler
+- 1 Trainer
+
+VEREIN BASIC
+- 24,99 € / Monat
+- 249 € / Jahr
+- maximal 2 Trainer
+- maximal 50 Spieler
+
+VEREIN PRO
+- 39,99 € / Monat
+- 399 € / Jahr
+- maximal 15 Trainer
+- unbegrenzt Spieler
+
+Noch NICHT implementieren.
+
+==================================================
+2. GEPLANTER TESTPHASEN-ABLAUF
+==================================================
+
+Geplant:
+
+Registrierung
+→ Paket auswählen
+→ monatlich oder jährlich auswählen
+→ Zahlungsmethode hinterlegen
+→ 30 Tage kostenlos
+→ heute 0,00 €
+→ automatische erste Abbuchung nach 30 Tagen.
+
+Zahlungsarten geplant:
+
+- Kredit-/Debitkarte
+- PayPal
+
+Während der Testphase:
+- vollständiger Zugang entsprechend Paket
+- Zahlungsmethode muss vorhanden sein
+- noch keine Abbuchung
+
+Kündigung während Testphase:
+- Zugang bis Ende der Testphase
+- danach Ende
+- keine erste Abbuchung
+
+Erinnerung:
+- 7 Tage vor erster Abbuchung
+- 1 Tag vor erster Abbuchung
+
+Noch NICHT implementieren.
+
+==================================================
+3. VERTRAGSLOGIK GEPLANT
+==================================================
+
+Monatsabo:
+- monatliche Abrechnung
+- monatlich kündbar
+
+Jahresabo:
+- Jahreszahlung
+- günstiger als 12 Monatszahlungen
+- Laufzeit/Verlängerung muss technisch sauber abbildbar sein
+
+Upgrade:
+- sofort
+
+Downgrade:
+- zum nächsten Abrechnungszeitraum
+
+Fehlgeschlagene Zahlung:
+- nicht sofort sperren
+- 7 Tage Zahlungsfrist
+- danach Konto/Lizenz sperren
+- Kundendaten NICHT sofort löschen
+
+Kündigung:
+- Zugang entsprechend Vertrags-/Abrechnungsende
+- Daten zunächst 90 Tage erhalten
+- Löschung/Anonymisierung getrennt behandeln
+
+==================================================
+4. KUNDENPORTAL GEPLANT
+==================================================
+
+Kunde soll später selbst können:
+
+- aktuelles Paket sehen
+- monatlich/jährlich sehen
+- nächste Abbuchung sehen
+- Zahlungsmethode verwalten
+- Rechnungen ansehen/herunterladen
+- Paket upgraden
+- Paket downgraden
+- Abo kündigen
+
+Noch NICHT implementieren.
+
+==================================================
+5. SUPERADMIN
+==================================================
+
+Superadmin soll weiterhin Kontrolle behalten:
+
+- Paket ändern
+- Lizenzstatus ändern
+- Testphase verlängern
+- Gratiszugang vergeben
+- Rabatt vergeben
+- Zahlung/Lizenz prüfen
+- Vertragsdaten sehen
+- Kunde sperren/freischalten
+
+Bestehende Superadmin-Funktionen dürfen später nicht durch Stripe ersetzt
+oder zerstört werden.
+
+==================================================
+6. RABATTCODES
+==================================================
+
+Rabattcodes/Gutscheine sind geplant.
+
+Prüfen:
+Gibt es bereits Tabellen, Felder oder Funktionen dafür?
+
+Noch nichts implementieren.
+
+==================================================
+7. BESTEHENDE DATENBANK ANALYSIEREN
+==================================================
+
+Bitte alle Tabellen und relevanten Spalten untersuchen bezüglich:
+
+- Benutzer
+- Vereine
+- Kundentyp
+- Pakete
+- Preise
+- Lizenzen
+- Lizenzstatus
+- Testphase
+- Vertragsbeginn
+- Vertragsende
+- Kündigung
+- Rechnungen
+- Rechnungsadressen
+- Zahlungen
+- Zahlungsstatus
+- Stripe
+- PayPal
+- Rabatt/Gutscheine
+
+Für jede relevante Tabelle berichten:
+
+Tabellenname
+→ relevante Spalten
+→ Zweck
+→ Beziehungen/FKs
+→ aktuell tatsächlich benutzt oder Altbestand?
+
+==================================================
+8. BESTEHENDEN CODE ANALYSIEREN
+==================================================
+
+Suche projektweit nach:
+
+stripe
+paypal
+payment
+zahlung
+rechnung
+abo
+subscription
+lizenz
+paket
+preis
+vertrag
+testphase
+trial
+kuendigung / kündigung
+billing
+
+Berichte die relevanten:
+
+- Dateien
+- Funktionen
+- Klassen
+- DB-Funktionen
+- UI-Seiten
+
+==================================================
+9. REGISTRIERUNG ANALYSIEREN
+==================================================
+
+Aktuellen Ablauf getrennt prüfen:
+
+A) selbstregistrierter Einzeltrainer
+B) selbstregistrierter Verein
+C) Superadmin legt Kunden an
+
+Für jeden:
+
+Registrierung
+→ DB-Einträge
+→ Testphase
+→ Paket
+→ Lizenz
+→ Freischaltung
+→ Vertragsdaten
+
+Exakt beschreiben, was heute bereits automatisch geschieht.
+
+==================================================
+10. LIZENZPRÜFUNG
+==================================================
+
+Prüfen:
+
+Welche Funktion entscheidet aktuell, ob ein Kunde die App benutzen darf?
+
+Welche Werte werden geprüft?
+
+Zum Beispiel:
+
+aktiv
+lizenz_status
+testphase_bis
+vertrag_bis
+paket
+rolle
+
+Wo wird ein abgelaufener Kunde gesperrt?
+
+Gibt es bereits automatische Ablauflogik?
+
+==================================================
+11. PAKETLIMITS
+==================================================
+
+Prüfen, ob bereits Limits existieren für:
+
+- Spieleranzahl
+- Traineranzahl
+- Funktionen/Module
+- Paketabhängige Features
+
+WICHTIG:
+Noch KEINE neuen Limits einbauen.
+
+Nur feststellen, was vorhanden ist und wo später die geplanten Limits
+20 / unbegrenzt / 50 / unbegrenzt Spieler sowie
+1 / 1 / 2 / 15 Trainer
+sauber geprüft werden könnten.
+
+==================================================
+12. RECHNUNGSSYSTEM
+==================================================
+
+Exakt prüfen:
+
+- Werden bereits Rechnungen erzeugt?
+- Gibt es Rechnungsnummern?
+- PDF?
+- Rechnungsadresse?
+- MwSt.?
+- Netto/Brutto?
+- Rechnungsdatum?
+- Leistungszeitraum?
+- Zahlungsstatus?
+- E-Mail-Versand?
+- Download im Kundenportal?
+- Aufbewahrungslogik?
+
+Keine Änderungen durchführen.
+
+==================================================
+13. STRIPE / PAYPAL BESTAND
+==================================================
+
+Prüfen, ob bereits:
+
+- Stripe SDK
+- Stripe API Keys
+- stripe_customer_id
+- stripe_subscription_id
+- Checkout
+- Webhooks
+- Customer Portal
+- PaymentIntent
+- Subscription
+- Price IDs
+
+existieren.
+
+Dasselbe für PayPal.
+
+Keine Secrets ausgeben!
+
+Nur berichten, OB entsprechende Konfiguration vorhanden ist.
+
+==================================================
+14. TECHNISCHER MANDANT DER EINZELTRAINER
+==================================================
+
+Seit dem letzten Update besitzen selbstregistrierte Einzeltrainer einen
+technischen Workspace/Verein:
+
+ist_technischer_mandant = 1
+
+Dieser ist KEIN echter Vereinskunde.
+
+Prüfen, wie Zahlung, Paket, Rechnung und Lizenz später eindeutig dem
+EINZELTRAINER zugeordnet werden können, ohne ihn versehentlich als Verein
+abzurechnen.
+
+Kundentyp muss Trainer bleiben.
+
+==================================================
+15. ARCHITEKTURVORSCHLAG
+==================================================
+
+Nach der Bestandsanalyse einen Vorschlag erstellen, wie die vorhandene
+Architektur erweitert werden sollte.
+
+Bevorzugtes Ziel:
+
+Stripe als zentrale Subscription-/Payment-Schicht.
+
+Kredit-/Debitkarte und – sofern technisch/vertraglich verfügbar –
+PayPal als Zahlungsmethoden.
+
+WICHTIG:
+Nicht zwei voneinander unabhängige Abosysteme bauen.
+
+APHSystem-Datenbank bleibt zuständig für:
+- internen Kundenstatus
+- Rechte
+- Paket
+- Limits
+- Lizenz
+- interne Zuordnung
+
+Payment Provider zuständig für:
+- Zahlungsmethode
+- Abbuchung
+- Zahlungsereignisse
+- Subscription-Abrechnung
+
+Prüfen, ob diese Architektur mit dem bestehenden Code kompatibel ist.
+
+==================================================
+16. SICHERHEIT
+==================================================
+
+Prüfen, wo später Webhooks abgesichert werden müssten.
+
+Keine Karten-/PayPal-Zugangsdaten in eigener DB speichern.
+
+Keine Secrets ausgeben.
+
+Prüfen, ob Zahlungsstatus aktuell vom Browser manipulierbar wäre.
+
+==================================================
+17. ABSCHLUSSBERICHT
+==================================================
+
+Bitte konkret beantworten:
+
+1. Welche Zahlungsfunktionen existieren bereits?
+2. Welche Paketlogik existiert bereits?
+3. Welche Lizenzlogik existiert bereits?
+4. Welche Vertragslogik existiert bereits?
+5. Welche Rechnungsfunktionen existieren bereits?
+6. Gibt es bereits Stripe-Code?
+7. Gibt es bereits PayPal-Code?
+8. Welche DB-Spalten für Stripe/Payment existieren?
+9. Wie läuft die 30-Tage-Testphase aktuell?
+10. Was passiert aktuell nach Ablauf?
+11. Wo müssen später Paketlimits geprüft werden?
+12. Wie wird Einzeltrainer vs. Verein zuverlässig unterschieden?
+13. Gibt es Konflikte mit ist_technischer_mandant?
+14. Welche bestehenden Funktionen können weiterverwendet werden?
+15. Welche Funktionen fehlen?
+16. Welche DB-Erweiterungen wären später nötig?
+17. Welche Dateien müssten später geändert werden?
+18. Welche Risiken bestehen?
+19. In welche kleinen Implementierungsphasen sollte die Zahlungsintegration
+    aufgeteilt werden?
+
+Zusätzlich eine klare Einteilung erstellen:
+
+GRÜN = kann unverändert weiterverwendet werden
+GELB = muss angepasst/erweitert werden
+ROT = fehlt oder wäre für echte Zahlungen unsicher
+
+Danach STOPPEN.
+
+KEINEN CODE ÄNDERN.
+KEINE MIGRATION.
+KEIN DEPLOYMENT.
