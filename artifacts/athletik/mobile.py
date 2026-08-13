@@ -13,7 +13,9 @@ Architecture:
   inject_mobile_player_selector()— native HTML <select> for player switching
   handle_mobile_nav_params()   — reads ?player_id= query param
 """
+import logging as _logging
 import streamlit as st
+_log_mob = _logging.getLogger("athletik")
 
 # ── Bottom nav options (5 items, fixed set) ───────────────────────────────────
 _BOT_NAV_OPTS = ["🏠 Start", "👤 Spieler", "🧪 Tests", "📅 Training", "⋯ Mehr"]
@@ -230,6 +232,14 @@ def render_mobile_nav(current_section: str) -> None:
 
     def _on_nav_change() -> None:
         choice = st.session_state.get("_mobile_nav_sc")
+        _log_mob.warning(
+            "[NAV-DEBUG] MOB-ON_CHANGE fired | _mobile_nav_sc=%r | nav_section=%r"
+            " | _nav_goto=%r | rerun#=%s",
+            choice,
+            st.session_state.get("nav_section"),
+            st.session_state.get("_nav_goto"),
+            st.session_state.get("_dbg_rc", "?"),
+        )
         if choice is None:
             return
         sec = _BOT_NAV_TO_SECTION.get(choice)
@@ -238,6 +248,11 @@ def render_mobile_nav(current_section: str) -> None:
         else:
             st.session_state["_nav_goto"] = sec
             st.session_state["mobile_mehr_open"] = False
+        _log_mob.warning(
+            "[NAV-DEBUG] MOB-ON_CHANGE result | _nav_goto=%r | mobile_mehr_open=%r",
+            st.session_state.get("_nav_goto"),
+            st.session_state.get("mobile_mehr_open"),
+        )
 
     mehr_open = bool(st.session_state.get("mobile_mehr_open"))
     if mehr_open or current_section not in _BOT_NAV_PRIMARY:
@@ -246,6 +261,17 @@ def render_mobile_nav(current_section: str) -> None:
         current_default = "⋯ Mehr"
     else:
         current_default = _SECTION_TO_BOT_NAV.get(current_section, "🏠 Start")
+
+    _prev_mob_sc = st.session_state.get("_mobile_nav_sc")
+    _log_mob.warning(
+        "[NAV-DEBUG] MOB-RENDER | current_section=%r | current_default=%r"
+        " | _mobile_nav_sc(session)=%r | MISMATCH=%s | rerun#=%s",
+        current_section,
+        current_default,
+        _prev_mob_sc,
+        _prev_mob_sc != current_default,
+        st.session_state.get("_dbg_rc", "?"),
+    )
 
     st.segmented_control(
         label="Navigation",
