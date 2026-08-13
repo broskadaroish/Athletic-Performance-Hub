@@ -1,0 +1,341 @@
+FEHLERSUCHE – KONKRETE REGISTRIERUNGS-BESTÄTIGUNGSMAIL KOMMT NICHT AN
+
+WICHTIGE NEUE INFORMATIONEN:
+
+Der Kunde hat sich definitiv über:
+
+https://aphsystem.de
+
+registriert.
+
+Nicht über die Replit-Development-URL.
+
+Außerdem wurde bereits bestätigt:
+
+- SMTP: smtp.ionos.de
+- Port: 465 SSL
+- SMTP_USERNAME: noreply@aphsystem.de
+- SMTP_PASSWORD funktioniert
+- SMTP-Login erfolgreich
+- Testmail wurde vom IONOS SMTP-Server akzeptiert
+- SPF für aphsystem.de vorhanden
+- DKIM für aphsystem.de vorhanden
+- DMARC für aphsystem.de vorhanden
+- MX-Einträge für IONOS vorhanden
+- APP_BASE_URL Production = https://aphsystem.de
+
+DESHALB:
+
+Jetzt NICHT SMTP, Passwort, DNS, SPF, DKIM oder DMARC umbauen.
+
+Wir müssen den KONKRETEN Registrierungsversand untersuchen.
+
+==================================================
+1. KONKRETEN NEU REGISTRIERTEN ACCOUNT PRÜFEN
+==================================================
+
+Suche den zuletzt neu registrierten Trainer.
+
+Zeige mir OHNE sensible Daten:
+
+- Registrierungszeit
+- Account-Typ
+- E-Mail normalisiert gespeichert: JA/NEIN
+- email_verifiziert: JA/NEIN
+- Verifikationstoken vorhanden: JA/NEIN
+- Token-Ablauf vorhanden: JA/NEIN
+- email_token_gesendet_am vorhanden: JA/NEIN
+
+E-Mail-Adresse darf zur Diagnose angezeigt werden.
+
+Token selbst NICHT anzeigen.
+
+==================================================
+2. ENTSCHEIDENDER PUNKT: WURDE DIE MAIL WIRKLICH GESENDET?
+==================================================
+
+Prüfe für GENAU diese Registrierung:
+
+Wurde tatsächlich:
+
+send_verification_email(...)
+
+ausgeführt?
+
+Nicht nur prüfen, ob die Funktion im Code vorhanden ist.
+
+Ich möchte wissen, ob sie bei dieser konkreten Registrierung ausgeführt wurde.
+
+==================================================
+3. EMPFÄNGER PRÜFEN
+==================================================
+
+Prüfe, welche Empfängeradresse tatsächlich an:
+
+send_verification_email()
+
+übergeben wurde.
+
+Vergleiche sie mit der vom Kunden eingegebenen und in der Datenbank gespeicherten E-Mail-Adresse.
+
+Prüfe insbesondere:
+
+- Leerzeichen
+- Tippfehler
+- Groß-/Kleinschreibung
+- falsches Feld
+- None
+- leere Adresse
+- andere Benutzeradresse
+
+==================================================
+4. SMTP send_message PRÜFEN
+==================================================
+
+Für eine neue Testregistrierung über aphsystem.de protokollieren:
+
+REGISTRATION:
+Account erstellt
+
+VERIFICATION:
+Token erstellt
+
+EMAIL:
+Empfänger = [Adresse]
+Absender = noreply@aphsystem.de
+Reply-To = support@aphsystem.de
+
+SMTP:
+Verbindung erfolgreich
+Login erfolgreich
+send_message aufgerufen
+send_message Ergebnis
+
+Keine Passwörter oder Tokens loggen.
+
+==================================================
+5. SMTP-ANTWORT RICHTIG AUSWERTEN
+==================================================
+
+Bei Python smtplib liefert:
+
+send_message(...)
+
+Informationen über abgelehnte Empfänger.
+
+Prüfe ausdrücklich:
+
+result = smtp.send_message(message)
+
+Wenn:
+
+result == {}
+
+bedeutet dies:
+
+SMTP-Server hat keine Empfänger beim Versand abgelehnt.
+
+Das protokollieren als:
+
+„SMTP accepted“
+
+Nicht automatisch als:
+
+„Mail beim Kunden angekommen“
+
+==================================================
+6. GENAU DIE BESTÄTIGUNGSMAIL MANUELL SENDEN
+==================================================
+
+Im Superadmin beim betreffenden Kunden gibt es bereits bzw. soll es geben:
+
+„Bestätigungs-E-Mail erneut senden“
+
+Verwende GENAU dieselbe:
+
+send_verification_email()
+
+Funktion wie bei der Registrierung.
+
+Keine separate Testmail-Funktion.
+
+Damit testen wir nicht irgendeine SMTP-Mail, sondern exakt die problematische Bestätigungsmail.
+
+==================================================
+7. VERSANDERGEBNIS ANZEIGEN
+==================================================
+
+Nach Klick auf:
+
+„Bestätigungs-E-Mail erneut senden“
+
+Superadmin anzeigen:
+
+Empfänger:
+[Adresse]
+
+Zeitpunkt:
+[Datum/Uhrzeit]
+
+SMTP:
+✓ Verbindung
+✓ Login
+✓ Nachricht von IONOS angenommen
+
+oder den tatsächlichen Fehler.
+
+Keine Secrets anzeigen.
+
+==================================================
+8. MAILINHALT PRÜFEN
+==================================================
+
+Prüfe die tatsächlich erzeugte Bestätigungsmail.
+
+Sie muss enthalten:
+
+Betreff:
+„E-Mail-Adresse bestätigen – Athletic Performance Hub“
+
+Absender:
+Athletic Performance Hub <noreply@aphsystem.de>
+
+Reply-To:
+support@aphsystem.de
+
+Text muss sichtbar sein.
+
+Bestätigungsbutton muss vorhanden sein.
+
+Zusätzlich muss der Bestätigungslink als normaler Text vorhanden sein, falls der Button beim Mailprovider nicht dargestellt wird.
+
+Link:
+
+https://aphsystem.de/?verify=TOKEN
+
+Token nicht im Log ausgeben.
+
+==================================================
+9. KEINE LEERE MAIL
+==================================================
+
+Wir hatten bereits früher das Problem, dass Passwort-Reset-Mails leer ankamen.
+
+Deshalb ausdrücklich prüfen:
+
+- MIME-Struktur
+- text/plain Inhalt
+- text/html Inhalt
+- Content-Type
+- Charset UTF-8
+- Subject
+- From
+- To
+- Reply-To
+
+Die Verifikationsmail darf NICHT leer sein.
+
+==================================================
+10. NEUEN ECHTEN TEST DURCHFÜHREN
+==================================================
+
+Danach einen kontrollierten Test über:
+
+https://aphsystem.de
+
+durchführen.
+
+Nicht Replit Preview.
+
+Ablauf:
+
+Registrierung
+→ Datenbankeintrag
+→ Token
+→ send_verification_email
+→ SMTP Login
+→ send_message
+→ SMTP accepted
+
+==================================================
+11. LOGGING ERGÄNZEN
+
+Falls aktuell nicht nachvollziehbar ist, ob die konkrete Mail versandt wurde, ergänze datenschutzarmes E-Mail-Logging.
+
+Zum Beispiel:
+
+email_delivery_log
+
+Felder:
+
+- id
+- benutzer_id
+- email_typ
+- empfaenger
+- erstellt_am
+- smtp_status
+- fehlerklasse
+
+KEIN:
+
+- Passwort
+- SMTP_PASSWORD
+- Verifikationstoken
+- Reset-Token
+- vollständiger Mailinhalt
+
+E-Mail-Typen z.B.:
+
+verification
+password_reset
+username_reminder
+
+==================================================
+12. WICHTIGE ERFOLGSMELDUNG
+==================================================
+
+App darf nur:
+
+„Bestätigungs-E-Mail wurde versendet.“
+
+anzeigen, wenn:
+
+smtp.send_message()
+
+erfolgreich abgeschlossen wurde.
+
+Wenn nicht:
+
+„Konto wurde erstellt, die Bestätigungs-E-Mail konnte jedoch nicht versendet werden.“
+
+==================================================
+13. ABSCHLUSSBERICHT
+
+Berichte mir danach konkret:
+
+1. Welcher Account wurde zuletzt registriert?
+2. Ist email_verifiziert = 0?
+3. Wurde ein Token erstellt?
+4. Ist email_token_gesendet_am gesetzt?
+5. Wurde send_verification_email bei DIESER Registrierung tatsächlich ausgeführt?
+6. Welche Empfängeradresse wurde an SMTP übergeben?
+7. Wurde smtp.send_message tatsächlich ausgeführt?
+8. Was lieferte send_message zurück?
+9. Hat IONOS den Empfänger akzeptiert?
+10. Hat die Verifikationsmail text/plain Inhalt?
+11. Hat sie text/html Inhalt?
+12. Enthält sie den aphsystem.de-Verifikationslink?
+13. Funktioniert „Bestätigungs-E-Mail erneut senden“?
+14. Gibt es jetzt ein Versand-Logging?
+15. Was ist die konkrete gefundene Ursache?
+
+Danach STOPPEN.
+
+Keine Änderung an:
+SMTP_PASSWORD
+SMTP_USERNAME
+SPF
+DKIM
+DMARC
+DNS
+vornehmen.
