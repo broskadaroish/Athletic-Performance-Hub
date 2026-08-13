@@ -1,0 +1,217 @@
+KRITISCHE KORREKTUR – GEFAHRENBEREICH VERLIERT KUNDENDETAILANSICHT BEI ST.RERUN()
+
+Die neue endgültige Kundenlöschung ist bereits vollständig implementiert.
+NICHT neu bauen und NICHT die Löschlogik verändern.
+
+Aktueller Fehler:
+
+Kundenverwaltung
+→ Kunde öffnen
+→ Gefahrenbereich
+→ „Betroffene Daten prüfen“
+
+Beim Klick wird:
+
+kunde_zusammenfassung_laden(vid, bid)
+
+korrekt ausgeführt und die Vorschau wird in:
+
+st.session_state[_preview_key]
+
+gespeichert.
+
+Danach erfolgt:
+
+st.rerun()
+
+Anschließend verlässt die App jedoch die Kundendetailansicht bzw. zeigt wieder eine andere Ansicht.
+
+==================================================
+1. URSACHE EXAKT ANALYSIEREN
+==================================================
+
+Die Kundendetailansicht hängt aktuell von:
+
+st.session_state["kunden_auswahl"]
+
+ab.
+
+page_kundenverwaltung() macht:
+
+auswahl = st.session_state.get("kunden_auswahl")
+
+if auswahl:
+    verein_id, benutzer_id = auswahl
+    _kunde_detail(verein_id, benutzer_id)
+    return
+
+Prüfe exakt, warum "kunden_auswahl" beim Rerun nach:
+
+„Betroffene Daten prüfen“
+
+nicht zuverlässig erhalten bleibt bzw. warum die Hauptnavigation anschließend nicht mehr in der Kundenverwaltung bleibt.
+
+Insbesondere prüfen:
+
+- _nav_goto
+- nav_section
+- kunden_auswahl
+- globale Navigation in app.py
+- Session-State-Bereinigung
+- Callback-/Rerun-Verhalten
+- Cookie-/Login-Gate
+
+==================================================
+2. GEWÜNSCHTES VERHALTEN
+==================================================
+
+Beim Klick auf:
+
+„🔍 Betroffene Daten prüfen“
+
+muss der Benutzer EXAKT hier bleiben:
+
+Kundenverwaltung
+→ aktuell ausgewählter Kunde
+→ Gefahrenbereich
+
+Danach soll sich nur der Gefahrenbereich erweitern und die Vorschau anzeigen.
+
+KEIN:
+
+- Startseitenwechsel
+- Kundenlistenwechsel
+- Login
+- Browser-Reload
+- href
+- Query-Parameter-Navigation
+
+==================================================
+3. KUNDENAUSWAHL VOR RERUN SICHERN
+==================================================
+
+Unmittelbar vor st.rerun() muss die aktuelle Kundenauswahl explizit erhalten/gesetzt werden.
+
+Sinngemäß:
+
+st.session_state["kunden_auswahl"] = (vid, bid)
+
+Zusätzlich muss die Hauptnavigation auf Kundenverwaltung bleiben.
+
+Falls das bestehende Navigationssystem _nav_goto benötigt:
+
+st.session_state["_nav_goto"] = "👥  Kundenverwaltung"
+
+ABER:
+
+keine neue parallele Navigation bauen.
+
+Bestehende Navigation verwenden.
+
+==================================================
+4. PREVIEW STATE
+==================================================
+
+Die Vorschau:
+
+st.session_state[_preview_key] = zs
+
+muss nach dem Rerun erhalten bleiben.
+
+Danach muss:
+
+zs = st.session_state.get(_preview_key)
+
+einen Wert liefern und der Code darf NICHT bei:
+
+if zs is None:
+    return
+
+enden.
+
+==================================================
+5. KEINE ÄNDERUNG DER LÖSCHLOGIK
+==================================================
+
+Die bereits vorhandene Logik für:
+
+- Datenvorschau
+- Spieler/Test-Zähler
+- Rechnungsdaten-Anonymisierung
+- Kundennummer-Bestätigung
+- „Kunde endgültig und unwiderruflich löschen“
+- Backup
+- kunde_loeschen()
+- Audit-Log
+- Rückkehr zur Kundenliste
+
+NICHT neu schreiben.
+
+Nur Routing/Session-State reparieren.
+
+==================================================
+6. ZUSÄTZLICH PRÜFEN
+==================================================
+
+Prüfe, ob der Button überhaupt ein st.rerun() benötigt.
+
+Da st.button() ohnehin einen Streamlit-Rerun ausgelöst hat und die Zusammenfassung innerhalb desselben Runs geladen werden kann, prüfe, ob die Vorschau direkt gerendert werden kann.
+
+Bevorzugte Lösung:
+
+Wenn technisch sauber möglich:
+
+1. Button klicken
+2. Zusammenfassung laden
+3. in session_state speichern
+4. KEIN zusätzliches st.rerun()
+5. darunter sofort Vorschau rendern
+
+Das wäre robuster und vermeidet unnötige Navigation/Reruns.
+
+==================================================
+7. TEST
+==================================================
+
+Mit Testkunde prüfen:
+
+1. Superadmin anmelden
+2. Kundenverwaltung öffnen
+3. Testkunde öffnen
+4. Gefahrenbereich öffnen
+5. „Betroffene Daten prüfen“ klicken
+
+Erwartet:
+
+- gleiche Kundendetailseite bleibt sichtbar
+- kein Login
+- keine Startseite
+- keine Kundenliste
+- Gefahrenbereich bleibt geöffnet
+- Datenvorschau erscheint
+- Spieler/Test/Trainingsplan-Zähler erscheinen
+- Eingabefeld für Kundennummer erscheint
+- nach korrekter Kundennummer erscheint:
+  „Kunde endgültig und unwiderruflich löschen“
+
+LÖSCHBUTTON IM TEST NICHT AUSFÜHREN.
+
+==================================================
+8. ABSCHLUSSBERICHT
+
+Berichte danach:
+
+1. Warum wurde die Kundendetailansicht verlassen?
+2. Wurde kunden_auswahl beim Rerun verloren?
+3. Welche globale Navigation hat eingegriffen?
+4. Wurde st.rerun() entfernt oder beibehalten?
+5. Bleibt „Betroffene Daten prüfen“ jetzt auf derselben Kundendetailseite?
+6. Wird die Vorschau sichtbar?
+7. Wird danach die Kundennummer-Bestätigung sichtbar?
+8. Wird der endgültige Löschbutton sichtbar?
+9. Welche Dateien wurden geändert?
+
+Danach STOPPEN.
+
+Keine anderen Funktionen ändern.
+Keine Löschung eines echten Kunden durchführen.

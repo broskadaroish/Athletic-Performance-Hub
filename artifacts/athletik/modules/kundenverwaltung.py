@@ -652,15 +652,20 @@ def _detail_gefahrenbereich(daten: dict) -> None:
         )
 
         # ── Schritt 1: Datenübersicht laden ─────────────────────────────────
-        # Kein href, kein nav_section-Wechsel — nur session_state + st.rerun()
+        # KEIN zusätzliches st.rerun() nach dem Button-Klick:
+        # st.button() löst den Streamlit-Rerun automatisch aus. Ein zweites
+        # st.rerun() erzeugt einen weiteren Zyklus, in dem kunden_auswahl und
+        # nav_section nicht mehr zuverlässig erhalten bleiben.
+        # Die Vorschau wird direkt im selben Renderdurchlauf unterhalb angezeigt.
         if st.button("🔍 Betroffene Daten prüfen", key=f"_lz_start_{bid}", type="secondary"):
             try:
                 zs = kunde_zusammenfassung_laden(vid, bid)
                 st.session_state[_preview_key] = zs
+                # Kundenauswahl und Navigation explizit sichern (defensive Absicherung)
+                st.session_state["kunden_auswahl"] = (vid, bid)
+                st.session_state["nav_section"]    = "👥  Kundenverwaltung"
             except Exception as _ex:
                 st.error(f"Fehler beim Laden der Zusammenfassung: {_ex}")
-                return
-            st.rerun()  # Seite neu laden — Vorschau wird sichtbar, kein Nav-Wechsel
 
         zs = st.session_state.get(_preview_key)
         if zs is None:
