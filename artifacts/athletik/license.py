@@ -185,26 +185,65 @@ LIZENZ_TYPEN_COMPAT: dict[str, str] = {
 _DEFAULT_LIZENZ_TYP = "TRAINER_BASIC"
 
 
-def normalize_lizenz_typ(raw: str | None) -> str:
+def normalize_lizenz_typ(
+    raw: str | None,
+    ist_technischer_mandant: bool | int | None = None,
+) -> str:
     """Normalisiert einen rohen DB-Wert (alt oder neu) auf einen gültigen LIZENZ_TYPEN-Key.
 
     Immer sicher aufzurufen — gibt niemals einen Key zurück, der nicht in
     LIZENZ_TYPEN enthalten ist.  Unbekannte Werte landen bei TRAINER_BASIC.
 
+    Parameter:
+        raw                     Roher lizenztyp-Wert aus der DB.
+        ist_technischer_mandant Wenn übergeben, wird für die Legacy-Keys
+                                BASIC / PRO / Enterprise der richtige Kundentyp
+                                gewählt (1 = Einzeltrainer, 0 = Verein).
+                                None = kein Kontext → kontextfreier Fallback.
+
+    Kontextabhängiges Mapping (ist_technischer_mandant bekannt):
+        BASIC      + Einzeltrainer → TRAINER_BASIC
+        BASIC      + Verein        → VEREIN_BASIC
+        PRO        + Einzeltrainer → TRAINER_PRO
+        PRO        + Verein        → VEREIN_PRO
+        Enterprise + Einzeltrainer → TRAINER_PRO
+        Enterprise + Verein        → VEREIN_PRO
+
+    Kontextfreies Fallback-Mapping (kein ist_technischer_mandant):
+        Wie in LIZENZ_TYPEN_COMPAT definiert (BASIC→TRAINER_BASIC,
+        PRO→VEREIN_PRO, Enterprise→VEREIN_PRO).
+
     Reihenfolge:
       1. Leer/None → Default
       2. Exakter Treffer in LIZENZ_TYPEN → direkt zurückgeben
-      3. UPPER-Case-Treffer in LIZENZ_TYPEN_COMPAT → gemappter Wert
-      4. Fallback → Default
+      3. Kontext bekannt → kontextabhängiges Mapping für BASIC/PRO/Enterprise
+      4. Kontextfreier LIZENZ_TYPEN_COMPAT-Lookup
+      5. Fallback → Default
     """
     if not raw:
         return _DEFAULT_LIZENZ_TYP
     upper = raw.strip().upper()
+
+    # Schritt 2: neuer Key → direkt zurückgeben
     if upper in LIZENZ_TYPEN:
         return upper
+
+    # Schritt 3: Kontext-gesteuertes Mapping für Legacy-Keys
+    if ist_technischer_mandant is not None:
+        is_trainer = bool(ist_technischer_mandant)
+        _context_map: dict[str, str] = {
+            "BASIC":      "TRAINER_BASIC" if is_trainer else "VEREIN_BASIC",
+            "PRO":        "TRAINER_PRO"   if is_trainer else "VEREIN_PRO",
+            "ENTERPRISE": "TRAINER_PRO"   if is_trainer else "VEREIN_PRO",
+        }
+        if upper in _context_map:
+            return _context_map[upper]
+
+    # Schritt 4: kontextfreier Fallback (Display-Werte und sonstige Legacy-Keys)
     mapped = LIZENZ_TYPEN_COMPAT.get(upper)
     if mapped and mapped in LIZENZ_TYPEN:
         return mapped
+
     return _DEFAULT_LIZENZ_TYP
 
 
@@ -271,7 +310,10 @@ def get_lizenz_info(verein_row: dict) -> LizenzInfo:
 
     heute = date.today()
 
-    lizenz_typ     = normalize_lizenz_typ(verein_row.get("lizenztyp"))
+    lizenz_typ     = normalize_lizenz_typ(
+        verein_row.get("lizenztyp"),
+        ist_technischer_mandant=verein_row.get("ist_technischer_mandant"),
+    )
     lizenz_status  = verein_row.get("lizenz_status") or "trial"
     gesperrt       = bool(verein_row.get("gesperrt", 0))
     zahlungsstatus = verein_row.get("zahlungsstatus") or "offen"
@@ -359,13 +401,17 @@ def enforce_license_gate() -> None:
         st.stop()
 
 
-def feature_erlaubt(feature: str, lizenz_typ: str) -> bool:
+def feature_erlaubt(
+    feature: str,
+    lizenz_typ: str,
+    ist_technischer_mandant: bool | int | None = None,
+) -> bool:
     """Prüft ob ein Feature im aktuellen Lizenztyp enthalten ist.
 
-    Akzeptiert alte und neue Paket-Keys — normalize_lizenz_typ() wird intern
-    aufgerufen.
+    Akzeptiert alte und neue Paket-Keys.  Bei Legacy-Keys (BASIC/PRO/Enterprise)
+    wird ist_technischer_mandant zur korrekten Auflösung genutzt.
     """
-    normed  = normalize_lizenz_typ(lizenz_typ)
+    normed  = normalize_lizenz_typ(lizenz_typ, ist_technischer_mandant)
     typ_def = LIZENZ_TYPEN.get(normed)
     if not typ_def:
         return False
@@ -373,11 +419,16 @@ def feature_erlaubt(feature: str, lizenz_typ: str) -> bool:
     return "all" in feats or feature in feats
 
 
-def trainer_limit_erreicht(verein_id: int, lizenz_typ: str) -> bool:
+def trainer_limit_erreicht(
+    verein_id: int,
+    lizenz_typ: str,
+    ist_technischer_mandant: bool | int | None = None,
+) -> bool:
     """Gibt True zurück wenn das Trainer-Limit erreicht ist.
 
     None in max_trainer bedeutet unbegrenzt → gibt immer False zurück.
-    Akzeptiert alte und neue Paket-Keys.
+    Akzeptiert alte und neue Paket-Keys.  Bei Legacy-Keys wird
+    ist_technischer_mandant zur korrekten Auflösung genutzt.
     """
     try:
         from database import get_conn
@@ -386,7 +437,7 @@ def trainer_limit_erreicht(verein_id: int, lizenz_typ: str) -> bool:
                 "SELECT COUNT(*) FROM benutzer WHERE verein_id=? AND aktiv=1 AND rolle='Trainer'",
                 (verein_id,)
             ).fetchone()[0]
-        normed  = normalize_lizenz_typ(lizenz_typ)
+        normed  = normalize_lizenz_typ(lizenz_typ, ist_technischer_mandant)
         typ_def = LIZENZ_TYPEN.get(normed, LIZENZ_TYPEN[_DEFAULT_LIZENZ_TYP])
         max_t   = typ_def["max_trainer"]
         if max_t is None:       # unbegrenzt
@@ -396,11 +447,16 @@ def trainer_limit_erreicht(verein_id: int, lizenz_typ: str) -> bool:
         return False
 
 
-def spieler_limit_erreicht(verein_id: int, lizenz_typ: str) -> bool:
+def spieler_limit_erreicht(
+    verein_id: int,
+    lizenz_typ: str,
+    ist_technischer_mandant: bool | int | None = None,
+) -> bool:
     """Gibt True zurück wenn das Spieler-Limit erreicht ist.
 
     None in max_spieler bedeutet unbegrenzt → gibt immer False zurück.
-    Akzeptiert alte und neue Paket-Keys.
+    Akzeptiert alte und neue Paket-Keys.  Bei Legacy-Keys wird
+    ist_technischer_mandant zur korrekten Auflösung genutzt.
     """
     try:
         from database import get_conn
@@ -409,7 +465,7 @@ def spieler_limit_erreicht(verein_id: int, lizenz_typ: str) -> bool:
                 "SELECT COUNT(*) FROM spieler WHERE verein_id=? AND aktiv=1",
                 (verein_id,)
             ).fetchone()[0]
-        normed  = normalize_lizenz_typ(lizenz_typ)
+        normed  = normalize_lizenz_typ(lizenz_typ, ist_technischer_mandant)
         typ_def = LIZENZ_TYPEN.get(normed, LIZENZ_TYPEN[_DEFAULT_LIZENZ_TYP])
         max_s   = typ_def["max_spieler"]
         if max_s is None:       # unbegrenzt
