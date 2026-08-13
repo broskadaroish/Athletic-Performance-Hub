@@ -1,0 +1,128 @@
+WICHTIGE INFORMATION ZUR PRODUKTIONSUMGEBUNG – BITTE ANALYSIEREN UND FÜR ZUKÜNFTIGE ÄNDERUNGEN BERÜCKSICHTIGEN.
+
+Das Problem mit den Registrierungs-, Verifikations- und Passwort-E-Mails auf aphsystem.de wurde gefunden und behoben.
+
+URSACHE:
+
+Die SMTP-Konfiguration in Replit war bereits vorhanden und funktionierte.
+
+In Replit sind insbesondere vorhanden:
+- SMTP_PASSWORD als Secret
+- APP_BASE_URL = https://aphsystem.de
+- SMTP-Konfiguration für noreply@aphsystem.de
+
+Das eigentliche Problem lag auf meinem eigenen Ubuntu-Produktionsserver.
+
+Die produktive Anwendung läuft dort über Docker Compose:
+
+/opt/aphsystem/artifacts/athletik/docker-compose.yml
+
+Die produktive SQLite-Datenbank liegt persistent unter:
+
+ATHLETIK_DB_PATH=/data/athletik.db
+
+Der Docker-Container hatte vorher folgende Variablen NICHT erhalten:
+
+APP_BASE_URL
+SMTP_HOST
+SMTP_PORT
+SMTP_USERNAME
+SMTP_PASSWORD
+SMTP_FROM
+SUPPORT_EMAIL
+
+Deshalb funktionierte die SMTP-Konfiguration in Replit, aber nicht zuverlässig auf aphsystem.de.
+
+Das wurde jetzt behoben.
+
+Auf dem Produktionsserver existiert jetzt eine geschützte:
+
+/opt/aphsystem/artifacts/athletik/.env
+
+Dateirechte:
+chmod 600 .env
+
+.env ist bereits über .gitignore ausgeschlossen.
+
+Die Produktionskonfiguration enthält:
+
+APP_BASE_URL=https://aphsystem.de
+SMTP_HOST=smtp.ionos.de
+SMTP_PORT=465
+SMTP_USERNAME=noreply@aphsystem.de
+SMTP_PASSWORD=<SECRET>
+SMTP_FROM=noreply@aphsystem.de
+SUPPORT_EMAIL=support@aphsystem.de
+SESSION_SECRET=<SECRET>
+SECRET_KEY=<SECRET>
+
+WICHTIG:
+Niemals Passwörter oder Secrets hardcodieren, ausgeben oder in Git speichern.
+
+docker-compose.yml wurde so ergänzt, dass diese Variablen aus .env an den Container weitergegeben werden:
+
+APP_BASE_URL: ${APP_BASE_URL}
+SMTP_HOST: ${SMTP_HOST}
+SMTP_PORT: ${SMTP_PORT}
+SMTP_USERNAME: ${SMTP_USERNAME}
+SMTP_PASSWORD: ${SMTP_PASSWORD}
+SMTP_FROM: ${SMTP_FROM}
+SUPPORT_EMAIL: ${SUPPORT_EMAIL}
+SESSION_SECRET: ${SESSION_SECRET}
+SECRET_KEY: ${SECRET_KEY}
+
+Nach dem Neuaufbau wurde geprüft:
+
+Container:
+healthy
+
+Produktionsvariablen im Container:
+
+ATHLETIK_DB_PATH=/data/athletik.db
+APP_BASE_URL=https://aphsystem.de
+SMTP_HOST=smtp.ionos.de
+SMTP_PORT=465
+SMTP_USERNAME=noreply@aphsystem.de
+SMTP_FROM=noreply@aphsystem.de
+SUPPORT_EMAIL=support@aphsystem.de
+
+SMTP_PASSWORD:
+vorhanden = JA
+
+Anschließend wurde die E-Mail-Funktion auf aphsystem.de getestet:
+E-Mail-Versand funktioniert jetzt.
+
+WICHTIGE REGEL FÜR ZUKÜNFTIGE UPDATES:
+
+1. Die Replit-Entwicklungsumgebung und mein Ubuntu-Produktionsserver sind zwei getrennte Laufzeitumgebungen.
+
+2. Replit Secrets allein stehen dem Produktionsserver NICHT automatisch zur Verfügung.
+
+3. Neue Environment-Variablen, die für Production benötigt werden, müssen deshalb auch über docker-compose.yml bzw. die Server-.env berücksichtigt werden.
+
+4. Bei zukünftigen Änderungen niemals davon ausgehen, dass ein in Replit vorhandenes Secret automatisch auf aphsystem.de vorhanden ist.
+
+5. Niemals /data/athletik.db löschen, überschreiben oder neu initialisieren.
+
+6. Das Docker-Volume mit den Produktionsdaten muss bei Deployments erhalten bleiben.
+
+7. Niemals "docker compose down -v" oder andere Befehle verwenden, die das persistente Volume löschen.
+
+8. Bestehende Benutzer, Vereine, Trainer, Spieler, Tests, Trainingspläne, Lizenzen und sonstige gespeicherte Produktionsdaten dürfen durch Updates niemals gelöscht oder zurückgesetzt werden.
+
+9. Die produktive Domain für alle Kunden-E-Mails und Links ist:
+https://aphsystem.de
+
+10. noreply@aphsystem.de ist die technische Versandadresse.
+
+11. support@aphsystem.de ist die Support-/Reply-To-Adresse.
+
+Bitte prüfe jetzt nur, ob der aktuelle Code und die Deployment-Dateien mit dieser Architektur konsistent sind.
+
+KEINE Datenbank löschen.
+KEINE Migration zurücksetzen.
+KEINE Secrets verändern.
+KEINE SMTP-Zugangsdaten ausgeben.
+KEIN produktives Volume löschen.
+
+Falls etwas nicht konsistent ist, zuerst berichten und noch nichts ändern.

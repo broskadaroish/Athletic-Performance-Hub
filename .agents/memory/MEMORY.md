@@ -22,3 +22,4 @@
 - [SCHRITT 10 Rechtliche Seiten](schritt10-legal.md) — modules/legal_page.py; Sidebar-Buttons entfernt (StreamlitAPIException); nav_section NIE direkt schreiben nach Widget-Erstellung; _nav_goto Pattern nutzen
 - [Mobile nav screen-width detection](mobile-nav-screenwidth.md) — _inject_screen_width_detect() schreibt ?_sw= via location.replace; handle_mobile_nav_params liest es; render_mobile_nav hat Python-Guard _sw>768; einmalig-Reload ist akzeptabel (Cookie-Auth überlebt)
 - [Kunde deaktivieren und löschen](kunden-loeschen.md) — kunde_loeschen() + kunde_zusammenfassung_laden() in database.py; _detail_gefahrenbereich() in kundenverwaltung.py; zweistufige Bestätigung (Datenübersicht + Kundennummer-Eingabe)
+- [Produktionsarchitektur aphsystem.de](production-architecture.md) — Ubuntu-VPS Docker Compose; SQLite auf Volume /data/athletik.db; Replit Secrets ≠ Produktions-Env-Vars; niemals Volume löschen
