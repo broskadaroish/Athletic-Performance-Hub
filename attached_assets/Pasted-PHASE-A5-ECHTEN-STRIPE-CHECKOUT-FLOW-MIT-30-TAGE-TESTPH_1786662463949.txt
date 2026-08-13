@@ -1,0 +1,163 @@
+PHASE A5 – ECHTEN STRIPE CHECKOUT-FLOW MIT 30-TAGE-TESTPHASE EINBAUEN
+
+Ausgangslage:
+Phase A1–A4 sind abgeschlossen.
+
+Vorhanden:
+- 4 Pakete:
+  TRAINER_BASIC
+  TRAINER_PRO
+  VEREIN_BASIC
+  VEREIN_PRO
+- monatlich / jährlich
+- alle 8 Stripe Price IDs als Env/Secrets
+- STRIPE_SECRET_KEY
+- STRIPE_WEBHOOK_SECRET
+- funktionierender Webhook:
+  /api/stripe/webhook
+- 30-Tage-Testphase
+- Registrierung speichert lizenztyp + abo_intervall
+- Stripe-Sandbox aktiv
+
+ZIEL:
+Nach erfolgreicher Registrierung soll der Kunde den gewählten Tarif
+über Stripe Checkout bestätigen und eine Zahlungsmethode für die spätere
+Abbuchung nach der 30-Tage-Testphase hinterlegen.
+
+WICHTIG:
+Bestehende Registrierung, Login, E-Mail-Verifikation, Mandantentrennung,
+Datenbank und UI nicht unnötig umbauen.
+
+1. BESTEHENDEN CHECKOUT-CODE PRÜFEN
+
+Prüfe zuerst:
+- stripe_service.py
+- vorhandene checkout_session_erstellen()-Funktion
+- bestehende API-/Payment-Routen
+- Registrierung Verein
+- Registrierung Einzeltrainer
+- success/cancel URLs
+
+Vorhandenen Code verwenden und nur ergänzen.
+
+2. CHECKOUT NACH REGISTRIERUNG
+
+Nach erfolgreicher Registrierung und soweit sinnvoll nach E-Mail-Verifikation:
+
+- gespeicherten lizenztyp laden
+- gespeichertes abo_intervall laden
+- richtige Stripe Price ID serverseitig bestimmen
+- Stripe Checkout Session im mode="subscription" erstellen
+
+Keine Price ID aus unvalidierten Frontend-Daten übernehmen.
+
+3. 30-TAGE-TESTPHASE
+
+Checkout muss enthalten:
+
+subscription_data:
+- trial_period_days = 30
+
+Während Checkout muss eine Zahlungsmethode hinterlegt werden,
+damit Stripe nach Ende der Testphase automatisch abbuchen kann.
+
+payment_method_collection = "always"
+
+Wenn nach Trial keine gültige Zahlungsmethode vorhanden ist:
+Subscription entsprechend der bestehenden A3-Konfiguration beenden.
+
+4. KUNDENZUORDNUNG
+
+Der Checkout muss den APH-Kunden eindeutig mit Stripe verbinden.
+
+Nutze serverseitige metadata / client_reference_id mit einer stabilen internen ID
+(z.B. verein_id bzw. technische Mandanten-ID).
+
+Keine Zuordnung nur anhand frei eingegebener E-Mail-Adresse.
+
+Metadata mindestens:
+- verein_id / interne Mandanten-ID
+- lizenztyp
+- abo_intervall
+
+5. STRIPE CUSTOMER
+
+Falls noch keine stripe_customer_id vorhanden:
+Stripe Customer sauber über Checkout/Stripe erzeugen bzw. zuordnen.
+
+Nach checkout.session.completed:
+- stripe_customer_id speichern
+- stripe_subscription_id speichern
+- gewählten APH-Tarif anhand der echten Stripe Price ID bestätigen
+
+6. SUCCESS / CANCEL
+
+Nach erfolgreichem Checkout:
+zur APH-App zurückleiten und verständlich anzeigen:
+
+"30 Tage kostenlos testen.
+Die erste Abbuchung erfolgt erst nach Ende der Testphase."
+
+Bei Abbruch:
+Account nicht löschen.
+Kunde soll Checkout später erneut starten können.
+
+7. KEINE SOFORTIGE ZAHLUNG
+
+Während der 30 Tage soll für das Abo 0 € fällig sein.
+Die Zahlungsmethode wird nur hinterlegt.
+
+8. TESTMODUS
+
+Nur Stripe Sandbox/Testmodus verwenden.
+
+Keine Live-Keys.
+Keine echten Abbuchungen.
+
+9. ECHTER TEST
+
+Erstelle nach Implementierung einen kontrollierten Test mit EINEM Testkonto und
+einer meiner echten APH Price IDs.
+
+Zum Beispiel:
+
+TRAINER_BASIC + monat
+
+Dabei prüfen:
+
+- Checkout öffnet
+- 9,99 €/Monat wird angezeigt
+- 30 Tage Testphase werden angezeigt
+- Zahlungsmethode kann hinterlegt werden
+- Stripe Subscription entsteht mit trialing-Status
+- Webhook empfängt checkout.session.completed
+- customer.subscription.created wird verarbeitet
+- lizenzTyp im Log = TRAINER_BASIC
+- intervall im Log = monat
+- richtige stripe_customer_id gespeichert
+- richtige stripe_subscription_id gespeichert
+
+10. SICHERHEIT
+
+Keine Stripe Secrets loggen.
+Keine Zahlungsdaten lokal speichern.
+Keine Kundendaten löschen.
+Keine DB-Migration außer falls zwingend erforderlich.
+
+11. DANACH STOPPEN UND BERICHTEN
+
+Berichte:
+
+1. Welche Dateien geändert?
+2. Wo wird Checkout gestartet?
+3. Wie wird die richtige Price ID bestimmt?
+4. Wie wird APH-Konto ↔ Stripe-Kunde eindeutig zugeordnet?
+5. Ist Trial exakt 30 Tage?
+6. Wird während Trial 0 € berechnet?
+7. Wird Zahlungsmethode hinterlegt?
+8. Welche Success-/Cancel-URLs werden verwendet?
+9. Funktioniert TRAINER_BASIC + monat im Sandbox-Test?
+10. Zeigt der Webhook dann lizenzTyp=TRAINER_BASIC und intervall=monat?
+
+Danach STOPPEN.
+Kein Live-Modus.

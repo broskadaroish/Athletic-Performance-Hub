@@ -276,8 +276,9 @@ def _app_base_url() -> str:
 
 
 # ─── URL-Parameter lesen (E-Mail-Verifikation, Passwort-Reset) ────────────────
-_qp_verify = st.query_params.get("verify")
-_qp_reset  = st.query_params.get("reset")
+_qp_verify   = st.query_params.get("verify")
+_qp_reset    = st.query_params.get("reset")
+_qp_checkout = st.query_params.get("checkout")  # "success" | "cancel" nach Stripe-Rückkehr
 
 # ─── Rechtliche Seiten ohne Login erreichbar (Impressum, Datenschutz, AGB) ────
 # Gesetzt durch Buttons auf der Login-Seite. key: _legal_show ∈ {impressum|datenschutz|agb}
@@ -1219,6 +1220,126 @@ if "splash_done" not in st.session_state:
         )
     _time.sleep(2.5)
     st.rerun()
+
+# ─── Stripe Checkout: Query-Params + Neu-Registrierungs-Prompt ───────────────
+#
+# 1. Stripe leitet nach Checkout-Abschluss zurück mit ?checkout=success/cancel.
+#    Wir konvertieren das in einen session_state-Banner und leeren den Param.
+# 2. Neu-registrierte Nutzer ohne stripe_customer_id sehen einen Checkout-Prompt.
+#    Price ID und Tarif werden ausschließlich server-seitig aus der DB bestimmt.
+#    Kein Price-ID-Input aus dem Frontend.
+
+if _qp_checkout in ("success", "cancel"):
+    st.session_state[f"_checkout_{_qp_checkout}_banner"] = True
+    st.query_params.clear()
+    st.rerun()
+
+if st.session_state.pop("_checkout_success_banner", False):
+    st.success(
+        "✅ **Zahlungsmethode erfolgreich hinterlegt!** "
+        "30 Tage kostenlos testen. "
+        "Die erste Abbuchung erfolgt erst nach Ende der Testphase."
+    )
+
+if st.session_state.pop("_checkout_cancel_banner", False):
+    st.info(
+        "ℹ️ Checkout abgebrochen — dein Konto bleibt bestehen. "
+        "Du kannst die Zahlungsmethode jederzeit unter "
+        "**Einstellungen → Lizenz & Abonnement** hinterlegen."
+    )
+
+# ── Checkout-Prompt für Neu-Registrierungen ────────────────────────────────
+_chk_u    = st.session_state.get("user", {})
+_chk_role = _chk_u.get("rolle", "")
+_chk_vid  = _chk_u.get("verein_id")
+
+if (
+    _chk_role not in ("Superadmin",)
+    and _chk_vid
+    and not st.session_state.get("_checkout_banner_dismissed")
+):
+    try:
+        from stripe_service import stripe_verfuegbar as _sv_chk
+        if _sv_chk():
+            from database import lizenz_info_laden as _lil_chk, stripe_ids_setzen as _sis_chk
+            _chk_info = _lil_chk(_chk_vid)
+            if _chk_info and not _chk_info.get("stripe_customer_id"):
+                _chk_ltyp = (_chk_info.get("lizenztyp") or "VEREIN_BASIC").strip()
+                _chk_intv = (_chk_info.get("abo_intervall") or "monat").strip()
+                from stripe_service import get_price_id as _gpi_chk
+                _chk_pid = _gpi_chk(_chk_ltyp, _chk_intv)
+                if _chk_pid:
+                    _intv_label = "Monatlich" if _chk_intv == "monat" else "Jährlich"
+                    st.markdown(
+                        f'<div style="background:#0f2417;border:1px solid #2ea043;'
+                        f'border-radius:8px;padding:14px 18px;margin-bottom:16px">'
+                        f'<div style="color:#3fb950;font-weight:700;font-size:14px;'
+                        f'margin-bottom:4px">🎁 30 Tage kostenlos testen</div>'
+                        f'<div style="color:#8b949e;font-size:12px">'
+                        f'Paket: <b style="color:#e6edf3">{_chk_ltyp}</b> · '
+                        f'<b style="color:#e6edf3">{_intv_label}</b> — '
+                        f'heute keine Zahlung fällig. '
+                        f'Hinterlege jetzt deine Zahlungsmethode für die automatische '
+                        f'Abbuchung nach der Testphase.</div></div>',
+                        unsafe_allow_html=True,
+                    )
+                    _chk_c1, _chk_c2 = st.columns([3, 1])
+                    with _chk_c1:
+                        _do_checkout = st.button(
+                            "💳 Jetzt Zahlungsmethode hinterlegen (kostenlos)",
+                            type="primary",
+                            use_container_width=True,
+                            key="checkout_prompt_start",
+                        )
+                    with _chk_c2:
+                        _skip_checkout = st.button(
+                            "Später",
+                            use_container_width=True,
+                            key="checkout_prompt_skip",
+                        )
+                    if _skip_checkout:
+                        st.session_state["_checkout_banner_dismissed"] = True
+                        st.rerun()
+                    if _do_checkout:
+                        try:
+                            from stripe_service import (
+                                customer_erstellen as _ce_chk,
+                                checkout_session_erstellen as _cse_chk,
+                            )
+                            # Stripe-Kunden anlegen — ausschließlich server-seitige Daten
+                            _new_customer_id = _ce_chk(
+                                email=_chk_u.get("email", ""),
+                                name=(
+                                    f"{_chk_u.get('vorname', '').strip()} "
+                                    f"{_chk_u.get('nachname', '').strip()}"
+                                ).strip() or _chk_u.get("email", ""),
+                                verein_id=_chk_vid,
+                            )
+                            _sis_chk(_chk_vid, customer_id=_new_customer_id)
+                            # Checkout-Session erstellen mit 30-Tage-Trial
+                            _chk_url = _cse_chk(
+                                customer_id=_new_customer_id,
+                                price_id=_chk_pid,
+                                verein_id=_chk_vid,
+                                success_url=f"{_app_base_url()}?checkout=success",
+                                cancel_url=f"{_app_base_url()}?checkout=cancel",
+                                testphase_tage=30,
+                                lizenztyp=_chk_ltyp,
+                                abo_intervall=_chk_intv,
+                            )
+                            st.markdown(
+                                f'<meta http-equiv="refresh" content="0; url={_chk_url}">'
+                                f'<p style="color:#8b949e;font-size:12px">'
+                                f'Weiterleitung zu Stripe… '
+                                f'<a href="{_chk_url}" style="color:#58a6ff">'
+                                f'Hier klicken</a></p>',
+                                unsafe_allow_html=True,
+                            )
+                            st.stop()
+                        except Exception as _chk_ex:
+                            st.error(f"Checkout konnte nicht gestartet werden: {_chk_ex}")
+    except Exception:
+        pass  # Stripe nicht verfügbar oder konfigurationsfehler — kein Prompt zeigen
 
 # ─── Helpers ──────────────────────────────────────────────────────────────────
 

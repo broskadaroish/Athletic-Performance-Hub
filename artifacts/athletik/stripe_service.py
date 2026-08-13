@@ -130,12 +130,19 @@ def checkout_session_erstellen(
     cancel_url: str | None = None,
     testphase_tage: int = 0,
     payment_method_types: list[str] | None = None,
+    lizenztyp: str | None = None,
+    abo_intervall: str | None = None,
 ) -> str:
-    """Erstellt eine Stripe Checkout-Session im Testmodus. Gibt die Session-URL zurück.
+    """Erstellt eine Stripe Checkout-Session. Gibt die Session-URL zurück.
 
     Immer mode="subscription".  Zahlungsmethode wird stets beim Checkout
     hinterlegt (payment_method_collection="always"), damit nach der Testphase
     die automatische Abbuchung funktioniert.
+
+    lizenztyp / abo_intervall:
+        Werden in session.metadata gespeichert, damit der Webhook nach
+        checkout.session.completed den APH-Tarif eindeutig zuordnen kann.
+        Zusätzlich zu verein_id — niemals aus Frontend-Daten übernehmen.
 
     payment_method_types:
         None  → Stripe wählt automatisch (Card + alle Dashboard-aktivierten
@@ -149,13 +156,24 @@ def checkout_session_erstellen(
         - Keine Price-IDs im Log (nur Session-ID und verein_id).
     """
     stripe = _get_stripe()
+
+    # Metadata: verein_id ist Pflicht für die Webhook-Kundenzuordnung.
+    # lizenztyp + abo_intervall ermöglichen Tarif-Bestätigung im Webhook.
+    meta: dict[str, str] = {"verein_id": str(verein_id)}
+    if lizenztyp:
+        meta["lizenztyp"] = lizenztyp
+    if abo_intervall:
+        meta["abo_intervall"] = abo_intervall
+
     params: dict = {
         "customer":                  customer_id,
+        # client_reference_id: stabile interne ID — robuster als E-Mail-Adresse
+        "client_reference_id":       str(verein_id),
         "mode":                      "subscription",
         "line_items":                [{"price": price_id, "quantity": 1}],
         "success_url":               success_url or f"{APP_BASE_URL}/app?checkout=success",
         "cancel_url":                cancel_url  or f"{APP_BASE_URL}/app?checkout=cancel",
-        "metadata":                  {"verein_id": str(verein_id)},
+        "metadata":                  meta,
         "allow_promotion_codes":     True,
         # Zahlungsmethode immer sammeln — auch während der Testphase.
         # Ohne dies könnte die erste Abbuchung nach Trial-Ende fehlschlagen.
@@ -171,6 +189,8 @@ def checkout_session_erstellen(
     if testphase_tage > 0:
         params["subscription_data"] = {
             "trial_period_days": testphase_tage,
+            # Metadata auf Subscription-Ebene für spätere Webhook-Events
+            "metadata": meta,
             # Nach Trial-Ende: Abo kündigen statt stillen Fehlschlag,
             # wenn keine Zahlungsmethode hinterlegt wurde.
             "trial_settings": {
@@ -179,7 +199,12 @@ def checkout_session_erstellen(
         }
 
     session = stripe.checkout.Session.create(**params)
-    logger.info("Checkout-Session erstellt: %s für Verein %d", session.id, verein_id)
+    logger.info(
+        "Checkout-Session erstellt: %s | Verein %d | Tarif: %s/%s | Trial: %d Tage",
+        session.id, verein_id,
+        lizenztyp or "–", abo_intervall or "–",
+        testphase_tage,
+    )
     return session.url
 
 
