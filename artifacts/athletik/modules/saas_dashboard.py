@@ -800,6 +800,7 @@ def _trainer_schnellaktionen() -> None:
     _q1, _q2, _q3, _q4 = st.columns(4)
     with _q1:
         if st.button("👤 Spieler", key="qa2_spieler", use_container_width=True):
+            st.session_state["nav_sub_spieler"] = "👥 Verwaltung"
             _navigate("👤  Spieler")
     with _q2:
         if st.button("🧪 Diagnostik", key="qa2_diag", use_container_width=True):
@@ -824,6 +825,7 @@ def _trainer_letzte_spieler(trainer_id) -> None:
         st.caption("Keine kürzlich verwendeten Spieler.")
         if st.button("👥 Alle Spieler anzeigen →", key="lsp_alle_leer",
                      use_container_width=True):
+            st.session_state["nav_sub_spieler"] = "👥 Verwaltung"
             _navigate("👤  Spieler")
         return
 
@@ -879,6 +881,7 @@ def _trainer_letzte_spieler(trainer_id) -> None:
 
     st.markdown('<div style="height:6px"></div>', unsafe_allow_html=True)
     if st.button("👥 Alle Spieler →", key="lsp_alle", use_container_width=True):
+        st.session_state["nav_sub_spieler"] = "👥 Verwaltung"
         _navigate("👤  Spieler")
 
 
@@ -1088,6 +1091,15 @@ def _dash_trainer(user: dict):
             unsafe_allow_html=True,
         )
         if st.button("➕ Spieler anlegen", key="qa_spieler", use_container_width=True):
+            import logging as _log_nd
+            _log_nd.getLogger("athletik").info(
+                "[NAV-DEBUG] BUTTON 'Spieler anlegen' CLICKED"
+                " | nav_section=%r | nav_sub_spieler=%r | _screen_width=%r | query_params=%r",
+                st.session_state.get("nav_section"),
+                st.session_state.get("nav_sub_spieler"),
+                st.session_state.get("_screen_width"),
+                dict(st.query_params),
+            )
             # Explizit auf "👥 Verwaltung" (= page_spieler mit "Neu anlegen"-Tab) navigieren.
             # Ohne dieses Assignment landet der User auf dem zuletzt aktiven Sub (z.B.
             # "🏃 Profil & Diagnostik") — was beim nächsten Widget-Rerun zum Nav-Reset führt.

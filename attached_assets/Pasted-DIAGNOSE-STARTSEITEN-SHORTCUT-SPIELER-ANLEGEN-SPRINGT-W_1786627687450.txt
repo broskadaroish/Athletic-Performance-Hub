@@ -1,0 +1,95 @@
+DIAGNOSE – STARTSEITEN-SHORTCUT „SPIELER ANLEGEN“ SPRINGT WEITERHIN AUF START
+
+Der letzte Fix hat das Problem NICHT behoben.
+
+Realtest auf Production:
+
+A) Nav → Spieler → Spieler anlegen
+→ funktioniert stabil
+
+B) Startseite → Spieler anlegen
+→ Formular erscheint
+→ Vorname eingeben
+→ Nachname anklicken/eingeben
+→ springt weiterhin auf Startseite
+
+BITTE JETZT NICHT WEITER RATEN UND NOCH NICHT ÄNDERN.
+
+Nur den tatsächlichen State-Verlauf beider Wege vergleichen.
+
+==================================================
+1. DEBUG-LOGGING EINBAUEN
+==================================================
+
+Nur temporäres serverseitiges Logging.
+
+Keine Tokens, Passwörter oder personenbezogenen Eingaben loggen.
+
+Logge bei:
+
+- Startseiten-Shortcut-Klick
+- Eintritt in Spieler-Verwaltung
+- Eintritt in Spieler-Neu-anlegen
+- jedem normalen Rerun während des Formulars
+
+folgende Werte:
+
+nav_section
+_nav_goto
+nav_sub_spieler
+aktuelle Zielseite / section
+user["rolle"]
+user["verein_id"]
+user["id"]
+_screen_width
+query_params
+ob neue Streamlit-Session erkannt wurde
+
+==================================================
+2. ZWEI FLOWS DIREKT VERGLEICHEN
+==================================================
+
+FLOW A:
+Nav → Spieler → Spieler anlegen
+→ Vorname
+→ Nachname
+
+FLOW B:
+Startseite → Spieler anlegen
+→ Vorname
+→ Nachname
+
+Zeige pro Rerun die State-Werte nebeneinander.
+
+==================================================
+3. EXAKT FINDEN
+==================================================
+
+Beantworte:
+
+- Welcher Wert unterscheidet sich zwischen Flow A und B?
+- Welcher Wert ändert sich unmittelbar vor dem Sprung auf Start?
+- Wird nav_section gelöscht?
+- Wird nav_section auf Start gesetzt?
+- Wird _nav_goto geleert?
+- Wird nav_sub_spieler geändert?
+- entsteht tatsächlich eine neue Streamlit-Session?
+- wenn ja: wodurch?
+- gibt es Query-Parameter-Unterschiede?
+- gibt es einen st.rerun(), st.stop() oder Redirect im Startseiten-Pfad?
+
+==================================================
+4. KEINE ÄNDERUNG
+==================================================
+
+Noch nichts reparieren.
+
+Erst Abschlussbericht:
+
+1. exakter State-Verlauf Flow A
+2. exakter State-Verlauf Flow B
+3. erste Stelle, an der beide auseinanderlaufen
+4. konkrete Datei + Zeile
+5. konkrete Ursache des Startseiten-Sprungs
+
+Danach STOPPEN.

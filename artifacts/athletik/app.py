@@ -2048,6 +2048,16 @@ def _render_inline_edit_form(sp: dict) -> None:
 
 
 def page_spieler():
+    # ── [NAV-DEBUG] Eintritt page_spieler (= Verwaltung-Tab) ─────────────────
+    _log.info(
+        "[NAV-DEBUG] ENTER page_spieler | nav_section=%r | nav_sub_spieler=%r"
+        " | _screen_width=%r | query_params=%r | rerun#=%s",
+        st.session_state.get("nav_section"),
+        st.session_state.get("nav_sub_spieler"),
+        st.session_state.get("_screen_width"),
+        dict(st.query_params),
+        st.session_state.get("_debug_rerun_count", "?"),
+    )
     st.markdown("# 👤 Spielerverwaltung")
     tab_add, tab_list = st.tabs(["➕ Neu anlegen", "📋 Alle Spieler"])
 
@@ -10053,6 +10063,27 @@ with st.sidebar:
     # ── Mobile: handle ?nav= query param (must be before radio widget) ────────
     handle_mobile_nav_params()
 
+    # ── [NAV-DEBUG] Rerun-Start: State BEFORE _nav_goto processing ───────────────
+    _dbg_user = st.session_state.get("user") or {}
+    _dbg_rc   = st.session_state.get("_debug_rerun_count", 0) + 1
+    st.session_state["_debug_rerun_count"] = _dbg_rc
+    _dbg_new_session = _dbg_rc == 1
+    _log.info(
+        "[NAV-DEBUG] RERUN #%d START | nav_section=%r | _nav_goto=%r | nav_sub_spieler=%r"
+        " | _screen_width=%r | query_params=%r | new_session=%s"
+        " | user_id=%s | verein_id=%s | rolle=%s",
+        _dbg_rc,
+        st.session_state.get("nav_section"),
+        st.session_state.get("_nav_goto"),
+        st.session_state.get("nav_sub_spieler"),
+        st.session_state.get("_screen_width"),
+        dict(st.query_params),
+        _dbg_new_session,
+        _dbg_user.get("id"),
+        _dbg_user.get("verein_id"),
+        _dbg_user.get("rolle"),
+    )
+
     # ── Pending navigation from quick-action buttons ───────────────────────────
     # Must be applied before the widget is instantiated to avoid StreamlitAPIException
     if "_nav_goto" in st.session_state:
@@ -10061,6 +10092,13 @@ with st.sidebar:
         st.session_state["nav_sub_diagnostik"] = st.session_state.pop("_nav_sub_diagnostik_goto")
     if "_nav_sub_spieler_goto" in st.session_state:
         st.session_state["nav_sub_spieler"] = st.session_state.pop("_nav_sub_spieler_goto")
+
+    _log.info(
+        "[NAV-DEBUG] RERUN #%d AFTER-GOTO | nav_section=%r | nav_sub_spieler=%r",
+        _dbg_rc,
+        st.session_state.get("nav_section"),
+        st.session_state.get("nav_sub_spieler"),
+    )
 
     # ── Main navigation (mit Übersetzung) ────────────────────────────────────
     _NAV_TRANS = {
@@ -10084,6 +10122,14 @@ with st.sidebar:
         format_func=lambda x: _NAV_TRANS.get(x, {}).get(_cur_lang, x),
     )
     inject_scroll_to_top_if_needed(section)
+
+    # ── [NAV-DEBUG] Nach Radio-Widget ────────────────────────────────────────
+    _log.info(
+        "[NAV-DEBUG] RERUN #%d AFTER-RADIO | section=%r | nav_sub_spieler=%r",
+        st.session_state.get("_debug_rerun_count", "?"),
+        section,
+        st.session_state.get("nav_sub_spieler"),
+    )
 
     # ── Sub-navigation ────────────────────────────────────────────────────────
     sub_map = None
@@ -10204,6 +10250,15 @@ if _mob_sw == 0 or _mob_sw <= 768:
 def _mob_player():
     _gid = st.session_state.get("global_player_id")
     return next((p for p in (alle_spieler or []) if p["id"] == _gid), None) if _gid else None
+
+# ── [NAV-DEBUG] Dispatch-Punkt ────────────────────────────────────────────────
+_log.info(
+    "[NAV-DEBUG] RERUN #%d DISPATCH | section=%r | sub_choice=%r | _mob_sw=%r",
+    st.session_state.get("_debug_rerun_count", "?"),
+    section,
+    sub_choice,
+    _mob_sw,
+)
 
 if section == "🏠  Startseite":
     page_saas_dashboard()
