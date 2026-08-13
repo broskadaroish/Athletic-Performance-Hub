@@ -1,0 +1,119 @@
+LETZTER DEPLOYMENT-KONSISTENZ-FIX – HEALTHCHECK PORT
+
+Bitte ausschließlich den noch vorhandenen Healthcheck-Port-Widerspruch korrigieren.
+
+Aktuelle Produktionsarchitektur:
+
+Nginx:
+127.0.0.1:8082
+
+Docker Compose:
+PORT="8082"
+
+Port-Mapping:
+8082:8082
+
+start.sh:
+streamlit run app.py --server.port "${PORT:-8082}"
+
+Damit ist Port 8082 der vorgesehene interne und externe App-Port.
+
+==================================================
+1. docker-compose.yml HEALTHCHECK
+==================================================
+
+Prüfe den Healthcheck.
+
+Falls dort aktuell:
+
+http://localhost:8080/_stcore/health
+
+steht, ändere ihn auf:
+
+http://localhost:8082/_stcore/health
+
+Noch besser, falls technisch sauber möglich:
+den Healthcheck ebenfalls aus PORT ableiten.
+
+Wichtig:
+Docker-Compose-Variablen korrekt behandeln und keine fehlerhafte Shell-/Compose-Interpolation erzeugen.
+
+Wenn eine dynamische Lösung unnötig kompliziert oder fehleranfällig wäre:
+Port 8082 verwenden.
+
+==================================================
+2. DOCKERFILE PRÜFEN
+==================================================
+
+Prüfe auch den Healthcheck im Dockerfile.
+
+Falls dort Port 8080 verwendet wird:
+auf 8082 korrigieren bzw. konsistent mit der bestehenden PORT-Architektur machen.
+
+Auch EXPOSE prüfen.
+
+Falls dort noch:
+
+EXPOSE 8080
+
+steht und die Anwendung innerhalb des Containers tatsächlich auf 8082 läuft:
+
+auf:
+
+EXPOSE 8082
+
+ändern.
+
+==================================================
+3. NICHT ÄNDERN
+==================================================
+
+Nicht verändern:
+
+- SMTP
+- .env
+- Secrets
+- Datenbank
+- Docker-Volume
+- Authentifizierung
+- Sessionlogik
+- nginx
+- Trainingssystem
+- Diagnostik
+- Kundenverwaltung
+
+Keine anderen Refactorings.
+
+==================================================
+4. ZIELZUSTAND
+==================================================
+
+Die komplette Produktionskette soll konsistent sein:
+
+Nginx → 127.0.0.1:8082
+
+Docker Host → 8082
+
+Docker Container → 8082
+
+Streamlit → ${PORT:-8082}
+
+Healthcheck → 8082
+
+EXPOSE → 8082
+
+==================================================
+5. ABSCHLUSSBERICHT
+==================================================
+
+Danach nur berichten:
+
+1. Welchen Port verwendete docker-compose Healthcheck vorher?
+2. Welchen Port verwendet er jetzt?
+3. Welchen Port verwendete Dockerfile Healthcheck vorher?
+4. Welchen Port verwendet er jetzt?
+5. EXPOSE vorher/nachher?
+6. Sind jetzt alle App-Ports konsistent auf 8082?
+7. Welche Dateien wurden geändert?
+
+Danach STOPPEN.

@@ -39,14 +39,14 @@ RUN mkdir -p uploads/logos uploads/spielerbilder uploads/pdf \
              uploads/exports uploads/backups uploads/docs logs
 
 # Standardport (überschreibbar per -e PORT=XXXX)
-ENV PORT=8080 \
+ENV PORT=8082 \
     APP_ENV=production \
     ATHLETIK_DATA_DIR=/data
 
-EXPOSE 8080
+EXPOSE 8082
 
 # Gesundheitscheck
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:${PORT:-8080}/_stcore/health')" || exit 1
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:${PORT:-8082}/_stcore/health')" || exit 1
 
 CMD ["bash", "start.sh"]
