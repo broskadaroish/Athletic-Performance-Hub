@@ -1,0 +1,82 @@
+KURZFIX A4 – PRODUKTIONS-DB / WEBHOOK-FEHLERBEHANDLUNG
+
+Der echte Stripe-Sandbox-Test funktioniert bis zur Signaturprüfung.
+
+Logs Produktion:
+
+invoice.paid:
+→ erfolgreich
+→ HTTP 200
+
+customer.subscription.created:
+→ Fehler: no such column: abo_intervall
+→ aktuell trotzdem HTTP 200
+
+customer.subscription.updated:
+→ Fehler: no such column: abo_intervall
+→ aktuell trotzdem HTTP 200
+
+Bitte ausschließlich diese beiden Probleme minimal korrigieren.
+
+1. DATENBANK-MIGRATION
+
+Prüfe die bestehende SQLite-Migration des API-Servers.
+
+Die Produktionsdatenbank /data/athletik.db benötigt für den Stripe-Code
+die Spalte:
+
+vereine.abo_intervall TEXT
+
+Falls sie fehlt:
+migrationssicher und idempotent ergänzen.
+
+WICHTIG:
+- keine Tabelle ersetzen
+- keine Daten löschen
+- bestehende Werte erhalten
+- ALTER TABLE nur wenn erforderlich
+- auch alle anderen Felder prüfen, die routes/stripe.ts tatsächlich erwartet,
+  damit nicht beim nächsten Event direkt die nächste fehlende Spalte auftritt.
+
+2. WEBHOOK-FEHLERBEHANDLUNG
+
+Wenn ein gültig signiertes Stripe-Event empfangen wurde,
+aber die interne Verarbeitung / DB-Aktualisierung fehlschlägt:
+
+→ NICHT HTTP 200 zurückgeben
+→ HTTP 500 zurückgeben
+
+Nur wenn die Event-Verarbeitung wirklich erfolgreich abgeschlossen wurde:
+→ HTTP 200
+
+WICHTIG FÜR IDEMPOTENZ:
+Ein Stripe-Event darf erst als erfolgreich verarbeitet markiert werden,
+wenn seine komplette Verarbeitung erfolgreich beendet wurde.
+
+Falls ein Event wegen DB-/Programmfehler scheitert,
+muss ein späterer erneuter Zustellversuch verarbeitet werden können.
+
+3. TESTS
+
+Bitte testen:
+
+- abo_intervall fehlt → Migration ergänzt es
+- Migration zweites Mal → kein Fehler
+- gültiges Event + DB-Verarbeitungsfehler → HTTP 500
+- erfolgreich verarbeitetes Event → HTTP 200
+- Event-ID wird nach erfolgreicher Verarbeitung als verarbeitet markiert
+- fehlgeschlagenes Event wird NICHT dauerhaft als erledigt blockiert
+
+Keine anderen Stripe-Funktionen ändern.
+Kein Deployment.
+Keine Zahlungslogik neu entwerfen.
+
+Danach berichten:
+
+1. Ursache des abo_intervall-Fehlers
+2. Welche DB-Spalten für Stripe geprüft/ergänzt werden
+3. Verarbeitung fehlgeschlagen → jetzt HTTP 500? JA/NEIN
+4. Idempotenz bei fehlgeschlagenen Events korrekt? JA/NEIN
+5. Geänderte Dateien
+
+Danach STOPPEN.

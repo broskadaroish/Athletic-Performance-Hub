@@ -65,8 +65,15 @@ function ensureDbExtensions(): void {
         processed_at TEXT NOT NULL DEFAULT (datetime('now'))
       )
     `);
-    // Neue vereine-Spalten — ALTER TABLE schlägt still fehl wenn bereits vorhanden
+    // Neue vereine-Spalten — ALTER TABLE schlägt still fehl wenn bereits vorhanden.
+    // Vollständige Liste aller Spalten, die routes/stripe.ts per UPDATE referenziert:
+    //   abo_intervall                   — Phase A2 (Streamlit), fehlte im API-Server
+    //   cancel_at_period_end            — Phase A4
+    //   subscription_current_period_end — Phase A4
+    // Ältere Spalten (lizenz_status, zahlungsstatus, stripe_*_id, lizenztyp, lizenz_bis)
+    // existieren seit Phase A1/A2 und werden hier nicht erneut angelegt.
     for (const [col, def] of [
+      ["abo_intervall",                   "TEXT"],
       ["cancel_at_period_end",            "INTEGER DEFAULT 0"],
       ["subscription_current_period_end", "TEXT"],
     ] as [string, string][]) {
@@ -411,21 +418,25 @@ router.post("/stripe/webhook", (req: Request, res: Response): void => {
     }
 
     // ── Als verarbeitet markieren (Idempotenz) ────────────────────────────────
+    // Nur nach erfolgreicher Verarbeitung — bei Fehler im switch() wird diese
+    // Zeile nicht erreicht und Stripe kann das Event erneut zustellen.
     conn
       .prepare("INSERT OR IGNORE INTO stripe_events (event_id, event_type) VALUES (?, ?)")
       .run(eventId, eventType);
 
   } catch (err) {
-    // Fehler beim Verarbeiten — HTTP 200 trotzdem, damit Stripe nicht wiederholt sendet.
-    // Fehlerdetails im Log nachvollziehbar.
+    // Verarbeitungsfehler: Event NICHT als erledigt markieren.
+    // HTTP 500 → Stripe stellt das Event später erneut zu.
     logger.error(
       { errMsg: (err as Error).message, eventType, eventId },
-      "Fehler beim Verarbeiten des Stripe Events",
+      "Fehler beim Verarbeiten des Stripe Events — Stripe wird erneut zustellen",
     );
-  } finally {
     conn.close();
+    res.status(500).json({ error: "Interner Verarbeitungsfehler" });
+    return;
   }
 
+  conn.close();
   res.status(200).json({ received: true });
 });
 
