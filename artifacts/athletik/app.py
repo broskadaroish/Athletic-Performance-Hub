@@ -2048,6 +2048,12 @@ def _render_inline_edit_form(sp: dict) -> None:
 
 
 def page_spieler():
+    _log.warning(
+        "[NAV-DEBUG] P5-ENTER-page_spieler | nav_section=%r | nav_sub_spieler=%r | rerun#=%s",
+        st.session_state.get("nav_section"),
+        st.session_state.get("nav_sub_spieler"),
+        st.session_state.get("_dbg_rc", "?"),
+    )
     st.markdown("# 👤 Spielerverwaltung")
     tab_add, tab_list = st.tabs(["➕ Neu anlegen", "📋 Alle Spieler"])
 
@@ -10053,6 +10059,23 @@ with st.sidebar:
     # ── Mobile: handle ?nav= query param (must be before radio widget) ────────
     handle_mobile_nav_params()
 
+    # ── [NAV-DEBUG] PUNKT 1: State VOR _nav_goto-Verarbeitung ────────────────
+    _dbg_rc = st.session_state.get("_dbg_rc", 0) + 1
+    st.session_state["_dbg_rc"] = _dbg_rc
+    _dbg_u = st.session_state.get("user") or {}
+    _log.warning(
+        "[NAV-DEBUG] #%d P1-BEFORE-GOTO | nav_section=%r | _nav_goto=%r"
+        " | nav_sub_spieler=%r | _screen_width=%r | qp=%r | new_session=%s | uid=%s",
+        _dbg_rc,
+        st.session_state.get("nav_section"),
+        st.session_state.get("_nav_goto"),
+        st.session_state.get("nav_sub_spieler"),
+        st.session_state.get("_screen_width"),
+        dict(st.query_params),
+        _dbg_rc == 1,
+        _dbg_u.get("id"),
+    )
+
     # ── Pending navigation from quick-action buttons ───────────────────────────
     # Must be applied before the widget is instantiated to avoid StreamlitAPIException
     if "_nav_goto" in st.session_state:
@@ -10061,6 +10084,13 @@ with st.sidebar:
         st.session_state["nav_sub_diagnostik"] = st.session_state.pop("_nav_sub_diagnostik_goto")
     if "_nav_sub_spieler_goto" in st.session_state:
         st.session_state["nav_sub_spieler"] = st.session_state.pop("_nav_sub_spieler_goto")
+
+    _log.warning(
+        "[NAV-DEBUG] #%d P2-AFTER-GOTO  | nav_section=%r | nav_sub_spieler=%r",
+        _dbg_rc,
+        st.session_state.get("nav_section"),
+        st.session_state.get("nav_sub_spieler"),
+    )
 
     # ── Main navigation (mit Übersetzung) ────────────────────────────────────
     _NAV_TRANS = {
@@ -10084,6 +10114,13 @@ with st.sidebar:
         format_func=lambda x: _NAV_TRANS.get(x, {}).get(_cur_lang, x),
     )
     inject_scroll_to_top_if_needed(section)
+
+    _log.warning(
+        "[NAV-DEBUG] #%d P3-AFTER-RADIO | section=%r | nav_sub_spieler=%r",
+        _dbg_rc,
+        section,
+        st.session_state.get("nav_sub_spieler"),
+    )
 
     # ── Sub-navigation ────────────────────────────────────────────────────────
     sub_map = None
@@ -10205,6 +10242,15 @@ def _mob_player():
     _gid = st.session_state.get("global_player_id")
     return next((p for p in (alle_spieler or []) if p["id"] == _gid), None) if _gid else None
 
+
+_log.warning(
+    "[NAV-DEBUG] #%d P4-DISPATCH | section=%r | sub_choice=%r | _mob_sw=%r | nav_sub_spieler=%r",
+    st.session_state.get("_dbg_rc", "?"),
+    section,
+    sub_choice,
+    _mob_sw,
+    st.session_state.get("nav_sub_spieler"),
+)
 
 if section == "🏠  Startseite":
     page_saas_dashboard()
