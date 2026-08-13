@@ -1,0 +1,74 @@
+KURZFIX – API-SERVER ALS ZWEITEN DOCKER-SERVICE FÜR PRODUKTION
+
+Aktueller VPS-Befund:
+
+Streamlit-Service:
+- läuft auf Port 8082
+- Docker-Volume: athletik_athletik_data
+- DB im Container: /data/athletik.db
+
+API-Server:
+- baut erfolgreich
+- soll auf internem Port 8083 laufen
+- benötigt ATHLETIK_DB_PATH=/data/athletik.db
+- aktuell kein Dockerfile / kein Compose-Service vorhanden
+
+Ziel:
+API-Server sauber als zweiten Docker-Service in die bestehende Produktions-Compose-Struktur integrieren.
+
+Anforderungen:
+
+1. In artifacts/athletik/docker-compose.yml einen Service z.B. "api" ergänzen.
+
+2. API-Service:
+- build aus artifacts/api-server bzw. passendem Dockerfile
+- PORT=8083
+- ATHLETIK_DB_PATH=/data/athletik.db
+- STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
+- STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET}
+- restart: unless-stopped
+- nur lokal veröffentlichen, bevorzugt:
+  127.0.0.1:8083:8083
+  oder intern via Docker-Netzwerk, wenn Nginx passend darauf zugreifen kann
+
+3. Dasselbe Volume mounten:
+athletik_data:/data
+
+WICHTIG:
+Streamlit und API müssen dieselbe SQLite-Datei verwenden.
+
+4. Für api-server einen minimalen Produktions-Dockerfile erstellen:
+- Node 24
+- pnpm
+- Workspace-Abhängigkeiten korrekt installieren
+- api-server build
+- Start: node dist/index.mjs
+
+5. Bestehenden Streamlit-Service nicht verändern außer wirklich nötig.
+
+6. Keine Secrets hardcoden.
+Keine DB kopieren.
+Keine zweite SQLite-Datei erzeugen.
+
+7. Healthcheck für API ergänzen, falls bereits eine Health-Route existiert.
+Falls keine existiert:
+nicht unnötig neue Logik erfinden; kurz berichten.
+
+8. Testen:
+- docker compose config
+- beide Services bauen
+- Streamlit weiterhin auf 8082
+- API auf 8083
+- API sieht /data/athletik.db
+- Webhook ohne STRIPE_WEBHOOK_SECRET antwortet fail-closed 503
+
+9. Danach nur berichten:
+- geänderte Dateien
+- Service-Name
+- API-Port
+- Volume-Mount
+- exakter docker compose Startbefehl
+- ob Nginx später /api/ auf 8083 routen kann
+
+Noch NICHT deployen.
+Noch NICHT Nginx ändern.

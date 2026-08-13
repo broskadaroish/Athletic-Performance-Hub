@@ -3,12 +3,15 @@ version: "3.9"
 # ============================================================
 # Athletik App — Docker Compose für VPS / Self-Hosting
 #
-# Starten:   docker-compose up -d
-# Stoppen:   docker-compose down
-# Logs:      docker-compose logs -f athletik
+# Starten:    docker compose up -d
+# Stoppen:    docker compose down
+# Logs:       docker compose logs -f athletik
+#             docker compose logs -f api
+# Nur API:    docker compose up -d api
 # ============================================================
 
 services:
+  # ── Streamlit-Hauptapp ────────────────────────────────────────────────────────
   athletik:
     build: .
     restart: unless-stopped
@@ -46,6 +49,56 @@ services:
       retries: 3
       start_period: 60s
 
+  # ── API-Server (Express — Stripe-Webhook, Mobile-API) ─────────────────────────
+  # Build-Kontext: Monorepo-Wurzel (../../ relativ zu diesem compose-File)
+  # Dockerfile:    artifacts/api-server/Dockerfile
+  api:
+    build:
+      context: ../../
+      dockerfile: artifacts/api-server/Dockerfile
+    restart: unless-stopped
+    ports:
+      # Nur auf Loopback binden — Nginx routet /api/ → 127.0.0.1:8083
+      - "127.0.0.1:8083:8083"
+    environment:
+      PORT:                   "8083"
+      NODE_ENV:               production
+      # Dieselbe SQLite-Datei wie der Streamlit-Service
+      ATHLETIK_DB_PATH:       /data/athletik.db
+      # Stripe — Werte aus .env-Datei, nie hier eintragen
+      STRIPE_SECRET_KEY:      ${STRIPE_SECRET_KEY}
+      STRIPE_WEBHOOK_SECRET:  ${STRIPE_WEBHOOK_SECRET}
+      # Stripe Price-IDs — alle 8 Pakete (DE- und EN-Suffix werden beide geprüft)
+      STRIPE_PRICE_TRAINER_BASIC_MONAT:    ${STRIPE_PRICE_TRAINER_BASIC_MONAT:-}
+      STRIPE_PRICE_TRAINER_BASIC_MONTHLY:  ${STRIPE_PRICE_TRAINER_BASIC_MONTHLY:-}
+      STRIPE_PRICE_TRAINER_BASIC_JAHR:     ${STRIPE_PRICE_TRAINER_BASIC_JAHR:-}
+      STRIPE_PRICE_TRAINER_BASIC_YEARLY:   ${STRIPE_PRICE_TRAINER_BASIC_YEARLY:-}
+      STRIPE_PRICE_TRAINER_PRO_MONAT:      ${STRIPE_PRICE_TRAINER_PRO_MONAT:-}
+      STRIPE_PRICE_TRAINER_PRO_MONTHLY:    ${STRIPE_PRICE_TRAINER_PRO_MONTHLY:-}
+      STRIPE_PRICE_TRAINER_PRO_JAHR:       ${STRIPE_PRICE_TRAINER_PRO_JAHR:-}
+      STRIPE_PRICE_TRAINER_PRO_YEARLY:     ${STRIPE_PRICE_TRAINER_PRO_YEARLY:-}
+      STRIPE_PRICE_VEREIN_BASIC_MONAT:     ${STRIPE_PRICE_VEREIN_BASIC_MONAT:-}
+      STRIPE_PRICE_VEREIN_BASIC_MONTHLY:   ${STRIPE_PRICE_VEREIN_BASIC_MONTHLY:-}
+      STRIPE_PRICE_VEREIN_BASIC_JAHR:      ${STRIPE_PRICE_VEREIN_BASIC_JAHR:-}
+      STRIPE_PRICE_VEREIN_BASIC_YEARLY:    ${STRIPE_PRICE_VEREIN_BASIC_YEARLY:-}
+      STRIPE_PRICE_VEREIN_PRO_MONAT:       ${STRIPE_PRICE_VEREIN_PRO_MONAT:-}
+      STRIPE_PRICE_VEREIN_PRO_MONTHLY:     ${STRIPE_PRICE_VEREIN_PRO_MONTHLY:-}
+      STRIPE_PRICE_VEREIN_PRO_JAHR:        ${STRIPE_PRICE_VEREIN_PRO_JAHR:-}
+      STRIPE_PRICE_VEREIN_PRO_YEARLY:      ${STRIPE_PRICE_VEREIN_PRO_YEARLY:-}
+    volumes:
+      # Dieselbe SQLite-Datei — kein zweites Volume, kein Kopieren
+      - athletik_data:/data
+    healthcheck:
+      test:
+        - "CMD"
+        - "node"
+        - "-e"
+        - "require('http').get('http://localhost:8083/healthz',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
   # Optional: nginx als Reverse Proxy (SSL-Terminierung)
   # nginx:
   #   image: nginx:alpine
@@ -58,6 +111,7 @@ services:
   #     - /etc/letsencrypt:/etc/letsencrypt:ro
   #   depends_on:
   #     - athletik
+  #     - api
 
 volumes:
   athletik_data:
