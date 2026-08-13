@@ -1,0 +1,244 @@
+PHASE A2 – PAKETAUSWAHL BEI REGISTRIERUNG + MONATLICH/JÄHRLICH
+
+Ziel:
+Bei Selbstregistrierung soll der Kunde bereits sein Paket und Abrechnungsintervall auswählen.
+
+Noch KEINE echte Zahlung.
+Noch KEIN Stripe Checkout.
+Noch KEINE Kreditkarte.
+Noch KEIN PayPal.
+Noch KEINE Webhooks.
+
+==================================================
+1. EINZELTRAINER
+==================================================
+
+Bei Trainer-Registrierung Auswahl:
+
+TRAINER_BASIC
+- 9,99 €/Monat
+- 99 €/Jahr
+- 1 Trainer
+- 20 Spieler
+
+TRAINER_PRO
+- 14,99 €/Monat
+- 149 €/Jahr
+- 1 Trainer
+- unbegrenzt Spieler
+
+==================================================
+2. VEREIN
+==================================================
+
+Bei Vereinsregistrierung Auswahl:
+
+VEREIN_BASIC
+- 24,99 €/Monat
+- 249 €/Jahr
+- 2 Trainer
+- 50 Spieler
+
+VEREIN_PRO
+- 39,99 €/Monat
+- 399 €/Jahr
+- 15 Trainer
+- unbegrenzt Spieler
+
+==================================================
+3. ABRECHNUNGSINTERVALL
+==================================================
+
+Auswahl:
+
+- monatlich
+- jährlich
+
+Im UI deutlich zeigen:
+
+Monatlich:
+z.B. 9,99 €/Monat
+
+Jährlich:
+z.B. 99 €/Jahr
++ Hinweis:
+„günstiger als 12 Monatszahlungen“
+
+==================================================
+4. TESTPHASE
+==================================================
+
+Weiterhin:
+
+30 Tage kostenlos
+
+Beim Registrierungsformular anzeigen:
+
+„30 Tage kostenlos testen“
+
+Noch KEINE Zahlung auslösen.
+
+==================================================
+5. DB-SPEICHERUNG
+==================================================
+
+Gewähltes Paket muss gespeichert werden:
+
+vereine.lizenztyp =
+TRAINER_BASIC
+TRAINER_PRO
+VEREIN_BASIC
+VEREIN_PRO
+
+Zusätzlich Abrechnungsintervall speichern.
+
+Falls abo_intervall noch nicht existiert:
+bitte zuerst prüfen.
+
+Wenn wirklich nötig:
+kleinstmögliche DB-Erweiterung:
+
+abo_intervall TEXT
+mit Werten:
+monat
+jahr
+
+Keine weiteren DB-Spalten hinzufügen.
+
+==================================================
+6. TECHNISCHER MANDANT
+==================================================
+
+Selbstregistrierter Trainer:
+
+technischer Mandant bleibt:
+ist_technischer_mandant = 1
+
+Gewähltes TRAINER_BASIC / TRAINER_PRO
+wird am technischen Mandanten gespeichert.
+
+Kundentyp bleibt Trainer.
+
+==================================================
+7. KEIN AUTOMATISCHES BASIC MEHR
+==================================================
+
+trainer_registrieren()
+und
+verein_registrieren()
+
+dürfen nicht mehr immer BASIC hardcoden.
+
+Sie müssen das gewählte Paket übernehmen.
+
+==================================================
+8. VALIDIERUNG
+==================================================
+
+Trainer darf nur auswählen:
+
+TRAINER_BASIC
+TRAINER_PRO
+
+Verein darf nur auswählen:
+
+VEREIN_BASIC
+VEREIN_PRO
+
+Manipulierte/falsche Werte serverseitig ablehnen.
+
+==================================================
+9. UI
+==================================================
+
+Mobile und Desktop sauber anzeigen.
+
+Paketkarten oder Radio/Selectbox möglich.
+
+Wichtig:
+klar und einfach.
+
+Mindestens sichtbar:
+
+Paketname
+Preis
+Spielerlimit
+Trainerlimit
+monatlich/jährlich
+
+==================================================
+10. BESTEHENDE REGISTRIERUNG ERHALTEN
+==================================================
+
+Nicht kaputtmachen:
+
+- Vorname
+- Nachname
+- Benutzername
+- E-Mail
+- Passwort
+- Rechnungsadresse
+- Datenschutz
+- AGB
+- E-Mail-Verifikation
+- Superadmin-Freischaltung
+- technischer Mandant
+- 30-Tage-Testphase
+
+==================================================
+11. TESTS
+==================================================
+
+Testen:
+
+Trainer + Basic + Monat
+→ TRAINER_BASIC + monat
+
+Trainer + Pro + Jahr
+→ TRAINER_PRO + jahr
+
+Verein + Basic + Monat
+→ VEREIN_BASIC + monat
+
+Verein + Pro + Jahr
+→ VEREIN_PRO + jahr
+
+Zusätzlich:
+falscher Trainer-Paketwert → abgelehnt
+falscher Verein-Paketwert → abgelehnt
+
+==================================================
+12. KEINE ZAHLUNG
+==================================================
+
+Noch NICHT:
+
+- Stripe Customer erstellen
+- Checkout starten
+- Zahlungsdaten verlangen
+- Webhook
+- Rechnung erzeugen
+- Lizenz aktivieren
+
+Nur Paket + Intervall speichern.
+
+==================================================
+13. ABSCHLUSSBERICHT
+==================================================
+
+Berichten:
+
+1. Welche UI wurde eingebaut?
+2. Wo wird Paket gespeichert?
+3. Wo wird abo_intervall gespeichert?
+4. Wurde DB erweitert? JA/NEIN
+5. Funktionieren alle 4 Kombinationen?
+6. Serverseitige Validierung vorhanden? JA/NEIN
+7. 30-Tage-Testphase weiterhin korrekt? JA/NEIN
+8. E-Mail-Verifikation weiterhin korrekt? JA/NEIN
+9. Technischer Mandant bei Trainer weiterhin korrekt? JA/NEIN
+10. Welche Dateien geändert?
+11. Zahlungs-/Stripe-API aufgerufen? Erwartet NEIN
+
+Danach STOPPEN.
+Noch NICHT deployen.

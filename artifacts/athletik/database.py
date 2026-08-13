@@ -2409,6 +2409,8 @@ def _migrate_multitenant():
             # 1 = automatisch durch trainer_registrieren() angelegt;
             # wird in Kundenliste / Sidebar NICHT als echter Verein behandelt.
             ("ist_technischer_mandant", "INTEGER DEFAULT 0"),
+            # ── Phase A2: Abrechnungsintervall ─────────────────────────────
+            ("abo_intervall",           "TEXT"),   # 'monat' | 'jahr'
         ]
         for col, typ in neue_verein_cols:
             try:
@@ -2795,6 +2797,11 @@ def verein_speichern(name: str) -> int:
 
 # ── Selbstregistrierung ────────────────────────────────────────────────────────
 
+_ERLAUBTE_VEREIN_PAKETE  = frozenset({"VEREIN_BASIC", "VEREIN_PRO"})
+_ERLAUBTE_TRAINER_PAKETE = frozenset({"TRAINER_BASIC", "TRAINER_PRO"})
+_ERLAUBTE_INTERVALLE     = frozenset({"monat", "jahr"})
+
+
 def verein_registrieren(
     vereinsname: str,
     vorname: str,
@@ -2803,13 +2810,31 @@ def verein_registrieren(
     passwort: str,
     *,
     benutzername: str | None = None,
+    lizenztyp: str = "VEREIN_BASIC",
+    abo_intervall: str = "monat",
 ) -> tuple[int, int]:
     """Erstellt einen neuen Verein mit Vereinsadmin und startet 30-Tage-Testphase.
     Gibt (verein_id, benutzer_id) zurück.
-    Setzt email_verifiziert=0 — Bestätigungs-E-Mail wird separat gesendet."""
+    Setzt email_verifiziert=0 — Bestätigungs-E-Mail wird separat gesendet.
+
+    lizenztyp muss VEREIN_BASIC oder VEREIN_PRO sein.
+    abo_intervall muss 'monat' oder 'jahr' sein.
+    """
     import datetime as _dt
     email_norm = normalize_email(email)
     testphase_bis = (_dt.date.today() + _dt.timedelta(days=30)).isoformat()
+
+    # Serverseitige Validierung: nur Vereinspakete erlaubt
+    if lizenztyp not in _ERLAUBTE_VEREIN_PAKETE:
+        raise ValueError(
+            f"Ungültiges Paket für Verein: {lizenztyp!r}. "
+            f"Erlaubt: {sorted(_ERLAUBTE_VEREIN_PAKETE)}"
+        )
+    if abo_intervall not in _ERLAUBTE_INTERVALLE:
+        raise ValueError(
+            f"Ungültiges Abrechnungsintervall: {abo_intervall!r}. "
+            f"Erlaubt: {sorted(_ERLAUBTE_INTERVALLE)}"
+        )
 
     # Eindeutigkeit prüfen
     with get_conn() as conn:
@@ -2825,8 +2850,9 @@ def verein_registrieren(
     verein_id = verein_speichern(vereinsname)
     with get_conn() as conn:
         conn.execute(
-            "UPDATE vereine SET testphase_bis=?, lizenz_status='trial', lizenztyp='BASIC' WHERE id=?",
-            (testphase_bis, verein_id),
+            "UPDATE vereine SET testphase_bis=?, lizenz_status='trial', "
+            "lizenztyp=?, abo_intervall=? WHERE id=?",
+            (testphase_bis, lizenztyp, abo_intervall, verein_id),
         )
 
     benutzer_id = benutzer_speichern(
@@ -2901,12 +2927,17 @@ def verein_loeschen(verein_id: int) -> tuple[bool, str]:
 # ── Lizenzsystem — DB-Funktionen ──────────────────────────────────────────────
 
 def lizenz_info_laden(verein_id: int) -> dict | None:
-    """Lädt alle Lizenzdaten eines Vereins (für get_lizenz_info())."""
+    """Lädt alle Lizenzdaten eines Vereins (für get_lizenz_info()).
+
+    Enthält ist_technischer_mandant damit normalize_lizenz_typ() den richtigen
+    Kundentyp-Ast (Einzeltrainer vs. Verein) wählen kann.
+    """
     with get_conn() as conn:
         return _row(conn.execute(
             """SELECT id, name, aktiv, lizenztyp, lizenz_bis, lizenz_status,
                       testphase_bis, gesperrt, stripe_customer_id,
-                      stripe_subscription_id, zahlungsstatus
+                      stripe_subscription_id, zahlungsstatus,
+                      ist_technischer_mandant, abo_intervall
                  FROM vereine WHERE id=?""",
             (verein_id,),
         ).fetchone())
@@ -3186,18 +3217,32 @@ def trainer_registrieren(
     passwort: str,
     *,
     benutzername: str | None = None,
+    lizenztyp: str = "TRAINER_BASIC",
+    abo_intervall: str = "monat",
 ) -> int:
     """Trainer-Selbstregistrierung mit persönlichem Einzeltrainer-Verein.
 
     Erstellt automatisch einen persönlichen Verein für den Trainer
-    (lizenz_status='trial', 30 Tage Testphase), damit verein_id niemals
-    NULL ist — das verhindert Navigations- und Session-Probleme im App.
+    (lizenz_status='trial', 30 Tage Testphase, ist_technischer_mandant=1),
+    damit verein_id niemals NULL ist.
+
+    lizenztyp muss TRAINER_BASIC oder TRAINER_PRO sein.
+    abo_intervall muss 'monat' oder 'jahr' sein.
 
     Startet mit aktiv=0 und email_verifiziert=0.
     Ein Admin schaltet das Konto nach E-Mail-Bestätigung frei.
-    Der Verein bleibt aktiv=1, damit alle verein_id-abhängigen Abfragen
-    sofort funktionieren; die Konto-Sperre erfolgt über benutzer.aktiv.
     """
+    # Serverseitige Validierung: nur Trainer-Pakete erlaubt
+    if lizenztyp not in _ERLAUBTE_TRAINER_PAKETE:
+        raise ValueError(
+            f"Ungültiges Paket für Trainer: {lizenztyp!r}. "
+            f"Erlaubt: {sorted(_ERLAUBTE_TRAINER_PAKETE)}"
+        )
+    if abo_intervall not in _ERLAUBTE_INTERVALLE:
+        raise ValueError(
+            f"Ungültiges Abrechnungsintervall: {abo_intervall!r}. "
+            f"Erlaubt: {sorted(_ERLAUBTE_INTERVALLE)}"
+        )
     import sqlite3 as _sqlite3
     import datetime as _dt
     import secrets as _secrets
@@ -3222,9 +3267,9 @@ def trainer_registrieren(
         _vcur = conn.execute(
             """INSERT INTO vereine (name, aktiv, lizenz_status, lizenztyp,
                                     testphase_bis, registrier_code,
-                                    ist_technischer_mandant)
-               VALUES (?, 1, 'trial', 'BASIC', ?, ?, 1)""",
-            (_vname, _testphase_bis, _reg_code),
+                                    ist_technischer_mandant, abo_intervall)
+               VALUES (?, 1, 'trial', ?, ?, ?, 1, ?)""",
+            (_vname, lizenztyp, _testphase_bis, _reg_code, abo_intervall),
         )
         _new_vid = _vcur.lastrowid
 

@@ -653,11 +653,63 @@ if "user" not in st.session_state:
 
             # ── Verein registrieren ───────────────────────────────────────────
             with _reg_tab:
+                # ── Paket + Intervall ──────────────────────────────────────
+                from license import LIZENZ_TYPEN as _REG_VLT
+                _VEREIN_PAKETE = ["VEREIN_BASIC", "VEREIN_PRO"]
+
                 st.markdown(
-                    '<p style="color:#8b949e;font-size:12px;margin-bottom:12px">'
-                    "Erstelle deinen Verein und starte sofort — 30 Tage kostenlos testen.</p>",
+                    '<div style="background:#0f2417;border:1px solid #2ea043;'
+                    'border-radius:8px;padding:10px 14px;margin-bottom:14px;'
+                    'font-size:13px;color:#3fb950;font-weight:600">'
+                    '🎁 30 Tage kostenlos testen — heute keine Zahlung fällig'
+                    '</div>',
                     unsafe_allow_html=True,
                 )
+                st.markdown(
+                    '<p style="color:#8b949e;font-size:12px;margin:0 0 8px 0">'
+                    "Wähle dein Paket und Abrechnungsintervall:</p>",
+                    unsafe_allow_html=True,
+                )
+
+                # Paket-Karten (Info)
+                _rvc1, _rvc2 = st.columns(2)
+                for _rpk, _rpc in zip(_VEREIN_PAKETE, [_rvc1, _rvc2]):
+                    _rtd = _REG_VLT[_rpk]
+                    _rms = "unbegrenzt" if _rtd["max_spieler"] is None else f"max. {_rtd['max_spieler']}"
+                    _rpc.markdown(
+                        f'<div style="background:#161b22;border:1px solid #30363d;'
+                        f'border-radius:8px;padding:10px 12px;font-size:12px;line-height:1.7">'
+                        f'<strong style="color:#e6edf3;font-size:13px">{_rtd["label"]}</strong><br>'
+                        f'<span style="color:#3fb950">{_rtd["preis_monat"]:.2f}\u202f€/Mo\u2002·\u2002'
+                        f'{_rtd["preis_jahr"]:.0f}\u202f€/Jahr</span><br>'
+                        f'<span style="color:#8b949e">👥\u2002max.\u2002{_rtd["max_trainer"]} Trainer'
+                        f'\u2002·\u2002{_rms} Spieler</span>'
+                        f'</div>',
+                        unsafe_allow_html=True,
+                    )
+
+                _r_paket = st.radio(
+                    "Paket",
+                    _VEREIN_PAKETE,
+                    format_func=lambda k: _REG_VLT[k]["label"],
+                    key="reg_v_paket",
+                    horizontal=True,
+                    label_visibility="collapsed",
+                )
+                _r_vsel = _REG_VLT[_r_paket]
+                _r_intervall = st.radio(
+                    "Abrechnungsintervall *",
+                    ["monat", "jahr"],
+                    format_func=lambda x, _td=_r_vsel: (
+                        f"Monatlich — {_td['preis_monat']:.2f}\u202f€/Monat"
+                        if x == "monat"
+                        else f"Jährlich — {_td['preis_jahr']:.0f}\u202f€/Jahr"
+                             f"  ✓ günstiger als 12 Monatszahlungen"
+                    ),
+                    key="reg_v_intervall",
+                )
+                st.markdown('<div style="margin-bottom:8px"></div>', unsafe_allow_html=True)
+
                 _r_verein   = st.text_input("Vereinsname *",                key="reg_verein",
                                             placeholder="FC Musterstadt")
                 _rr1, _rr2  = st.columns(2)
@@ -744,6 +796,12 @@ if "user" not in st.session_state:
                         _rerr.append("Rechnungsadresse: Rechnungs-E-Mail fehlt oder ungültig.")
                     if _rerr:
                         for _e in _rerr: st.error(_e)
+                    if _r_paket not in _VEREIN_PAKETE:
+                        _rerr.append(f"Ungültiges Paket: {_r_paket!r}.")
+                    if _r_intervall not in ("monat", "jahr"):
+                        _rerr.append("Ungültiges Abrechnungsintervall.")
+                    if _rerr:
+                        for _e in _rerr: st.error(_e)
                     else:
                         try:
                             from database import verein_registrieren, rechnungsadresse_speichern as _ras
@@ -751,6 +809,8 @@ if "user" not in st.session_state:
                                 _r_verein.strip(), _r_vorname.strip(),
                                 _r_nachname.strip(), _r_email.strip(), _r_pw1,
                                 benutzername=_r_uname.strip(),
+                                lizenztyp=_r_paket,
+                                abo_intervall=_r_intervall,
                             )
                             _ras(_bid,
                                  firma=_r_ra_firma.strip() or None,
@@ -823,12 +883,63 @@ if "user" not in st.session_state:
 
             # ── Trainer registrieren ──────────────────────────────────────────
             with _trainer_tab:
+                # ── Paket + Intervall ──────────────────────────────────────
+                from license import LIZENZ_TYPEN as _REG_TLT
+                _TRAINER_PAKETE = ["TRAINER_BASIC", "TRAINER_PRO"]
+
                 st.markdown(
-                    '<p style="color:#8b949e;font-size:12px;margin-bottom:12px">'
-                    "Registriere dich als Trainer. Ein Administrator schaltet dein Konto frei "
-                    "und weist dir deinen Verein zu.</p>",
+                    '<div style="background:#0f2417;border:1px solid #2ea043;'
+                    'border-radius:8px;padding:10px 14px;margin-bottom:14px;'
+                    'font-size:13px;color:#3fb950;font-weight:600">'
+                    '🎁 30 Tage kostenlos testen — heute keine Zahlung fällig'
+                    '</div>',
                     unsafe_allow_html=True,
                 )
+                st.markdown(
+                    '<p style="color:#8b949e;font-size:12px;margin:0 0 8px 0">'
+                    "Wähle dein Paket und Abrechnungsintervall:</p>",
+                    unsafe_allow_html=True,
+                )
+
+                # Paket-Karten (Info)
+                _ttc1, _ttc2 = st.columns(2)
+                for _tpk, _tpc in zip(_TRAINER_PAKETE, [_ttc1, _ttc2]):
+                    _ttd = _REG_TLT[_tpk]
+                    _tms = "unbegrenzt" if _ttd["max_spieler"] is None else f"max. {_ttd['max_spieler']}"
+                    _tpc.markdown(
+                        f'<div style="background:#161b22;border:1px solid #30363d;'
+                        f'border-radius:8px;padding:10px 12px;font-size:12px;line-height:1.7">'
+                        f'<strong style="color:#e6edf3;font-size:13px">{_ttd["label"]}</strong><br>'
+                        f'<span style="color:#3fb950">{_ttd["preis_monat"]:.2f}\u202f€/Mo\u2002·\u2002'
+                        f'{_ttd["preis_jahr"]:.0f}\u202f€/Jahr</span><br>'
+                        f'<span style="color:#8b949e">👤\u2002{_ttd["max_trainer"]} Trainer'
+                        f'\u2002·\u2002{_tms} Spieler</span>'
+                        f'</div>',
+                        unsafe_allow_html=True,
+                    )
+
+                _t_paket = st.radio(
+                    "Paket",
+                    _TRAINER_PAKETE,
+                    format_func=lambda k: _REG_TLT[k]["label"],
+                    key="reg_t_paket",
+                    horizontal=True,
+                    label_visibility="collapsed",
+                )
+                _t_tsel = _REG_TLT[_t_paket]
+                _t_intervall = st.radio(
+                    "Abrechnungsintervall *",
+                    ["monat", "jahr"],
+                    format_func=lambda x, _td=_t_tsel: (
+                        f"Monatlich — {_td['preis_monat']:.2f}\u202f€/Monat"
+                        if x == "monat"
+                        else f"Jährlich — {_td['preis_jahr']:.0f}\u202f€/Jahr"
+                             f"  ✓ günstiger als 12 Monatszahlungen"
+                    ),
+                    key="reg_t_intervall",
+                )
+                st.markdown('<div style="margin-bottom:8px"></div>', unsafe_allow_html=True)
+
                 _tt1, _tt2 = st.columns(2)
                 _t_vorname  = _tt1.text_input("Vorname *",      key="trainer_vorname")
                 _t_nachname = _tt2.text_input("Nachname *",     key="trainer_nachname")
@@ -910,6 +1021,10 @@ if "user" not in st.session_state:
                     if not _t_ra_land.strip():           _terr.append("Rechnungsadresse: Land fehlt.")
                     if not _t_ra_remail.strip() or "@" not in _t_ra_remail:
                         _terr.append("Rechnungsadresse: Rechnungs-E-Mail fehlt oder ungültig.")
+                    if _t_paket not in _TRAINER_PAKETE:
+                        _terr.append(f"Ungültiges Paket: {_t_paket!r}.")
+                    if _t_intervall not in ("monat", "jahr"):
+                        _terr.append("Ungültiges Abrechnungsintervall.")
                     if _terr:
                         for _e in _terr: st.error(_e)
                     else:
@@ -919,6 +1034,8 @@ if "user" not in st.session_state:
                                 _t_vorname.strip(), _t_nachname.strip(),
                                 _t_email.strip(), _t_pw1,
                                 benutzername=_t_uname.strip(),
+                                lizenztyp=_t_paket,
+                                abo_intervall=_t_intervall,
                             )
                             _ras(_tbid,
                                  firma=_t_ra_firma.strip() or None,
