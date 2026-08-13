@@ -1,4 +1,5 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
+import { Platform } from 'react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
@@ -16,8 +17,6 @@ import * as SplashScreen from 'expo-splash-screen';
 import { setBaseUrl } from '@workspace/api-client-react';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { OfflineQueueProvider } from '@/contexts/OfflineQueueContext';
-import { useColorScheme } from 'react-native';
-import { SystemUI } from 'expo-system-ui';
 import { usePushNotificationRegistration } from '@/hooks/usePushNotifications';
 
 // Set base URL before any component renders (Expo bundles need absolute URLs)
@@ -86,6 +85,11 @@ function RootLayoutNav() {
   );
 }
 
+// Android Expo Go: font loading can hang without triggering fontError,
+// keeping the splash screen visible forever.  This timeout forces the
+// splash to hide after 4 s so the login screen always appears.
+const ANDROID_SPLASH_TIMEOUT_MS = 4_000;
+
 export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({
     Inter_400Regular,
@@ -94,13 +98,26 @@ export default function RootLayout() {
     Inter_700Bold,
   });
 
+  // Safety: on Android, hide the splash screen after a fixed deadline even
+  // if useFonts() never resolves.  On other platforms the normal effect below
+  // handles it, so this no-ops there.
+  const [splashForceHidden, setSplashForceHidden] = useState(false);
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+    const timer = setTimeout(() => {
+      SplashScreen.hideAsync().catch(() => {});
+      setSplashForceHidden(true);
+    }, ANDROID_SPLASH_TIMEOUT_MS);
+    return () => clearTimeout(timer);
+  }, []);
+
   useEffect(() => {
     if (fontsLoaded || fontError) {
-      SplashScreen.hideAsync();
+      SplashScreen.hideAsync().catch(() => {});
     }
   }, [fontsLoaded, fontError]);
 
-  if (!fontsLoaded && !fontError) return null;
+  if (!fontsLoaded && !fontError && !splashForceHidden) return null;
 
   return (
     <SafeAreaProvider>
