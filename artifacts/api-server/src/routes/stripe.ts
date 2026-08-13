@@ -191,42 +191,42 @@ router.post("/stripe/webhook", (req: Request, res: Response): void => {
   let event: StripeEvent;
 
   // ── Signaturprüfung ───────────────────────────────────────────────────────────
-  if (webhookSecret && stripeKey) {
-    const sig = req.headers["stripe-signature"] as string | undefined;
-    if (!sig) {
-      logger.warn("Stripe Webhook: fehlende stripe-signature Header");
-      res.status(400).json({ error: "Fehlende Stripe-Webhook-Signatur" });
-      return;
-    }
-    try {
-      // Dynamic require — stripe ist optional bis STRIPE_SECRET_KEY gesetzt ist.
-      // req.body ist hier ein Buffer dank express.raw() in app.ts.
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const Stripe = require("stripe");
-      const stripe = new Stripe(stripeKey, { apiVersion: "2024-06-20" });
-      event = stripe.webhooks.constructEvent(
-        req.body as Buffer,
-        sig,
-        webhookSecret,
-      ) as StripeEvent;
-    } catch (err) {
-      // Signatur ungültig — Schlüssel wird NICHT geloggt
-      logger.warn(
-        { errType: (err as Error).constructor?.name },
-        "Stripe Webhook: Signaturprüfung fehlgeschlagen",
-      );
-      res.status(400).json({ error: "Signaturprüfung fehlgeschlagen" });
-      return;
-    }
-  } else {
-    // Entwicklungsmodus — Signatur wird übersprungen
-    const raw = req.body;
-    event = (Buffer.isBuffer(raw)
-      ? (JSON.parse(raw.toString("utf-8")) as StripeEvent)
-      : (raw as StripeEvent));
-    logger.warn(
-      "Stripe Webhook: Signaturprüfung deaktiviert (STRIPE_WEBHOOK_SECRET nicht gesetzt)",
+  // ── Fail-closed: STRIPE_WEBHOOK_SECRET ist Pflicht ───────────────────────────
+  // Ohne Secret werden KEINE Events verarbeitet.
+  // Eine fehlende Konfiguration darf niemals stillschweigend zu Datenbankänderungen führen.
+  if (!webhookSecret || !stripeKey) {
+    logger.error(
+      "Stripe Webhook: STRIPE_WEBHOOK_SECRET oder STRIPE_SECRET_KEY nicht konfiguriert — Anfrage abgewiesen",
     );
+    res.status(503).json({ error: "Webhook nicht konfiguriert" });
+    return;
+  }
+
+  const sig = req.headers["stripe-signature"] as string | undefined;
+  if (!sig) {
+    logger.warn("Stripe Webhook: fehlende stripe-signature Header");
+    res.status(400).json({ error: "Fehlende Stripe-Webhook-Signatur" });
+    return;
+  }
+
+  try {
+    // req.body ist ein Buffer dank express.raw() in app.ts.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const Stripe = require("stripe");
+    const stripe = new Stripe(stripeKey, { apiVersion: "2024-06-20" });
+    event = stripe.webhooks.constructEvent(
+      req.body as Buffer,
+      sig,
+      webhookSecret,
+    ) as StripeEvent;
+  } catch (err) {
+    // Signatur ungültig — Schlüssel wird NICHT geloggt
+    logger.warn(
+      { errType: (err as Error).constructor?.name },
+      "Stripe Webhook: Signaturprüfung fehlgeschlagen",
+    );
+    res.status(400).json({ error: "Signaturprüfung fehlgeschlagen" });
+    return;
   }
 
   const eventId   = event.id   ?? "unknown";
