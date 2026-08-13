@@ -641,6 +641,7 @@ def _trainer_leer(trainer_id) -> None:  # noqa: ARG001
     with _c2:
         if st.button("➕ Ersten Spieler anlegen", key="leer_spieler_btn",
                      use_container_width=True, type="primary"):
+            st.session_state["nav_sub_spieler"] = "👥 Verwaltung"
             _navigate("👤  Spieler")
 
 
@@ -1087,6 +1088,10 @@ def _dash_trainer(user: dict):
             unsafe_allow_html=True,
         )
         if st.button("➕ Spieler anlegen", key="qa_spieler", use_container_width=True):
+            # Explizit auf "👥 Verwaltung" (= page_spieler mit "Neu anlegen"-Tab) navigieren.
+            # Ohne dieses Assignment landet der User auf dem zuletzt aktiven Sub (z.B.
+            # "🏃 Profil & Diagnostik") — was beim nächsten Widget-Rerun zum Nav-Reset führt.
+            st.session_state["nav_sub_spieler"] = "👥 Verwaltung"
             _navigate("👤  Spieler")
 
     with qa2:
