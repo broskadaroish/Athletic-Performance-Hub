@@ -10,9 +10,13 @@ import { pbkdf2Sync, randomBytes, timingSafeEqual } from "node:crypto";
 
 // ─── DB Path ────────────────────────────────────────────────────────────────
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+// The esbuild bundle produces a single dist/index.mjs, so at runtime __dirname
+// is the dist/ directory (3 levels below workspace root):
+//   workspace/artifacts/api-server/dist  →  ../../../  →  workspace/
+// In production the ATHLETIK_DB_PATH env var overrides this default.
 const DEFAULT_DB = path.resolve(
   __dirname,
-  "../../../../artifacts/athletik/athletik.db",
+  "../../../artifacts/athletik/athletik.db",
 );
 const DB_PATH = process.env["ATHLETIK_DB_PATH"] ?? DEFAULT_DB;
 
@@ -109,27 +113,37 @@ function verifyPassword(plain: string, stored: string): boolean {
 export interface AthletikUser {
   id: number;
   email: string;
+  benutzername: string | null;
   vorname: string;
   nachname: string;
   rolle: string;
   verein_id: number | null;
   verein_name: string | null;
+  ist_technischer_mandant: number;
+  aktiv: number;
+  email_verifiziert: number;
   passwort_hash: string;
 }
 
-export function findUserByEmail(email: string): AthletikUser | null {
+/** Finds a user by email OR benutzername (case-insensitive). Returns null if not found. */
+export function findUserByLoginId(loginId: string): AthletikUser | null {
   return withRetry(() => {
     const conn = db();
     try {
+      const norm = loginId.toLowerCase().trim();
       const row = conn
         .prepare(
-          `SELECT b.id, b.email, b.vorname, b.nachname, b.rolle,
-                  b.verein_id, b.passwort_hash, v.name AS verein_name
+          `SELECT b.id, b.email, b.benutzername, b.vorname, b.nachname,
+                  b.rolle, b.verein_id, b.passwort_hash,
+                  b.aktiv, b.email_verifiziert,
+                  v.name AS verein_name,
+                  COALESCE(v.ist_technischer_mandant, 0) AS ist_technischer_mandant
            FROM benutzer b
            LEFT JOIN vereine v ON b.verein_id = v.id
-           WHERE b.email = ? AND b.aktiv = 1`,
+           WHERE LOWER(b.email) = ?
+              OR (b.benutzername IS NOT NULL AND LOWER(b.benutzername) = ?)`,
         )
-        .get(email) as AthletikUser | undefined;
+        .get(norm, norm) as AthletikUser | undefined;
       return row ?? null;
     } finally {
       conn.close();
@@ -137,15 +151,18 @@ export function findUserByEmail(email: string): AthletikUser | null {
   });
 }
 
-export function loginUser(
-  email: string,
-  password: string,
-): Omit<AthletikUser, "passwort_hash"> | null {
-  const user = findUserByEmail(email);
-  if (!user) return null;
-  if (!verifyPassword(password, user.passwort_hash)) return null;
+export type LoginResult =
+  | { ok: true; user: Omit<AthletikUser, "passwort_hash"> }
+  | { ok: false; reason: "not_found" | "wrong_password" | "not_verified" | "inactive" };
+
+export function loginUser(loginId: string, password: string): LoginResult {
+  const user = findUserByLoginId(loginId);
+  if (!user) return { ok: false, reason: "not_found" };
+  if (!verifyPassword(password, user.passwort_hash)) return { ok: false, reason: "wrong_password" };
+  if (!user.email_verifiziert) return { ok: false, reason: "not_verified" };
+  if (!user.aktiv) return { ok: false, reason: "inactive" };
   const { passwort_hash: _ph, ...safe } = user;
-  return safe;
+  return { ok: true, user: safe };
 }
 
 // ─── Players ─────────────────────────────────────────────────────────────────

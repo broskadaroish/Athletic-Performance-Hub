@@ -1,0 +1,252 @@
+KOMPLETTER MOBILE-FIX – ATHLETIK MOBILE / EXPO
+
+Aktueller Stand:
+
+PROBLEM A – SIMULATE ON ANDROID
+
+Beim Start über:
+
+Simulate on Android / Expo Go
+
+kommt:
+
+expo-notifications:
+Android Push notifications provided by expo-notifications
+was removed from Expo Go with SDK 53.
+
+Source:
+usePushNotifications.ts
+import * as Notifications from 'expo-notifications'
+
+PROBLEM B – SIMULATE ON WEB
+
+Die Mobile-App startet.
+
+Beim Login erscheint:
+
+HTTP 500 Internal Server Error:
+Datenbankfehler beim Login
+
+Die normale Web-App aphsystem.de funktioniert.
+
+ZIEL:
+
+Athletik Mobile soll:
+
+1. in Simulate on Android / Expo Go starten
+2. in Simulate on Web starten
+3. sich mit gültigem Trainerkonto einloggen können
+4. sich mit gültigem Vereinsadmin einloggen können
+5. später weiterhin echte Push-Notifications in Development-/Production-Builds unterstützen
+
+WICHTIG:
+
+Nur das Mobile-/API-Projekt prüfen.
+
+NICHT verändern:
+- Streamlit-Web-App-Oberfläche
+- normale Web-App-Loginlogik, wenn nicht zwingend gemeinsame API betroffen
+- Docker
+- SMTP
+- Trainingslogik
+- Diagnostiklogik
+- Produktionsdatenbankstruktur
+- Kundenlöschung
+
+==================================================
+1. ANDROID / EXPO GO FEHLER
+==================================================
+
+Prüfe:
+
+- Expo SDK-Version
+- expo-notifications-Version
+- usePushNotifications.ts
+- alle imports von expo-notifications
+
+Expo Go unterstützt Android Remote Push Notifications ab SDK 53 nicht mehr.
+
+Deshalb:
+
+Im Expo-Go-Testbetrieb Push-Registrierung sauber überspringen/deaktivieren.
+
+Die App darf NICHT abstürzen.
+
+WICHTIG:
+
+Push-Architektur erhalten, damit Push später in einem echten:
+
+- Development Build
+- Android Production Build
+- iOS Build
+
+weiterhin möglich ist.
+
+Keine Push-Funktion vortäuschen.
+
+==================================================
+2. MOBILE LOGIN HTTP 500
+==================================================
+
+Finde exakt den Login-Endpunkt, den Athletik Mobile verwendet.
+
+Prüfe die konkrete serverseitige Exception hinter:
+
+„Datenbankfehler beim Login“
+
+Nicht nur die allgemeine 500-Meldung betrachten.
+
+Serverseitig technische Exception loggen,
+aber niemals Passwort, Token oder Secret.
+
+==================================================
+3. SQL / USER-DATEN PRÜFEN
+==================================================
+
+Prüfe Mobile-Login-Abfrage auf:
+
+- id
+- email
+- benutzername
+- rolle
+- verein_id
+- aktiv
+- email_verifiziert
+- ist_technischer_mandant
+- lizenz_status
+- sonstige JOIN-Felder
+
+Besonders wichtig:
+
+Wir haben zuletzt neue Felder/Logik eingeführt:
+
+ist_technischer_mandant
+technischer Mandant für selbstregistrierte Trainer
+
+Prüfe, ob die Mobile-API noch eine ältere SQL-Abfrage verwendet.
+
+==================================================
+4. MIT FUNKTIONIERENDEM WEB-LOGIN VERGLEICHEN
+==================================================
+
+Vergleiche die User-Auflösung der Mobile-API mit dem funktionierenden Web-Login.
+
+Nicht blind kopieren.
+
+Nur fehlende/veraltete Felder korrigieren.
+
+==================================================
+5. AUTH / TOKEN
+==================================================
+
+Nach erfolgreichem Mobile-Login prüfen:
+
+- Benutzer gefunden
+- Passwort korrekt
+- aktiv
+- email_verifiziert
+- Rolle korrekt
+- verein_id korrekt
+- technischer Mandant korrekt
+- Mobile Auth-Token / Session korrekt erzeugt
+
+==================================================
+6. FEHLERVERHALTEN
+==================================================
+
+Falsches Passwort:
+
+401 oder 403
+
+NICHT:
+500
+
+Nicht verifizierter / deaktivierter Account:
+
+saubere verständliche Auth-Fehlermeldung
+
+NICHT:
+Datenbankfehler
+
+==================================================
+7. TESTMATRIX
+==================================================
+
+TEST A:
+Simulate on Android / Expo Go
+
+Erwartung:
+App startet ohne roten expo-notifications-Fehler.
+
+TEST B:
+Simulate on Web
+
+Erwartung:
+Loginseite startet.
+
+TEST C:
+gültiger selbstregistrierter Trainer
+
+Erwartung:
+Login erfolgreich → Mobile-Startseite
+
+TEST D:
+admin-angelegter Trainer
+
+Erwartung:
+Login erfolgreich
+
+TEST E:
+Vereinsadmin
+
+Erwartung:
+Login erfolgreich
+
+TEST F:
+falsches Passwort
+
+Erwartung:
+401/403, kein 500
+
+TEST G:
+Push-Test unter Expo Go
+
+Erwartung:
+Push wird kontrolliert übersprungen,
+App bleibt funktionsfähig.
+
+==================================================
+8. KLEINSTMÖGLICHER FIX
+==================================================
+
+Wenn Ursachen eindeutig gefunden:
+
+direkt reparieren.
+
+Keine große Refaktorierung.
+
+Keine Änderungen außerhalb Mobile/API-Scope.
+
+==================================================
+9. ABSCHLUSSBERICHT
+==================================================
+
+Berichte:
+
+1. Ursache des Expo-Go-Android-Fehlers
+2. Wie wurde expo-notifications im Expo-Go-Testbetrieb behandelt?
+3. Bleibt Push für echte Builds möglich? JA/NEIN
+4. Konkrete Exception beim Mobile-Login
+5. Welche SQL-Abfrage/Spalte war fehlerhaft?
+6. Welche Dateien wurden geändert?
+7. Simulate on Android startet? JA/NEIN
+8. Simulate on Web startet? JA/NEIN
+9. Trainer-Login erfolgreich? JA/NEIN
+10. Vereinsadmin-Login erfolgreich? JA/NEIN
+11. Falsches Passwort liefert keinen 500 mehr? JA/NEIN
+12. Web-App aphsystem.de unverändert funktionsfähig? JA/NEIN
+
+Danach STOPPEN.
+
+Noch NICHT deployen.
+Noch keinen Play-Store-/Production-Build erstellen.

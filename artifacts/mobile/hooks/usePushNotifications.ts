@@ -6,24 +6,46 @@
  * Set it via app.json → extra.eas.projectId (populated by `eas init`).
  * Without it the call still succeeds in Expo Go (dev client injects it);
  * on a standalone build, configure it before submitting to app stores.
+ *
+ * Expo Go + Android (SDK 53+): Remote push notifications were removed from
+ * Expo Go. We detect Expo Go via Constants.appOwnership === 'expo' and skip
+ * all notification setup on that platform/runtime combination so the app
+ * does not crash. Push will still work in real Development Builds and
+ * Production Builds where expo-notifications is fully supported.
  */
 import { useEffect, useRef } from 'react';
 import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
 
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowBanner: true,
-    shouldShowList: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-  }),
-});
+/**
+ * True when running inside Expo Go (appOwnership === 'expo').
+ * In this environment, Android remote push notifications are not available
+ * since SDK 53. iOS Expo Go still supports local notifications but not
+ * remote push, so we skip registration universally in Expo Go.
+ */
+const IS_EXPO_GO = Constants.appOwnership === 'expo';
+
+// Register the notification handler only in real builds (Development Build /
+// Production). In Expo Go this import-time call throws on Android SDK 53+.
+if (!IS_EXPO_GO) {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowBanner: true,
+      shouldShowList: true,
+      shouldPlaySound: true,
+      shouldSetBadge: false,
+    }),
+  });
+}
 
 export async function registerForPushNotificationsAsync(): Promise<string | null> {
   // Push notifications are not supported on web
   if (Platform.OS === 'web') return null;
+
+  // Skip in Expo Go — remote push not available (Android SDK 53+) and
+  // registration would throw or silently fail. Real builds handle this.
+  if (IS_EXPO_GO) return null;
 
   // PermissionResponse re-exported through expo/expo-modules-core has `granted`
   // but the TS definition via expo-notifications may not surface it — cast to access.

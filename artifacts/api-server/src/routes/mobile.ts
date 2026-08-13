@@ -125,19 +125,39 @@ router.patch("/mobile/notifications/settings", requireAuth, (req, res) => {
 
 // ─── POST /api/mobile/auth/login ──────────────────────────────────────────────
 router.post("/mobile/auth/login", (req, res) => {
-  const { email, password } = req.body ?? {};
-  if (!email || !password) {
+  // Accept either { email, password } or { loginId, password } for flexibility
+  const body = req.body ?? {};
+  const loginId = (body.email ?? body.loginId ?? "") as string;
+  const password = (body.password ?? "") as string;
+
+  if (!loginId || !password) {
     res.status(400).json({ error: "E-Mail und Passwort erforderlich" });
     return;
   }
 
   try {
-    const user = loginUser(email as string, password as string);
-    if (!user) {
-      res.status(401).json({ error: "E-Mail oder Passwort falsch" });
+    const result = loginUser(loginId, password);
+
+    if (!result.ok) {
+      switch (result.reason) {
+        case "not_found":
+        case "wrong_password":
+          // Deliberately identical message — prevents user enumeration
+          res.status(401).json({ error: "E-Mail oder Passwort falsch" });
+          break;
+        case "not_verified":
+          res.status(403).json({ error: "E-Mail-Adresse noch nicht bestätigt. Bitte prüfe dein Postfach." });
+          break;
+        case "inactive":
+          res.status(403).json({ error: "Konto noch nicht freigeschaltet oder deaktiviert. Bitte wende dich an deinen Administrator." });
+          break;
+        default:
+          res.status(401).json({ error: "Anmeldung fehlgeschlagen" });
+      }
       return;
     }
 
+    const user = result.user;
     const payload: JwtPayload = {
       userId: user.id,
       email: user.email,
@@ -156,11 +176,12 @@ router.post("/mobile/auth/login", (req, res) => {
         rolle: user.rolle,
         verein_id: user.verein_id ?? null,
         verein_name: user.verein_name ?? null,
+        ist_technischer_mandant: user.ist_technischer_mandant ?? 0,
       },
     });
   } catch (err) {
     logger.error({ err }, "Mobile login error");
-    res.status(500).json({ error: "Datenbankfehler beim Login" });
+    res.status(500).json({ error: "Interner Serverfehler beim Login" });
   }
 });
 
