@@ -1,0 +1,296 @@
+KRITISCHE FEHLERBEHEBUNG – ENDGÜLTIGE KUNDENLÖSCHUNG
+
+Aktueller Produktionsstand:
+
+Der Gefahrenbereich in der Kundenverwaltung funktioniert inzwischen korrekt bis zum letzten Schritt:
+
+1. Kundenverwaltung öffnen
+2. Kunde über „Details →“ öffnen
+3. „Betroffene Daten prüfen“ anklicken
+4. Die Datenvorschau erscheint korrekt auf derselben Kundendetailseite
+5. Kundennummer zur zweiten Bestätigung eingeben
+6. Bestätigung wird akzeptiert
+7. Button „Kunde endgültig und unwiderruflich löschen“ erscheint
+
+FEHLER:
+
+Beim Klick auf den endgültigen Löschbutton erscheint:
+
+„Kunde konnte nicht vollständig gelöscht werden. Es wurden keine Änderungen übernommen.“
+
+Die Löschung wird also korrekt abgebrochen bzw. zurückgerollt.
+
+AUFGABE:
+
+Untersuche ausschließlich die endgültige Kundenlöschung.
+
+WICHTIG:
+Keine Navigation ändern.
+Keine Session-State-Logik ändern, sofern sie nicht unmittelbar die Löschtransaktion betrifft.
+Keine Kundenkarten ändern.
+Keine Login-Logik ändern.
+Keine Registrierung ändern.
+Keine UI außerhalb des Gefahrenbereichs ändern.
+Keine Datenbankspalten erfinden.
+Keine Tabellen oder Spalten auf Verdacht anlegen.
+Keine bestehende Produktionsdatenbank löschen oder zurücksetzen.
+Keine Test-/Produktionsdaten löschen.
+
+────────────────────────────────────────
+§1 ROOT-CAUSE ERMITTELN
+────────────────────────────────────────
+
+Finde zuerst exakt heraus, warum die endgültige Löschung fehlschlägt.
+
+Untersuche insbesondere die Funktion für die endgültige Kundenlöschung in database.py sowie den Aufruf in:
+
+modules/kundenverwaltung.py
+
+Prüfe JEDE SQL-Anweisung der Löschtransaktion gegen das tatsächlich vorhandene SQLite-Schema.
+
+Für jede verwendete Tabelle prüfen:
+
+PRAGMA table_info(tabellenname)
+
+und relevante Foreign Keys:
+
+PRAGMA foreign_key_list(tabellenname)
+
+Zusätzlich prüfen:
+
+SELECT name FROM sqlite_master
+WHERE type='table'
+ORDER BY name;
+
+Keine Annahmen über Spaltennamen machen.
+
+Wir hatten bereits einen Fehler, weil Code `benutzer_id` angenommen hatte, obwohl in `spieler` tatsächlich `trainer_id` verwendet wird.
+
+Deshalb muss die gesamte Löschfunktion gegen das REALE Schema geprüft werden.
+
+────────────────────────────────────────
+§2 FEHLER NICHT VERSCHLUCKEN
+────────────────────────────────────────
+
+Prüfe, ob die Löschfunktion aktuell Exceptions abfängt und nur False zurückgibt.
+
+Falls ja:
+
+Den konkreten technischen Fehler serverseitig mit logger.exception(...) protokollieren.
+
+KEINE SQL-Fehler oder internen Details dem normalen Benutzer anzeigen.
+
+Im UI weiterhin nur eine verständliche Meldung anzeigen.
+
+────────────────────────────────────────
+§3 TRANSAKTION BEIBEHALTEN
+────────────────────────────────────────
+
+Die endgültige Löschung muss atomar bleiben:
+
+BEGIN / Transaktion
+
+→ alle notwendigen Löschungen
+→ notwendige Anonymisierungen
+→ COMMIT
+
+Bei irgendeinem Fehler:
+
+ROLLBACK
+
+Es darf niemals eine halb gelöschte Kundenstruktur entstehen.
+
+────────────────────────────────────────
+§4 ABHÄNGIGKEITEN ERMITTELN
+────────────────────────────────────────
+
+Ermittle alle Datensätze, die tatsächlich zum ausgewählten Kunden gehören.
+
+Unterscheide dabei sauber zwischen:
+
+A) Vereinskunde
+B) Standalone-/Einzeltrainer
+
+Prüfe insbesondere vorhandene Beziehungen für:
+
+- Benutzer
+- Trainer
+- Spieler
+- FMS-Daten
+- Y-Balance-Daten
+- Sprinttests
+- sonstige Testdaten
+- Trainingspläne
+- Trainingsplan-Versionen/-Einträge
+- Sessions
+- Push-Tokens
+- Benachrichtigungen
+- Dokumente/Uploads
+- Lizenz/Paket
+- Vereinsbeziehungen
+- sonstige Tabellen mit Foreign Keys zum Kunden/Trainer/Spieler
+
+Nur tatsächlich vorhandene Tabellen berücksichtigen.
+
+────────────────────────────────────────
+§5 RICHTIGE LÖSCHREIHENFOLGE
+────────────────────────────────────────
+
+Ermittle anhand der Foreign Keys die korrekte Reihenfolge.
+
+Grundprinzip:
+
+Kind-Datensätze zuerst,
+danach Eltern-Datensätze.
+
+Beispiel nur konzeptionell:
+
+Testdaten
+→ Trainingsdaten
+→ Spieler
+→ Trainer-/Benutzerbeziehungen
+→ Lizenz/Paket
+→ Kunde
+
+ABER:
+
+Die tatsächliche Reihenfolge muss aus dem realen Schema abgeleitet werden.
+
+Nicht dieses Beispiel blind übernehmen.
+
+────────────────────────────────────────
+§6 AUFBEWAHRUNGSPFLICHTIGE DATEN
+────────────────────────────────────────
+
+Die bestehende fachliche Regel aus der UI beibehalten:
+
+Rechnungs-/abrechnungsrelevante Daten dürfen nicht einfach gelöscht werden, wenn sie für gesetzliche Aufbewahrung vorgesehen sind.
+
+Diese Daten anonymisieren.
+
+Audit-/Löschprotokolle, die bewusst zur Nachweisführung erhalten bleiben sollen, ebenfalls nicht einfach löschen.
+
+Dabei personenbezogene Daten soweit vorgesehen entfernen/anonymisieren.
+
+Keine rechtliche Logik neu erfinden – bestehende Projektlogik prüfen und konsistent anwenden.
+
+────────────────────────────────────────
+§7 DATEIEN / UPLOADS
+────────────────────────────────────────
+
+Prüfen, ob zum Kunden physische Dateien gehören, z.B.:
+
+- Logo
+- Profilbild
+- Spielerbilder
+- Dokumente
+- PDFs
+- Exporte
+
+Keine Datei außerhalb des eindeutig betroffenen Kunden löschen.
+
+Datenbanktransaktion und Dateilöschung so behandeln, dass ein DB-Fehler nicht zu einem inkonsistenten Zustand führt.
+
+────────────────────────────────────────
+§8 ERFOLGREICHE LÖSCHUNG
+────────────────────────────────────────
+
+Nur wenn die gesamte Operation erfolgreich abgeschlossen wurde:
+
+Erfolg anzeigen:
+
+„Kunde APH-XXXXXX wurde endgültig gelöscht. Aufbewahrungspflichtige Daten wurden anonymisiert.“
+
+Danach:
+
+- kunden_auswahl entfernen
+- Lösch-Preview-State entfernen
+- Bestätigungs-State entfernen
+- zurück zur Kundenliste
+- Kundenliste neu laden
+
+Der gelöschte Kunde darf dort nicht mehr erscheinen.
+
+────────────────────────────────────────
+§9 SICHERHEIT
+────────────────────────────────────────
+
+Die endgültige Löschung darf weiterhin NUR Superadmin durchführen.
+
+Die vorhandene doppelte Bestätigung NICHT entfernen:
+
+1. Betroffene Daten prüfen
+2. Kundennummer exakt eingeben
+3. endgültigen Löschbutton betätigen
+
+Keine vereinfachte Ein-Klick-Löschung einbauen.
+
+────────────────────────────────────────
+§10 TESTS
+────────────────────────────────────────
+
+KEINE echten Produktionskunden löschen.
+
+Tests nur mit:
+
+- temporärer Testdatenbank
+ODER
+- Transaktion mit anschließendem ROLLBACK
+ODER
+- eigens angelegtem Testkunden
+
+Mindestens testen:
+
+1. Standalone-Trainer mit Spielern/Testdaten
+2. Vereinskunde mit Spielern/Testdaten
+3. Kunde ohne Spieler
+4. Kunde mit Lizenz
+5. Kunde mit Rechnungsdaten
+6. absichtlich provozierter SQL-Fehler → vollständiger Rollback
+
+Nach erfolgreicher Testlöschung prüfen, dass keine verwaisten personenbezogenen Datensätze übrigbleiben.
+
+────────────────────────────────────────
+§11 NICHT VERÄNDERN
+────────────────────────────────────────
+
+Folgende inzwischen funktionierende Punkte NICHT anfassen:
+
+- Details → Navigation
+- Zurück zur Kundenliste
+- Login/Session
+- „Betroffene Daten prüfen“-Navigation
+- kunden_auswahl-Mechanismus
+- Registrierungsablauf
+- SMTP
+- Docker
+- start.sh
+- docker-compose.yml
+- config.py
+- .streamlit/config.toml
+- requirements.txt
+
+────────────────────────────────────────
+§12 ABSCHLUSSBERICHT
+────────────────────────────────────────
+
+Nach der Korrektur NICHT nur schreiben „behoben“.
+
+Berichte exakt:
+
+1. Welche konkrete Exception verursachte den Rollback?
+2. Welche SQL-Anweisung war fehlerhaft?
+3. Welche Tabelle/Spalte/Foreign-Key-Beziehung war die Ursache?
+4. Welche Tabellen werden bei einem Standalone-Kunden gelöscht?
+5. Welche Tabellen werden bei einem Vereinskunden gelöscht?
+6. Welche Daten werden anonymisiert statt gelöscht?
+7. In welcher Reihenfolge erfolgt die Löschung?
+8. Bleibt die gesamte Operation atomar?
+9. Wurde ein Rollback-Test durchgeführt?
+10. Wurde mit einer Testdatenbank/Testkunde getestet?
+11. Wurden echte Produktionsdaten verändert? MUSS NEIN sein.
+12. Funktioniert die Rückkehr zur Kundenliste nach erfolgreicher Löschung?
+13. Verschwindet der gelöschte Kunde aus der Kundenliste?
+14. Welche Dateien wurden im Code geändert?
+
+Erst nach vollständiger Ursachenanalyse korrigieren.

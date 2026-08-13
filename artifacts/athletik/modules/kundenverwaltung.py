@@ -783,6 +783,9 @@ def _detail_gefahrenbereich(daten: dict) -> None:
                 except Exception as _bke:
                     _bk_ok, _bk_msg = False, str(_bke)
 
+                import logging as _kv_log
+                _kv_logger = _kv_log.getLogger(__name__)
+                _should_rerun = False
                 try:
                     _result = kunde_loeschen(vid, bid, current_sa_id)
                     audit_log_eintragen(
@@ -803,21 +806,26 @@ def _detail_gefahrenbereich(daten: dict) -> None:
                     st.session_state["_nav_goto"] = "👥  Kundenverwaltung"
                     st.success(
                         f"✅ Kunde **{kn}** wurde endgültig gelöscht. "
-                        f"{_result.get('n_spieler', 0)} Spieler, "
-                        f"{_result.get('n_benutzer', 0)} Benutzerkonto(en) entfernt."
+                        f"Aufbewahrungspflichtige Daten wurden anonymisiert. "
+                        f"({_result.get('n_spieler', 0)} Spieler, "
+                        f"{_result.get('n_benutzer', 0)} Benutzerkonto(en) entfernt)"
                     )
                     if _bk_ok:
                         st.info(f"💾 Backup vor Löschung: ✅ {_bk_msg}")
                     else:
                         st.warning(f"💾 Backup vor Löschung: ⚠️ {_bk_msg}")
-                    st.rerun()
+                    _should_rerun = True
                 except Exception as _le:
-                    import logging
-                    logging.exception("Kundenlöschung fehlgeschlagen")
+                    _kv_logger.exception("Kundenlöschung fehlgeschlagen: %s", _le)
                     st.error(
                         "❌ Kunde konnte nicht vollständig gelöscht werden. "
                         "Es wurden keine Änderungen übernommen."
                     )
+                # st.rerun() MUSS außerhalb des try/except stehen —
+                # RerunException ist kein Exception-Subtyp in neueren Streamlit-Versionen
+                # und würde sonst den catch-Block triggern.
+                if _should_rerun:
+                    st.rerun()
 
         elif _bestaetigung.strip():
             st.warning(f"❌ Kundennummer stimmt nicht überein. Erwartet: **`{kn}`**")

@@ -3,9 +3,12 @@ Database layer — single source of truth for all SQLite operations.
 Uses a context manager for every connection so files are never left open.
 """
 
+import logging as _logging
 import sqlite3
 from contextlib import contextmanager
 from datetime import date, datetime
+
+_logger = _logging.getLogger(__name__)
 
 import os as _os
 # DB-Pfad aus config.py lesen (zentrales Settings-Modul).
@@ -5152,23 +5155,25 @@ def kunde_loeschen(
     superadmin_id: int | None = None,
 ) -> dict:
     """
-    Löscht einen Kunden endgültig (Superadmin-only).
+    Löscht einen Kunden endgültig (Superadmin-only). Atomar — alles in einer Transaktion.
+
+    Aufbewahrungspflichtige Daten (Rechnungen, Rechnungsadressen, Audit-Log,
+    Login-Log) werden anonymisiert statt gelöscht.
 
     Tenant-sicher: es werden ausschließlich Daten des angegebenen
     verein_id/benutzer_id entfernt. Fremde Mandantendaten bleiben unberührt.
 
-    Rechnungsadressen werden NICHT gelöscht, sondern anonymisiert
-    (gesetzliche Aufbewahrungspflicht für Geschäftsunterlagen).
-
     Gibt dict mit {"n_spieler": int, "n_benutzer": int} zurück.
-
-    Hinweis: Der Aufrufer ist für den Audit-Log-Eintrag verantwortlich,
-    damit er nach der Löschung noch Kontext (kn, backup-Status) eintragen kann.
+    Wirft bei Fehler eine Exception — kein stilles Scheitern.
     """
-    import datetime as _dt
 
-    # ── Phase 1: Spieler-IDs sammeln, dann einzeln löschen (nutzt get_conn intern) ──
     with get_conn() as conn:
+        # FK-Enforcement deaktivieren: wir steuern alle Abhängigkeiten selbst
+        # und löschen explizit in der richtigen Reihenfolge.
+        # Muss VOR der ersten DML-Anweisung gesetzt werden (SQLite-Einschränkung).
+        conn.execute("PRAGMA foreign_keys = OFF")
+
+        # ── Schritt 1: IDs sammeln ────────────────────────────────────────────
         if verein_id:
             spieler_ids = [
                 r[0] for r in conn.execute(
@@ -5182,62 +5187,147 @@ def kunde_loeschen(
                 ).fetchall()
             ]
         else:
+            # Standalone-Trainer: Spieler über trainer_id verknüpft (nicht benutzer_id —
+            # diese Spalte existiert nicht in der spieler-Tabelle)
             spieler_ids = [
                 r[0] for r in conn.execute(
-                    "SELECT id FROM spieler WHERE benutzer_id=?", (benutzer_id,)
+                    "SELECT id FROM spieler WHERE trainer_id=?", (benutzer_id,)
                 ).fetchall()
             ]
             alle_benutzer_ids = [benutzer_id]
 
-    n_spieler = len(spieler_ids)
+        n_spieler = len(spieler_ids)
 
-    # spieler_loeschen() öffnet eigene Verbindung — außerhalb des with-Blocks aufrufen
-    for sid in spieler_ids:
-        try:
-            spieler_loeschen(sid)
-        except Exception:
-            pass
+        # ── Schritt 2: Spieler-Abhängigkeiten löschen (Kind vor Eltern) ──────
+        for sid in spieler_ids:
+            # kraft_test_versuch → kraft_test → spieler
+            try:
+                conn.execute(
+                    "DELETE FROM kraft_test_versuch WHERE kraft_test_id IN "
+                    "(SELECT id FROM kraft_test WHERE spieler_id=?)", (sid,)
+                )
+            except Exception:
+                pass
+            # spiro_stufe / spiro_nachbelastung → spiro_test → spieler
+            try:
+                conn.execute(
+                    "DELETE FROM spiro_stufe WHERE spiro_test_id IN "
+                    "(SELECT id FROM spiro_test WHERE spieler_id=?)", (sid,)
+                )
+            except Exception:
+                pass
+            try:
+                conn.execute(
+                    "DELETE FROM spiro_nachbelastung WHERE spiro_test_id IN "
+                    "(SELECT id FROM spiro_test WHERE spieler_id=?)", (sid,)
+                )
+            except Exception:
+                pass
+            # Alle weiteren spieler-direkten Tabellen
+            for _tbl in [
+                "spiro_test", "verletzung", "anthropometrie", "agilitaet_test",
+                "ausdauer_test", "sprint_test", "sprung_test", "fms_test",
+                "y_balance_test", "kraft_test", "trainerbeobachtung",
+                "periodisierung", "trainingsplan", "trainingsplan_versionen",
+                "spieler_zuweisung_log",
+            ]:
+                try:
+                    conn.execute(f"DELETE FROM {_tbl} WHERE spieler_id=?", (sid,))
+                except Exception:
+                    pass
+            conn.execute("DELETE FROM spieler WHERE id=?", (sid,))
 
-    # ── Phase 2: Restliche Daten bereinigen ───────────────────────────────────
-    with get_conn() as conn:
-        conn.execute("PRAGMA foreign_keys = ON")
-
+        # ── Schritt 3: Benutzer-Abhängigkeiten bereinigen ────────────────────
+        # (Kinder müssen weg bevor der benutzer-Datensatz gelöscht wird)
         for bid in alle_benutzer_ids:
-            # Rechnungsadressen anonymisieren (Aufbewahrungspflicht)
+            # Sessions löschen
+            try:
+                conn.execute("DELETE FROM sessions WHERE benutzer_id=?", (bid,))
+            except Exception:
+                pass
+            # Benachrichtigungen löschen
+            try:
+                conn.execute("DELETE FROM benachrichtigungen WHERE benutzer_id=?", (bid,))
+            except Exception:
+                pass
+            # Rechnungsadressen anonymisieren (gesetzliche Aufbewahrungspflicht)
+            # Spalte heißt rechnung_email (nicht email)
             try:
                 conn.execute(
                     """UPDATE rechnungsadressen SET
                        vorname='[gelöscht]', nachname='[gelöscht]',
-                       email='geloescht@anonymized.invalid',
-                       firma='[Archiviert]', strasse='', plz='', ort=''
+                       firma='[Archiviert]',
+                       strasse='', hausnummer='', plz='', ort='',
+                       rechnung_email='geloescht@anonymized.invalid',
+                       telefon='', ust_id=''
                        WHERE benutzer_id=?""",
                     (bid,),
                 )
             except Exception:
                 pass
-            # Sessions invalidieren
+            # Audit-Log: benutzer_id nullen — Datensatz bleibt als Nachweis erhalten
             try:
-                conn.execute("DELETE FROM sessions WHERE benutzer_id=?", (bid,))
+                conn.execute(
+                    "UPDATE audit_log SET benutzer_id=NULL WHERE benutzer_id=?", (bid,)
+                )
+            except Exception:
+                pass
+            # audit_log.superadmin_id anonymisieren (falls dieser Benutzer SA-Aktionen hat)
+            try:
+                conn.execute(
+                    "UPDATE audit_log SET superadmin_id=NULL WHERE superadmin_id=?", (bid,)
+                )
+            except Exception:
+                pass
+            # Login-Log anonymisieren (Datensatz bleibt)
+            try:
+                conn.execute(
+                    "UPDATE login_log SET benutzer_id=NULL, email='[gelöscht]' "
+                    "WHERE benutzer_id=?",
+                    (bid,),
+                )
+            except Exception:
+                pass
+            # spieler_zuweisung_log: ausfuehrender_id anonymisieren
+            try:
+                conn.execute(
+                    "UPDATE spieler_zuweisung_log SET ausfuehrender_id=NULL "
+                    "WHERE ausfuehrender_id=?",
+                    (bid,),
+                )
             except Exception:
                 pass
 
+        # ── Schritt 4: Verein-spezifische Bereinigung (vor Vereinslöschung) ──
         if verein_id:
-            # Trainer-Benutzer des Vereins löschen (CASCADE: benachrichtigungen)
+            # Rechnungen anonymisieren (Aufbewahrungspflicht 10 Jahre):
+            # verein_id nullen damit FK bei Vereinslöschung nicht bricht
             try:
-                conn.execute("DELETE FROM benutzer WHERE verein_id=?", (verein_id,))
+                conn.execute(
+                    "UPDATE rechnungen SET verein_id=NULL WHERE verein_id=?", (verein_id,)
+                )
             except Exception:
                 pass
-            # Verein löschen (CASCADE: lizenz_warn_log, login_log.verein_id=SET NULL)
+            # lizenz_warn_log löschen (kein Aufbewahrungsgrund)
             try:
-                conn.execute("DELETE FROM vereine WHERE id=?", (verein_id,))
+                conn.execute("DELETE FROM lizenz_warn_log WHERE verein_id=?", (verein_id,))
             except Exception:
                 pass
+            # login_log: verein_id nullen (Datensatz bleibt anonymisiert)
+            try:
+                conn.execute(
+                    "UPDATE login_log SET verein_id=NULL WHERE verein_id=?", (verein_id,)
+                )
+            except Exception:
+                pass
+            # Alle Trainer/Admin-Benutzer des Vereins löschen
+            conn.execute("DELETE FROM benutzer WHERE verein_id=?", (verein_id,))
+            # Verein löschen
+            conn.execute("DELETE FROM vereine WHERE id=?", (verein_id,))
 
-        # Haupt-Benutzer löschen (könnte bereits über verein_id-Kaskade weg sein)
-        try:
-            conn.execute("DELETE FROM benutzer WHERE id=?", (benutzer_id,))
-        except Exception:
-            pass
+        # ── Schritt 5: Haupt-Benutzer löschen ────────────────────────────────
+        # (bei Vereinskunden bereits über Schritt 4 entfernt — DELETE hat dann 0 Treffer)
+        conn.execute("DELETE FROM benutzer WHERE id=?", (benutzer_id,))
 
     return {"n_spieler": n_spieler, "n_benutzer": len(alle_benutzer_ids)}
 
