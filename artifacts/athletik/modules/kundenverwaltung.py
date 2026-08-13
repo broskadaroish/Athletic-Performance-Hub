@@ -174,6 +174,30 @@ def _detail_a_kundenkonto(daten: dict) -> None:
         c2.markdown(f"**Letzter Login:** {b.get('letzter_login','—')}")
         c1.markdown(f"**Account:** {'🟢 Aktiv' if b.get('aktiv') else '⛔ Deaktiviert'}")
 
+        # ── DSGVO-Zustimmung (nur lesen) ─────────────────────────────────────
+        _ds_ok  = bool(b.get("datenschutz_akzeptiert"))
+        _agb_ok = bool(b.get("agb_akzeptiert"))
+        if _ds_ok or _agb_ok:
+            st.markdown("---")
+            st.markdown("**📋 Rechtliche Zustimmungen**")
+            zc1, zc2 = st.columns(2)
+            if _ds_ok:
+                zc1.markdown(
+                    f"**Datenschutz:** ✅ akzeptiert am "
+                    f"{b.get('datenschutz_akzeptiert_am','—')[:10]}  \n"
+                    f"Version: `{b.get('datenschutz_version','—')}`"
+                )
+            else:
+                zc1.markdown("**Datenschutz:** ❌ keine Zustimmung (Altdaten)")
+            if _agb_ok:
+                zc2.markdown(
+                    f"**AGB:** ✅ akzeptiert am "
+                    f"{b.get('agb_akzeptiert_am','—')[:10]}  \n"
+                    f"Version: `{b.get('agb_version','—')}`"
+                )
+            else:
+                zc2.markdown("**AGB:** ❌ keine Zustimmung (Altdaten)")
+
         unvollstaendig = not b.get("email") or (kundentyp == "Verein" and not v.get("name"))
         if unvollstaendig:
             st.warning("⚠️ Stammdaten unvollständig")
@@ -686,6 +710,7 @@ def _kunde_detail(verein_id: int | None, benutzer_id: int | None) -> None:
     """Vollständige Kundendetailansicht mit 4 Sektionen + Audit."""
     if st.button("← Zurück zur Kundenliste", key="kd_zurueck"):
         st.session_state.pop("kunden_auswahl", None)
+        st.session_state["_nav_goto"] = "👥  Kundenverwaltung"
         st.rerun()
 
     daten = kunde_vollstaendig_laden(verein_id=verein_id, benutzer_id=benutzer_id)

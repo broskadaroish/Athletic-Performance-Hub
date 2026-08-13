@@ -1,0 +1,460 @@
+UPDATE – REGISTRIERUNG MIT DATENSCHUTZ/AGB-PFLICHT + KUNDENVERWALTUNG ROUTING/SESSION FEHLER BEHEBEN
+
+Arbeite auf Basis des bestehenden Athletic Performance Hub Projekts weiter.
+
+WICHTIG:
+- Keine SMTP-Konfiguration verändern.
+- Keine Login-Engine neu schreiben.
+- Keine Session-Lifetime verändern.
+- Keine Datenbank löschen.
+- Keine Mandantentrennung verändern.
+- Keine Pakete/Preise ändern.
+- Keine Trainings-/Diagnostiklogik ändern.
+- Keine bestehenden Kundendaten verändern oder löschen.
+- Nur die unten beschriebenen zwei Bereiche bearbeiten.
+
+==================================================
+TEIL A – REGISTRIERUNG: DATENSCHUTZ + AGB VERPFLICHTEND
+==================================================
+
+1. AKTUELLER WUNSCH
+
+Bei einer neuen Registrierung – sowohl TRAINER als auch VEREIN – darf die Anmeldung erst abgeschickt werden, wenn der Kunde:
+
+- die Datenschutzerklärung gelesen hat
+- die AGB / Nutzungsbedingungen gelesen hat
+- beide aktiv angekreuzt hat
+
+Ohne beide Haken keine Registrierung.
+
+==================================================
+2. PFLICHT-CHECKBOX DATENSCHUTZ
+
+Direkt vor dem Registrieren-Button anzeigen:
+
+[ ] Ich habe die Datenschutzerklärung gelesen und akzeptiere sie.
+
+Das Wort:
+
+„Datenschutzerklärung“
+
+muss anklickbar sein.
+
+Es soll die bestehende Datenschutzerklärung öffnen.
+
+Die Datenschutzerklärung muss auch ohne Login lesbar sein.
+
+==================================================
+3. PFLICHT-CHECKBOX AGB
+
+Zusätzlich anzeigen:
+
+[ ] Ich habe die AGB / Nutzungsbedingungen gelesen und akzeptiere sie.
+
+„AGB / Nutzungsbedingungen“ anklickbar machen.
+
+Auch diese Seite muss ohne Login lesbar sein.
+
+==================================================
+4. NICHT VORANGEKREUZT
+
+Beide Checkboxen müssen beim Öffnen der Registrierung standardmäßig:
+
+NICHT angekreuzt
+
+sein.
+
+Keine automatische Zustimmung.
+
+==================================================
+5. REGISTRIERUNG SPERREN
+
+Wenn nur eine oder keine Checkbox aktiviert ist:
+
+Account NICHT anlegen.
+
+Keine E-Mail versenden.
+
+Keine Verifikation starten.
+
+Stattdessen klare Meldung:
+
+„Bitte akzeptiere die Datenschutzerklärung und die AGB / Nutzungsbedingungen, um die Registrierung abzuschließen.“
+
+==================================================
+6. ERST NACH BEIDEN ZUSTIMMUNGEN
+
+Nur wenn beide Haken aktiv sind:
+
+1. Registrierung validieren
+2. Account anlegen
+3. Zustimmung speichern
+4. Verifikationstoken erzeugen
+5. Bestätigungs-E-Mail senden
+6. bestehender Freischaltungsprozess weiterlaufen lassen
+
+==================================================
+7. ZUSTIMMUNG PERSISTENT SPEICHERN
+
+Prüfe zuerst, ob bereits passende Felder existieren.
+
+Falls ja:
+weiterverwenden.
+
+Falls nein:
+migrationssicher ergänzen.
+
+Mindestens speichern:
+
+datenschutz_akzeptiert
+datenschutz_akzeptiert_am
+datenschutz_version
+
+agb_akzeptiert
+agb_akzeptiert_am
+agb_version
+
+==================================================
+8. VERSIONEN
+
+Verwende zentrale Versionswerte.
+
+Zum Beispiel:
+
+PRIVACY_POLICY_VERSION = "2026-08-12"
+TERMS_VERSION = "2026-08-12"
+
+Falls bereits eine zentrale Versionslogik existiert:
+diese weiterverwenden.
+
+Nicht an vielen Stellen hart codieren.
+
+==================================================
+9. ZEITPUNKT
+
+Akzeptierungszeitpunkt serverseitig setzen.
+
+Nicht aus dem Browser übernehmen.
+
+==================================================
+10. TRAINER UND VEREIN
+
+Pflicht gilt für:
+
+- Trainerregistrierung
+- Vereinsregistrierung
+
+Keine Ausnahme.
+
+==================================================
+11. BESTEHENDE ALT-KONTEN
+
+Bestehende Accounts nicht sperren.
+
+Keine Zustimmung rückwirkend erfinden.
+
+Bestehende Nutzer dürfen unverändert weiterarbeiten.
+
+==================================================
+12. SUPERADMIN-ANZEIGE OPTIONAL
+
+Falls ohne großen Eingriff möglich:
+
+In Kundendetails anzeigen:
+
+Datenschutz:
+✅ akzeptiert am [Datum]
+Version: [Version]
+
+AGB:
+✅ akzeptiert am [Datum]
+Version: [Version]
+
+Nur lesen, nicht manuell verändern.
+
+==================================================
+TEIL B – KUNDENVERWALTUNG: LOGIN-SPRUNG BEHEBEN
+==================================================
+
+13. AKTUELLER FEHLER
+
+Im Superadmin:
+
+Kundenverwaltung
+→ Kundenliste
+
+Beim Öffnen der Kundenliste bzw. Bearbeiten eines Kunden werde ich teilweise auf die Login-Seite geschickt.
+
+Ich muss mich dann erneut anmelden.
+
+Nach Login lande ich in der Kundenliste bzw. richtigen Seite.
+
+DAS DARF NICHT PASSIEREN.
+
+==================================================
+14. SESSION MUSS ERHALTEN BLEIBEN
+
+Wenn Superadmin bereits angemeldet ist:
+
+Kundenverwaltung
+→ Kundenliste
+→ Kunde öffnen
+→ Bearbeiten
+
+darf kein erneuter Login nötig sein.
+
+Bestehende Session verwenden:
+
+- ath_sid
+- serverseitige Session
+- bestehende Authentifizierung
+
+Keine neue Auth-Logik erstellen.
+
+==================================================
+15. ROUTING-URSACHE PRÜFEN
+
+Prüfe konkret:
+
+- wird Kundenliste über href / Query-Param aufgerufen?
+- entsteht vollständiger Browser-Reload?
+- wird Session vor Cookie-Restore geprüft?
+- wird nav_section nach Widget-Erstellung falsch gesetzt?
+- wird eine neue Route ohne Benutzerkontext geöffnet?
+- wird Superadmin-Status bei Seitenwechsel verloren?
+
+Den konkreten Grund finden.
+
+==================================================
+16. KEINE LOGIN-SEITE BEI GÜLTIGER SESSION
+
+Wenn ath_sid gültig ist:
+
+Login-Seite NICHT anzeigen.
+
+Zuerst Session wiederherstellen, dann Routing durchführen.
+
+==================================================
+17. DESKTOP UND MOBILE GLEICHE SESSION
+
+Kundenverwaltung muss auf:
+
+- Desktop
+- Laptop
+- Mobile, falls erreichbar
+
+dieselbe zentrale Authentifizierung verwenden.
+
+==================================================
+TEIL C – „ZURÜCK ZUR KUNDENLISTE“ KORRIGIEREN
+==================================================
+
+18. AKTUELLER FEHLER
+
+Wenn ich einen Kunden geöffnet habe und dann:
+
+„Zurück zur Kundenliste“
+
+anklicke, lande ich aktuell auf der Startseite.
+
+Das ist falsch.
+
+==================================================
+19. GEWÜNSCHTES VERHALTEN
+
+Wenn ich in:
+
+Kundenverwaltung
+→ Kundenliste
+→ Kunde XY
+→ Bearbeiten
+
+bin und dann:
+
+„Zurück zur Kundenliste“
+
+anklicke,
+
+muss ich exakt wieder auf:
+
+Kundenverwaltung → Kundenliste → Gesamtübersicht aller Kunden
+
+kommen.
+
+NICHT auf:
+
+Startseite
+Dashboard
+Superadmin-Start
+
+==================================================
+20. EIGENE ROUTE FÜR KUNDENLISTE
+
+Prüfe, ob bereits eine Route / Section existiert, z.B.:
+
+kundenverwaltung
+kundenliste
+customer_list
+
+Diese Route weiterverwenden.
+
+Keinen neuen parallelen Kundenlistenbereich erstellen.
+
+==================================================
+21. BACK-NAVIGATION
+
+Der Button:
+
+„Zurück zur Kundenliste“
+
+muss direkt die Kundenlisten-Route setzen.
+
+Konzeptionell:
+
+navigate_to("kundenliste")
+
+oder bestehende zentrale Routing-Funktion.
+
+Keine Browser-History-Hacks, wenn zentrale Navigation vorhanden ist.
+
+==================================================
+22. FILTER / SUCHSTATUS OPTIONAL ERHALTEN
+
+Falls in der Kundenliste vorher ein Filter oder Suchbegriff aktiv war:
+
+wenn technisch sauber möglich, beim Zurückgehen erhalten.
+
+Mindestens aber:
+
+Gesamte Kundenliste anzeigen.
+
+Nicht auf Startseite springen.
+
+==================================================
+23. NAV_SECTION FEHLER VERMEIDEN
+
+Wichtig wegen des bereits bekannten Streamlit-Problems:
+
+Nicht nach Instanziierung eines Widgets mit:
+
+key="nav_section"
+
+direkt:
+
+st.session_state["nav_section"] = ...
+
+setzen.
+
+Falls Navigation umgestellt werden muss:
+
+Pending-Key / Callback / zentrale navigate_to()-Logik verwenden.
+
+==================================================
+24. KUNDENDETAIL NICHT NEU AUTHENTIFIZIEREN
+
+Beim Öffnen eines Kunden:
+
+nicht nochmal:
+
+login_required()
+oder
+auth gate
+
+so aufrufen, dass eine bestehende Session verloren geht.
+
+Bestehende Superadmin-Sitzung weiterverwenden.
+
+==================================================
+25. TEST – REGISTRIERUNG
+
+TEST A:
+Trainer ohne Haken
+→ keine Registrierung.
+
+TEST B:
+nur Datenschutz
+→ keine Registrierung.
+
+TEST C:
+nur AGB
+→ keine Registrierung.
+
+TEST D:
+beide Haken
+→ Registrierung möglich
+→ Bestätigungsmail wird versendet.
+
+TEST E:
+Verein
+→ gleiche Regeln.
+
+==================================================
+26. TEST – KUNDENVERWALTUNG
+
+Superadmin einmal anmelden.
+
+Dann:
+
+Kundenverwaltung
+→ Kundenliste
+→ Kunde 1 öffnen
+→ Bearbeiten
+→ Zurück zur Kundenliste
+→ Kunde 2 öffnen
+→ Zurück zur Kundenliste
+
+Erwartung:
+
+- kein Login zwischendurch
+- keine Startseite
+- immer zurück zur Kunden-Gesamtübersicht
+
+==================================================
+27. RELOAD TEST
+
+In Kundenliste Browser einmal aktualisieren.
+
+Erwartung:
+
+gültige Session bleibt bestehen.
+
+Kein erneuter Login.
+
+==================================================
+28. KEINE DATENÄNDERUNG DURCH ROUTING
+
+Navigation darf keine:
+
+- Kunden löschen
+- Accounts ändern
+- Lizenzdaten ändern
+- Vertragsdaten ändern
+
+Nur durch Seitenwechsel.
+
+==================================================
+29. ABSCHLUSSBERICHT
+
+Danach berichten:
+
+A – REGISTRIERUNG
+1. Sind Datenschutz und AGB jetzt Pflicht? JA / NEIN
+2. Sind beide Checkboxen standardmäßig leer? JA / NEIN
+3. Wird Registrierung ohne beide Haken blockiert? JA / NEIN
+4. Werden Zeitpunkt und Version gespeichert? JA / NEIN
+5. Funktioniert es für Trainer? JA / NEIN
+6. Funktioniert es für Vereine? JA / NEIN
+
+B – KUNDENVERWALTUNG
+7. Warum sprang Kundenliste vorher zur Login-Seite?
+8. Wurde die Sessionlogik verändert? Erwartet: NEIN
+9. Bleibt Superadmin beim Öffnen/Bearbeiten eines Kunden eingeloggt? JA / NEIN
+10. Funktioniert „Zurück zur Kundenliste“ jetzt korrekt? JA / NEIN
+11. Landet der Button jetzt auf der Kunden-Gesamtübersicht? JA / NEIN
+12. Tritt noch nav_section StreamlitAPIException auf? JA / NEIN
+13. Welche Dateien wurden geändert?
+14. Welche Datenbankfelder wurden ergänzt?
+
+Danach STOPPEN.
+
+Keine weiteren Funktionen verändern.

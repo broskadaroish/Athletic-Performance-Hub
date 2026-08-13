@@ -79,6 +79,10 @@ STRIPE_PRICE_PRO_JAHR    = os.environ.get("STRIPE_PRICE_PRO_JAHR",    "")
 # Öffentliche App-URL (für Stripe Redirect-URLs)
 APP_BASE_URL = os.environ.get("APP_BASE_URL", "http://localhost:8082")
 
+# ── Rechtliche Dokumentversionen (für Zustimmungsprotokoll bei Registrierung) ──
+PRIVACY_POLICY_VERSION = os.environ.get("PRIVACY_POLICY_VERSION", "2026-08-12")
+TERMS_VERSION          = os.environ.get("TERMS_VERSION",          "2026-08-12")
+
 # ── E-Mail / SMTP ─────────────────────────────────────────────────────────────
 SMTP_HOST     = os.environ.get("SMTP_HOST",     "smtp.gmail.com")
 SMTP_PORT     = int(os.environ.get("SMTP_PORT", "587"))

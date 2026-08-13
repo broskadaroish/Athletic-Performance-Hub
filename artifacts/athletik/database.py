@@ -1030,6 +1030,33 @@ def einwilligung_alle() -> list[dict]:
         ).fetchall())
 
 
+def zustimmung_registrierung_speichern(
+    benutzer_id: int,
+    datenschutz_version: str,
+    agb_version: str,
+) -> None:
+    """Speichert Datenschutz- und AGB-Zustimmung für einen neu registrierten Benutzer.
+
+    Zeitpunkt wird serverseitig gesetzt (datetime('now')).
+    Darf nur einmal direkt nach der Registrierung aufgerufen werden.
+    Bestehende Alt-Accounts ohne Zustimmung werden nicht verändert.
+    """
+    import datetime as _dt
+    now = _dt.datetime.utcnow().isoformat(timespec="seconds")
+    with get_conn() as conn:
+        conn.execute(
+            """UPDATE benutzer
+               SET datenschutz_akzeptiert    = 1,
+                   datenschutz_akzeptiert_am = ?,
+                   datenschutz_version       = ?,
+                   agb_akzeptiert            = 1,
+                   agb_akzeptiert_am         = ?,
+                   agb_version               = ?
+               WHERE id = ?""",
+            (now, datenschutz_version, now, agb_version, benutzer_id),
+        )
+
+
 # ─── Spieler ───────────────────────────────────────────────────────────────
 
 def spieler_laden(benutzer_id=None, rolle="Trainer", verein_id=None):
@@ -2479,6 +2506,20 @@ def _migrate_multitenant():
             )
         except Exception:
             pass  # Spalte existiert bereits
+        # ── DSGVO-Zustimmungsfelder (Datenschutz + AGB bei Registrierung) ──────
+        zustimmung_cols = [
+            ("datenschutz_akzeptiert",    "INTEGER DEFAULT 0"),
+            ("datenschutz_akzeptiert_am", "TEXT"),
+            ("datenschutz_version",       "TEXT"),
+            ("agb_akzeptiert",            "INTEGER DEFAULT 0"),
+            ("agb_akzeptiert_am",         "TEXT"),
+            ("agb_version",               "TEXT"),
+        ]
+        for col, typ in zustimmung_cols:
+            try:
+                conn.execute(f"ALTER TABLE benutzer ADD COLUMN {col} {typ}")
+            except Exception:
+                pass  # Spalte existiert bereits
         # Rechnungsadressen-Tabelle
         conn.execute("""
             CREATE TABLE IF NOT EXISTS rechnungsadressen (

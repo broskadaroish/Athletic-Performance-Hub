@@ -36,6 +36,7 @@ from mobile import (
 )
 from help_ui import sicherheitshinweis_box, show_test_info, show_field_help, field_info_col, norm_badge, show_trainer_checkliste
 from modules.legal_page import page_impressum, page_datenschutz, page_agb
+from config import PRIVACY_POLICY_VERSION, TERMS_VERSION
 from ui_components import (
     kpi_card, score_kpi, risk_kpi,
     player_banner, section_header, deficit_row, strength_row,
@@ -65,6 +66,7 @@ from database import (
     ausdauer_speichern, ausdauer_letzter, ausdauer_history,
     kraft_speichern, kraft_letzter, kraft_history,
     einwilligung_speichern, einwilligung_letzter, einwilligung_alle,
+    zustimmung_registrierung_speichern,
     db_komplett_zuruecksetzen,
     backup_status_laden, db_backup_erstellen, spieler_mandant_pruefen,
     checkliste_custom_laden, checkliste_custom_speichern,
@@ -679,9 +681,40 @@ if "user" not in st.session_state:
                                                       placeholder="rechnung@verein.de")
                     _r_ra_ustid    = st.text_input("Umsatzsteuer-ID (optional)", key="reg_ra_ustid")
 
+                # ── Datenschutz + AGB Pflicht-Checkboxen ──────────────────────
+                st.markdown(
+                    '<div style="background:#161b22;border:1px solid #30363d;'
+                    'border-radius:8px;padding:12px 14px;margin:12px 0">',
+                    unsafe_allow_html=True,
+                )
+                _rds_c1, _rds_c2 = st.columns([6, 1])
+                _r_datenschutz = _rds_c1.checkbox(
+                    "Ich habe die Datenschutzerklärung gelesen und akzeptiere sie.",
+                    key="reg_v_datenschutz",
+                )
+                if _rds_c2.button("📖 Lesen", key="reg_v_open_ds",
+                                  help="Datenschutzerklärung öffnen"):
+                    st.session_state["_legal_show"] = "datenschutz"
+                    st.rerun()
+                _ragb_c1, _ragb_c2 = st.columns([6, 1])
+                _r_agb = _ragb_c1.checkbox(
+                    "Ich habe die AGB / Nutzungsbedingungen gelesen und akzeptiere sie.",
+                    key="reg_v_agb",
+                )
+                if _ragb_c2.button("📖 Lesen", key="reg_v_open_agb",
+                                   help="AGB / Nutzungsbedingungen öffnen"):
+                    st.session_state["_legal_show"] = "agb"
+                    st.rerun()
+                st.markdown("</div>", unsafe_allow_html=True)
+
                 if st.button("🚀 Jetzt registrieren", type="primary",
                              use_container_width=True, key="reg_btn"):
                     _rerr = []
+                    if not _r_datenschutz or not _r_agb:
+                        _rerr.append(
+                            "Bitte akzeptiere die Datenschutzerklärung und die "
+                            "AGB / Nutzungsbedingungen, um die Registrierung abzuschließen."
+                        )
                     if not _r_verein.strip():            _rerr.append("Vereinsname fehlt.")
                     if not _r_vorname.strip() or not _r_nachname.strip():
                         _rerr.append("Vor- und Nachname des Ansprechpartners fehlen.")
@@ -721,6 +754,9 @@ if "user" not in st.session_state:
                                  rechnung_email=_r_ra_remail.strip(),
                                  telefon=_r_ra_tel.strip() or None,
                                  ust_id=_r_ra_ustid.strip() or None)
+                            zustimmung_registrierung_speichern(
+                                _bid, PRIVACY_POLICY_VERSION, TERMS_VERSION
+                            )
                             from database import email_token_erzeugen as _ete
                             _vtoken = _ete(_bid)
                             _reg_email_ok = False
@@ -814,9 +850,40 @@ if "user" not in st.session_state:
                                                       placeholder="rechnung@trainer.de")
                     _t_ra_ustid    = st.text_input("Umsatzsteuer-ID (optional)", key="tr_ra_ustid")
 
+                # ── Datenschutz + AGB Pflicht-Checkboxen ──────────────────────
+                st.markdown(
+                    '<div style="background:#161b22;border:1px solid #30363d;'
+                    'border-radius:8px;padding:12px 14px;margin:12px 0">',
+                    unsafe_allow_html=True,
+                )
+                _tds_c1, _tds_c2 = st.columns([6, 1])
+                _t_datenschutz = _tds_c1.checkbox(
+                    "Ich habe die Datenschutzerklärung gelesen und akzeptiere sie.",
+                    key="reg_t_datenschutz",
+                )
+                if _tds_c2.button("📖 Lesen", key="reg_t_open_ds",
+                                  help="Datenschutzerklärung öffnen"):
+                    st.session_state["_legal_show"] = "datenschutz"
+                    st.rerun()
+                _tagb_c1, _tagb_c2 = st.columns([6, 1])
+                _t_agb = _tagb_c1.checkbox(
+                    "Ich habe die AGB / Nutzungsbedingungen gelesen und akzeptiere sie.",
+                    key="reg_t_agb",
+                )
+                if _tagb_c2.button("📖 Lesen", key="reg_t_open_agb",
+                                   help="AGB / Nutzungsbedingungen öffnen"):
+                    st.session_state["_legal_show"] = "agb"
+                    st.rerun()
+                st.markdown("</div>", unsafe_allow_html=True)
+
                 if st.button("👤 Als Trainer registrieren", type="primary",
                              use_container_width=True, key="trainer_reg_btn"):
                     _terr = []
+                    if not _t_datenschutz or not _t_agb:
+                        _terr.append(
+                            "Bitte akzeptiere die Datenschutzerklärung und die "
+                            "AGB / Nutzungsbedingungen, um die Registrierung abzuschließen."
+                        )
                     if not _t_vorname.strip() or not _t_nachname.strip():
                         _terr.append("Vor- und Nachname fehlen.")
                     if not _t_email.strip() or "@" not in _t_email:
@@ -855,6 +922,9 @@ if "user" not in st.session_state:
                                  rechnung_email=_t_ra_remail.strip(),
                                  telefon=_t_ra_tel.strip() or None,
                                  ust_id=_t_ra_ustid.strip() or None)
+                            zustimmung_registrierung_speichern(
+                                _tbid, PRIVACY_POLICY_VERSION, TERMS_VERSION
+                            )
                             from database import email_token_erzeugen as _ete
                             _tvtoken = _ete(_tbid)
                             _treg_email_ok = False
@@ -9949,6 +10019,26 @@ with st.sidebar:
                              key="nb_alle_gelesen", use_container_width=True):
                     benachrichtigungen_alle_gelesen(_nb_user["id"])
                     st.rerun()
+
+    # ── ?kd= Query-Param: Direkt-Link zu Kundendetail (nach Browser-Reload) ─────
+    # Wenn ein Superadmin auf eine Kundenkarte klickt (<a href="?kd=VID_BID">),
+    # entsteht ein vollständiger Browser-Reload. Die Streamlit-Session geht dabei
+    # verloren — nav_section würde auf den Default (Startseite) fallen.
+    # Deshalb: kd= hier appweit lesen, kunden_auswahl + _nav_goto setzen.
+    _qp_kd_app = st.query_params.get("kd", "")
+    if _qp_kd_app and not st.session_state.get("kunden_auswahl"):
+        try:
+            _kd_parts_app = str(_qp_kd_app).split("_", 1)
+            if len(_kd_parts_app) == 2:
+                _vid_app = int(_kd_parts_app[0]) or None
+                _bid_app = int(_kd_parts_app[1]) or None
+                if _vid_app is not None or _bid_app is not None:
+                    st.session_state["kunden_auswahl"] = (_vid_app, _bid_app)
+                    st.session_state["_nav_goto"] = "👥  Kundenverwaltung"
+                    st.query_params.clear()
+                    st.rerun()
+        except (ValueError, TypeError):
+            st.query_params.clear()
 
     # ── Mobile: handle ?nav= query param (must be before radio widget) ────────
     handle_mobile_nav_params()
