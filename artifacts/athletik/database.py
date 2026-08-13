@@ -5168,10 +5168,8 @@ def kunde_loeschen(
     """
 
     with get_conn() as conn:
-        # FK-Enforcement deaktivieren: wir steuern alle Abhängigkeiten selbst
-        # und löschen explizit in der richtigen Reihenfolge.
-        # Muss VOR der ersten DML-Anweisung gesetzt werden (SQLite-Einschränkung).
-        conn.execute("PRAGMA foreign_keys = OFF")
+        # PRAGMA foreign_keys = ON ist bereits durch get_conn() gesetzt und bleibt aktiv.
+        # Alle Abhängigkeiten werden in der korrekten FK-konformen Reihenfolge behandelt.
 
         # ── Schritt 1: IDs sammeln ────────────────────────────────────────────
         if verein_id:
@@ -5237,97 +5235,100 @@ def kunde_loeschen(
                     pass
             conn.execute("DELETE FROM spieler WHERE id=?", (sid,))
 
-        # ── Schritt 3: Benutzer-Abhängigkeiten bereinigen ────────────────────
-        # (Kinder müssen weg bevor der benutzer-Datensatz gelöscht wird)
+        # ── Schritt 3: Benutzer-Abhängigkeiten bereinigen (FK=ON konform) ────
+        # Reihenfolge: NOT-NULL-NO-ACTION-FKs zuerst, dann NULLABLE-Felder,
+        # dann DELETE benutzer (CASCADE + SET NULL FKs feuern automatisch).
         for bid in alle_benutzer_ids:
-            # Sessions löschen
-            try:
-                conn.execute("DELETE FROM sessions WHERE benutzer_id=?", (bid,))
-            except Exception:
-                pass
-            # Benachrichtigungen löschen
-            try:
-                conn.execute("DELETE FROM benachrichtigungen WHERE benutzer_id=?", (bid,))
-            except Exception:
-                pass
-            # Rechnungsadressen anonymisieren (gesetzliche Aufbewahrungspflicht)
-            # Spalte heißt rechnung_email (nicht email)
-            try:
-                conn.execute(
-                    """UPDATE rechnungsadressen SET
-                       vorname='[gelöscht]', nachname='[gelöscht]',
-                       firma='[Archiviert]',
-                       strasse='', hausnummer='', plz='', ort='',
-                       rechnung_email='geloescht@anonymized.invalid',
-                       telefon='', ust_id=''
-                       WHERE benutzer_id=?""",
-                    (bid,),
-                )
-            except Exception:
-                pass
-            # Audit-Log: benutzer_id nullen — Datensatz bleibt als Nachweis erhalten
+            # sessions.benutzer_id: NOT NULL, ON DELETE=NO ACTION → explizit löschen
+            conn.execute("DELETE FROM sessions WHERE benutzer_id=?", (bid,))
+
+            # rechnungsadressen.benutzer_id: NOT NULL, ON DELETE=NO ACTION
+            # Rechnungsadressen können vollständig gelöscht werden —
+            # gesetzliche Aufbewahrungspflicht (HGB §257) gilt für Rechnungen (rechnungen-Tabelle),
+            # nicht für Rechnungsadressen (Kontaktdaten des Kunden).
+            conn.execute("DELETE FROM rechnungsadressen WHERE benutzer_id=?", (bid,))
+
+            # audit_log: benutzer_id + superadmin_id sind NULLABLE, ON DELETE=NO ACTION
+            # → Datensatz bleibt als Nachweis erhalten, PII-Bezug wird gekappt
             try:
                 conn.execute(
                     "UPDATE audit_log SET benutzer_id=NULL WHERE benutzer_id=?", (bid,)
                 )
             except Exception:
                 pass
-            # audit_log.superadmin_id anonymisieren (falls dieser Benutzer SA-Aktionen hat)
             try:
                 conn.execute(
                     "UPDATE audit_log SET superadmin_id=NULL WHERE superadmin_id=?", (bid,)
                 )
             except Exception:
                 pass
-            # Login-Log anonymisieren (Datensatz bleibt)
+
+            # login_log.email: vor benutzer-DELETE anonymisieren (danach nicht mehr auffindbar)
+            # login_log.benutzer_id ist ON DELETE=SET NULL (CASCADE) → wird automatisch genullt
             try:
                 conn.execute(
-                    "UPDATE login_log SET benutzer_id=NULL, email='[gelöscht]' "
-                    "WHERE benutzer_id=?",
-                    (bid,),
-                )
-            except Exception:
-                pass
-            # spieler_zuweisung_log: ausfuehrender_id anonymisieren
-            try:
-                conn.execute(
-                    "UPDATE spieler_zuweisung_log SET ausfuehrender_id=NULL "
-                    "WHERE ausfuehrender_id=?",
-                    (bid,),
+                    "UPDATE login_log SET email='[gelöscht]' WHERE benutzer_id=?", (bid,)
                 )
             except Exception:
                 pass
 
-        # ── Schritt 4: Verein-spezifische Bereinigung (vor Vereinslöschung) ──
+        # DELETE benutzer: CASCADE → benachrichtigungen auto-gelöscht;
+        # SET NULL → login_log.benutzer_id, spieler_zuweisung_log.ausfuehrender_id auto-genullt
         if verein_id:
-            # Rechnungen anonymisieren (Aufbewahrungspflicht 10 Jahre):
-            # verein_id nullen damit FK bei Vereinslöschung nicht bricht
-            try:
-                conn.execute(
-                    "UPDATE rechnungen SET verein_id=NULL WHERE verein_id=?", (verein_id,)
-                )
-            except Exception:
-                pass
-            # lizenz_warn_log löschen (kein Aufbewahrungsgrund)
+            conn.execute("DELETE FROM benutzer WHERE verein_id=?", (verein_id,))
+        conn.execute("DELETE FROM benutzer WHERE id=?", (benutzer_id,))
+
+        # ── Schritt 4: Verein anonymisieren (NICHT löschen) ──────────────────
+        # rechnungen.verein_id ist NOT NULL, ON DELETE=NO ACTION →
+        # physisches Löschen des Vereins würde FK-Violation auslösen solange
+        # Rechnungen existieren. Lösung: Verein anonymisieren (PII entfernen,
+        # Zeile bleibt für FK-Integrität). Rechnungen bleiben vollständig
+        # erhalten (Aufbewahrungspflicht 10 Jahre).
+        # Der anonymisierte Verein erscheint nicht in der Kundenliste, da
+        # kunden_liste_laden() einen INNER JOIN mit benutzer macht
+        # (alle benutzer wurden in Schritt 3/4 gelöscht).
+        if verein_id:
+            # lizenz_warn_log.verein_id: NOT NULL, ON DELETE=CASCADE →
+            # würde bei Vereinslöschung auto-gelöscht; da wir nicht löschen,
+            # manuell entfernen (keine Aufbewahrungspflicht).
             try:
                 conn.execute("DELETE FROM lizenz_warn_log WHERE verein_id=?", (verein_id,))
             except Exception:
                 pass
-            # login_log: verein_id nullen (Datensatz bleibt anonymisiert)
+
+            # login_log.verein_id: NULLABLE, ON DELETE=SET NULL →
+            # würde bei Vereinslöschung auto-genullt; da wir nicht löschen,
+            # manuell nullen.
             try:
                 conn.execute(
                     "UPDATE login_log SET verein_id=NULL WHERE verein_id=?", (verein_id,)
                 )
             except Exception:
                 pass
-            # Alle Trainer/Admin-Benutzer des Vereins löschen
-            conn.execute("DELETE FROM benutzer WHERE verein_id=?", (verein_id,))
-            # Verein löschen
-            conn.execute("DELETE FROM vereine WHERE id=?", (verein_id,))
 
-        # ── Schritt 5: Haupt-Benutzer löschen ────────────────────────────────
-        # (bei Vereinskunden bereits über Schritt 4 entfernt — DELETE hat dann 0 Treffer)
-        conn.execute("DELETE FROM benutzer WHERE id=?", (benutzer_id,))
+            # Verein anonymisieren: alle personenbezogenen Felder leeren,
+            # Zeile bleibt für FK-Referenzen aus rechnungen erhalten.
+            conn.execute(
+                """UPDATE vereine SET
+                       name        = '[Archiviert]',
+                       aktiv       = 0,
+                       gesperrt    = 1,
+                       lizenz_status = 'geloescht',
+                       logo_blob   = NULL,
+                       farbe_primaer  = NULL,
+                       farbe_sekundaer = NULL,
+                       ansprechpartner = '',
+                       email       = '',
+                       telefon     = '',
+                       adresse     = '',
+                       homepage    = '',
+                       stripe_customer_id      = NULL,
+                       stripe_subscription_id  = NULL,
+                       registrier_code         = NULL,
+                       kundennummer            = '[gelöscht]'
+                   WHERE id = ?""",
+                (verein_id,),
+            )
 
     return {"n_spieler": n_spieler, "n_benutzer": len(alle_benutzer_ids)}
 

@@ -1,0 +1,72 @@
+NACHKORREKTUR ENDGÜLTIGE KUNDENLÖSCHUNG – FOREIGN-KEY-INTEGRITÄT
+
+Die Löschfunktion funktioniert laut Tests, aber ich möchte NICHT,
+dass PRAGMA foreign_keys = OFF verwendet wird, um bestehende
+Foreign-Key-Beziehungen zu umgehen.
+
+Aktuell steht im Abschlussbericht:
+
+- PRAGMA foreign_keys = OFF
+- rechnungen.verein_id bleibt NOT NULL erhalten
+- der zugehörige Verein wird trotzdem gelöscht
+
+Das kann verwaiste Foreign-Key-Referenzen erzeugen.
+
+AUFGABE:
+
+1. Prüfe das reale SQLite-Schema mit:
+   PRAGMA foreign_key_list(...)
+   PRAGMA table_info(...)
+
+2. Führe nach einer Testlöschung zwingend aus:
+
+   PRAGMA foreign_key_check;
+
+   Das Ergebnis muss LEER sein.
+
+3. PRAGMA foreign_keys während der Kundenlöschung NICHT deaktivieren.
+
+4. Für aufbewahrungspflichtige Rechnungsdaten eine referenziell
+   saubere Lösung verwenden.
+
+   Wenn rechnungen.verein_id NOT NULL ist und auf vereine.id zeigt,
+   darf der Verein nicht einfach gelöscht werden, solange diese
+   Rechnung darauf verweist.
+
+5. Prüfe, welche bestehende Projektstruktur dafür vorgesehen ist:
+   - Verein anonymisieren statt physisch löschen,
+   - Rechnung auf einen zulässigen anonymisierten Datensatz beziehen,
+   - oder eine andere mit dem bestehenden Schema kompatible Lösung.
+
+   Keine Schemaänderung auf Verdacht durchführen.
+
+6. Rechnungen und gesetzlich aufzubewahrende Daten NICHT löschen,
+   nur personenbezogene Inhalte gemäß bestehender Projektlogik
+   anonymisieren.
+
+7. Die übrigen personenbezogenen Kunden-, Spieler-, Test- und
+   Trainingsdaten weiterhin vollständig löschen.
+
+8. Die gesamte Operation muss weiterhin atomar sein.
+
+9. Tests ausschließlich mit temporärer Testdatenbank/Testkunden.
+
+10. Nach jedem Löschtest:
+    PRAGMA foreign_key_check;
+    Ergebnis MUSS leer sein.
+
+ABSCHLUSSBERICHT:
+
+- Wird foreign_keys irgendwo deaktiviert?
+- Was passiert mit rechnungen.verein_id?
+- Wird der Verein physisch gelöscht oder anonymisiert und warum?
+- Welche Datensätze bleiben aus Aufbewahrungsgründen bestehen?
+- Welche personenbezogenen Daten werden anonymisiert?
+- Ergebnis von PRAGMA foreign_key_check?
+- Funktionieren Standalone- und Vereinskunden?
+- Wurden Produktionsdaten verändert? MUSS NEIN sein.
+- Welche Dateien wurden geändert?
+
+WICHTIG:
+Keine Navigation, Login-, Session-, Docker-, SMTP- oder UI-Logik ändern.
+Nur die Datenintegrität der endgültigen Kundenlöschung korrigieren.
