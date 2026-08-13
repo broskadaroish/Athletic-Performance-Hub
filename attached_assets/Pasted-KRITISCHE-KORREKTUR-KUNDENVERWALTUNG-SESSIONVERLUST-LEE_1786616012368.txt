@@ -1,0 +1,443 @@
+KRITISCHE KORREKTUR – KUNDENVERWALTUNG: SESSIONVERLUST + LEERE KLICKFLÄCHEN + DETAILS-BUTTON
+
+Aktueller realer Stand in der Kundenverwaltung:
+
+POSITIV:
+„Zurück zur Kundenliste“ funktioniert inzwischen korrekt.
+DIESE FUNKTION NICHT MEHR VERÄNDERN.
+
+ABER es bestehen noch drei Fehler:
+
+1. Wenn ich in der Kundenliste einen Kunden öffnen möchte, werde ich auf die Login-Seite geschickt.
+2. Nach erneutem Login lande ich dann auf der richtigen Kundendetailseite.
+3. In der Kundenliste erscheinen große LEERE FELDER/KARTEN.
+   Diese leeren Bereiche sind klickbar.
+   Wenn ich darauf klicke, werde ich ebenfalls zur Login-Seite geschickt.
+4. Der sichtbare Button:
+   „🔍 Details →“
+   lässt sich teilweise NICHT anklicken.
+
+Das deutet darauf hin, dass ein unsichtbares oder falsch positioniertes Navigationselement / Link-Overlay über der Kundenkarte liegt.
+
+WICHTIG:
+- „Zurück zur Kundenliste“ NICHT verändern.
+- Login-Logik nicht neu schreiben.
+- Session-Lifetime nicht ändern.
+- ath_sid nicht ändern.
+- CookieController nicht ersetzen.
+- Datenbank nicht löschen.
+- Kundendaten nicht verändern.
+- Keine neue Kundenverwaltung parallel bauen.
+- Nur diese konkreten Fehler beheben.
+
+==================================================
+1. LEERE FELDER IDENTIFIZIEREN
+==================================================
+
+Untersuche die aktuelle Kundenlisten-Darstellung in:
+
+modules/kundenverwaltung.py
+
+und alle beteiligten UI-/Routing-Komponenten.
+
+Finde heraus, welches HTML-/Streamlit-Element die großen leeren Felder zwischen den Kundeninformationen erzeugt.
+
+Prüfe insbesondere:
+
+- st.button()
+- st.link_button()
+- st.page_link()
+- st.container()
+- st.columns()
+- st.markdown() mit <a>
+- unsichtbare Buttons
+- transparente Links
+- absolute positionierte Elemente
+- width: 100%
+- height / min-height
+- z-index
+- position:absolute
+- Overlay-Link über kompletter Kundenkarte
+- leere Labels
+- leerer st.button("")
+- Navigationstrigger
+
+Die leeren Flächen dürfen nicht einfach per CSS versteckt werden.
+Die zugrunde liegende Ursache entfernen.
+
+==================================================
+2. KEINE UNSICHTBAREN NAVIGATIONSBUTTONS
+==================================================
+
+Falls aktuell z.B. ein leerer Button als Navigationstrigger verwendet wird:
+
+st.button("", ...)
+
+oder ein unsichtbarer Link über die komplette Kundenkarte gelegt wird:
+
+entfernen.
+
+Keine versteckten Triggerflächen verwenden.
+
+Der Benutzer soll nur dort klicken können, wo sichtbar eine Aktion angeboten wird.
+
+==================================================
+3. DETAILS-BUTTON MUSS DER EINZIGE PRIMÄRE KLICK SEIN
+==================================================
+
+Jede Kundenkarte soll einen klar sichtbaren Button besitzen:
+
+🔍 Details →
+
+Dieser Button muss zuverlässig klickbar sein.
+
+Beim Klick:
+
+Kundenverwaltung
+→ Kundendetail
+
+Keine Login-Seite.
+
+Keine Startseite.
+
+==================================================
+4. ALTERNATIV GANZE KARTE KLICKBAR
+==================================================
+
+Falls bewusst die gesamte Kundenkarte klickbar sein soll:
+
+dann muss die gesamte sichtbare Karte sauber klickbar sein.
+
+ABER:
+
+- keine zusätzliche leere Karte
+- kein unsichtbares Overlay außerhalb der Karte
+- „Details →“ muss trotzdem funktionieren
+- keine zweite versteckte Navigation
+
+Bevorzugt:
+sichtbarer Details-Button als klare Aktion.
+
+==================================================
+5. SESSIONVERLUST BEIM KUNDENÖFFNEN
+==================================================
+
+Der aktuell bereits eingeloggte Superadmin darf beim Klick auf einen Kunden NICHT erneut zur Login-Seite geschickt werden.
+
+Ablauf muss sein:
+
+Superadmin angemeldet
+→ Kundenverwaltung
+→ Kundenliste
+→ Details
+→ Kundendetailseite
+
+OHNE erneuten Login.
+
+==================================================
+6. KONKRETE URSACHE DES LOGIN-SPRUNGS FINDEN
+==================================================
+
+Prüfe ausdrücklich:
+
+A) Wird beim Kundenklick ein normaler HTML-Link verwendet, z.B.:
+
+<a href="?...">
+
+B) Wird eine vollständige Browsernavigation ausgelöst?
+
+C) Wird ein Query-Parameter verwendet, der eine neue Streamlit-WebSocket-Session erzeugt?
+
+D) Wird beim neuen Run zuerst das Login-Gate ausgeführt, bevor ath_sid aus dem Cookie wiederhergestellt ist?
+
+E) Wird ein anderer Routingpfad verwendet als bei der inzwischen funktionierenden Desktop-Navigation?
+
+F) Wird st.session_state geleert oder nicht rechtzeitig wiederhergestellt?
+
+G) Wird nav_section nach Widget-Instanziierung direkt verändert?
+
+Den tatsächlichen Grund ermitteln und beheben.
+
+==================================================
+7. KEIN href-RELOAD FÜR KUNDENDETAILS
+==================================================
+
+Wenn Kunden aktuell beispielsweise geöffnet werden über:
+
+<a href="?kunde_id=...">
+
+oder:
+
+window.location...
+
+und dadurch eine komplette Browsernavigation entsteht:
+
+auf die bestehende interne Streamlit-Navigation umstellen.
+
+Keine neue HTTP-/Browser-Navigation, wenn sie nicht erforderlich ist.
+
+==================================================
+8. ZENTRALE NAVIGATION VERWENDEN
+==================================================
+
+Die Kundenliste soll dieselbe zentrale interne Navigation verwenden wie die restliche App.
+
+Konzeptionell:
+
+navigate_to_customer(customer_id)
+
+oder vorhandene zentrale Routingfunktion.
+
+Dabei speichern:
+
+selected_customer_id = customer_id
+
+und interne Zielansicht:
+
+kunden_detail
+
+Danach st.rerun(), falls erforderlich.
+
+Nicht über einen kompletten Browserreload.
+
+==================================================
+9. NAV_SECTION NICHT DIREKT NACH WIDGET ÄNDERN
+==================================================
+
+Der bekannte Fehler:
+
+st.session_state.nav_section cannot be modified after the widget with key nav_section is instantiated
+
+darf NICHT wieder entstehen.
+
+Wenn nav_section beteiligt ist:
+
+- Pending-Key
+- Callback
+- Zielwert VOR Widget-Erstellung
+
+verwenden.
+
+Nicht nachträglich direkt setzen.
+
+==================================================
+10. DETAILS-BUTTON TECHNISCH KLAR MACHEN
+==================================================
+
+Für jeden Kunden:
+
+if st.button(
+    "🔍 Details →",
+    key=f"customer_details_{customer_id}"
+):
+    ...
+
+Jeder Button benötigt einen EINDEUTIGEN Key.
+
+Kein doppelter Key für mehrere Kunden.
+
+==================================================
+11. DOPPELTE KUNDENKARTEN PRÜFEN
+==================================================
+
+Auf dem Screenshot wirkt es so, als würden Teile einer Kundenkarte doppelt bzw. getrennt gerendert:
+
+- leere große Box
+- Kundenkopf
+- Name
+- E-Mail
+- Status
+- Details
+
+Prüfe, ob pro Kunde mehrere Container erzeugt werden, die eigentlich eine einzige Karte bilden sollten.
+
+Ziel:
+
+PRO KUNDE GENAU EINE SAUBERE KARTE.
+
+Beispiel:
+
+┌──────────────────────────────────────────────┐
+│ 🏢 APH-000001 — Standard-Verein   [Verein] │
+│                                              │
+│ Broska Daroish                               │
+│ broskadaroish@gmail.com                      │
+│                                              │
+│ PRO   🟢 Aktiv   ✅ Verifiziert              │
+│                                              │
+│ [ 🔍 Details → ]                             │
+└──────────────────────────────────────────────┘
+
+Danach direkt nächster Kunde.
+
+KEINE leere Karte dazwischen.
+
+==================================================
+12. UI-AUFBAU DER KUNDENLISTE
+==================================================
+
+Die Liste übersichtlich darstellen.
+
+Oben:
+
+„4 Kunden gefunden“
+
+Dann optional Suchfeld.
+
+Danach pro Kunde eine Karte.
+
+Keine leeren Flächen.
+
+Keine technischen Dummy-Elemente sichtbar.
+
+==================================================
+13. KUNDENNUMMER PRÜFEN
+==================================================
+
+Im Screenshot erscheint mehrfach:
+
+APH-000001
+
+bei verschiedenen Kunden.
+
+Prüfe zusätzlich NUR LESEND, ob unterschiedliche Kunden versehentlich dieselbe Kundennummer besitzen.
+
+Falls ja:
+nur berichten.
+
+In diesem Schritt noch keine Kundennummern ändern, sofern dafür keine klare bestehende Vergabelogik vorhanden ist.
+
+==================================================
+14. DETAILS-BUTTON DARF NICHT ÜBERLAGERT SEIN
+==================================================
+
+Mit Browser-/DOM-Analyse prüfen:
+
+Liegt ein anderes Element über:
+
+„🔍 Details →“
+
+z.B. durch:
+
+position:absolute
+z-index
+width:100%
+height:100%
+
+Falls ja:
+Overlay entfernen bzw. Layout korrigieren.
+
+Der Button muss Pointer-/Click-Events direkt empfangen.
+
+==================================================
+15. SESSION-TEST
+==================================================
+
+Realer Test:
+
+1. Superadmin anmelden.
+2. Kundenverwaltung öffnen.
+3. Kundenliste öffnen.
+4. Auf Details von Kunde A klicken.
+
+ERWARTUNG:
+Kundendetail öffnet sich sofort.
+
+KEINE Login-Seite.
+
+5. „Zurück zur Kundenliste“ klicken.
+
+ERWARTUNG:
+Gesamte Kundenliste.
+
+6. Kunde B öffnen.
+
+ERWARTUNG:
+ebenfalls ohne Login.
+
+==================================================
+16. LEERE-FELD-TEST
+==================================================
+
+Nach Fix:
+
+- keine großen leeren klickbaren Felder
+- kein unsichtbarer Navigationsbereich
+- kein Klick ins Leere löst Navigation aus
+
+==================================================
+17. DETAILS-BUTTON-TEST
+==================================================
+
+Bei mindestens 4 Kunden prüfen:
+
+- Button sichtbar
+- Button anklickbar
+- jeder Button öffnet den richtigen Kunden
+- keine doppelten Widget-Keys
+- kein Login-Sprung
+
+==================================================
+18. RELOAD-TEST
+==================================================
+
+Auf Kundendetailseite Browser neu laden.
+
+Wenn ath_sid gültig:
+
+Session wiederherstellen.
+
+Nicht dauerhaft zum Login schicken.
+
+==================================================
+19. MOBILE / DESKTOP
+==================================================
+
+Kundenverwaltung primär Desktop testen.
+
+Falls auf Mobile erreichbar:
+dort darf ebenfalls kein unsichtbares Overlay entstehen.
+
+==================================================
+20. NICHT ÄNDERN
+==================================================
+
+Nicht verändern:
+
+- „Zurück zur Kundenliste“ – funktioniert bereits
+- SMTP
+- Registrierung
+- Datenschutz/AGB
+- Pakete
+- Preise
+- Lizenzen
+- Verträge
+- Spieler
+- Diagnostik
+- Trainingspläne
+- Datenbankinhalt
+
+==================================================
+21. ABSCHLUSSBERICHT
+==================================================
+
+Danach exakt berichten:
+
+1. Was waren die großen leeren Felder?
+2. Welche Komponente hat sie erzeugt?
+3. Warum waren sie klickbar?
+4. Warum war „Details →“ nicht anklickbar?
+5. Lag ein unsichtbares Overlay über dem Button? JA / NEIN
+6. Warum führte Kundenklick zur Login-Seite?
+7. Welche Navigationstechnik wurde vorher verwendet?
+8. Welche Navigation wird jetzt verwendet?
+9. Bleibt Superadmin beim Öffnen eines Kunden angemeldet? JA / NEIN
+10. Funktioniert „Details →“ bei allen Kunden? JA / NEIN
+11. Gibt es noch leere klickbare Flächen? Erwartet: NEIN
+12. Funktioniert „Zurück zur Kundenliste“ weiterhin? JA / NEIN
+13. Haben verschiedene Kunden dieselbe Kundennummer? JA / NEIN
+14. Welche Dateien wurden geändert?
+
+Danach STOPPEN.
+
+Keine weiteren Änderungen durchführen.
