@@ -2662,6 +2662,43 @@ def _migrate_multitenant():
     except Exception:
         pass
 
+    # ── Reparatur-Migration: Trainer ohne Vereinszuordnung (verein_id=NULL) ──
+    # Betrifft selbstregistrierte Trainer, die vor diesem Fix angelegt wurden.
+    # Erstellt für jeden betroffenen Trainer einen persönlichen Verein und setzt
+    # verein_id, damit alle verein_id-abhängigen Abfragen korrekt funktionieren.
+    try:
+        import datetime as _dt2
+        import secrets as _sec2
+        with get_conn() as _rc:
+            _trainers_ohne_verein = _rc.execute(
+                "SELECT id, vorname, nachname FROM benutzer "
+                "WHERE rolle='Trainer' AND verein_id IS NULL ORDER BY id"
+            ).fetchall()
+        for (_tid, _tvn, _tnn) in _trainers_ohne_verein:
+            _vname2 = f"Trainer: {_tvn or ''} {_tnn or ''}".strip()
+            _testphase2 = (_dt2.date.today() + _dt2.timedelta(days=30)).isoformat()
+            _code2 = _sec2.token_urlsafe(6).upper()
+            with get_conn() as _rc2:
+                _vcur2 = _rc2.execute(
+                    """INSERT INTO vereine
+                           (name, aktiv, lizenz_status, lizenztyp,
+                            testphase_bis, registrier_code)
+                       VALUES (?, 1, 'trial', 'BASIC', ?, ?)""",
+                    (_vname2, _testphase2, _code2),
+                )
+                _new_vid2 = _vcur2.lastrowid
+                _rc2.execute(
+                    "UPDATE benutzer SET verein_id=? WHERE id=?",
+                    (_new_vid2, _tid),
+                )
+            # Kundennummer für neuen Verein vergeben
+            try:
+                kundennummer_vergeben_verein(_new_vid2)
+            except Exception:
+                pass
+    except Exception:
+        pass
+
 
 # ==========================================================================
 # Multi-Tenant Hilfsfunktionen
@@ -3128,11 +3165,23 @@ def trainer_registrieren(
     *,
     benutzername: str | None = None,
 ) -> int:
-    """Trainer-Selbstregistrierung ohne Vereinszuordnung.
+    """Trainer-Selbstregistrierung mit persönlichem Einzeltrainer-Verein.
+
+    Erstellt automatisch einen persönlichen Verein für den Trainer
+    (lizenz_status='trial', 30 Tage Testphase), damit verein_id niemals
+    NULL ist — das verhindert Navigations- und Session-Probleme im App.
+
     Startet mit aktiv=0 und email_verifiziert=0.
-    Ein Admin schaltet das Konto nach E-Mail-Bestätigung frei."""
+    Ein Admin schaltet das Konto nach E-Mail-Bestätigung frei.
+    Der Verein bleibt aktiv=1, damit alle verein_id-abhängigen Abfragen
+    sofort funktionieren; die Konto-Sperre erfolgt über benutzer.aktiv.
+    """
     import sqlite3 as _sqlite3
+    import datetime as _dt
+    import secrets as _secrets
     email_norm = normalize_email(email)
+
+    # E-Mail und Benutzername auf Eindeutigkeit prüfen (vor dem Verein-Anlegen)
     with get_conn() as conn:
         if conn.execute(
             "SELECT id FROM benutzer WHERE LOWER(email)=?", (email_norm,)
@@ -3142,22 +3191,47 @@ def trainer_registrieren(
             "SELECT id FROM benutzer WHERE LOWER(benutzername)=LOWER(?)", (benutzername,)
         ).fetchone():
             raise ValueError(f"Der Benutzername '{benutzername}' ist bereits vergeben.")
+
+    # Persönlichen Verein für den Trainer anlegen
+    _vname = f"Trainer: {vorname} {nachname}".strip()
+    _testphase_bis = (_dt.date.today() + _dt.timedelta(days=30)).isoformat()
+    _reg_code = _secrets.token_urlsafe(6).upper()
+    with get_conn() as conn:
+        _vcur = conn.execute(
+            """INSERT INTO vereine (name, aktiv, lizenz_status, lizenztyp,
+                                    testphase_bis, registrier_code)
+               VALUES (?, 1, 'trial', 'BASIC', ?, ?)""",
+            (_vname, _testphase_bis, _reg_code),
+        )
+        _new_vid = _vcur.lastrowid
+
+    # Kundennummer für den neuen Verein
+    kundennummer_vergeben_verein(_new_vid)
+
+    # Trainer-Benutzer mit verein_id anlegen
+    with get_conn() as conn:
         try:
             cur = conn.execute(
                 """INSERT INTO benutzer
                        (verein_id, vorname, nachname, email, passwort_hash,
                         rolle, aktiv, benutzername, email_verifiziert)
-                   VALUES (NULL, ?, ?, ?, ?, 'Trainer', 0, ?, 0)""",
-                (vorname, nachname, email_norm, _pw_hash(passwort), benutzername),
+                   VALUES (?, ?, ?, ?, ?, 'Trainer', 0, ?, 0)""",
+                (_new_vid, vorname, nachname, email_norm, _pw_hash(passwort), benutzername),
             )
             _new_bid = cur.lastrowid
         except _sqlite3.IntegrityError as e:
+            # Verein wieder löschen, da der Benutzer nicht angelegt werden konnte
+            try:
+                conn.execute("DELETE FROM vereine WHERE id=?", (_new_vid,))
+            except Exception:
+                pass
             msg = str(e)
             if "UNIQUE" in msg and "email" in msg:
                 raise ValueError(f"Die E-Mail-Adresse '{email_norm}' ist bereits vergeben.") from e
             if "UNIQUE" in msg and "benutzername" in msg:
                 raise ValueError(f"Der Benutzername '{benutzername}' ist bereits vergeben.") from e
             raise
+
     kundennummer_vergeben_benutzer(_new_bid)
     return _new_bid
 

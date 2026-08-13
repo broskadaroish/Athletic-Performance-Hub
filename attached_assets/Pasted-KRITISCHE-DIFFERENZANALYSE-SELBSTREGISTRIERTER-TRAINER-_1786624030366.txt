@@ -1,0 +1,302 @@
+KRITISCHE DIFFERENZANALYSE – SELBSTREGISTRIERTER TRAINER SPRINGT BEI FORMULAREINGABEN AUF START, ADMIN-ANGELEGTER TRAINER NICHT
+
+Aktueller realer Produktionsbefund:
+
+A) Trainerkonto wird vom Superadmin angelegt:
+- Login funktioniert
+- Spieler → Neu anlegen funktioniert
+- Vorname, Nachname, Geburtsdatum usw. können normal eingegeben werden
+- kein Sprung auf Startseite
+
+B) Trainer registriert sich selbst über aphsystem.de:
+- Registrierung funktioniert
+- E-Mail-Verifikation funktioniert
+- Login funktioniert
+- Spieler → Neu anlegen öffnet sich
+- erste Eingabe funktioniert
+- bei der zweiten Eingabe, z.B. Vorname → Nachname, springt die App wieder auf Startseite
+- danach muss Spieler → Neu anlegen erneut geöffnet werden
+
+Vermutung:
+Dasselbe Problem kann auch bei selbstregistrierten Vereinskunden bestehen.
+
+WICHTIG:
+Das Problem ist damit NICHT generell Mobile.
+Es ist account-/session-/tenant-spezifisch.
+
+NICHT erneut allgemeines CSS, Screen-Width oder Bottom-Navigation umbauen.
+
+NICHT verändern:
+- SMTP
+- Docker
+- .env
+- requirements.txt
+- config.py
+- Kundenlöschung
+- Trainingslogik
+- Diagnostiklogik
+- Preise/Pakete
+
+==================================================
+1. ZWEI ACCOUNTS DIREKT VERGLEICHEN
+==================================================
+
+Vergleiche einen:
+
+A) vom Superadmin angelegten Trainer
+
+mit einem:
+
+B) selbstregistrierten Trainer
+
+in derselben Dev/Testumgebung.
+
+Vergleiche alle relevanten DB-Felder:
+
+- id
+- rolle
+- kundentyp
+- verein_id
+- trainer_id / trainer-Zuordnung
+- aktiv
+- gesperrt
+- email_verifiziert
+- lizenz_status
+- paket
+- registrierungsart
+- mandant_id / tenant_id, falls vorhanden
+- benutzername
+- sonstige Auth-/Mandantenfelder
+
+Berichte exakt die Unterschiede.
+
+==================================================
+2. LOGIN-SESSION VERGLEICHEN
+==================================================
+
+Nach Login beider Account-Typen vergleichen:
+
+st.session_state["user"]
+
+und alle relevanten Session-Werte:
+
+- nav_section
+- _nav_goto
+- kunden-/mandantenbezogene IDs
+- rolle
+- verein_id
+- trainer_id
+- screen_width
+- mobile flags
+- selected_player
+- account_status
+
+Keine Passwörter/Tokens loggen.
+
+==================================================
+3. RERUN BEIM SPIELER-FORMULAR PROTOKOLLIEREN
+==================================================
+
+Beim selbstregistrierten Trainer:
+
+Spieler → Neu anlegen
+
+Vor der ersten Eingabe:
+relevanten Routing-/Auth-State protokollieren.
+
+Nach erster Eingabe:
+erneut protokollieren.
+
+Nach zweiter Eingabe:
+erneut protokollieren.
+
+Ermitteln:
+
+WELCHER konkrete State-Wert ändert sich unmittelbar vor dem Startseiten-Sprung?
+
+Insbesondere:
+
+- nav_section
+- _nav_goto
+- user
+- rolle
+- verein_id
+- trainer_id
+- aktuelle Hauptseite
+
+==================================================
+4. FALLBACK-LOGIK PRÜFEN
+==================================================
+
+Suche nach Logik wie:
+
+if not trainer_id:
+    goto start
+
+if not verein_id:
+    goto start
+
+if not tenant:
+    nav_section = Start
+
+if role/status invalid:
+    Startseite
+
+oder:
+
+wenn Account unvollständig
+→ Defaultseite Start
+
+Prüfe alle Account-spezifischen Guards.
+
+==================================================
+5. SELBSTREGISTRIERUNG PRÜFEN
+==================================================
+
+Prüfe trainer_registrieren() und verein_registrieren().
+
+Vergleiche mit Superadmin-Anlage:
+
+- welche Tabellen werden angelegt?
+- wird ein Trainer-Datensatz erzeugt?
+- wird verein_id korrekt gesetzt?
+- wird eine Mandanten-/Kundenzuordnung erzeugt?
+- wird Rolle exakt gleich geschrieben?
+- fehlen Statusfelder?
+- fehlen Defaultwerte?
+
+==================================================
+6. BESONDERS TRAINER-ZUORDNUNG PRÜFEN
+==================================================
+
+Da `spieler` real über `trainer_id` bzw. `verein_id` angebunden ist:
+
+prüfe, ob selbstregistrierte Trainer tatsächlich eine gültige trainer_id / Trainer-Zuordnung erhalten.
+
+Wenn Superadmin-Trainer eine solche Zuordnung hat, Selbstregistrierter aber nicht:
+das könnte den Fehler erklären.
+
+Nicht raten.
+Direkt DB vergleichen.
+
+==================================================
+7. SPIELER-ANLEGEN CODE PRÜFEN
+==================================================
+
+Finde den Code für:
+
+Spieler → Neu anlegen
+
+Prüfe, ob während eines Widget-Reruns erneut ermittelt wird:
+
+- aktueller Trainer
+- aktueller Verein
+- Mandant
+- Rolle
+
+und bei fehlendem Wert auf Start zurückgefallen wird.
+
+==================================================
+8. KEINE NAVIGATION BEI UNVOLLSTÄNDIGEM ACCOUNT
+==================================================
+
+Falls ein Pflichtwert fehlt:
+
+nicht einfach auf Startseite springen.
+
+Stattdessen:
+klarer Fehler / Hinweis.
+
+Aber primär die Selbstregistrierung so korrigieren, dass die gleichen gültigen Account-/Mandantenstrukturen erzeugt werden wie bei einem funktionierenden Trainerkonto.
+
+==================================================
+9. SELBSTREGISTRIERTER VEREIN
+==================================================
+
+Dasselbe prüfen für selbstregistrierten Verein.
+
+Vergleiche:
+
+Superadmin-angelegter Verein
+vs.
+selbstregistrierter Verein
+
+Test:
+Spieler anlegen / Formular-Reruns.
+
+==================================================
+10. SESSION NACH LOGIN
+==================================================
+
+Prüfe, ob selbstregistrierte Accounts nach Login ggf. eine andere:
+
+session_erstellen()
+user-Dict-Erzeugung
+Rollen-/Mandantenauflösung
+
+durchlaufen.
+
+Beide Account-Typen müssen nach erfolgreichem Login denselben stabilen Auth-/Routing-Pfad verwenden.
+
+==================================================
+11. TESTMATRIX
+==================================================
+
+Teste mindestens:
+
+A) Superadmin-angelegter Trainer
+B) selbstregistrierter Trainer
+C) Superadmin-angelegter Verein
+D) selbstregistrierter Verein
+
+Für jeden:
+
+Login
+→ Spieler
+→ Neu anlegen
+→ Vorname
+→ Nachname
+→ Geburtsdatum
+→ Geschlecht
+→ Altersklasse
+
+Erwartung bei ALLEN:
+keine Startseite
+keine verlorenen Werte.
+
+==================================================
+12. ROOT CAUSE BEHEBEN, NICHT SYMPTOM
+==================================================
+
+Wenn die Ursache ein fehlender Trainer-/Mandanten-Datensatz ist:
+Registrierungslogik korrigieren.
+
+Wenn Ursache im Login-User-Dict liegt:
+zentrale Session-Aufbereitung korrigieren.
+
+Wenn Ursache ein account-spezifischer Guard ist:
+diesen korrekt machen.
+
+Nicht einfach Spieler-Seite mit zusätzlichem nav_section-Fix patchen.
+
+==================================================
+13. ABSCHLUSSBERICHT
+==================================================
+
+Berichte exakt:
+
+1. Was unterscheidet DB-seitig Superadmin-Trainer und selbstregistrierten Trainer?
+2. Was unterscheidet deren st.session_state nach Login?
+3. Welcher State-Wert ändert sich beim ersten/zweiten Formular-Rerun?
+4. Welche konkrete Zeile/Guard schickt auf Startseite?
+5. Fehlt beim selbstregistrierten Trainer eine trainer_id / Mandantenzuordnung?
+6. Welche Funktion erzeugt den falschen/unvollständigen Account?
+7. Wurde die Ursache zentral behoben?
+8. Funktioniert selbstregistrierter Trainer jetzt beim Spieler-anlegen-Test?
+9. Funktioniert selbstregistrierter Verein ebenfalls?
+10. Funktionieren Admin-angelegte Accounts weiterhin?
+11. Welche Dateien wurden geändert?
+12. Wurden Produktionsdaten verändert? MUSS NEIN sein.
+
+Danach STOPPEN.
+Noch NICHT deployen.
