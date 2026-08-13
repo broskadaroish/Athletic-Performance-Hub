@@ -198,15 +198,169 @@ h3 { font-size: 16px !important; font-weight: 600 !important; }
 .prog-wrap { background: #21262d; border-radius: 6px; height: 8px; margin: 4px 0 10px; }
 .prog-fill  { height: 8px; border-radius: 6px; }
 
-/* ── Inputs / selects ── */
-[data-testid="stNumberInput"] input,
+/* ── Form labels — main content area (all widget types) ── */
+[data-testid="stTextInput"] label,
+[data-testid="stNumberInput"] label,
+[data-testid="stSelectbox"] label,
+[data-testid="stTextArea"] label,
+[data-testid="stDateInput"] label,
+[data-testid="stTimeInput"] label,
+[data-testid="stMultiSelect"] label,
+[data-testid="stCheckbox"] label,
+[data-testid="stRadio"] label,
+[data-testid="stToggle"] label,
+[data-testid="stSlider"] label,
+[data-testid="stFileUploader"] label {
+    color: #E6EDF3 !important;
+    opacity: 1 !important;
+}
+
+/* ── Text / Number / Date / Time inputs — dark bg, light text, iOS fix ── */
 [data-testid="stTextInput"] input,
-[data-testid="stSelectbox"] select,
-[data-testid="stTextArea"] textarea {
-    background: #21262d !important;
-    color: #e6edf3 !important;
-    border: 1px solid #30363d !important;
+[data-testid="stNumberInput"] input,
+[data-testid="stDateInput"] input,
+[data-testid="stTimeInput"] input {
+    background: #1F2630 !important;
+    background-color: #1F2630 !important;
+    color: #F5F7FA !important;
+    -webkit-text-fill-color: #F5F7FA !important;
+    border: 1px solid #4B5563 !important;
     border-radius: 8px !important;
+    opacity: 1 !important;
+}
+[data-testid="stTextInput"] input:focus,
+[data-testid="stNumberInput"] input:focus,
+[data-testid="stDateInput"] input:focus {
+    border-color: #58a6ff !important;
+    box-shadow: 0 0 0 2px rgba(88,166,255,0.15) !important;
+}
+
+/* ── TextArea ── */
+[data-testid="stTextArea"] textarea,
+[data-baseweb="textarea"] textarea {
+    background: #1F2630 !important;
+    background-color: #1F2630 !important;
+    color: #F5F7FA !important;
+    -webkit-text-fill-color: #F5F7FA !important;
+    border: 1px solid #4B5563 !important;
+    border-radius: 8px !important;
+    opacity: 1 !important;
+}
+[data-testid="stTextArea"] textarea:focus,
+[data-baseweb="textarea"] textarea:focus {
+    border-color: #58a6ff !important;
+    box-shadow: 0 0 0 2px rgba(88,166,255,0.15) !important;
+}
+
+/* ── Selectbox — BaseWeb custom component (NOT a native <select>) ── */
+/* Container + control div */
+[data-baseweb="select"],
+[data-baseweb="select"] > div {
+    background: #1F2630 !important;
+    background-color: #1F2630 !important;
+    border-color: #4B5563 !important;
+}
+/* All text inside the select control (value, placeholder) */
+[data-baseweb="select"] > div > div,
+[data-baseweb="select"] > div > div > div {
+    color: #F5F7FA !important;
+    -webkit-text-fill-color: #F5F7FA !important;
+}
+/* Arrow / chevron SVG */
+[data-baseweb="select"] svg {
+    fill: #8b949e !important;
+    color: #8b949e !important;
+}
+/* Dropdown portal: list container */
+[data-baseweb="popover"] [data-baseweb="menu"],
+[data-baseweb="menu"] {
+    background: #161b22 !important;
+    background-color: #161b22 !important;
+    border: 1px solid #4B5563 !important;
+    border-radius: 8px !important;
+}
+/* Dropdown items */
+[data-baseweb="popover"] [role="option"],
+[data-baseweb="menu"] [role="option"] {
+    background: #161b22 !important;
+    background-color: #161b22 !important;
+    color: #e6edf3 !important;
+    -webkit-text-fill-color: #e6edf3 !important;
+}
+[data-baseweb="popover"] [role="option"]:hover,
+[data-baseweb="menu"] [role="option"]:hover {
+    background: #21262d !important;
+    background-color: #21262d !important;
+}
+[data-baseweb="popover"] [aria-selected="true"],
+[data-baseweb="menu"] [aria-selected="true"] {
+    background: #0d2044 !important;
+    background-color: #0d2044 !important;
+    color: #58a6ff !important;
+    -webkit-text-fill-color: #58a6ff !important;
+}
+
+/* ── NumberInput +/- step buttons ── */
+[data-testid="stNumberInput"] button {
+    background: #21262d !important;
+    background-color: #21262d !important;
+    color: #e6edf3 !important;
+    border: 1px solid #4B5563 !important;
+}
+[data-testid="stNumberInput"] button svg {
+    fill: #e6edf3 !important;
+}
+
+/* ── MultiSelect — BaseWeb input container + tags ── */
+[data-testid="stMultiSelect"] [data-baseweb="input"],
+[data-testid="stMultiSelect"] [data-baseweb="select"] {
+    background: #1F2630 !important;
+    background-color: #1F2630 !important;
+    border-color: #4B5563 !important;
+}
+[data-baseweb="tag"] {
+    background: #21262d !important;
+    background-color: #21262d !important;
+    border: 1px solid #30363d !important;
+    color: #e6edf3 !important;
+    -webkit-text-fill-color: #e6edf3 !important;
+}
+
+/* ── Placeholder text — targeted per widget, not global ── */
+[data-testid="stTextInput"] input::placeholder,
+[data-testid="stNumberInput"] input::placeholder,
+[data-testid="stDateInput"] input::placeholder,
+[data-testid="stTimeInput"] input::placeholder,
+[data-testid="stTextArea"] textarea::placeholder,
+[data-baseweb="input"] input::placeholder {
+    color: #8F98A6 !important;
+    opacity: 1 !important;
+}
+[data-testid="stTextInput"] input::-webkit-input-placeholder,
+[data-testid="stNumberInput"] input::-webkit-input-placeholder,
+[data-testid="stDateInput"] input::-webkit-input-placeholder,
+[data-testid="stTextArea"] textarea::-webkit-input-placeholder {
+    color: #8F98A6 !important;
+    -webkit-text-fill-color: #8F98A6 !important;
+}
+
+/* ── Checkbox / Radio / Toggle — paragraph text beside them ── */
+[data-testid="stCheckbox"] p,
+[data-testid="stRadio"] p,
+[data-testid="stToggle"] p {
+    color: #E6EDF3 !important;
+}
+
+/* ── File uploader ── */
+[data-testid="stFileUploader"] small,
+[data-testid="stFileUploader"] p,
+[data-testid="stFileUploader"] span {
+    color: #8b949e !important;
+}
+
+/* ── Help text / caption below widgets ── */
+[data-testid="stWidgetLabel"] small {
+    color: #AAB2BF !important;
 }
 
 /* ── Buttons ── */

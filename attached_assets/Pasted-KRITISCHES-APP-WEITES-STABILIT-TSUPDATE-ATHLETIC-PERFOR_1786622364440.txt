@@ -1,0 +1,721 @@
+KRITISCHES APP-WEITES STABILITÄTSUPDATE – ATHLETIC PERFORMANCE HUB
+
+ZIEL:
+Die gesamte Athletic Performance Hub App muss auf Mobile und Desktop stabil bleiben.
+
+Aktuelle reale Fehler auf aphsystem.de:
+
+1. MOBILE FORMULARE SCHLECHT LESBAR
+   Auf Smartphone sind Labels und Eingabetexte teilweise zu dunkel.
+   Beispiel aus dem echten Smartphone-Foto:
+   - Vorname *
+   - Nachname *
+   - Geburtsdatum (TT.MM.JJJJ) *
+   - Geschlecht
+   - Altersklasse
+
+   Zusätzlich sind Selectboxen teilweise fast weiß, während deren Text sehr hell/grau ist.
+
+2. LOGIN MUSS TEILWEISE ZWEIMAL AUSGEFÜHRT WERDEN
+   Nach korrektem Login landet der Nutzer teilweise nicht direkt in der App.
+   Erst beim zweiten Login funktioniert es.
+
+3. APP SPRINGT BEI FORMULAREINGABEN AUF DIE STARTSEITE
+   Beispiel:
+   Spieler → Neu anlegen
+   Vorname eingeben
+   Nachname anklicken
+   → App springt zurück zur Startseite.
+
+   Das darf NIRGENDWO in der App passieren.
+
+WICHTIG:
+Nicht nur einzelne Seiten patchen.
+Die zentrale Ursache für Navigation/Session-State bei Streamlit-Reruns finden und beheben.
+
+NICHT verändern:
+- SMTP
+- APP_BASE_URL
+- Docker
+- docker-compose.yml
+- Dockerfile
+- start.sh
+- .env
+- requirements.txt
+- config.py
+- Datenbankstruktur
+- Kundenlöschung
+- Pakete
+- Preise
+- Lizenzen
+- Verträge
+- Trainingslogik
+- Diagnostiklogik
+
+Erlaubt:
+- Mobile CSS/Formularlesbarkeit
+- zentrale Navigation / Routing / Session-State
+- Login/Auth-State
+- stabile Widget-Keys
+- notwendige gezielte Formular-Stabilitätskorrekturen
+
+==================================================
+TEIL 1 – MOBILE DARK THEME GLOBAL LESBAR MACHEN
+==================================================
+
+Bestehendes Dark Theme beibehalten.
+
+Kein komplettes Redesign.
+
+Alle Formular-Labels müssen deutlich lesbar sein.
+
+Betroffen mindestens:
+
+- st.text_input
+- st.number_input
+- st.date_input
+- st.time_input
+- st.selectbox
+- st.text_area
+- st.multiselect
+- st.checkbox
+- st.radio
+- st.toggle
+- st.slider
+- st.file_uploader
+
+Empfohlene Richtung:
+
+Labels:
+color: #E6EDF3
+
+Sekundäre/Hinweis-Texte:
+color: #AAB2BF
+
+Input-Hintergrund:
+#1F2630 oder vergleichbar dunkel
+
+Input-Text:
+#F5F7FA
+
+Placeholder:
+#8F98A6
+
+Rahmen:
+#4B5563
+
+Focus:
+bestehende Akzentfarbe beibehalten
+
+==================================================
+TEIL 2 – SELECTBOX / DATEINPUT / NUMBERINPUT EINHEITLICH
+==================================================
+
+Selectboxen dürfen nicht mehr fast weiß sein.
+
+Dark Theme vereinheitlichen:
+
+- dunkler Hintergrund
+- heller ausgewählter Wert
+- sichtbarer Pfeil
+- Dropdown-Menü dunkel
+- Einträge hell
+- Hover klar sichtbar
+
+DateInput:
+- dunkler Hintergrund
+- Datum gut lesbar
+- Placeholder sichtbar
+- Kalender-Icon sichtbar
+
+NumberInput:
+- dunkler Hintergrund
+- heller Text
+- +/- Controls sichtbar
+
+TextArea / MultiSelect:
+gleiches Prinzip.
+
+==================================================
+TEIL 3 – STREAMLIT / BASEWEB CSS KORREKT TARGETEN
+==================================================
+
+Prüfe:
+
+theme.py
+mobile.py
+app.py
+ui_components.py
+components/
+
+und insbesondere:
+
+[data-testid="stTextInput"]
+[data-testid="stNumberInput"]
+[data-testid="stDateInput"]
+[data-testid="stSelectbox"]
+[data-testid="stTextArea"]
+[data-testid="stMultiSelect"]
+[data-testid="stCheckbox"]
+[data-testid="stRadio"]
+
+sowie BaseWeb:
+
+[data-baseweb="input"]
+[data-baseweb="select"]
+[data-baseweb="textarea"]
+
+Prüfe:
+
+color
+background
+background-color
+opacity
+-webkit-text-fill-color
+filter
+
+Keine pauschalen globalen Regeln für alle div/span verwenden.
+
+Nur gezielte Formular-Komponenten korrigieren.
+
+==================================================
+TEIL 4 – MOBILE BREAKPOINT
+==================================================
+
+Mobile-Optimierung bevorzugt unter:
+
+@media (max-width: 768px)
+
+anwenden.
+
+Desktop darf nicht schlechter werden.
+
+==================================================
+TEIL 5 – GLOBALE NAVIGATIONSURSACHE FINDEN
+==================================================
+
+Prüfe die GESAMTE App auf diesen Fehler:
+
+Widget-Eingabe
+→ Streamlit-Rerun
+→ App springt auf Startseite
+
+Suche zentral nach:
+
+nav_section
+_nav_goto
+mobile_nav
+current_page
+selected_page
+route
+page
+default_page
+Startseite
+Dashboard
+
+Prüfe insbesondere:
+
+- Default-Zuweisungen bei jedem Run
+- st.session_state.clear()
+- nav_section = "Start"
+- Fallback auf Startseite
+- Mobile Bottom Nav
+- Query-Param-Navigation
+- Browserreloads
+- href-basierte Navigation
+
+==================================================
+TEIL 6 – AKTIVE HAUPTSEITE MUSS RERUNS ÜBERLEBEN
+==================================================
+
+Wenn Nutzer auf einer Seite ist, muss diese über normale Streamlit-Reruns erhalten bleiben.
+
+Navigation darf sich nur ändern bei:
+
+- echtem Navigationsklick
+- Zurück-Button
+- erfolgreichem Workflow mit bewusstem Zielwechsel
+- Logout
+- Session-Ablauf
+
+NICHT bei:
+
+- text_input
+- text_area
+- number_input
+- date_input
+- time_input
+- selectbox
+- multiselect
+- checkbox
+- radio
+- toggle
+- slider
+- file_uploader
+- normaler Validierung
+- normalem st.rerun()
+
+==================================================
+TEIL 7 – KEIN DIREKTES NAV_SECTION-SCHREIBEN NACH WIDGET
+==================================================
+
+Bekannter Fehler:
+
+st.session_state.nav_section cannot be modified after the widget with key nav_section is instantiated
+
+Deshalb:
+
+nav_section nicht nach Widget-Erstellung direkt setzen.
+
+Bestehende zentrale Navigation verwenden:
+
+- _nav_goto
+- Pending-Key
+- Callback
+- oder bestehende stabile zentrale Route
+
+Keine zweite parallele Navigation bauen.
+
+==================================================
+TEIL 8 – MOBILE BOTTOM NAVIGATION
+==================================================
+
+Prüfe die Bottom Navigation.
+
+Sie darf bei normalen Formular-Reruns nicht:
+
+- Start als Default erzwingen
+- aktuelle Route überschreiben
+- Browserreload auslösen
+- href verwenden
+
+Keine:
+
+<a href="?nav=...">
+
+Navigation.
+
+Nur interne Streamlit-Navigation.
+
+==================================================
+TEIL 9 – GANZE APP TESTEN
+==================================================
+
+Prüfe mindestens alle folgenden Bereiche auf:
+
+Eingabe
+→ Rerun
+→ gleiche Seite bleibt aktiv
+
+BEREICHE:
+
+- Registrierung Trainer
+- Registrierung Verein
+- Login
+- Passwort vergessen
+- Benutzername vergessen
+- Startseite
+- Spieler neu anlegen
+- Spieler bearbeiten
+- Spielerprofil
+- Anthropometrie
+- FMS
+- Y-Balance
+- Sprint
+- Sprung
+- Kraft
+- Ausdauer
+- Agilität
+- Spiro
+- Verletzungen
+- Trainingsplan erstellen
+- Trainingsplan bearbeiten
+- Trainingsplan Übungen ändern
+- Entwicklung
+- Kalender
+- Dokumente
+- Einstellungen
+- Mein Profil
+- Trainerportal
+- Benutzerverwaltung
+- Vereinsverwaltung
+- Lizenzverwaltung
+- Kundenverwaltung
+- Kundendetails
+- Rechnungsadresse
+- Vertrag
+- Kündigungen
+- Gefahrenbereich
+
+==================================================
+TEIL 10 – WIDGET-ARTEN APP-WEIT TESTEN
+==================================================
+
+Für mindestens 10 verschiedene Seiten prüfen:
+
+st.text_input
+st.text_area
+st.number_input
+st.date_input
+st.time_input
+st.selectbox
+st.multiselect
+st.radio
+st.checkbox
+st.toggle
+st.slider
+st.file_uploader
+
+Bei jeder Änderung:
+
+- Hauptseite bleibt
+- Unterbereich bleibt
+- Formularwerte bleiben
+- kein Login
+- kein Startseiten-Sprung
+- kein unerwarteter Tab-Wechsel
+
+==================================================
+TEIL 11 – SPIELER ANLEGEN VOLLSTÄNDIG TESTEN
+==================================================
+
+Spielerverwaltung
+→ Neu anlegen
+
+nacheinander:
+
+Vorname
+Nachname
+Geburtsdatum
+Geschlecht
+Altersklasse
+Position
+Spielbein
+Mannschaft/Verein
+Trainingsstatus
+
+Bei jedem Widget-Rerun:
+
+- Seite bleibt Spieler anlegen
+- Werte bleiben erhalten
+- kein Start
+- kein Login
+- keine Navigation
+
+Erst beim Speichern darf bewusst weiter navigiert werden.
+
+==================================================
+TEIL 12 – STABILE WIDGET-KEYS
+==================================================
+
+Prüfe Widgets auf wechselnde/dynamische Keys.
+
+Alle Formulare müssen stabile, eindeutige Keys verwenden.
+
+Keine Keys, die sich bei jedem Rerun ändern.
+
+==================================================
+TEIL 13 – REGISTRIERUNG STABILISIEREN
+==================================================
+
+Trainer- und Vereinsregistrierung testen.
+
+Während der Registrierung:
+
+Vorname
+Nachname
+Benutzername
+E-Mail
+Passwort
+Rechnungsadresse
+Datenschutz
+AGB
+
+dürfen normale Reruns nicht:
+
+- Formular schließen
+- Trainer/Verein-Auswahl verlieren
+- Felder leeren
+- zur Login-Seite springen
+- zur Startseite springen
+
+Datenschutz/AGB-Pflicht beibehalten.
+
+==================================================
+TEIL 14 – LOGIN MUSS BEIM ERSTEN VERSUCH FUNKTIONIEREN
+==================================================
+
+Prüfe den vollständigen Login-Flow:
+
+1. Login-Daten prüfen
+2. Passwort gültig
+3. Account aktiv/verifiziert
+4. Session erstellen
+5. ath_sid Cookie setzen
+6. st.session_state["user"] setzen
+7. Auth-State sofort als gültig markieren
+8. Zielnavigation setzen
+9. kontrollierter Rerun
+
+Nach EINEM korrekten Login muss der Nutzer direkt angemeldet sein.
+
+==================================================
+TEIL 15 – COOKIE NICHT ALS SOFORTIGE VORAUSSETZUNG
+==================================================
+
+CookieController kann den Cookie verzögert liefern.
+
+Deshalb:
+
+Nach erfolgreichem Login darf die aktuelle Sitzung nicht davon abhängen, dass ath_sid sofort wieder gelesen wird.
+
+Nach erfolgreichem Login sofort setzen:
+
+st.session_state["user"]
+
+und alle bestehenden Auth-State-Werte.
+
+ath_sid dient der Persistenz für spätere Reloads.
+
+==================================================
+TEIL 16 – LOGIN-GATE PRIORITÄT
+==================================================
+
+Login-Gate soll zuerst prüfen:
+
+A) gültiger aktueller session_state-Login?
+
+Wenn JA:
+weiter.
+
+Erst wenn NEIN:
+
+B) ath_sid aus Cookie wiederherstellen.
+
+Nicht:
+
+Cookie im ersten Rerun noch nicht da
+→ Login wieder anzeigen
+→ obwohl gerade erfolgreicher Login stattgefunden hat.
+
+==================================================
+TEIL 17 – KEINE DOPPELTEN SESSIONS
+==================================================
+
+session_erstellen() nicht unnötig zweimal pro Login aufrufen.
+
+Keine doppelte Session erzeugen.
+
+==================================================
+TEIL 18 – MOBILE UND DESKTOP GLEICHE AUTH-LOGIK
+==================================================
+
+Keine separate Mobile-Authentifizierung.
+
+Keine separate Mobile-Session.
+
+Mobile und Desktop verwenden dieselbe zentrale Auth-Logik.
+
+==================================================
+TEIL 19 – TABS / EXPANDER
+==================================================
+
+Prüfe:
+
+st.tabs
+st.expander
+
+Normale Widget-Reruns dürfen nicht die Hauptseite wechseln.
+
+Wenn Tab-State nicht vollständig persistent ist:
+zumindest Hauptnavigation stabil halten.
+
+==================================================
+TEIL 20 – ECHTE MOBILE VIEWPORTS TESTEN
+==================================================
+
+Testen:
+
+360 px
+375 px
+390 px
+412 px
+430 px
+
+Mindestens:
+
+- Registrierung
+- Login
+- Spieler anlegen
+- Spieler bearbeiten
+- FMS
+- Y-Balance
+- Sprint
+- Kundenverwaltung
+
+==================================================
+TEIL 21 – DESKTOP TESTEN
+==================================================
+
+Desktop:
+
+1280 px+
+1920 px+
+
+Prüfen:
+
+- Login
+- Navigation
+- Formulare
+- Spieler anlegen
+- Selectboxen
+- Kundenverwaltung
+
+Keine Regression.
+
+==================================================
+TEIL 22 – REFERENZ SMARTPHONE-FOTO
+==================================================
+
+Nutze das beigefügte reale Smartphone-Foto als Referenz.
+
+Nach Fix müssen klar lesbar sein:
+
+Spielerverwaltung
+Neu anlegen
+Alle Spieler
+Spieler hinzufügen
+Persönliche Daten
+Vorname *
+Nachname *
+Geburtsdatum (TT.MM.JJJJ) *
+Geschlecht
+Männlich
+Altersklasse
+Senioren
+Sportliche Daten
+
+Kein dunkelgrauer Text auf schwarzem Hintergrund.
+
+Keine helle Schrift auf fast weißen Selectboxen.
+
+==================================================
+TEIL 23 – KEINE EINZELPATCHES WENN ZENTRALE URSACHE EXISTIERT
+==================================================
+
+Wenn Startseiten-Sprünge durch zentrale Routinglogik entstehen:
+
+zentral beheben.
+
+Nicht 20 Seiten mit Workarounds versehen.
+
+Einzelfixes nur dort, wo eine Seite tatsächlich eigene fehlerhafte Logik besitzt.
+
+==================================================
+TEIL 24 – PERFORMANCE
+==================================================
+
+Keine unnötigen st.rerun()-Ketten.
+
+Keine Browserreload-Hacks.
+
+Keine JS-/React-Tricks mit unsichtbaren Elementen.
+
+Streamlit-State bevorzugen.
+
+==================================================
+TEIL 25 – TESTKRITERIEN
+==================================================
+
+TEST 1:
+Mobile Registrierung öffnen.
+Alle Labels lesbar.
+
+TEST 2:
+Trainer registrieren.
+Kein Formular-Reset.
+
+TEST 3:
+Nach Registrierung einmal korrekt einloggen.
+Erwartung:
+direkt angemeldet.
+
+TEST 4:
+Spieler → Neu anlegen.
+Vorname eingeben.
+Nachname anklicken.
+Erwartung:
+gleiche Seite.
+
+TEST 5:
+alle Spielerfelder nacheinander ändern.
+Erwartung:
+keine Navigation.
+
+TEST 6:
+FMS öffnen und Eingabe ändern.
+Erwartung:
+gleiche Seite.
+
+TEST 7:
+Y-Balance Eingabe.
+Erwartung:
+gleiche Seite.
+
+TEST 8:
+Sprint Eingabe.
+Erwartung:
+gleiche Seite.
+
+TEST 9:
+Kundenverwaltung → Kundendetails → Eingabe ändern.
+Erwartung:
+gleiche Seite.
+
+TEST 10:
+Browser aktualisieren.
+Bei gültiger Session:
+kein Login.
+
+TEST 11:
+Mobile Bottom Nav.
+Erwartung:
+keine Sessionverluste.
+
+TEST 12:
+Desktop gleicher Ablauf.
+Erwartung:
+keine Regression.
+
+==================================================
+TEIL 26 – ABSCHLUSSBERICHT
+==================================================
+
+Danach exakt berichten:
+
+1. Welche konkrete CSS-Regel machte Mobile-Labels zu dunkel?
+2. Welche Regel machte Selectboxen schlecht lesbar?
+3. Wo wurde der CSS-Fix eingebaut?
+4. Welche Farben werden jetzt verwendet?
+5. Sind TextInput, Selectbox, DateInput, NumberInput, TextArea und MultiSelect jetzt einheitlich?
+6. Welche zentrale Ursache führte global zu Startseiten-Sprüngen?
+7. Welche Datei/Funktion war verantwortlich?
+8. Welche Seiten waren tatsächlich betroffen?
+9. Wie wird die aktive Route jetzt über Reruns erhalten?
+10. Bleiben Formularwerte erhalten?
+11. Welche Seiten wurden getestet?
+12. Gibt es noch bekannte Seiten, die bei Eingaben auf Start springen? Erwartet: NEIN
+13. Warum musste Login teilweise zweimal ausgeführt werden?
+14. Welche Auth-/Cookie-Reihenfolge wurde korrigiert?
+15. Funktioniert Login jetzt beim ersten Versuch?
+16. Funktioniert Registrierung auf Mobile stabil?
+17. Funktioniert Spieler anlegen vollständig ohne Startseiten-Sprung?
+18. Wurden 360px und 390px getestet?
+19. Wurde Desktop geprüft?
+20. Wurde die Ursache zentral behoben oder waren Einzelfixes nötig?
+21. Welche Dateien wurden geändert?
+22. Wurden außerhalb dieses Scopes Funktionen verändert? Erwartet: NEIN
+
+Danach STOPPEN.
+
+Noch NICHT deployen.

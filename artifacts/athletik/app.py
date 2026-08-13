@@ -33,6 +33,7 @@ from mobile import (
     inject_mobile_player_header,
     inject_mobile_mehr_overlay,
     inject_scroll_to_top_if_needed,
+    detect_screen_width,
 )
 from help_ui import sicherheitshinweis_box, show_test_info, show_field_help, field_info_col, norm_badge, show_trainer_checkliste
 from modules.legal_page import page_impressum, page_datenschutz, page_agb
@@ -295,6 +296,15 @@ if _legal_show_key in ("impressum", "datenschutz", "agb"):
     elif _legal_show_key == "agb":
         page_agb()
     st.stop()
+
+# ─── Screen-Breite frühestmöglich ermitteln (auch auf der Login-Seite) ────────
+# Hintergrund: render_mobile_nav() ruft _inject_screen_width_detect() intern auf.
+# Wenn das erst NACH dem Login-Gate passiert, löst der erste Aufruf in der
+# Haupt-App ein location.replace(?_sw=...) aus — das löscht die frisch erstellte
+# Session und der Nutzer muss effektiv zweimal anmelden.
+# Indem wir detect_screen_width() hier aufrufen (noch auf der Login-Seite),
+# ist die Breite bereits bekannt wenn der Nutzer sich anmeldet → kein Reload nach Login.
+detect_screen_width()
 
 # ─── Login-Gate: Benutzer muss angemeldet sein ────────────────────────────────
 if "user" not in st.session_state:
@@ -10196,7 +10206,7 @@ if section == "🏠  Startseite":
     page_saas_dashboard()
 elif section == "👤  Spieler":
     # Mobile: inline player selector at top of Spieler page (sidebar hidden on ≤768px)
-    inject_mobile_player_selector(alle_spieler, st.session_state.get("global_player_id"))
+    inject_mobile_player_selector(alle_spieler, st.session_state.get("global_player_id"), section)
     _SUB_SPIELER[sub_choice]()
 elif section == "🔬  Diagnostik":
     inject_mobile_player_header(_mob_player(), section)

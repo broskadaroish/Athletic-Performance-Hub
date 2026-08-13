@@ -105,12 +105,17 @@ def handle_mobile_nav_params() -> None:
 
         player_id_val = st.query_params.get("player_id", "")
         if player_id_val:
+            # Also read ?nav= if present so the active section is preserved
+            # after the full-page reload triggered by the player selector <select>.
+            _nav_from_player_sel = st.query_params.get("nav", "")
             st.query_params.clear()
             try:
                 st.session_state["global_player_id"] = int(player_id_val)
                 st.session_state["mobile_mehr_open"] = False
             except (ValueError, TypeError):
                 pass
+            if _nav_from_player_sel:
+                st.session_state["_nav_goto"] = _nav_from_player_sel
             st.rerun()
 
         nav_val = st.query_params.get("nav", "")
@@ -129,6 +134,17 @@ def handle_mobile_nav_params() -> None:
         st.rerun()
     except Exception:
         pass
+
+
+def detect_screen_width() -> None:
+    """
+    Public wrapper around _inject_screen_width_detect().
+    Call this as early as possible — even on the login page — so the
+    screen-width JS fires before the user logs in.  This prevents the
+    post-login location.replace() reload that would otherwise wipe
+    session_state and force a double-rerun after authentication.
+    """
+    _inject_screen_width_detect()
 
 
 def _inject_screen_width_detect() -> None:
@@ -348,12 +364,20 @@ def inject_mobile_player_header(player: dict | None, section: str) -> None:
 
 # ── Mobile inline player selector ────────────────────────────────────────────
 
-def inject_mobile_player_selector(alle_spieler: list | None, current_pid) -> None:
+def inject_mobile_player_selector(
+    alle_spieler: list | None,
+    current_pid,
+    current_section: str = "",
+) -> None:
     """
     Mobile-only player switcher — native HTML <select> that navigates via
     ?player_id= query param (read by handle_mobile_nav_params()).
     Hidden on desktop (≥769px) via CSS .aph-mob-sel-wrap { display:none }.
     Does nothing when fewer than 2 players are available.
+
+    current_section: the active nav_section value — passed as ?nav= so that
+    handle_mobile_nav_params() can restore it after the page reload, preventing
+    the app from falling back to Startseite after a player switch.
     """
     if not alle_spieler or len(alle_spieler) < 2:
         return
@@ -371,12 +395,20 @@ def inject_mobile_player_selector(alle_spieler: list | None, current_pid) -> Non
         sel     = " selected" if pid == current_pid else ""
         opts.append(f'<option value="{pid}"{sel}>{display}</option>')
 
+    # Encode nav section for the query string so the active page is preserved
+    # after the browser reload that player switching causes.
+    try:
+        import urllib.parse as _up
+        _nav_qs = ("&nav=" + _up.quote(current_section, safe="")) if current_section else ""
+    except Exception:
+        _nav_qs = ""
+
     st.markdown(
         f'<div class="aph-mob-sel-wrap">'
         f'<div class="aph-mob-sel-label">👤 Spieler wechseln</div>'
         f'<select class="aph-mob-sel" '
         f'onchange="window.location.href=\'?player_id=\''
-        f'+encodeURIComponent(this.value)">'
+        f'+encodeURIComponent(this.value)+\'{_nav_qs}\'">'
         + "\n".join(opts) +
         f'</select>'
         f'</div>',
