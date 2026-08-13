@@ -1,6 +1,4 @@
 import { Router, type IRouter } from "express";
-import { db } from "@workspace/db";
-import { contactsTable, leadsTable } from "@workspace/db";
 import { SubmitContactBody, SubmitContactResponse, SubmitLeadBody, SubmitLeadResponse } from "@workspace/api-zod";
 
 const router: IRouter = Router();
@@ -14,6 +12,11 @@ router.post("/contact", async (req, res): Promise<void> => {
   }
 
   const { name, email, subject, message, phone } = parsed.data;
+
+  // Lazy import — @workspace/db (PostgreSQL) wird erst beim ersten Aufruf initialisiert,
+  // nicht beim Server-Start. Verhindert, dass DATABASE_URL beim Start zwingend nötig ist,
+  // wenn ausschließlich SQLite-Routen (z. B. Stripe-Webhook) genutzt werden.
+  const { db, contactsTable } = await import("@workspace/db");
 
   await db.insert(contactsTable).values({
     name,
@@ -41,6 +44,8 @@ router.post("/leads", async (req, res): Promise<void> => {
   }
 
   const { name, email, vereinsname, telefon, spieleranzahl, nachricht, plan } = parsed.data;
+
+  const { db, leadsTable } = await import("@workspace/db");
 
   await db.insert(leadsTable).values({
     name,
