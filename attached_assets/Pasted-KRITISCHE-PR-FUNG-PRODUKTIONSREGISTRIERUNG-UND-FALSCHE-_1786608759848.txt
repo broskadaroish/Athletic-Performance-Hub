@@ -1,0 +1,321 @@
+KRITISCHE PRÜFUNG – PRODUKTIONSREGISTRIERUNG UND FALSCHE E-MAIL-FELDZUORDNUNG
+
+Der letzte Diagnosebericht hat gezeigt:
+
+Dev-Account ID 3:
+
+Vorname = Broska
+Nachname = Daroish
+email = "Broska"
+
+Das ist eindeutig keine gültige E-Mail-Adresse.
+
+Außerdem wurde festgestellt:
+
+- email_verifiziert = 1
+- kein Verifikationstoken
+- kein Versandzeitpunkt
+- keine belastbare Versandhistorie
+
+WICHTIG:
+
+Die Untersuchung der DEV-Datenbank reicht NICHT aus.
+
+Der betroffene Kunde hat sich über:
+
+https://aphsystem.de
+
+registriert.
+
+Jetzt ausschließlich die PRODUKTIONSUMGEBUNG untersuchen.
+
+NOCH NICHTS ÄNDERN.
+
+==================================================
+1. ZUERST PRODUKTIVE DATENBANK IDENTIFIZIEREN
+==================================================
+
+Kläre eindeutig:
+
+Welche Datenbank verwendet https://aphsystem.de aktuell tatsächlich?
+
+Berichte:
+
+- Datenbanktyp
+- Datenbankanbieter
+- Host / Umgebung ohne Passwort
+- ob Railway verwendet wird
+- ob IONOS/VPS verwendet wird
+- ob SQLite/PostgreSQL/etc. verwendet wird
+- welche Environment Variable die Produktions-Datenbank bestimmt
+
+WICHTIG:
+
+Keine Zugangsdaten, Passwörter oder vollständigen Connection Strings ausgeben.
+
+Ich möchte insbesondere wissen, warum im letzten Bericht plötzlich von:
+
+"Railway-Produktionsdatenbank"
+
+gesprochen wurde.
+
+==================================================
+2. DEV UND PRODUCTION KLAR TRENNEN
+==================================================
+
+Berichte:
+
+DEV-Datenbank:
+[Typ / Umgebung]
+
+PRODUCTION-Datenbank:
+[Typ / Umgebung]
+
+Sind beide unterschiedlich?
+JA / NEIN
+
+Es darf keine weitere Diagnose anhand der falschen DB erfolgen.
+
+==================================================
+3. BETROFFENEN PRODUKTIONS-TRAINER FINDEN
+==================================================
+
+Suche in der echten Produktionsdatenbank den zuletzt über aphsystem.de registrierten TRAINER.
+
+Zeige:
+
+- Benutzer-ID
+- Kundennummer
+- Vorname
+- Nachname
+- Benutzername
+- E-Mail-Adresse
+- Kundentyp
+- Registrierungszeit
+- email_verifiziert
+- account_aktiv
+- Token vorhanden JA/NEIN
+- token_gesendet_am vorhanden JA/NEIN
+
+Token selbst NICHT anzeigen.
+
+==================================================
+4. E-MAIL-FELD PRÜFEN
+==================================================
+
+Prüfe beim Produktionsaccount:
+
+Ist im Feld email wirklich eine gültige E-Mail-Adresse gespeichert?
+
+Beispiel gültig:
+
+name@example.de
+
+Nicht gültig:
+
+Broska
+Max
+Trainer1
+
+Falls die E-Mail falsch gespeichert wurde:
+
+NOCH NICHT ÄNDERN.
+
+Zuerst Ursache finden.
+
+==================================================
+5. REGISTRIERUNGSFORMULAR FELDZUORDNUNG PRÜFEN
+==================================================
+
+Prüfe den kompletten Trainer-Registrierungsflow.
+
+Insbesondere:
+
+Vorname
+Nachname
+Benutzername
+E-Mail
+Passwort
+
+Welche Variable wird jeweils an die DB-Funktion übergeben?
+
+Suche nach möglichen Fehlern wie:
+
+email=vorname
+
+oder vertauschter Parameterreihenfolge.
+
+Beispiel:
+
+benutzer_anlegen(
+    vorname,
+    nachname,
+    email,
+    ...
+)
+
+aber Funktion erwartet:
+
+benutzer_anlegen(
+    email,
+    vorname,
+    nachname,
+    ...
+)
+
+Prüfe positional arguments besonders genau.
+
+==================================================
+6. VEREINSREGISTRIERUNG EBENFALLS PRÜFEN
+==================================================
+
+Dasselbe für Vereinsregistrierung prüfen.
+
+Mögliche Vertauschung von:
+
+- Ansprechpartner
+- Vereinsname
+- Benutzername
+- E-Mail
+- Rechnungs-E-Mail
+
+Es darf nicht nur Trainer korrigiert werden, falls dieselbe zentrale Funktion betroffen ist.
+
+==================================================
+7. E-MAIL-VALIDIERUNG VOR DB-SPEICHERUNG
+==================================================
+
+Prüfe, ob vor Account-Erstellung wirklich validiert wird:
+
+- enthält @
+- gültige Domainstruktur
+- keine Leerzeichen
+- normalize_email()
+- lowercase
+
+Eine Eingabe wie:
+
+"Broska"
+
+darf niemals als E-Mail gespeichert werden.
+
+Wenn Validierung fehlt:
+im Bericht nennen.
+
+Noch nicht ändern.
+
+==================================================
+8. EMAIL_VERIFIZIERT DARF NICHT AUTOMATISCH 1 SEIN
+==================================================
+
+Bei NEUEN Registrierungen muss grundsätzlich gelten:
+
+email_verifiziert = 0
+
+bis der Kunde tatsächlich auf den Bestätigungslink klickt.
+
+Prüfe, warum Accounts eventuell direkt mit:
+
+email_verifiziert = 1
+
+angelegt werden.
+
+Mögliche Ursachen:
+
+- Legacy-Migration
+- falscher Default-Wert
+- alte DB-Migration
+- Direktanlage durch Admin
+- falscher INSERT
+- alter Kompatibilitätscode
+
+Bestehende Alt-Accounts dürfen weiterhin entsprechend ihrer Migration behandelt werden.
+
+Aber NEUE Registrierung darf nicht automatisch verifiziert sein.
+
+==================================================
+9. VERIFIKATIONSTOKEN
+==================================================
+
+Bei neuer Registrierung muss:
+
+- Token erzeugt werden
+- Ablaufzeit gesetzt werden
+- email_token_gesendet_am gesetzt werden
+- send_verification_email aufgerufen werden
+
+Prüfe den Produktionscodepfad.
+
+==================================================
+10. KONKRETEN PRODUKTIONS-VERSAND PRÜFEN
+==================================================
+
+Für den echten betroffenen Trainer prüfen:
+
+- wurde send_verification_email aufgerufen?
+- welche Empfängeradresse wurde übergeben?
+- wurde smtp.send_message aufgerufen?
+- was war der Rückgabewert?
+- gab es SMTPRecipientsRefused?
+- gab es andere Exception?
+
+Keine Tokens oder Passwörter anzeigen.
+
+==================================================
+11. KEINE NEUE REGISTRIERUNG OHNE GÜLTIGE E-MAIL
+==================================================
+
+Prüfe, ob aktuell ein Account erstellt werden kann mit:
+
+E-Mail = Broska
+
+oder anderer ungültiger Eingabe.
+
+Erwartung:
+
+NEIN.
+
+Falls JA:
+als kritischen Registrierungsfehler melden.
+
+==================================================
+12. KEINE AUTOMATISCHE PRODUKTDATEN-ÄNDERUNG
+==================================================
+
+In diesem Schritt:
+
+- keine Produktionsaccounts löschen
+- keine E-Mail-Adresse ändern
+- keine email_verifiziert-Werte ändern
+- keine Tokens neu erzeugen
+- keine DB-Migration starten
+
+Nur Analyse.
+
+==================================================
+13. ABSCHLUSSBERICHT
+==================================================
+
+Danach exakt berichten:
+
+1. Welche Datenbank nutzt aphsystem.de tatsächlich?
+2. Warum wurde im letzten Bericht Railway erwähnt?
+3. Wo liegt die Produktionsdatenbank?
+4. Welcher Account ist die letzte echte Trainerregistrierung?
+5. Welche E-Mail ist dort gespeichert?
+6. Ist diese E-Mail gültig?
+7. Wurde Vorname/E-Mail vertauscht?
+8. Liegt ein Parameterreihenfolgefehler vor?
+9. Wird normalize_email verwendet?
+10. Gibt es echte E-Mail-Validierung?
+11. Warum steht email_verifiziert eventuell bereits auf 1?
+12. Wird bei neuer Registrierung Token erzeugt?
+13. Wird send_verification_email ausgeführt?
+14. Welcher Empfänger wird tatsächlich an SMTP übergeben?
+15. Was ist die konkrete Ursache?
+16. Welche Datei und Funktion ist betroffen?
+17. Welche Änderung wäre nötig?
+
+Danach STOPPEN.
+
+NOCH KEINE ÄNDERUNG VORNEHMEN.
