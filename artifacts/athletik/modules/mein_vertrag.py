@@ -530,10 +530,16 @@ def _kuendigung_flow(
         except Exception:
             lt2 = data2.get("lizenztyp") or "—"
 
+        # Priorität: gekuendigt_zum → subscription_current_period_end
+        # → testphase_bis (nur bei Trial) → Fallback
         vende = (
             _fmt_datum(data2.get("gekuendigt_zum"))
-            or _fmt_datum(data2.get("lizenz_bis"))
-            or data2.get("lizenz_bis")
+            or _fmt_datum(data2.get("subscription_current_period_end"))
+            or (
+                _fmt_datum(data2.get("testphase_bis"))
+                if data2.get("lizenz_status") == "trial"
+                else None
+            )
             or "Beendigungsdatum wird noch bestätigt."
         )
 
@@ -625,11 +631,16 @@ def _sende_email(
     kundenname   = user.get("vorname") or user.get("name") or ""
     kundenemail  = user.get("email") or ""
 
-    # Vertragsende aus vereine-Daten ermitteln
+    # Vertragsende: Priorität gekuendigt_zum → subscription_current_period_end
+    # → testphase_bis (nur bei Trial) → Fallback
     vertragsende = (
-        _fmt_datum(data.get("subscription_current_period_end"))
-        or _fmt_datum(data.get("lizenz_bis"))
-        or data.get("lizenz_bis")
+        _fmt_datum(data.get("gekuendigt_zum"))
+        or _fmt_datum(data.get("subscription_current_period_end"))
+        or (
+            _fmt_datum(data.get("testphase_bis"))
+            if data.get("lizenz_status") == "trial"
+            else None
+        )
         or "Wird noch bestätigt"
     )
 

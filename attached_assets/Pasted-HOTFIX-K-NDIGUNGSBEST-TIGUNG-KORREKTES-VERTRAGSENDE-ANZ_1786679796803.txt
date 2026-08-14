@@ -1,0 +1,107 @@
+HOTFIX – KÜNDIGUNGSBESTÄTIGUNG: KORREKTES VERTRAGSENDE ANZEIGEN
+
+Bitte nur diesen Fehler beheben. Keine anderen Funktionen umbauen oder erweitern.
+
+AKTUELLER STAND:
+Die Kündigung funktioniert technisch korrekt.
+
+Für den getesteten Trainer:
+- Kundennummer: APH-000009
+- Paket: TRAINER_BASIC / Einzeltrainer Basic
+- Status: trial
+- Abrechnungsintervall: monatlich
+- Kündigung wurde erfolgreich an Stripe übertragen
+- Stripe bestätigt: cancel_at_period_end = true
+- APH-Datenbank bestätigt:
+  - cancel_at_period_end = 1
+  - kuendigungsstatus = vorgemerkt
+  - subscription_current_period_end = 2026-09-13
+  - gekuendigt_zum = 2026-09-13
+
+PROBLEM:
+Direkt nach erfolgreicher Kündigung zeigt die Bestätigungsseite trotzdem:
+
+"Vertragsende: Beendigungsdatum wird noch bestätigt."
+
+Das ist falsch, wenn das Beendigungsdatum bereits bekannt ist.
+
+AUFGABE:
+
+1. Prüfe zuerst den bestehenden Kündigungsflow und finde exakt heraus, wo die Kündigungsbestätigungsseite erzeugt wird.
+
+2. Ändere ausschließlich die Anzeige des Vertragsendes.
+
+3. Für das Vertragsende soll folgende Priorität gelten:
+
+   a) gekuendigt_zum
+   b) subscription_current_period_end
+   c) testphase_bis, aber nur wenn die Kündigung während einer Testphase zum Trial-Ende erfolgt
+   d) nur wenn wirklich kein Datum vorhanden ist:
+      "Beendigungsdatum wird noch bestätigt."
+
+4. Das Datum in der Oberfläche deutsch darstellen:
+
+   2026-09-13
+   → 13.09.2026
+
+5. Erwartete Anzeige für den aktuellen Fall:
+
+   Kündigung erfolgreich übermittelt
+
+   Eingangsdatum: 14.08.2026
+   Paket: Einzeltrainer Basic
+   Vertragsende: 13.09.2026
+
+6. WICHTIG:
+Trainer mit technischem Mandanten müssen weiterhin ihre Vertragsdaten aus `vereine` erhalten.
+
+Die sichtbare Kundennummer eines Trainerkunden muss weiterhin aus `benutzer.kundennummer` kommen.
+
+Also:
+APH-000009 muss APH-000009 bleiben.
+Nicht wieder APH-000008 anzeigen.
+
+7. Prüfe außerdem den bereits vorhandenen Inhalt der Kündigungs-E-Mail.
+
+Falls dort das Vertragsende ausgegeben wird, muss dieselbe Datumslogik verwendet werden.
+
+Die E-Mail muss bei diesem Kunden insbesondere verwenden:
+- Kundennummer: APH-000009
+- Paket: Einzeltrainer Basic
+- Kündigungsdatum/Eingangsdatum
+- Vertragsende: 13.09.2026
+
+Keine neue E-Mail-Funktion bauen, wenn sie bereits vorhanden ist.
+
+8. NICHT ÄNDERN:
+- Stripe-Kündigungslogik
+- cancel_at_period_end
+- Webhooks
+- Checkout
+- Session/Cookies
+- Paketpreise
+- Lizenzlogik
+- Kundennummernlogik
+- Datenbankschema
+- Kündigung-zurückziehen-Logik
+- andere Module
+
+9. Keine Produktionsdaten manuell verändern.
+Keine Stripe-Testsubscription verändern.
+Keine neue Kündigung auslösen.
+
+10. Danach bestehende Tests ausführen, insbesondere Block-B-Regressionstests.
+
+ABSCHLUSSBERICHT:
+Bitte danach kurz berichten:
+
+- Ursache der falschen Anzeige
+- geänderte Datei(en)
+- welche Datumsquelle jetzt verwendet wird
+- ob Kündigungsseite jetzt 13.09.2026 anzeigen würde
+- ob Kündigungs-E-Mail geprüft wurde
+- ob APH-000009 weiterhin korrekt bleibt
+- Testergebnis
+
+Danach STOPPEN.
+Keine weiteren Änderungen durchführen.
