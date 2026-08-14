@@ -544,8 +544,8 @@ html, body { overflow-x: hidden; max-width: 100vw; }
    Injected into parent DOM (doc.body) by inject_mobile_sidebar_opener().
    CSS lives HERE in theme.py so it is re-applied on every Streamlit rerun
    and always beats any older JS-injected style from a previous run.
-   The JS in mobile.py only creates the element and manages the .aph-sidebar-open
-   class — it does NOT inject any <style>.
+   The JS in mobile.py only creates the element — no state tracking, no
+   .aph-sidebar-open class, no MutationObserver.
    ══════════════════════════════════════════════════════════════════════════ */
 
 /* Desktop ≥769px: never visible */
@@ -553,10 +553,13 @@ html, body { overflow-x: hidden; max-width: 100vw; }
     #aph-menu-btn { display: none !important; }
 }
 
-/* Mobile ≤768px: always fixed top-left, above everything */
+/* Mobile ≤768px: ALWAYS fixed top-left, above everything.
+   Visible regardless of sidebar open/closed state. */
 @media (max-width: 768px) {
     #aph-menu-btn {
         display:          flex !important;
+        visibility:       visible !important;
+        opacity:          1 !important;
         position:         fixed !important;
         top:              8px !important;
         left:             8px !important;
@@ -579,18 +582,11 @@ html, body { overflow-x: hidden; max-width: 100vw; }
         touch-action:     manipulation !important;
         pointer-events:   auto !important;
         overflow:         visible !important;
-        visibility:       visible !important;
-        opacity:          1 !important;
         transform:        none !important;
     }
     #aph-menu-btn:active {
         background:       rgba(88, 166, 255, 0.22) !important;
         border-color:     #58a6ff !important;
-    }
-    /* When sidebar is open the JS adds .aph-sidebar-open — hide the button
-       so the native Streamlit close-arrow inside the sidebar is the only control */
-    #aph-menu-btn.aph-sidebar-open {
-        display:          none !important;
     }
 }
 

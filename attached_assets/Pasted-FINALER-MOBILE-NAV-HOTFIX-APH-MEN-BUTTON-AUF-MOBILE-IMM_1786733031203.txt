@@ -1,0 +1,431 @@
+FINALER MOBILE-NAV HOTFIX – APH MENÜBUTTON AUF MOBILE IMMER SICHTBAR
+
+WICHTIG:
+Der bisherige Ansatz ist zu kompliziert geworden.
+
+Der reale Test auf Android Chrome zeigt:
+
+1. Sidebar geschlossen
+   → ☰ sichtbar ✅
+
+2. ☰ geklickt
+   → Sidebar öffnet ✅
+   → ☰ bleibt sichtbar
+
+3. Sidebar über << geschlossen
+   → Sidebar schließt ✅
+   → ☰ verschwindet ❌
+
+Damit ist bewiesen:
+Die Logik zur Erkennung "Sidebar offen / geschlossen" ist nicht zuverlässig.
+
+ZIEL:
+KEINE Zustands-Erkennung mehr für die Sichtbarkeit des APH-Menübuttons.
+
+Der APH-Menübutton soll auf Mobile IMMER sichtbar bleiben.
+
+============================================================
+1. GRUNDREGEL
+============================================================
+
+Bei Viewport <= 768px:
+
+#aph-menu-btn
+
+ist IMMER sichtbar.
+
+Unabhängig davon, ob:
+
+- Sidebar geöffnet
+- Sidebar geschlossen
+- Streamlit rerun
+- Seitenwechsel
+- Browser Reload
+
+Keine Klasse wie:
+
+.aph-sidebar-open
+
+darf den Button mehr verstecken.
+
+Keine JavaScript-Logik darf:
+
+display:none
+visibility:hidden
+opacity:0
+
+für #aph-menu-btn setzen.
+
+============================================================
+2. MOBILE BUTTON
+============================================================
+
+Auf <=768px:
+
+#aph-menu-btn {
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+
+    position: fixed !important;
+    top: 8px !important;
+    left: 8px !important;
+
+    width: 44px !important;
+    height: 44px !important;
+
+    z-index: 2147483000 !important;
+}
+
+Der Button bleibt also auch sichtbar, wenn die Sidebar geöffnet ist.
+
+Das ist ausdrücklich gewünscht.
+
+============================================================
+3. DESKTOP
+============================================================
+
+Bei >=769px:
+
+#aph-menu-btn {
+    display: none !important;
+}
+
+Desktop bleibt unverändert.
+
+============================================================
+4. MUTATIONOBSERVER VEREINFACHEN / ENTFERNEN
+============================================================
+
+Die aktuelle Logik mit:
+
+isSidebarOpen()
+MutationObserver
+aph-sidebar-open
+__aphUpdateMenuBtn()
+
+ist für die Sichtbarkeit des Buttons nicht mehr nötig.
+
+Bitte entfernen oder stark vereinfachen.
+
+Der Button muss NICHT wissen, ob die Sidebar offen oder geschlossen ist.
+
+WICHTIG:
+Keine unnötige Observer-Logik beibehalten, die den Button später wieder
+ausblenden kann.
+
+============================================================
+5. BUTTON BLEIBT IM PARENT BODY
+============================================================
+
+Bestehendes Prinzip beibehalten:
+
+window.parent.document.body.appendChild(btn)
+
+Der Button darf NICHT Bestandteil von:
+
+[data-testid="stSidebar"]
+
+sein.
+
+Bei jedem Aufruf von inject_mobile_sidebar_opener():
+
+- prüfen, ob #aph-menu-btn schon existiert
+- falls ja → wiederverwenden
+- falls nein → neu erstellen
+
+NICHT mehrfach erzeugen.
+
+============================================================
+6. KLICKLOGIK
+============================================================
+
+Der ☰-Button soll bei jedem Klick den aktuell vorhandenen echten
+Streamlit-Sidebar-Control suchen.
+
+Primär:
+
+[data-testid="stSidebarCollapseButton"] button
+
+Fallback:
+
+[data-testid="stSidebarHeader"] button
+
+Fallback:
+
+section[data-testid="stSidebar"] button
+
+Dann:
+
+button.click()
+
+WICHTIG:
+Der DOM muss bei JEDEM Klick neu abgefragt werden.
+
+Keine alte gespeicherte Button-Referenz wiederverwenden,
+weil Streamlit bei Reruns DOM-Elemente ersetzt.
+
+============================================================
+7. VERHALTEN BEI GEÖFFNETER SIDEBAR
+============================================================
+
+Wenn die Sidebar geöffnet ist:
+
+☰ bleibt trotzdem sichtbar.
+
+Das ist KEIN Fehler.
+
+Der Benutzer hat dann zwei Möglichkeiten:
+
+- vorhandenes << in der Sidebar zum Schließen
+oder
+- ☰ erneut drücken, sofern der Streamlit-Toggle dadurch ebenfalls schließt
+
+Priorität:
+Der <<-Button muss weiterhin normal funktionieren.
+
+============================================================
+8. VERHALTEN NACH SCHLIESSEN
+============================================================
+
+Ganz wichtig:
+
+Nach Klick auf <<:
+
+Sidebar schließt.
+
+#aph-menu-btn bleibt unverändert sichtbar.
+
+KEIN:
+
+MutationObserver → Button verstecken
+CSS-Klassenwechsel
+aph-sidebar-open
+display:none
+DOM-Entfernung
+
+============================================================
+9. STREAMLIT RERUN
+============================================================
+
+Nach einem Streamlit-Rerun:
+
+#aph-menu-btn muss weiterhin existieren.
+
+Falls Streamlit ihn wider Erwarten entfernt:
+
+inject_mobile_sidebar_opener()
+
+muss ihn beim nächsten Run wieder erzeugen.
+
+Keine komplizierte State-Machine bauen.
+
+============================================================
+10. REALER ZIELABLAUF
+============================================================
+
+Der folgende Ablauf MUSS funktionieren:
+
+START:
+
+Sidebar geschlossen
+☰ sichtbar
+
+↓
+
+☰ drücken
+
+↓
+
+Sidebar geöffnet
+☰ weiterhin sichtbar
+<< sichtbar
+
+↓
+
+<< drücken
+
+↓
+
+Sidebar geschlossen
+☰ weiterhin sichtbar
+
+↓
+
+☰ drücken
+
+↓
+
+Sidebar wieder geöffnet
+
+↓
+
+<< drücken
+
+↓
+
+Sidebar wieder geschlossen
+☰ weiterhin sichtbar
+
+Diesen Zyklus mindestens 10x testen.
+
+============================================================
+11. KEINE MOBILE BOTTOM NAV
+============================================================
+
+Die alte Bottom-Navigation bleibt vollständig deaktiviert.
+
+NICHT wieder aktivieren:
+
+Start | Spieler | Tests | Ausbildung | Mehr
+
+============================================================
+12. KEINE SCHMALE SIDEBAR
+============================================================
+
+Geschlossene Sidebar:
+
+→ vollständig geschlossen
+→ Hauptinhalt nutzt Bildschirmbreite
+→ nur ☰ bleibt oben links
+
+Geöffnete Sidebar:
+
+→ vollständiger Drawer wie aktuell
+
+Keine künstliche 56px Sidebar bauen.
+
+============================================================
+13. DATEIEN
+============================================================
+
+Voraussichtlich nur:
+
+mobile.py
+theme.py
+
+ändern.
+
+app.py nur ändern, wenn zwingend erforderlich.
+
+database.py NICHT ändern.
+
+============================================================
+14. NICHT VERÄNDERN
+============================================================
+
+Nicht verändern:
+
+- Navigationseinträge
+- Rollenrechte
+- Superadmin-Menüs
+- Trainer-Menüs
+- Spieler-Auswahl
+- Trainingsplan
+- Diagnostik
+- Session-Restore
+- CookieController
+- Login
+- Stripe
+- Verträge
+- Datenbank
+- PDF
+- Screen-Width Detection
+
+Besonders:
+
+import time
+time.sleep(0.35)
+st.rerun()
+
+im Session-Restore NICHT verändern.
+
+============================================================
+15. TESTS
+============================================================
+
+A)
+360px
+Sidebar geschlossen
+→ ☰ sichtbar
+
+B)
+390px
+→ ☰ sichtbar
+
+C)
+430px
+→ ☰ sichtbar
+
+D)
+☰ → Sidebar öffnet
+
+E)
+Sidebar offen
+→ ☰ bleibt sichtbar
+
+F)
+<< → Sidebar schließt
+
+G)
+nach <<:
+→ ☰ weiterhin sichtbar
+
+H)
+☰ erneut
+→ Sidebar öffnet erneut
+
+I)
+Öffnen / Schließen Zyklus 10x
+→ funktioniert jedes Mal
+
+J)
+Seitenwechsel
+→ ☰ bleibt vorhanden
+
+K)
+Streamlit rerun
+→ ☰ bleibt vorhanden
+
+L)
+Browser Reload
+→ ☰ erscheint wieder
+
+M)
+Desktop >=769px
+→ kein APH-Mobile-Button
+→ Desktop unverändert
+
+N)
+Bottom-Navigation bleibt weg
+
+O)
+python3 -m py_compile app.py mobile.py theme.py
+→ PASS
+
+P)
+Block-B
+→ 35/35 PASS
+
+============================================================
+16. ABSCHLUSSBERICHT
+============================================================
+
+Bitte danach berichten:
+
+1. Welche State-/Observer-Logik entfernt wurde
+2. Bestätigung:
+   #aph-menu-btn wird auf Mobile NIE aufgrund des Sidebar-Zustands versteckt
+3. Wo der Button im DOM liegt
+4. Wie der Streamlit-Toggle bei jedem Klick neu gesucht wird
+5. Ergebnis des 10x Öffnen-/Schließen-Tests
+6. Mobile 360/390/430
+7. Desktop
+8. geänderte Dateien
+9. py_compile
+10. Block-B
+
+Danach STOPPEN.
+
+Keine weiteren Änderungen.
