@@ -295,6 +295,8 @@ class LizenzInfo(TypedDict):
     ablauf_datum: date | None
     stripe_customer_id: str | None
     stripe_subscription_id: str | None
+    cancel_at_period_end: bool  # Abo läuft noch, aber Kündigung ist aktiv
+    gekuendigt_zum: str | None  # ISO-Date: Ende des laufenden Abrechnungszeitraums
 
 
 def get_lizenz_info(verein_row: dict) -> LizenzInfo:
@@ -359,6 +361,8 @@ def get_lizenz_info(verein_row: dict) -> LizenzInfo:
         "ablauf_datum":           ablauf_datum,
         "stripe_customer_id":     verein_row.get("stripe_customer_id"),
         "stripe_subscription_id": verein_row.get("stripe_subscription_id"),
+        "cancel_at_period_end":   bool(verein_row.get("cancel_at_period_end", 0)),
+        "gekuendigt_zum":         verein_row.get("gekuendigt_zum"),
     }
 
     st.session_state[cache_key] = info

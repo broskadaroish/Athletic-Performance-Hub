@@ -16,6 +16,7 @@ from database import (
     spieler_laden, verein_by_id, spieler_ohne_verein_zaehlen,
     fms_letzter, y_balance_letzter, sprint_letzter, sprung_letzter,
     agilitaet_letzter, ausdauer_letzter, spiro_test_letzter, verletzungen_laden,
+    lizenz_info_laden,
 )
 
 # ── Design-Konstanten (Dark Mode) ─────────────────────────────────────────────
@@ -220,6 +221,58 @@ def _navigate(section: str) -> None:
     st.rerun()
 
 
+# ── Kündigungs-Banner ─────────────────────────────────────────────────────────
+
+def _kuendigung_banner(verein_id: int | None) -> None:
+    """Zeigt einen gelben Banner wenn cancel_at_period_end gesetzt ist.
+
+    Liest cancel_at_period_end / gekuendigt_zum direkt aus der DB-Row —
+    niemals aus dem Session-Cache, damit der Banner immer den aktuellen
+    Stripe-Status widerspiegelt (z. B. nach Webhook-Verarbeitung in der
+    selben Session).
+    Kein Banner bei Superadmins — deren Kundenverwaltung zeigt den Status separat.
+    """
+    if not verein_id:
+        return
+    try:
+        verein_row = lizenz_info_laden(verein_id) or {}
+    except Exception:
+        return
+
+    # Direkt aus der frischen DB-Row lesen — kein Session-Cache
+    if not verein_row.get("cancel_at_period_end"):
+        return
+
+    enddatum = verein_row.get("gekuendigt_zum") or verein_row.get("lizenz_bis") or ""
+    if enddatum:
+        try:
+            import datetime as _dt
+            d = _dt.date.fromisoformat(str(enddatum)[:10])
+            enddatum_de = f"{d.day:02d}.{d.month:02d}.{d.year}"
+        except ValueError:
+            enddatum_de = enddatum
+        datum_text = f"am <b>{enddatum_de}</b>"
+    else:
+        datum_text = "zum Ende des aktuellen Abrechnungszeitraums"
+
+    st.markdown(
+        f'<div style="background:#856404;border:1px solid #d29922;border-radius:8px;'
+        f'padding:12px 18px;margin-bottom:16px;display:flex;align-items:center;gap:12px">'
+        f'<span style="font-size:22px">⚠️</span>'
+        f'<div style="flex:1">'
+        f'<span style="color:#e3b341;font-weight:700;font-size:14px">Abo gekündigt</span>'
+        f'<span style="color:#e3c770;font-size:13px;margin-left:8px">'
+        f'Ihr Abonnement endet {datum_text}. Danach wird der Zugang gesperrt.</span>'
+        f'</div>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
+    # "Mein Vertrag" ist für Trainer und Vereinsadmin die Seite mit dem
+    # Reaktivierungs-/Kündigungs-Flow (💳 Lizenz existiert nur für Vereinsadmin).
+    if st.button("🔄 Abo reaktivieren", key="_banner_reaktivieren", type="secondary"):
+        _navigate("📋  Mein Vertrag")
+
+
 # ── Vereinsvergleich-Tabelle (Superadmin) ─────────────────────────────────────
 
 def _tage_bis(lizenz_bis_str) -> int | None:
@@ -293,13 +346,15 @@ def _vereins_vergleich_tabelle() -> None:
 
     sort_field, sort_desc = _SORT_OPTS[sort_key]
 
-    # Status-Hilfssortierung berechnen (0=aktiv, 1=ablaufend, 2=inaktiv/gesperrt)
+    # Status-Hilfssortierung berechnen (0=aktiv, 1=ablaufend/gekündigt, 2=inaktiv/gesperrt)
     def _status_sort_val(v):
         if v.get("gesperrt") or not v.get("aktiv", 1):
             return 2
         tage = _tage_bis(v.get("lizenz_bis"))
         if tage is not None and tage < 0:
             return 2
+        if v.get("lizenz_status") == "cancelled" or bool(v.get("cancel_at_period_end")):
+            return 1
         if tage is not None and tage <= 30:
             return 1
         return 0
@@ -359,13 +414,31 @@ def _vereins_vergleich_tabelle() -> None:
         liz_c = _LIZ_C.get(lt, _C["muted"])
 
         # Status ermitteln
-        gesperrt = v.get("gesperrt") or not v.get("aktiv", 1)
-        tage     = _tage_bis(v.get("lizenz_bis"))
-        if gesperrt or (tage is not None and tage < 0):
+        gesperrt   = v.get("gesperrt") or not v.get("aktiv", 1)
+        tage       = _tage_bis(v.get("lizenz_bis"))
+        liz_status = v.get("lizenz_status") or ""
+        cancel_end = bool(v.get("cancel_at_period_end"))
+        gek_zum    = v.get("gekuendigt_zum") or ""
+        if gesperrt or liz_status in ("beendet",) or (tage is not None and tage < 0):
             row_status     = "Inaktiv"
             status_color   = _C["red"]
             row_bg         = f"{_C['red']}0d"
             row_border     = f"{_C['red']}44"
+        elif liz_status == "cancelled" or cancel_end:
+            # Abo läuft noch, aber Kündigung ist aktiv
+            if gek_zum:
+                try:
+                    import datetime as _dt
+                    d = _dt.date.fromisoformat(str(gek_zum)[:10])
+                    gek_text = f"{d.day:02d}.{d.month:02d}.{d.year}"
+                except ValueError:
+                    gek_text = gek_zum
+                row_status = f"Gekündigt ({gek_text})"
+            else:
+                row_status = "Gekündigt"
+            status_color   = _C["orange"]
+            row_bg         = f"{_C['orange']}0d"
+            row_border     = f"{_C['orange']}44"
         elif tage is not None and tage <= 30:
             row_status     = f"Läuft ab ({tage}d)"
             status_color   = _C["orange"]
@@ -569,6 +642,9 @@ def _dash_vereinsadmin(user: dict):
         )
 
     st.divider()
+
+    # ── Kündigungs-Banner ─────────────────────────────────────────────────────
+    _kuendigung_banner(verein_id)
 
     kpis = dashboard_va_kpis(verein_id) if verein_id else {}
     avg_fms = kpis.get("avg_fms")
@@ -904,7 +980,10 @@ def _dash_trainer(user: dict):
     # 1. Kompakte Begrüßung
     _trainer_greeting(vorname)
 
-    # 2. Daten laden — gebündelt, kein Divider darunter
+    # 2. Kündigungs-Banner (wenn Abo läuft aber cancel_at_period_end gesetzt ist)
+    _kuendigung_banner(user.get("verein_id"))
+
+    # 3. Daten laden — gebündelt, kein Divider darunter
     alle_spieler = spieler_laden(trainer_id, "Trainer", user.get("verein_id"))
     n_spieler    = len(alle_spieler) if alle_spieler else 0
 

@@ -3021,7 +3021,8 @@ def lizenz_info_laden(verein_id: int) -> dict | None:
             """SELECT id, name, aktiv, lizenztyp, lizenz_bis, lizenz_status,
                       testphase_bis, gesperrt, stripe_customer_id,
                       stripe_subscription_id, zahlungsstatus,
-                      ist_technischer_mandant, abo_intervall
+                      ist_technischer_mandant, abo_intervall,
+                      cancel_at_period_end, gekuendigt_zum
                  FROM vereine WHERE id=?""",
             (verein_id,),
         ).fetchone())
@@ -4033,7 +4034,8 @@ def dashboard_verein_uebersicht() -> list[dict]:
         # Basisinfo aller Vereine — optional columns may not exist on older DBs
         try:
             vereine = _rows(conn.execute(
-                "SELECT id, name, lizenztyp, lizenz_bis, lizenz_status, aktiv, gesperrt "
+                "SELECT id, name, lizenztyp, lizenz_bis, lizenz_status, aktiv, gesperrt, "
+                "cancel_at_period_end, gekuendigt_zum "
                 "FROM vereine ORDER BY name"
             ).fetchall())
         except sqlite3.OperationalError as _e:
@@ -4048,6 +4050,8 @@ def dashboard_verein_uebersicht() -> list[dict]:
                 v.setdefault("lizenz_bis", None)
                 v.setdefault("lizenz_status", None)
                 v.setdefault("gesperrt", 0)
+                v.setdefault("cancel_at_period_end", 0)
+                v.setdefault("gekuendigt_zum", None)
 
         for v in vereine:
             vid = v["id"]
