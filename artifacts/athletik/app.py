@@ -353,7 +353,9 @@ if "user" not in st.session_state:
                         'Sitzung wird geprüft …</div></div>',
                         unsafe_allow_html=True,
                     )
-                    st.stop()
+                    import time
+                    time.sleep(0.35)
+                    st.rerun()
                 # Nach _COOKIE_MAX_WAIT Versuchen kein Cookie → Login-Seite anzeigen.
                 # _cookie_load_attempts bleibt im session_state, wird beim nächsten
                 # Page-Load (neue Streamlit-Session) automatisch zurückgesetzt.
