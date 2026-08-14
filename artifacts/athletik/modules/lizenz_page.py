@@ -18,6 +18,7 @@ from database import (
     rechnungen_laden,
     alle_vereine_lizenz,
     stripe_ids_setzen,
+    verein_kapazitaet_laden,
 )
 from license import (
     LIZENZ_TYPEN,
@@ -175,6 +176,260 @@ def _tarif_karte(
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+# Tarif-Wechsel-Logik (A9)
+# ══════════════════════════════════════════════════════════════════════════════
+
+def _gleicher_kundentyp(typ_a: str, typ_b: str) -> bool:
+    """True wenn beide Lizenztypen zum selben Kundentyp (Trainer / Verein) gehören."""
+    def kt(t: str) -> str:
+        return LIZENZ_TYPEN.get(t, {}).get("kundentyp", "")
+    return kt(typ_a) == kt(typ_b)
+
+
+def _ist_upgrade(aktuell: str, ziel: str) -> bool:
+    """True wenn der Wechsel ein Upgrade ist (höherer Preis)."""
+    preis_aktuell = LIZENZ_TYPEN.get(aktuell, {}).get("preis_monat", 0.0)
+    preis_ziel    = LIZENZ_TYPEN.get(ziel,    {}).get("preis_monat", 0.0)
+    return preis_ziel > preis_aktuell
+
+
+def _downgrade_blockiert(
+    verein_id: int,
+    ziel_typ: str,
+) -> tuple[bool, str]:
+    """Prüft ob ein Downgrade durch bestehende Datenmenge blockiert wird.
+
+    Rückgabe:
+        (False, "")              — Downgrade erlaubt
+        (True,  "Fehlermeldung") — Downgrade blockiert
+    """
+    from license import LIZENZ_TYPEN as _LT
+    ziel_def = _LT.get(ziel_typ, {})
+    max_s = ziel_def.get("max_spieler")
+    max_t = ziel_def.get("max_trainer")
+
+    try:
+        kap = verein_kapazitaet_laden(verein_id)
+    except Exception:
+        return False, ""  # Im Zweifel erlauben, Stripe fängt echte Limits
+
+    meldungen = []
+    if max_s is not None and kap["spieler"] > max_s:
+        meldungen.append(
+            f"Du hast aktuell **{kap['spieler']} aktive Spieler**, "
+            f"aber das Zielpaket erlaubt nur **{max_s}**."
+        )
+    if max_t is not None and kap["trainer"] > max_t:
+        meldungen.append(
+            f"Du hast aktuell **{kap['trainer']} aktive Trainer**, "
+            f"aber das Zielpaket erlaubt nur **{max_t}**."
+        )
+
+    if meldungen:
+        text = (
+            "Downgrade nicht möglich:\n\n"
+            + "\n".join(f"• {m}" for m in meldungen)
+            + "\n\nBitte reduziere zuerst die Anzahl, bevor du das Paket wechselst."
+        )
+        return True, text
+
+    return False, ""
+
+
+def _tarif_wechseln_section(verein_id: int, info: dict, verein_row: dict) -> None:
+    """UI-Abschnitt: Paket oder Abrechnungsintervall wechseln.
+
+    info      — Rückgabe von get_lizenz_info() (LizenzInfo TypedDict)
+    verein_row — Roh-DB-Row (lizenz_info_laden), enthält abo_intervall
+
+    Ruft paket_wechseln() oder intervall_wechseln() aus stripe_service auf.
+    DB-Synchronisation erfolgt ausschließlich über den Webhook.
+    """
+    from stripe_service import (
+        hat_aktive_subscription,
+        paket_wechseln,
+        intervall_wechseln,
+        get_price_id,
+        STRIPE_PRICES,
+    )
+
+    aktuell_typ       = info.get("lizenz_typ", "TRAINER_BASIC")
+    # abo_intervall kommt aus der Roh-DB-Row — LizenzInfo enthält es nicht
+    aktuell_intervall = (verein_row.get("abo_intervall") or "monat")
+    sub_id            = info.get("stripe_subscription_id")
+
+    # ── Kein aktives Stripe-Abo ────────────────────────────────────────────────
+    if not stripe_verfuegbar():
+        st.info(
+            "Stripe ist nicht konfiguriert. Kontaktiere uns für einen Tarifwechsel: "
+            "**support@aphsystem.de**"
+        )
+        return
+
+    hat_abo, _ = hat_aktive_subscription(verein_id)
+    if not hat_abo or not sub_id:
+        st.info(
+            "Kein aktives Stripe-Abonnement gefunden. "
+            "Starte zunächst ein Abonnement über den Tab **📦 Tarife**."
+        )
+        return
+
+    aktuell_def = LIZENZ_TYPEN.get(aktuell_typ, LIZENZ_TYPEN["TRAINER_BASIC"])
+
+    # ── Mögliche Ziel-Pakete (nur gleicher Kundentyp, nicht aktueller Tarif) ──
+    erlaubte_ziele = [
+        (k, v) for k, v in LIZENZ_TYPEN.items()
+        if k != aktuell_typ and _gleicher_kundentyp(k, aktuell_typ)
+    ]
+
+    if not erlaubte_ziele:
+        st.info("Für deinen Kundentyp gibt es derzeit kein anderes Paket.")
+        return
+
+    st.markdown(
+        f'<div style="background:{_C["surf"]};border:1px solid {_C["border"]};'
+        f'border-radius:8px;padding:14px 18px;margin-bottom:16px">'
+        f'<div style="font-size:11px;color:{_C["muted"]};letter-spacing:.6px">AKTUELLES PAKET</div>'
+        f'<div style="font-size:18px;font-weight:800;color:{_C["text"]};margin-top:2px">'
+        f'{aktuell_def["label"]}</div>'
+        f'<div style="font-size:12px;color:{_C["muted"]};margin-top:4px">'
+        f'Intervall: {"Monatlich" if aktuell_intervall == "monat" else "Jährlich"}</div>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
+
+    # ── Paket wählen ──────────────────────────────────────────────────────────
+    ziel_labels = {k: v["label"] for k, v in erlaubte_ziele}
+    ziel_keys   = list(ziel_labels.keys())
+
+    col_paket, col_intervall = st.columns(2)
+
+    with col_paket:
+        ziel_typ = st.selectbox(
+            "Neues Paket",
+            options=ziel_keys,
+            format_func=lambda k: ziel_labels[k],
+            key="wechsel_paket",
+        )
+
+    with col_intervall:
+        intervall_wahl = st.selectbox(
+            "Abrechnungsintervall",
+            options=["monat", "jahr"],
+            format_func=lambda x: "Monatlich" if x == "monat" else "Jährlich (2 Monate gratis)",
+            index=0 if aktuell_intervall == "monat" else 1,
+            key="wechsel_intervall",
+        )
+
+    # ── Wechsel-Art bestimmen ──────────────────────────────────────────────────
+    paket_aendert    = (ziel_typ != aktuell_typ)
+    intervall_aendert = (intervall_wahl != aktuell_intervall)
+
+    if not paket_aendert and not intervall_aendert:
+        st.info("Keine Änderung ausgewählt — wähle ein anderes Paket oder Intervall.")
+        return
+
+    neue_price_id = get_price_id(ziel_typ, intervall_wahl)
+    if not neue_price_id:
+        st.warning(
+            f"Stripe Price-ID für **{LIZENZ_TYPEN[ziel_typ]['label']} / "
+            f"{'Monatlich' if intervall_wahl == 'monat' else 'Jährlich'}** ist noch nicht "
+            f"konfiguriert. Bitte Env-Var setzen."
+        )
+        return
+
+    # ── Vorschau der Änderung ──────────────────────────────────────────────────
+    ist_upgrade   = paket_aendert and _ist_upgrade(aktuell_typ, ziel_typ)
+    ist_downgrade = paket_aendert and not ist_upgrade
+
+    aendert_str = []
+    if paket_aendert:
+        richtung = "⬆️ Upgrade" if ist_upgrade else "⬇️ Downgrade"
+        aendert_str.append(
+            f"{richtung}: **{aktuell_def['label']}** → **{LIZENZ_TYPEN[ziel_typ]['label']}**"
+        )
+    if intervall_aendert:
+        alt_int = "Monatlich" if aktuell_intervall == "monat" else "Jährlich"
+        neu_int = "Monatlich" if intervall_wahl == "monat" else "Jährlich"
+        aendert_str.append(f"Intervall: {alt_int} → {neu_int}")
+
+    if ist_upgrade:
+        wirksamkeit = "**sofort** (mit anteiliger Abrechnung über Stripe)"
+    else:
+        wirksamkeit = "**zum Ende des aktuellen Abrechnungszeitraums**"
+
+    st.markdown(
+        f'<div style="background:{_C["surf"]};border:1px solid {_C["border"]};'
+        f'border-radius:8px;padding:14px 18px;margin:12px 0">'
+        f'<div style="font-size:11px;color:{_C["muted"]};letter-spacing:.6px;margin-bottom:6px">VORSCHAU DER ÄNDERUNG</div>'
+        + "".join(
+            f'<div style="font-size:13px;color:{_C["text"]};margin-bottom:3px">• {t}</div>'
+            for t in aendert_str
+        )
+        + f'<div style="font-size:12px;color:{_C["muted"]};margin-top:8px">'
+        f'Wirksam: {wirksamkeit}</div>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
+
+    # ── Downgrade-Limit-Check ──────────────────────────────────────────────────
+    if ist_downgrade:
+        blockiert, grund = _downgrade_blockiert(verein_id, ziel_typ)
+        if blockiert:
+            st.error(grund)
+            return
+
+    # ── Bestätigungs-Schritt ───────────────────────────────────────────────────
+    confirm_key = f"wechsel_bestaetigt_{ziel_typ}_{intervall_wahl}"
+    if confirm_key not in st.session_state:
+        st.session_state[confirm_key] = False
+
+    if not st.session_state[confirm_key]:
+        st.warning(
+            "Bitte bestätige die Änderung. "
+            "Du kannst deinen Tarif jederzeit erneut wechseln."
+        )
+        if st.button(
+            "✅ Änderung bestätigen",
+            key=f"bestaetigen_{ziel_typ}_{intervall_wahl}",
+            type="primary",
+        ):
+            st.session_state[confirm_key] = True
+            st.rerun()
+        return
+
+    # ── Wechsel durchführen ────────────────────────────────────────────────────
+    st.success("Bereit zum Wechseln. Klicke unten um die Änderung an Stripe zu übermitteln.")
+
+    if st.button(
+        f"🔄 Jetzt wechseln",
+        key=f"wechsel_ausfuehren_{ziel_typ}_{intervall_wahl}",
+        type="primary",
+        use_container_width=True,
+    ):
+        try:
+            if ist_upgrade:
+                paket_wechseln(sub_id, neue_price_id, sofort=True)
+            elif ist_downgrade:
+                paket_wechseln(sub_id, neue_price_id, sofort=False)
+            else:
+                # Nur Intervallwechsel
+                intervall_wechseln(sub_id, neue_price_id)
+
+            # Bestätigungs-State zurücksetzen
+            del st.session_state[confirm_key]
+            invalidate_lizenz_cache(verein_id)
+
+            st.success(
+                "✅ Wechsel erfolgreich an Stripe übermittelt! "
+                "Die Lizenzseite wird nach dem nächsten Webhook-Event automatisch aktualisiert."
+            )
+        except Exception as e:
+            st.error(f"Fehler beim Tarifwechsel: {e}")
+            del st.session_state[confirm_key]
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # Vereinsadmin-Seite
 # ══════════════════════════════════════════════════════════════════════════════
 
@@ -194,7 +449,7 @@ def page_lizenz_vereinsadmin() -> None:
     # ── Aktuellen Status laden ─────────────────────────────────────────────────
     verein_row = lizenz_info_laden(verein_id) or {}
     info = get_lizenz_info(verein_row)
-    typ_def = LIZENZ_TYPEN.get(info["lizenz_typ"], LIZENZ_TYPEN["BASIC"])
+    typ_def = LIZENZ_TYPEN.get(info["lizenz_typ"], LIZENZ_TYPEN["TRAINER_BASIC"])
 
     # ── Status-Banner ──────────────────────────────────────────────────────────
     badge = _status_badge(info["lizenz_status"])
@@ -243,7 +498,9 @@ def page_lizenz_vereinsadmin() -> None:
     st.markdown("")
 
     # ── Tabs ──────────────────────────────────────────────────────────────────
-    tab_tarife, tab_rechnungen = st.tabs(["📦 Tarife", "🧾 Rechnungen"])
+    tab_tarife, tab_wechseln, tab_rechnungen = st.tabs(
+        ["📦 Tarife", "🔄 Tarif wechseln", "🧾 Rechnungen"]
+    )
 
     with tab_tarife:
         st.markdown(
@@ -292,6 +549,9 @@ def page_lizenz_vereinsadmin() -> None:
                 "Möchtest du deinen Vertrag kündigen? "
                 "Nutze dafür die Seite **📋 Mein Vertrag** in der Navigation."
             )
+
+    with tab_wechseln:
+        _tarif_wechseln_section(verein_id, info, verein_row)
 
     with tab_rechnungen:
         rechnungen = rechnungen_laden(verein_id)

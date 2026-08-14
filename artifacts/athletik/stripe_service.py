@@ -443,6 +443,120 @@ def get_price_id(lizenz_typ: str, intervall: str = "monat") -> str | None:
     return price_id if price_id else None
 
 
+# ── Aktive-Subscription-Guard (A9) ────────────────────────────────────────────
+
+def hat_aktive_subscription(verein_id: int) -> tuple[bool, str | None]:
+    """Prüft ob für einen Verein bereits eine aktive Stripe-Subscription existiert.
+
+    Liest stripe_subscription_id aus der DB und fragt Stripe nach dem Status.
+
+    Rückgabe:
+        (True,  subscription_id) — Subscription hat Status 'active' oder 'trialing'
+        (False, subscription_id) — Subscription existiert, ist aber inaktiv
+        (False, None)            — keine Subscription-ID in DB
+    """
+    try:
+        from database import lizenz_info_laden
+        row = lizenz_info_laden(verein_id) or {}
+    except Exception as e:
+        logger.warning(f"DB-Fehler beim Subscription-Check (verein_id={verein_id}): {e}")
+        return False, None
+
+    sub_id = row.get("stripe_subscription_id")
+    if not sub_id:
+        return False, None
+
+    if not STRIPE_ENABLED:
+        # Stripe nicht konfiguriert — DB-Status als Fallback nutzen
+        db_status = row.get("lizenz_status", "")
+        return db_status in ("active", "trial"), sub_id
+
+    try:
+        stripe = _get_stripe()
+        sub = stripe.Subscription.retrieve(sub_id)
+        status = sub.get("status", "")
+        logger.debug(f"Subscription-Check verein={verein_id}: {sub_id} → {status}")
+        return status in ("active", "trialing"), sub_id
+    except Exception as e:
+        logger.warning(
+            f"Stripe-Subscription-Check fehlgeschlagen (verein_id={verein_id}, "
+            f"sub_id={sub_id}): {e}"
+        )
+        return False, sub_id
+
+
+# ── Paket-/Intervallwechsel (A9) ───────────────────────────────────────────────
+
+def paket_wechseln(
+    subscription_id: str,
+    neue_price_id: str,
+    sofort: bool = True,
+) -> dict:
+    """Wechselt das Paket (Upgrade oder Downgrade) einer bestehenden Subscription.
+
+    sofort=True  (Upgrade):  sofortiger Wechsel mit anteiliger Abrechnung.
+                             Stripe erstellt sofort eine Proration-Invoice.
+    sofort=False (Downgrade): Wechsel ohne Proration; Abrechnungszyklus bleibt
+                              unverändert (billing_cycle_anchor='unchanged').
+
+    Gibt das aktualisierte Subscription-Objekt zurück.
+    Wirft stripe.error.StripeError oder RuntimeError bei Fehler.
+    """
+    stripe = _get_stripe()
+    sub = stripe.Subscription.retrieve(subscription_id)
+    item_id = sub["items"]["data"][0]["id"]
+
+    if sofort:
+        updated = stripe.Subscription.modify(
+            subscription_id,
+            items=[{"id": item_id, "price": neue_price_id}],
+            proration_behavior="always_invoice",
+        )
+        logger.info(
+            "Upgrade durchgeführt: %s → price=%s (sofort, with_proration)",
+            subscription_id, neue_price_id,
+        )
+    else:
+        updated = stripe.Subscription.modify(
+            subscription_id,
+            items=[{"id": item_id, "price": neue_price_id}],
+            proration_behavior="none",
+            billing_cycle_anchor="unchanged",
+        )
+        logger.info(
+            "Downgrade vorgemerkt: %s → price=%s (ohne Proration)",
+            subscription_id, neue_price_id,
+        )
+    return updated
+
+
+def intervall_wechseln(
+    subscription_id: str,
+    neue_price_id: str,
+) -> dict:
+    """Wechselt das Abrechnungsintervall zum Periodenende (monat ↔ jahr).
+
+    Keine Sofortabbuchung — Wechsel ohne Proration, bestehender Zyklus bleibt.
+    Gibt das aktualisierte Subscription-Objekt zurück.
+    Wirft stripe.error.StripeError oder RuntimeError bei Fehler.
+    """
+    stripe = _get_stripe()
+    sub = stripe.Subscription.retrieve(subscription_id)
+    item_id = sub["items"]["data"][0]["id"]
+
+    updated = stripe.Subscription.modify(
+        subscription_id,
+        items=[{"id": item_id, "price": neue_price_id}],
+        proration_behavior="none",
+        billing_cycle_anchor="unchanged",
+    )
+    logger.info(
+        "Intervall gewechselt: %s → price=%s (zum Periodenende)",
+        subscription_id, neue_price_id,
+    )
+    return updated
+
+
 def get_price_id_or_raise(lizenz_typ: str, intervall: str = "monat") -> str:
     """Wie get_price_id(), aber wirft ValueError wenn die Price-ID nicht konfiguriert ist.
 

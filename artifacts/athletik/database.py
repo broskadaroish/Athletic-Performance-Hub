@@ -3062,6 +3062,27 @@ def stripe_ids_setzen(
         )
 
 
+def verein_kapazitaet_laden(verein_id: int) -> dict:
+    """Gibt aktuelle Spieler- und Trainer-Anzahl eines Vereins zurück.
+
+    Wird vor Downgrades aufgerufen um zu prüfen, ob das Limit des Zielpakets
+    mit den bestehenden Datensätzen vereinbar ist.
+
+    Rückgabe:
+        {"spieler": int, "trainer": int}
+    """
+    with get_conn() as conn:
+        spieler = conn.execute(
+            "SELECT COUNT(*) FROM spieler WHERE verein_id=? AND aktiv=1",
+            (verein_id,),
+        ).fetchone()[0]
+        trainer = conn.execute(
+            "SELECT COUNT(*) FROM benutzer WHERE verein_id=? AND aktiv=1 AND rolle='Trainer'",
+            (verein_id,),
+        ).fetchone()[0]
+    return {"spieler": spieler, "trainer": trainer}
+
+
 def zahlungsstatus_setzen(verein_id: int, status: str) -> None:
     """Setzt den Zahlungsstatus: offen | bezahlt | fehlgeschlagen | storniert."""
     with get_conn() as conn:
