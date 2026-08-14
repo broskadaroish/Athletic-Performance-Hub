@@ -34,6 +34,7 @@ from mobile import (
     inject_mobile_mehr_overlay,
     inject_scroll_to_top_if_needed,
     detect_screen_width,
+    inject_mobile_sidebar_opener,
 )
 from help_ui import sicherheitshinweis_box, show_test_info, show_field_help, field_info_col, norm_badge, show_trainer_checkliste
 from modules.legal_page import page_impressum, page_datenschutz, page_agb
@@ -10802,8 +10803,11 @@ with st.sidebar:
 # ── Route ─────────────────────────────────────────────────────────────────────
 _check_save_ok()
 
-# Bottom navigation removed: sidebar drawer handles all viewports.
-# inject_mobile_mehr_overlay() and render_mobile_nav() are no-ops / disabled.
+# Inject floating ☰ button so mobile users can open the sidebar drawer.
+# The button finds and clicks [data-testid="stSidebarCollapseButton"] button —
+# Streamlit 1.60.0's real toggle (inside stSidebarHeader, inside the sidebar).
+# On desktop (≥769px) it stays display:none via CSS media query.
+inject_mobile_sidebar_opener()
 
 # Helper: look up active player object for mobile player header
 def _mob_player():

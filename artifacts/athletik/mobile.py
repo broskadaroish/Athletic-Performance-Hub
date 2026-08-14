@@ -179,6 +179,122 @@ def _inject_screen_width_detect() -> None:
     )
 
 
+# ── Mobile sidebar open button ────────────────────────────────────────────────
+
+def inject_mobile_sidebar_opener() -> None:
+    """
+    Inject a custom floating ☰ button that opens the Streamlit sidebar drawer
+    on narrow (≤768px) viewports.
+
+    WHY a custom button?
+    ────────────────────
+    In Streamlit 1.60.0 the only native sidebar toggle is
+      [data-testid="stSidebarCollapseButton"] > button
+    which lives INSIDE [data-testid="stSidebarHeader"] — inside the sidebar
+    itself.  When the sidebar is collapsed there is no native button rendered
+    in the visible page area.  Streamlit's [data-testid="stHeader"] does NOT
+    contain the toggle in this version (confirmed from the JS bundle).
+
+    HOW it works
+    ─────────────
+    A <script> is injected via components.html() (runs in a hidden iframe).
+    The script appends a single <button id="aph-menu-btn"> to window.parent.document.body.
+    On click it finds the real stSidebarCollapseButton and clicks it, so
+    Streamlit's own React state machine handles the open/close — no routing
+    is duplicated, no custom nav is built.
+
+    DESKTOP guard
+    ─────────────
+    #aph-menu-btn starts with display:none in global CSS (theme.py).
+    A @media (max-width: 768px) rule in the injected <style> sets display:flex.
+    So on ≥769px the button is invisible and never clickable.
+
+    RERUN safety
+    ─────────────
+    The script checks document.getElementById('aph-menu-btn') before creating
+    the button.  On reruns the element already exists → early return.
+    The button is appended to body (outside Streamlit's React tree) so it
+    survives Streamlit reruns.
+    """
+    import streamlit.components.v1 as components
+
+    components.html(
+        """<script>
+(function() {
+  try {
+    var p = window.parent.document;
+    if (!p || !p.body) return;
+
+    /* ── Inject style once ────────────────────────────────────────── */
+    if (!p.getElementById('aph-menu-btn-style')) {
+      var s = p.createElement('style');
+      s.id = 'aph-menu-btn-style';
+      s.textContent = [
+        '#aph-menu-btn {',
+        '  display: none;',          /* hidden on desktop by default  */
+        '  position: fixed;',
+        '  top: 8px;',
+        '  left: 8px;',
+        '  z-index: 10001;',
+        '  width: 44px;',
+        '  height: 44px;',
+        '  align-items: center;',
+        '  justify-content: center;',
+        '  background: rgba(22,27,34,0.92);',
+        '  border: 1px solid #30363d;',
+        '  border-radius: 10px;',
+        '  color: #e6edf3;',
+        '  font-size: 22px;',
+        '  line-height: 1;',
+        '  cursor: pointer;',
+        '  box-shadow: 0 2px 12px rgba(0,0,0,.50);',
+        '  -webkit-tap-highlight-color: transparent;',
+        '  touch-action: manipulation;',
+        '}',
+        '#aph-menu-btn:active {',
+        '  background: rgba(88,166,255,0.20);',
+        '  border-color: #58a6ff;',
+        '}',
+        '@media (max-width: 768px) {',
+        '  #aph-menu-btn { display: flex !important; }',
+        '}'
+      ].join('\\n');
+      p.head.appendChild(s);
+    }
+
+    /* ── Create button once ───────────────────────────────────────── */
+    if (p.getElementById('aph-menu-btn')) return;
+
+    var btn = p.createElement('button');
+    btn.id  = 'aph-menu-btn';
+    btn.setAttribute('aria-label', 'Navigation öffnen');
+    btn.setAttribute('title', 'Navigation öffnen');
+    btn.textContent = '☰';
+
+    btn.addEventListener('click', function(e) {
+      e.preventDefault();
+      /* Streamlit 1.60.0: toggle button is stSidebarCollapseButton > button,
+         inside the sidebar (stSidebarHeader).  It is always present in DOM
+         even when the sidebar appears collapsed (hidden via CSS transform). */
+      var target = (
+        p.querySelector('[data-testid="stSidebarCollapseButton"] button') ||
+        p.querySelector('[data-testid="stSidebarHeader"] button')         ||
+        p.querySelector('section[data-testid="stSidebar"] button')
+      );
+      if (target) {
+        target.click();
+      }
+    });
+
+    p.body.appendChild(btn);
+  } catch(e) {}
+})();
+</script>""",
+        height=0,
+        scrolling=False,
+    )
+
+
 # ── Bottom navigation bar ─────────────────────────────────────────────────────
 
 def render_mobile_nav(current_section: str) -> None:
