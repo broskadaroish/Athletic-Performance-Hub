@@ -611,6 +611,15 @@ if "user" not in st.session_state:
 
                 # ── Hauptformular: Login ──────────────────────────────────────
                 else:
+                    st.markdown(
+                        '<div style="text-align:center;padding:8px 0 18px">'
+                        '<h3 style="color:#e6edf3;font-size:20px;font-weight:700;margin:0 0 4px">'
+                        'Willkommen zurück</h3>'
+                        '<p style="color:#8b949e;font-size:13px;margin:0">'
+                        'Melde dich an und öffne deinen APH-Bereich.</p>'
+                        '</div>',
+                        unsafe_allow_html=True,
+                    )
                     _login_email    = st.text_input(
                         "E-Mail oder Benutzername", key="login_email",
                         placeholder="trainer@verein.de"
@@ -628,7 +637,7 @@ if "user" not in st.session_state:
                         st.session_state["_login_subview"] = "passwort"
                         st.rerun()
 
-                    if st.button("🔐 Anmelden", type="primary",
+                    if st.button("🔐 ANMELDEN", type="primary",
                                  use_container_width=True, key="login_btn"):
                         try:
                             _client_ip = str(st.context.ip_address) if st.context.ip_address else None
@@ -737,36 +746,49 @@ if "user" not in st.session_state:
 
             # ── Verein registrieren ───────────────────────────────────────────
             with _reg_tab:
-                # ── Paket + Intervall ──────────────────────────────────────
                 from license import LIZENZ_TYPEN as _REG_VLT
                 _VEREIN_PAKETE = ["VEREIN_BASIC", "VEREIN_PRO"]
 
+                # ── 1 · Paket wählen ──────────────────────────────────────────
                 st.markdown(
-                    '<div style="background:#0f2417;border:1px solid #2ea043;'
-                    'border-radius:8px;padding:10px 14px;margin-bottom:14px;'
-                    'font-size:13px;color:#3fb950;font-weight:600">'
-                    '🎁 30 Tage kostenlos testen — heute keine Zahlung fällig'
+                    '<div style="margin:8px 0 10px;padding:0 0 6px;border-bottom:1px solid #21262d">'
+                    '<span style="color:#e6edf3;font-size:14px;font-weight:700">1 · Paket wählen</span>'
                     '</div>',
                     unsafe_allow_html=True,
                 )
                 st.markdown(
-                    '<p style="color:#8b949e;font-size:12px;margin:0 0 8px 0">'
-                    "Wähle dein Paket und Abrechnungsintervall:</p>",
+                    '<div style="background:#0f2417;border:1px solid #2ea043;'
+                    'border-radius:8px;padding:10px 14px;margin-bottom:12px;'
+                    'font-size:13px;color:#3fb950;font-weight:600">'
+                    '🎁 30 Tage kostenlos testen'
+                    '<span style="color:#8b949e;font-weight:400;font-size:12px">'
+                    ' — Heute keine Zahlung fällig</span>'
+                    '</div>',
                     unsafe_allow_html=True,
                 )
 
-                # Paket-Karten (Info)
+                # Paket-Karten mit Auswahlzustand
+                _cur_v_paket = st.session_state.get("reg_v_paket", _VEREIN_PAKETE[0])
                 _rvc1, _rvc2 = st.columns(2)
                 for _rpk, _rpc in zip(_VEREIN_PAKETE, [_rvc1, _rvc2]):
                     _rtd = _REG_VLT[_rpk]
                     _rms = "unbegrenzt" if _rtd["max_spieler"] is None else f"max. {_rtd['max_spieler']}"
+                    _is_sel = (_rpk == _cur_v_paket)
+                    _sel_border = "#f85149" if _is_sel else "#30363d"
+                    _sel_bg     = "#1c1112" if _is_sel else "#161b22"
+                    _sel_badge  = (
+                        '<div style="display:inline-block;background:#f85149;color:#fff;'
+                        'font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;'
+                        'margin-bottom:4px">✓ Ausgewählt</div><br>' if _is_sel else ""
+                    )
                     _rpc.markdown(
-                        f'<div style="background:#161b22;border:1px solid #30363d;'
-                        f'border-radius:8px;padding:10px 12px;font-size:12px;line-height:1.7">'
+                        f'<div style="background:{_sel_bg};border:2px solid {_sel_border};'
+                        f'border-radius:10px;padding:12px 14px;font-size:12px;line-height:1.8">'
+                        f'{_sel_badge}'
                         f'<strong style="color:#e6edf3;font-size:13px">{_rtd["label"]}</strong><br>'
-                        f'<span style="color:#3fb950">{_rtd["preis_monat"]:.2f}\u202f€/Mo\u2002·\u2002'
-                        f'{_rtd["preis_jahr"]:.0f}\u202f€/Jahr</span><br>'
-                        f'<span style="color:#8b949e">👥\u2002max.\u2002{_rtd["max_trainer"]} Trainer'
+                        f'<span style="color:#3fb950;font-weight:600">{_rtd["preis_monat"]:.2f}\u202f€/Mo</span>'
+                        f'<span style="color:#8b949e;font-size:11px">\u2002·\u2002{_rtd["preis_jahr"]:.0f}\u202f€/Jahr</span><br>'
+                        f'<span style="color:#8b949e;font-size:11px">👥 max. {_rtd["max_trainer"]} Trainer'
                         f'\u2002·\u2002{_rms} Spieler</span>'
                         f'</div>',
                         unsafe_allow_html=True,
@@ -792,8 +814,14 @@ if "user" not in st.session_state:
                     ),
                     key="reg_v_intervall",
                 )
-                st.markdown('<div style="margin-bottom:8px"></div>', unsafe_allow_html=True)
 
+                # ── 2 · Zugangsdaten ──────────────────────────────────────────
+                st.markdown(
+                    '<div style="margin:14px 0 10px;padding:0 0 6px;border-bottom:1px solid #21262d">'
+                    '<span style="color:#e6edf3;font-size:14px;font-weight:700">2 · Zugangsdaten</span>'
+                    '</div>',
+                    unsafe_allow_html=True,
+                )
                 _r_verein   = st.text_input("Vereinsname *",                key="reg_verein",
                                             placeholder="FC Musterstadt")
                 _rr1, _rr2  = st.columns(2)
@@ -807,6 +835,13 @@ if "user" not in st.session_state:
                 _r_pw1      = _rp1.text_input("Passwort *",                 key="reg_pw1", type="password")
                 _r_pw2      = _rp2.text_input("Passwort bestätigen *",      key="reg_pw2", type="password")
 
+                # ── 3 · Rechnungsdaten ────────────────────────────────────────
+                st.markdown(
+                    '<div style="margin:14px 0 10px;padding:0 0 6px;border-bottom:1px solid #21262d">'
+                    '<span style="color:#e6edf3;font-size:14px;font-weight:700">3 · Rechnungsdaten</span>'
+                    '</div>',
+                    unsafe_allow_html=True,
+                )
                 with st.expander("📄 Rechnungsadresse (Pflichtangabe)", expanded=True):
                     _rb1, _rb2 = st.columns(2)
                     _r_ra_firma    = _rb1.text_input("Firma/Verein (optional)",  key="reg_ra_firma")
@@ -827,10 +862,16 @@ if "user" not in st.session_state:
                                                       placeholder="rechnung@verein.de")
                     _r_ra_ustid    = st.text_input("Umsatzsteuer-ID (optional)", key="reg_ra_ustid")
 
-                # ── Datenschutz + AGB Pflicht-Checkboxen ──────────────────────
+                # ── 4 · Rechtliches ───────────────────────────────────────────
+                st.markdown(
+                    '<div style="margin:14px 0 10px;padding:0 0 6px;border-bottom:1px solid #21262d">'
+                    '<span style="color:#e6edf3;font-size:14px;font-weight:700">4 · Rechtliches</span>'
+                    '</div>',
+                    unsafe_allow_html=True,
+                )
                 st.markdown(
                     '<div style="background:#161b22;border:1px solid #30363d;'
-                    'border-radius:8px;padding:12px 14px;margin:12px 0">',
+                    'border-radius:8px;padding:12px 14px;margin:4px 0 12px">',
                     unsafe_allow_html=True,
                 )
                 _rds_c1, _rds_c2 = st.columns([6, 1])
@@ -853,7 +894,8 @@ if "user" not in st.session_state:
                     st.rerun()
                 st.markdown("</div>", unsafe_allow_html=True)
 
-                if st.button("🚀 Jetzt registrieren", type="primary",
+                st.caption("Heute keine Zahlung. Anschließend gemäß gewähltem Tarif.")
+                if st.button("🚀 30 TAGE KOSTENLOS STARTEN", type="primary",
                              use_container_width=True, key="reg_btn"):
                     _rerr = []
                     if not _r_datenschutz or not _r_agb:
@@ -967,36 +1009,49 @@ if "user" not in st.session_state:
 
             # ── Trainer registrieren ──────────────────────────────────────────
             with _trainer_tab:
-                # ── Paket + Intervall ──────────────────────────────────────
                 from license import LIZENZ_TYPEN as _REG_TLT
                 _TRAINER_PAKETE = ["TRAINER_BASIC", "TRAINER_PRO"]
 
+                # ── 1 · Paket wählen ──────────────────────────────────────────
                 st.markdown(
-                    '<div style="background:#0f2417;border:1px solid #2ea043;'
-                    'border-radius:8px;padding:10px 14px;margin-bottom:14px;'
-                    'font-size:13px;color:#3fb950;font-weight:600">'
-                    '🎁 30 Tage kostenlos testen — heute keine Zahlung fällig'
+                    '<div style="margin:8px 0 10px;padding:0 0 6px;border-bottom:1px solid #21262d">'
+                    '<span style="color:#e6edf3;font-size:14px;font-weight:700">1 · Paket wählen</span>'
                     '</div>',
                     unsafe_allow_html=True,
                 )
                 st.markdown(
-                    '<p style="color:#8b949e;font-size:12px;margin:0 0 8px 0">'
-                    "Wähle dein Paket und Abrechnungsintervall:</p>",
+                    '<div style="background:#0f2417;border:1px solid #2ea043;'
+                    'border-radius:8px;padding:10px 14px;margin-bottom:12px;'
+                    'font-size:13px;color:#3fb950;font-weight:600">'
+                    '🎁 30 Tage kostenlos testen'
+                    '<span style="color:#8b949e;font-weight:400;font-size:12px">'
+                    ' — Heute keine Zahlung fällig</span>'
+                    '</div>',
                     unsafe_allow_html=True,
                 )
 
-                # Paket-Karten (Info)
+                # Paket-Karten mit Auswahlzustand
+                _cur_t_paket = st.session_state.get("reg_t_paket", _TRAINER_PAKETE[0])
                 _ttc1, _ttc2 = st.columns(2)
                 for _tpk, _tpc in zip(_TRAINER_PAKETE, [_ttc1, _ttc2]):
                     _ttd = _REG_TLT[_tpk]
                     _tms = "unbegrenzt" if _ttd["max_spieler"] is None else f"max. {_ttd['max_spieler']}"
+                    _t_is_sel = (_tpk == _cur_t_paket)
+                    _t_sel_border = "#f85149" if _t_is_sel else "#30363d"
+                    _t_sel_bg     = "#1c1112" if _t_is_sel else "#161b22"
+                    _t_sel_badge  = (
+                        '<div style="display:inline-block;background:#f85149;color:#fff;'
+                        'font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;'
+                        'margin-bottom:4px">✓ Ausgewählt</div><br>' if _t_is_sel else ""
+                    )
                     _tpc.markdown(
-                        f'<div style="background:#161b22;border:1px solid #30363d;'
-                        f'border-radius:8px;padding:10px 12px;font-size:12px;line-height:1.7">'
+                        f'<div style="background:{_t_sel_bg};border:2px solid {_t_sel_border};'
+                        f'border-radius:10px;padding:12px 14px;font-size:12px;line-height:1.8">'
+                        f'{_t_sel_badge}'
                         f'<strong style="color:#e6edf3;font-size:13px">{_ttd["label"]}</strong><br>'
-                        f'<span style="color:#3fb950">{_ttd["preis_monat"]:.2f}\u202f€/Mo\u2002·\u2002'
-                        f'{_ttd["preis_jahr"]:.0f}\u202f€/Jahr</span><br>'
-                        f'<span style="color:#8b949e">👤\u2002{_ttd["max_trainer"]} Trainer'
+                        f'<span style="color:#3fb950;font-weight:600">{_ttd["preis_monat"]:.2f}\u202f€/Mo</span>'
+                        f'<span style="color:#8b949e;font-size:11px">\u2002·\u2002{_ttd["preis_jahr"]:.0f}\u202f€/Jahr</span><br>'
+                        f'<span style="color:#8b949e;font-size:11px">👤 {_ttd["max_trainer"]} Trainer'
                         f'\u2002·\u2002{_tms} Spieler</span>'
                         f'</div>',
                         unsafe_allow_html=True,
@@ -1022,8 +1077,14 @@ if "user" not in st.session_state:
                     ),
                     key="reg_t_intervall",
                 )
-                st.markdown('<div style="margin-bottom:8px"></div>', unsafe_allow_html=True)
 
+                # ── 2 · Zugangsdaten ──────────────────────────────────────────
+                st.markdown(
+                    '<div style="margin:14px 0 10px;padding:0 0 6px;border-bottom:1px solid #21262d">'
+                    '<span style="color:#e6edf3;font-size:14px;font-weight:700">2 · Zugangsdaten</span>'
+                    '</div>',
+                    unsafe_allow_html=True,
+                )
                 _tt1, _tt2 = st.columns(2)
                 _t_vorname  = _tt1.text_input("Vorname *",      key="trainer_vorname")
                 _t_nachname = _tt2.text_input("Nachname *",     key="trainer_nachname")
@@ -1035,6 +1096,13 @@ if "user" not in st.session_state:
                 _t_pw1 = _tp1.text_input("Passwort *",          key="trainer_pw1", type="password")
                 _t_pw2 = _tp2.text_input("Passwort bestätigen *", key="trainer_pw2", type="password")
 
+                # ── 3 · Rechnungsdaten ────────────────────────────────────────
+                st.markdown(
+                    '<div style="margin:14px 0 10px;padding:0 0 6px;border-bottom:1px solid #21262d">'
+                    '<span style="color:#e6edf3;font-size:14px;font-weight:700">3 · Rechnungsdaten</span>'
+                    '</div>',
+                    unsafe_allow_html=True,
+                )
                 with st.expander("📄 Rechnungsadresse (Pflichtangabe)", expanded=True):
                     _tb1, _tb2 = st.columns(2)
                     _t_ra_firma    = _tb1.text_input("Firma/Verein (optional)",  key="tr_ra_firma")
@@ -1055,10 +1123,16 @@ if "user" not in st.session_state:
                                                       placeholder="rechnung@trainer.de")
                     _t_ra_ustid    = st.text_input("Umsatzsteuer-ID (optional)", key="tr_ra_ustid")
 
-                # ── Datenschutz + AGB Pflicht-Checkboxen ──────────────────────
+                # ── 4 · Rechtliches ───────────────────────────────────────────
+                st.markdown(
+                    '<div style="margin:14px 0 10px;padding:0 0 6px;border-bottom:1px solid #21262d">'
+                    '<span style="color:#e6edf3;font-size:14px;font-weight:700">4 · Rechtliches</span>'
+                    '</div>',
+                    unsafe_allow_html=True,
+                )
                 st.markdown(
                     '<div style="background:#161b22;border:1px solid #30363d;'
-                    'border-radius:8px;padding:12px 14px;margin:12px 0">',
+                    'border-radius:8px;padding:12px 14px;margin:4px 0 12px">',
                     unsafe_allow_html=True,
                 )
                 _tds_c1, _tds_c2 = st.columns([6, 1])
@@ -1081,7 +1155,8 @@ if "user" not in st.session_state:
                     st.rerun()
                 st.markdown("</div>", unsafe_allow_html=True)
 
-                if st.button("👤 Als Trainer registrieren", type="primary",
+                st.caption("Heute keine Zahlung. Anschließend gemäß gewähltem Tarif.")
+                if st.button("🚀 30 TAGE KOSTENLOS STARTEN", type="primary",
                              use_container_width=True, key="trainer_reg_btn"):
                     _terr = []
                     if not _t_datenschutz or not _t_agb:

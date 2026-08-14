@@ -397,6 +397,24 @@ tbody tr:nth-child(even) { background: #0d1117 !important; }
 [data-testid="stTab"] { color: #8b949e; font-size: 13px; }
 button[aria-selected="true"] { color: #58a6ff !important; border-color: #58a6ff !important; }
 
+/* ── Login / Registration Section Headers ── */
+.aph-reg-section {
+    margin: 12px 0 10px;
+    padding: 0 0 6px;
+    border-bottom: 1px solid #21262d;
+    font-size: 14px;
+    font-weight: 700;
+    color: #e6edf3;
+}
+
+/* ── Package Cards – mobile stack ── */
+@media (max-width: 768px) {
+    /* Package cards: ensure no overflow */
+    .aph-pkg-card { word-break: break-word; }
+    /* Footer legal buttons: stack nicely */
+    .aph-footer-btns .stButton > button { font-size: 11px; padding: 8px 4px; }
+}
+
 /* ── Expander ── */
 [data-testid="stExpander"] {
     background: #161b22;

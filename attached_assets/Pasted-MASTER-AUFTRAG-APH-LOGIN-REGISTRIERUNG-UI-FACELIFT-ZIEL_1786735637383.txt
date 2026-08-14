@@ -1,0 +1,606 @@
+MASTER-AUFTRAG – APH LOGIN / REGISTRIERUNG UI-FACELIFT
+
+ZIEL:
+Die bestehende Login- und Registrierungsseite von APH soll moderner,
+professioneller und übersichtlicher wirken.
+
+WICHTIG:
+Dies ist ausschließlich ein UI-/UX-Facelift.
+
+NICHT verändern:
+- Login-Logik
+- Registrierung
+- Benutzeranlage
+- Datenbank
+- Stripe
+- Checkout
+- 30-Tage-Testphase
+- Paketpreise
+- Paketlimits
+- Vertragslogik
+- Session
+- CookieController
+- E-Mail-Verifikation
+- Passwort-Reset
+- Kundennummern
+- Rollen/Rechte
+- AGB-/Datenschutz-Logik
+- Rechnungsdaten-Speicherung
+- bestehende Validierungen
+
+Nur Darstellung, Struktur, Abstände, Farben und Benutzerführung verbessern.
+
+============================================================
+1. BESTAND ZUERST ANALYSIEREN
+============================================================
+
+Prüfe zuerst:
+
+- Wo Login und Registrierung in app.py / Modulen gerendert werden
+- Welche CSS-Regeln dafür bereits existieren
+- Welche Tabs vorhanden sind:
+  - Anmelden
+  - Verein registrieren
+  - Trainer registrieren
+- Welche Paketkarten bereits vorhanden sind
+- Wie Rechnungsadresse aufgebaut ist
+- Wie Datenschutz/AGB angezeigt werden
+- Wie Mobile-Responsive aktuell funktioniert
+
+Danach nur die tatsächlich verwendeten Bereiche ändern.
+
+============================================================
+2. OBERER MARKENBEREICH
+============================================================
+
+Oberhalb der Tabs einen kompakten, hochwertigen APH-Markenbereich anzeigen.
+
+Inhalt:
+
+ATHLETIC PERFORMANCE HUB
+
+Test · Analyse · Training
+
+Fußballspezifische Leistungsdiagnostik & Athletikplanung
+
+Optional:
+bestehendes APH-Logo/Bild klein und sauber integrieren,
+wenn bereits vorhanden.
+
+Nicht riesig.
+Nicht wie ein Werbebanner.
+
+Desktop:
+zentriert, kompakt.
+
+Mobile:
+ebenfalls kompakt, keine große Höhe verschwenden.
+
+============================================================
+3. TABS
+============================================================
+
+Bestehende Tabs beibehalten:
+
+🔐 Anmelden
+🏟️ Verein registrieren
+👤 Trainer registrieren
+
+Optisch verbessern:
+- klarer aktiver Zustand
+- APH-Akzentfarbe
+- bessere Abstände
+- Mobile muss sauber umbrechen oder scrollbar bleiben
+- keine neue Navigation bauen
+
+Standard beim Laden:
+Anmelden soll weiterhin Haupt-/Standard-Einstieg bleiben,
+sofern aktuell nicht anders technisch nötig.
+
+============================================================
+4. LOGIN-BEREICH
+============================================================
+
+Login kompakt und professionell darstellen.
+
+Überschrift:
+
+Willkommen zurück
+
+Untertitel:
+
+Melde dich an und öffne deinen APH-Bereich.
+
+Felder:
+- E-Mail / Benutzername
+- Passwort
+- Passwort anzeigen
+- Passwort vergessen
+
+Button:
+
+ANMELDEN
+
+Button im APH-Akzentstil statt generischem Blau.
+
+Unterhalb:
+kleiner Hinweis:
+
+Noch keinen Zugang?
+30 Tage kostenlos testen.
+
+Keine Login-Funktion ändern.
+
+============================================================
+5. REGISTRIERUNG – VISUELLE STRUKTUR
+============================================================
+
+Verein registrieren und Trainer registrieren optisch in klare Bereiche gliedern.
+
+Nicht mehrere Seiten bauen.
+
+Alles bleibt technisch auf derselben Seite / im selben Streamlit-Flow.
+
+Visuelle Schritte:
+
+1. Paket wählen
+2. Zugangsdaten
+3. Rechnungsdaten
+4. Rechtliches / Abschluss
+
+============================================================
+6. 30-TAGE-HINWEIS
+============================================================
+
+Bestehenden Hinweis behalten, aber hochwertiger gestalten.
+
+Text:
+
+🎁 30 Tage kostenlos testen
+Heute keine Zahlung fällig
+
+Als kompakte Erfolgs-/Info-Card.
+
+Nicht überdimensioniert.
+
+============================================================
+7. PAKETKARTEN – VEREIN
+============================================================
+
+Bestehende Pakete:
+
+VEREIN BASIC
+24,99 € / Monat
+249 € / Jahr
+max. 2 Trainer
+max. 50 Spieler
+
+VEREIN PRO
+39,99 € / Monat
+399 € / Jahr
+max. 15 Trainer
+unbegrenzt Spieler
+
+Als echte visuelle Auswahlkarten darstellen.
+
+Die ausgewählte Karte:
+- APH-Rahmen / Akzentfarbe
+- klarer „Ausgewählt“-Status
+- keine doppelte visuelle Auswahl nötig
+
+WICHTIG:
+Wenn technisch möglich, die bestehenden Paket-Radio-Buttons hinter den Karten
+weiterverwenden bzw. Karten darauf abbilden.
+
+Keine Paketlogik ändern.
+
+Falls ein kompletter Ersatz der Radio-Widgets technisch riskant wäre:
+Radio-Auswahl beibehalten, aber optisch so gestalten, dass es nicht doppelt wirkt.
+
+============================================================
+8. PAKETKARTEN – TRAINER
+============================================================
+
+Trainer-Pakete analog darstellen.
+
+Bestehende Preise und Limits exakt verwenden.
+
+Keine Preise hardcoden, wenn bereits zentrale Paketdefinitionen existieren.
+
+============================================================
+9. ABRECHNUNGSINTERVALL
+============================================================
+
+Monatlich / Jährlich klar darstellen.
+
+Beispiel:
+
+○ Monatlich – 24,99 € / Monat
+○ Jährlich – 249 € / Jahr
+
+Falls leicht berechenbar aus bestehenden Paketpreisen:
+kleinen Sparhinweis anzeigen:
+
+„Du sparst 50,88 € pro Jahr“
+
+Nur berechnen, wenn die Werte eindeutig aus bestehenden Paketdaten kommen.
+
+Keine neue Preislogik erfinden.
+
+============================================================
+10. ZUGANGSDATEN
+============================================================
+
+Bereich mit Überschrift:
+
+2 · Zugangsdaten
+
+Felder:
+- Vereinsname bzw. Trainerdaten
+- Vorname
+- Nachname
+- E-Mail
+- Benutzername
+- Passwort
+- Passwort bestätigen
+
+Desktop:
+sinnvolle 2-Spalten-Darstellung dort, wo es passt.
+
+Mobile:
+automatisch 1 Spalte.
+
+Keine Feldnamen/Validierungen verändern.
+
+============================================================
+11. RECHNUNGSADRESSE
+============================================================
+
+Bereich:
+
+3 · Rechnungsdaten
+
+Bestehende Expander-/Aufklappstruktur beibehalten.
+
+Optisch kompakter machen.
+
+Felder nicht entfernen:
+- Firma/Verein
+- Telefon
+- Vorname
+- Nachname
+- Straße
+- Nr.
+- PLZ
+- Ort
+- Land
+- Rechnungs-E-Mail
+- Umsatzsteuer-ID
+
+Bestehende Pflicht-/Optional-Logik unverändert lassen.
+
+============================================================
+12. RECHTLICHES
+============================================================
+
+Bereich:
+
+4 · Rechtliches
+
+Datenschutz und AGB sauberer darstellen.
+
+Beispiel:
+
+☐ Ich akzeptiere die Datenschutzerklärung.
+   [Datenschutz lesen]
+
+☐ Ich akzeptiere die AGB / Nutzungsbedingungen.
+   [AGB lesen]
+
+Die bestehenden „Lesen“-Funktionen weiterverwenden.
+
+Keine Checkbox- oder Zustimmunglogik ändern.
+
+============================================================
+13. HAUPTBUTTON
+============================================================
+
+Registrierungsbutton umbenennen bzw. optisch verbessern.
+
+Statt:
+🚀 Jetzt registrieren
+
+besser:
+
+🚀 30 TAGE KOSTENLOS STARTEN
+
+Nur wenn dies zur bestehenden 30-Tage-Testphase fachlich korrekt ist.
+
+Unterhalb kleiner Hinweis:
+
+Heute keine Zahlung.
+Anschließend gemäß gewähltem Tarif.
+
+Keine Vertrags-/Stripe-Logik ändern.
+
+============================================================
+14. FOOTER / RECHTLICHES UNTEN
+============================================================
+
+Bestehende Buttons:
+- Impressum
+- Datenschutz
+- AGB
+
+beibehalten.
+
+Optisch vereinheitlichen.
+
+„Rechtliches“-Text nicht verloren zwischen Linie/Buttons darstellen.
+
+Desktop:
+3 gleichmäßige Buttons.
+
+Mobile:
+untereinander oder sauber zweizeilig,
+ohne horizontalen Überlauf.
+
+============================================================
+15. FARBEN / DESIGN
+============================================================
+
+Bestehendes Dark-Theme behalten.
+
+Empfohlene Stilrichtung:
+
+Hintergrund:
+sehr dunkel / schwarz
+
+Cards:
+dunkelgrau
+
+Primärtext:
+weiß
+
+Sekundärtext:
+grau
+
+APH-Akzent:
+bestehendes Rot/Coral
+
+Erfolg/Testphase:
+grün
+
+Hauptbuttons:
+APH-Akzent statt generischem Streamlit-Blau
+
+Keine neue Farbwelt einführen.
+
+============================================================
+16. ABSTÄNDE / TYPOGRAFIE
+============================================================
+
+Mehr visuelle Hierarchie:
+
+- größere Bereichsüberschriften
+- kompakte Untertitel
+- konsistente vertikale Abstände
+- Karten nicht zu hoch
+- Felder nicht unnötig weit auseinanderziehen
+
+Keine riesigen Leerflächen.
+
+============================================================
+17. MOBILE RESPONSIVE
+============================================================
+
+Ganz wichtig:
+
+Auf Smartphone-Browsern 360–430px:
+
+- Markenbereich kompakt
+- Tabs sauber bedienbar
+- Paketkarten untereinander
+- Zugangsdaten 1-spaltig
+- Rechnungsdaten 1-spaltig
+- AGB/Datenschutz ohne abgeschnittene Buttons
+- Hauptbutton volle Breite
+- Footer ohne horizontalen Scroll
+- keine überbreiten Elemente
+
+Die neue Mobile-Sidebar-Logik NICHT verändern.
+
+============================================================
+18. LOGIN / REGISTRIERUNG TECHNISCH UNVERÄNDERT
+============================================================
+
+Nach UI-Umbau muss weiterhin funktionieren:
+
+- Login
+- Logout
+- Registrierung Verein
+- Registrierung Trainer
+- Paketwahl
+- Monats-/Jahreswahl
+- 30-Tage-Testphase
+- Rechnungsadresse
+- AGB-Zustimmung
+- Datenschutz-Zustimmung
+- E-Mail-Verifikation
+- Benutzername
+- Passwortvalidierung
+- Stripe Checkout / Setup
+- Kundennummer
+- Vertragsdaten
+
+Keine Datenbankmigration erforderlich.
+
+============================================================
+19. KEINE DATENBANKÄNDERUNG
+============================================================
+
+database.py NICHT verändern.
+
+Keine neuen Tabellen.
+Keine neuen Spalten.
+Keine Migrationen.
+
+============================================================
+20. KEINE STRIPE-ÄNDERUNG
+============================================================
+
+Nicht verändern:
+
+- stripe_service.py
+- Stripe Price IDs
+- Webhooks
+- Checkout Sessions
+- SetupIntent
+- Trial-Ende
+- Zahlungsstatus
+- Abo-Intervall
+- Kündigung
+
+============================================================
+21. KEINE SESSION-ÄNDERUNG
+============================================================
+
+Session-Restore-Hotfix unverändert lassen:
+
+import time
+time.sleep(0.35)
+st.rerun()
+
+Keine Cookie-/Login-Änderungen.
+
+============================================================
+22. DATEIEN
+============================================================
+
+Voraussichtlich hauptsächlich:
+
+- app.py
+- theme.py
+
+ggf. bestehendes Login-/Registrierungsmodul,
+wenn die UI dort ausgelagert ist.
+
+Keine anderen Dateien verändern, wenn nicht zwingend erforderlich.
+
+============================================================
+23. TESTS DESKTOP
+============================================================
+
+Desktop ca. 1440px prüfen:
+
+A)
+Login sieht kompakt und professionell aus.
+
+B)
+Verein registrieren:
+Paketkarten sauber.
+
+C)
+Trainer registrieren:
+Paketkarten sauber.
+
+D)
+Rechnungsadresse korrekt.
+
+E)
+AGB/Datenschutz korrekt.
+
+F)
+Footer sauber ausgerichtet.
+
+G)
+kein horizontaler Scroll.
+
+============================================================
+24. TESTS MOBILE
+============================================================
+
+360px / 390px / 430px prüfen:
+
+A)
+Login vollständig nutzbar.
+
+B)
+Tabs erreichbar.
+
+C)
+Paketkarten untereinander.
+
+D)
+Formfelder volle Breite.
+
+E)
+Passwort-Auge korrekt.
+
+F)
+Rechnungsdaten sauber.
+
+G)
+AGB/Datenschutz sauber.
+
+H)
+Hauptbutton volle Breite.
+
+I)
+Footer sauber.
+
+J)
+Mobile-Menübutton weiterhin sichtbar und funktionsfähig.
+
+============================================================
+25. FUNKTIONSTESTS
+============================================================
+
+Mindestens:
+
+- Login-Test
+- Registrierung Verein bis vor finalen Abschluss
+- Registrierung Trainer bis vor finalen Abschluss
+- Monats-/Jahreswechsel
+- Paketwechsel
+- Pflichtfeldvalidierung
+- AGB/Datenschutz Checkbox
+- Passwortvalidierung
+- keine Exception
+
+Keine echten Produktivkunden für Tests anlegen.
+
+============================================================
+26. TECHNISCHE TESTS
+============================================================
+
+python3 -m py_compile app.py theme.py
+ggf. weitere tatsächlich geänderte Python-Dateien.
+
+Block-B:
+35/35 müssen weiterhin PASS sein.
+
+============================================================
+27. ABSCHLUSSBERICHT
+============================================================
+
+Danach berichten:
+
+1. Welche UI-Struktur vorher vorhanden war
+2. Welche Datei(en) geändert wurden
+3. Wie Login optisch verbessert wurde
+4. Wie Paketkarten verbessert wurden
+5. Wie Rechnungsdaten kompakter dargestellt werden
+6. Wie Rechtliches verbessert wurde
+7. Welche Mobile-Anpassungen vorgenommen wurden
+8. Bestätigung: database.py unverändert
+9. Bestätigung: Stripe unverändert
+10. Bestätigung: Session-Restore unverändert
+11. Desktop-Test
+12. Mobile-Test
+13. py_compile
+14. Block-B
+
+Danach STOPPEN.
+
+Keine weiteren Funktionen implementieren.
