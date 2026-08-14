@@ -2411,6 +2411,8 @@ def _migrate_multitenant():
             ("ist_technischer_mandant", "INTEGER DEFAULT 0"),
             # ── Phase A2: Abrechnungsintervall ─────────────────────────────
             ("abo_intervall",           "TEXT"),   # 'monat' | 'jahr'
+            # ── Phase A7: Zahlungs-Fehlschlag-Zeitstempel ──────────────────
+            ("letzte_zahlung_fehlgeschlagen", "TEXT"),  # ISO-Datetime des letzten Fehlschlags
         ]
         for col, typ in neue_verein_cols:
             try:
@@ -3115,7 +3117,7 @@ def alle_vereine_lizenz() -> list[dict]:
                       testphase_bis, gesperrt, stripe_customer_id,
                       stripe_subscription_id, zahlungsstatus,
                       cancel_at_period_end, kuendigungsstatus, gekuendigt_zum,
-                      kuendigung_eingegangen
+                      kuendigung_eingegangen, letzte_zahlung_fehlgeschlagen
                  FROM vereine
                 ORDER BY erstellt_am DESC""",
         ).fetchall())

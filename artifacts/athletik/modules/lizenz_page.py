@@ -378,11 +378,24 @@ def page_lizenz_superadmin() -> None:
             r1c1, r1c2 = st.columns([2, 2])
 
             with r1c1:
+                _zahlung_st = info.get("zahlungsstatus") or v.get("zahlungsstatus") or "—"
+                _lzf = v.get("letzte_zahlung_fehlgeschlagen") or ""
+                _zahlung_fehlgeschlagen = _zahlung_st == "fehlgeschlagen"
+                _zahlung_badge = (
+                    f'<span style="display:inline-block;margin-left:8px;padding:1px 8px;'
+                    f'border-radius:10px;background:{_C["red"]}22;color:{_C["red"]};'
+                    f'font-size:11px;font-weight:700;border:1px solid {_C["red"]}44">'
+                    f'⚠ Zahlung fehlgeschlagen</span>'
+                ) if _zahlung_fehlgeschlagen else ""
+                _lzf_hint = (
+                    f' · Letzter Fehlschlag: <span style="color:{_C["red"]}">'
+                    f'{_lzf[:16].replace("T", " ")}</span>'
+                ) if _zahlung_fehlgeschlagen and _lzf else ""
                 st.markdown(
-                    f"{badge} "
+                    f"{badge}{_zahlung_badge} "
                     f'<span style="color:{_C["muted"]};font-size:12px">'
                     f"Ablauf: {ablauf.strftime('%d.%m.%Y') if ablauf else '—'} · "
-                    f"Zahlung: {info['zahlungsstatus']}</span>",
+                    f"Zahlung: {_zahlung_st}{_lzf_hint}</span>",
                     unsafe_allow_html=True,
                 )
 

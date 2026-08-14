@@ -1417,6 +1417,32 @@ if (
     except Exception:
         pass  # Stripe nicht verfügbar oder konfigurationsfehler — kein Prompt zeigen
 
+# ─── Payment-Failure-Banner: Zahlung fehlgeschlagen ──────────────────────────
+# Zeige einen gelben Warnhinweis wenn der Zahlungsstatus 'fehlgeschlagen' ist.
+# Kein Feature-Lock — Warnung reicht (Grace Period).
+_pf_user = st.session_state.get("user", {})
+_pf_role = _pf_user.get("rolle", "")
+_pf_vid  = _pf_user.get("verein_id")
+
+if _pf_role not in ("Superadmin",) and _pf_vid:
+    try:
+        from database import lizenz_info_laden as _lil_pf
+        _pf_info = _lil_pf(_pf_vid) or {}
+        if (_pf_info.get("zahlungsstatus") or "") == "fehlgeschlagen":
+            _pf_col1, _pf_col2 = st.columns([5, 1])
+            with _pf_col1:
+                st.warning(
+                    "⚠️ **Zahlung fehlgeschlagen.** Bitte aktualisiere deine Zahlungsmethode, "
+                    "um eine Unterbrechung deines Zugangs zu vermeiden."
+                )
+            with _pf_col2:
+                if st.button("📋 Mein Vertrag", key="_pf_goto_vertrag",
+                             use_container_width=True):
+                    st.session_state["_nav_goto"] = "📋  Mein Vertrag"
+                    st.rerun()
+    except Exception:
+        pass
+
 # ─── Helpers ──────────────────────────────────────────────────────────────────
 
 # Delegate badge helpers to ui_components (keep aliases for existing page code)

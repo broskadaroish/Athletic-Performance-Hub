@@ -77,6 +77,7 @@ function ensureDbExtensions(): void {
       ["cancel_at_period_end",            "INTEGER DEFAULT 0"],
       ["subscription_current_period_end", "TEXT"],
       ["vertragsbeginn",                  "TEXT"],
+      ["letzte_zahlung_fehlgeschlagen",   "TEXT"],
     ] as [string, string][]) {
       try {
         conn.exec(`ALTER TABLE vereine ADD COLUMN ${col} ${def}`);
@@ -446,7 +447,8 @@ router.post("/stripe/webhook", (req: Request, res: Response): void => {
 
         conn.prepare(`
           UPDATE vereine
-             SET zahlungsstatus = 'fehlgeschlagen'
+             SET zahlungsstatus                 = 'fehlgeschlagen',
+                 letzte_zahlung_fehlgeschlagen  = datetime('now')
            WHERE stripe_customer_id = ?
         `).run(customerId);
 
