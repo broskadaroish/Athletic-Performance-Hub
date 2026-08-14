@@ -1167,11 +1167,16 @@ def spieler_by_id(spieler_id):
 
 def spieler_loeschen(spieler_id):
     with get_conn() as conn:
+        # Tabellen ohne ON DELETE CASCADE müssen hier manuell bereinigt werden.
+        # Tabellen MIT ON DELETE CASCADE (z.B. spiro_test, kraft_test, spieler_zuweisung_log)
+        # werden beim DELETE FROM spieler automatisch kaskadiert — kein Eintrag nötig.
+        # ⚠ Neue Tabellen mit spieler_id FK ohne CASCADE müssen hier ergänzt werden.
+        # tools/test_spieler_loeschen.py stellt sicher, dass keine Tabelle fehlt.
         for tabelle in [
             "verletzung", "anthropometrie", "agilitaet_test", "ausdauer_test",
             "sprint_test", "sprung_test", "fms_test", "y_balance_test",
             "trainingsplan", "trainingsplan_versionen", "periodisierung",
-            "trainerbeobachtung", "kraft_test", "spieler_zuweisung_log",
+            "trainerbeobachtung", "spieler_zuweisung_log",
         ]:
             try:
                 conn.execute(f"DELETE FROM {tabelle} WHERE spieler_id=?", (spieler_id,))
@@ -2423,9 +2428,9 @@ def kraft_versuche_laden(kraft_test_id: int) -> list[dict]:
         ).fetchall())
 
 
-# ==========================================================================
+# --------------------------------------------------------------------------
 # Multi-Tenant: Migration bestehender Datenbanken
-# ==========================================================================
+# --------------------------------------------------------------------------
 
 def _migrate_multitenant():
     """Legt vereine/benutzer-Tabellen und spieler-Spalten an, falls noch nicht vorhanden.
@@ -2808,9 +2813,9 @@ def _migrate_multitenant():
         pass
 
 
-# ==========================================================================
+# --------------------------------------------------------------------------
 # Multi-Tenant Hilfsfunktionen
-# ==========================================================================
+# --------------------------------------------------------------------------
 
 def spieler_null_zuweisen(verein_id: int, trainer_id: int) -> int:
     """Weist alle Spieler, bei denen BEIDE IDs fehlen (verein_id IS NULL UND
@@ -2854,9 +2859,9 @@ def spieler_ohne_verein_zaehlen() -> int:
         return row[0] if row else 0
 
 
-# ==========================================================================
+# --------------------------------------------------------------------------
 # Vereine
-# ==========================================================================
+# --------------------------------------------------------------------------
 
 def vereine_laden(nur_echte: bool = True) -> list[dict]:
     """Gibt alle Vereine zurück.
@@ -3277,9 +3282,9 @@ def verein_statistiken(verein_id: int) -> dict:
         return {"trainer": trainer_n, "spieler": spieler_n, "diagnostiken": diag_n}
 
 
-# ==========================================================================
+# --------------------------------------------------------------------------
 # Benutzer
-# ==========================================================================
+# --------------------------------------------------------------------------
 
 import hashlib as _hashlib
 import hmac as _hmac
@@ -3595,9 +3600,9 @@ def benutzer_passwort(benutzer_id: int, neues_passwort: str) -> None:
         sessions_benutzer_beenden(benutzer_id, conn=conn)
 
 
-# ==========================================================================
+# --------------------------------------------------------------------------
 # Benutzer — Trainerportal-Erweiterungen
-# ==========================================================================
+# --------------------------------------------------------------------------
 
 def benutzer_foto_speichern(benutzer_id: int, foto_bytes: bytes | None) -> None:
     with get_conn() as conn:
@@ -4408,9 +4413,9 @@ def lizenz_warn_protokollieren(verein_id: int) -> None:
         pass
 
 
-# ==========================================================================
+# --------------------------------------------------------------------------
 # E-Mail-Verifikation
-# ==========================================================================
+# --------------------------------------------------------------------------
 
 def email_token_erzeugen(benutzer_id: int) -> str:
     """Erzeugt einen neuen E-Mail-Verifikationstoken (24h gültig, einmalig)."""
@@ -4471,9 +4476,9 @@ def email_token_validieren(token: str) -> int | None:
         return bid
 
 
-# ==========================================================================
+# --------------------------------------------------------------------------
 # Passwort-Reset
-# ==========================================================================
+# --------------------------------------------------------------------------
 
 def pw_reset_token_erzeugen(email_oder_benutzername: str) -> tuple[str, str, str] | None:
     """Erzeugt Reset-Token für E-Mail oder Benutzername (1h gültig, einmalig).
@@ -4773,9 +4778,9 @@ def benutzername_reminder_laden(email: str) -> tuple[str, str, str] | None:
     return row[0], row[1] or "Benutzer", row[2]
 
 
-# ==========================================================================
+# --------------------------------------------------------------------------
 # Server-seitige Sessions (Cookie-Persistenz)
-# ==========================================================================
+# --------------------------------------------------------------------------
 
 def session_erstellen(
     benutzer_id: int,
@@ -4950,9 +4955,9 @@ def session_bereinigen() -> None:
         pass
 
 
-# ==========================================================================
+# --------------------------------------------------------------------------
 # Rechnungsadressen
-# ==========================================================================
+# --------------------------------------------------------------------------
 
 def rechnungsadresse_speichern(
     benutzer_id: int,
@@ -4992,9 +4997,9 @@ def rechnungsadresse_laden(benutzer_id: int) -> dict | None:
         ).fetchone())
 
 
-# ==========================================================================
+# --------------------------------------------------------------------------
 # Kundenverwaltung — Kundennummern, Audit-Log, Listen- und Detailabfragen
-# ==========================================================================
+# --------------------------------------------------------------------------
 
 def naechste_kundennummer() -> str:
     """Gibt die nächste freie Kundennummer im Format APH-XXXXXX zurück.
