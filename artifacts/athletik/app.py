@@ -4286,6 +4286,18 @@ def page_trainingsplan():
                     wochenplanung_json=_wochenplanung_json,
                 )
                 _philosophie_speichern(sid, selected_philosophie_key)
+                # VB-Modus: gewaehlte_athletik_anzahl an Generator übergeben —
+                # begrenzt tatsächlich erzeugte APH-Einheiten pro Woche.
+                _gen_vb_anzahl: int | None = None
+                if _wochenplanung_json:
+                    try:
+                        import json as _json_gen
+                        _wp_gen = _json_gen.loads(_wochenplanung_json)
+                        if _wp_gen.get("planungsmodus") == "vereinsbelastung":
+                            _gen_vb_anzahl = int(_wp_gen.get("gewaehlte_athletik_anzahl") or 2)
+                    except Exception:
+                        _gen_vb_anzahl = None
+
                 n = trainingsplan_multi_erstellen(
                     sid, schwerpunkt,
                     wochen=plan_laenge,
@@ -4296,6 +4308,7 @@ def page_trainingsplan():
                     philosophie_key=selected_philosophie_key,
                     trainingszeit_min=trainingszeit_min,
                     plan_id=_new_pid,
+                    vb_anzahl=_gen_vb_anzahl,
                 )
                 st.session_state.pop(_confirm_key, None)
                 _phase_hinweis   = f" ({saison_phase})" if saison_phase != "Normal" else ""

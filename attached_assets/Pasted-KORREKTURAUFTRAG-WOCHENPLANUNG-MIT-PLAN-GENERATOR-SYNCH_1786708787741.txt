@@ -1,0 +1,284 @@
+KORREKTURAUFTRAG – WOCHENPLANUNG MIT PLAN-GENERATOR SYNCHRONISIEREN
+
+WICHTIG:
+Keine neue Funktion bauen.
+Keine neue Architektur.
+Nur die bestehende Wochenplanung sauber mit der bestehenden Plan-Engine verbinden.
+
+AKTUELLER FEHLER AUS REALTEST:
+
+Wochenplanung sagt:
+- 1 APH-Athletikeinheit pro Woche
+- APH-Tag Dienstag
+
+PDF zeigt aber zusätzlich weitere komplette Einheiten wie "Tag 3".
+
+Das ist falsch.
+
+============================================================
+1. ANZAHL APH-EINHEITEN MUSS DEN GENERATOR BEGRENZEN
+============================================================
+
+Wenn `planungsmodus == "vereinsbelastung"`:
+
+`gewaehlte_athletik_anzahl`
+
+muss die tatsächliche Anzahl erzeugter APH-Einheiten pro Woche begrenzen.
+
+Beispiel:
+
+gewaehlte_athletik_anzahl = 1
+
+→ pro Woche genau 1 APH-Einheit erzeugen
+
+NICHT:
+Tag 1 + Tag 3 oder weitere alte interne Trainingstage erzeugen.
+
+Beispiel:
+
+gewaehlte_athletik_anzahl = 2
+
+→ genau 2 APH-Einheiten pro Woche erzeugen.
+
+Im STANDARD-Modus:
+bestehende bisherige Generatorlogik unverändert lassen.
+
+Nicht nur PDF-Einheiten ausblenden.
+Die Plan-Engine selbst soll im Vereinsbelastungsmodus nur die tatsächlich
+gewählte Anzahl APH-Einheiten erzeugen.
+
+============================================================
+2. GEWÄHLTE ATHLETIKTAGE ZUORDNEN
+============================================================
+
+Wenn gewählt:
+
+gewaehlte_athletik_tage = ["Dienstag"]
+
+→ einzige APH-Einheit = Dienstag
+
+Bei:
+
+["Montag", "Donnerstag"]
+
+→ erste Einheit Montag
+→ zweite Einheit Donnerstag
+
+Keine alten festen Tag-Positionen zusätzlich erzeugen.
+
+============================================================
+3. TEST-SCHWERPUNKTE MÜSSEN IM PLAN TATSÄCHLICH AUFTAUCHEN
+============================================================
+
+Realfall:
+
+Erkannte Hauptschwerpunkte:
+- Ganzkörperstabilität
+- Hüfte
+- Core / Rumpf
+- Maximalgeschwindigkeit
+
+Weitere Schwerpunkte:
+- Sprunggelenk
+- Knie
+- Schulter
+
+Problem:
+Der erzeugte Plan enthält Hüfte/Knie/Rumpf/Sprunggelenk,
+aber praktisch keinen Sprint-/Maximalgeschwindigkeitsinhalt.
+
+Prüfe die bestehende Schwerpunkt-Priorisierung.
+
+Wenn Sprint / Maximalgeschwindigkeit als Hauptschwerpunkt erkannt ist,
+muss dieser Schwerpunkt in geeigneter Form im Plan vorkommen.
+
+Altersentsprechend und abhängig von der bestehenden Sprintlogik.
+
+Keine neue Sprintbibliothek erfinden.
+
+Bestehende Sprint-/Schnelligkeitsübungen verwenden.
+
+============================================================
+4. REIHENFOLGE INNERHALB DER EINHEIT
+============================================================
+
+Wenn Sprint/Schnelligkeit als Schwerpunkt enthalten ist:
+
+Schnelligkeits-/Sprint-/Explosivinhalte vor ermüdenden Kraft-,
+Stabilitäts- und Mobilitätsblöcken platzieren.
+
+Bestehende Trainingsphilosophie / Reihenfolgeregeln verwenden.
+
+Beispiel:
+
+1. Warm-up
+2. Sprint / Beschleunigung / Maximalgeschwindigkeit
+3. Kraft / Stabilität
+4. Mobilität / korrektive Inhalte
+5. Cool-down
+
+Nur wenn der Schwerpunkt bzw. die Diagnostik das begründet.
+
+============================================================
+5. NICHT JEDES DEFIZIT IN JEDE EINHEIT PRESSEN
+============================================================
+
+Der Realplan hatte bei einer zusätzlichen U10-Einheit sehr viele Hauptübungen.
+
+Prüfe die bestehende Prioritätslogik:
+
+- Hauptschwerpunkte zuerst
+- Nebenschwerpunkte rotierend / ergänzend
+- nicht alle 7 Defizite maximal in jede einzelne Einheit einbauen
+
+Bei nur 1 APH-Einheit pro Woche soll die Einheit kompakt und sinnvoll bleiben.
+
+Alter, Trainingszeit und Gesamtbelastung weiterhin berücksichtigen.
+
+Keine starre neue Übungszahl erfinden, wenn bestehende Zeitbudgetlogik
+vorhanden ist.
+
+============================================================
+6. WOCHE 6 / LEERE ODER FAST LEERE EINHEITEN
+============================================================
+
+Im Real-PDF bestand Woche 6 teilweise praktisch nur aus "Plank" und eine
+weitere Einheit wurde über mehrere Seiten zerhackt.
+
+Prüfe die Ursache in der bestehenden Plan-Engine.
+
+Ein Plan darf nicht eine zusätzliche Einheit erzeugen, wenn für diese
+Einheit kein sinnvoller Inhalt vorhanden ist.
+
+Wenn nur 1 Athletikeinheit gewählt wurde:
+keinen zweiten leeren/fast leeren Tag erzeugen.
+
+Wenn Progression/Deload zu wenig Übungen liefert:
+bestehende Prioritätslogik sinnvoll verwenden, ohne künstlich leere Seiten zu erzeugen.
+
+============================================================
+7. PDF
+============================================================
+
+PDF soll nur die Einheiten ausgeben, die der Generator tatsächlich erzeugt.
+
+Nicht nachträglich verstecken.
+
+Wenn 1 APH-Einheit pro Woche:
+PDF zeigt 1 APH-Einheit pro Woche.
+
+Wenn 2:
+PDF zeigt 2.
+
+Vereinstraining und Spiel bleiben nur Kontext in der Wochenübersicht.
+
+============================================================
+8. STANDARDMODUS NICHT VERÄNDERN
+============================================================
+
+STANDARD muss exakt wie bisher funktionieren.
+
+Die Begrenzung durch `gewaehlte_athletik_anzahl` gilt nur im Modus
+"vereinsbelastung".
+
+============================================================
+9. ALTERSGRUPPE / GEBURTSDATUM PRÜFEN
+============================================================
+
+Zusätzlich nur analysieren:
+
+Im Real-PDF stand:
+Geburtsdatum 26.03.2016
+Altersgruppe U10
+
+Prüfe, wie APH die Altersgruppe berechnet.
+
+Keine Logik ungefragt umbauen.
+
+Im Bericht nur angeben:
+- welche Funktion die Altersgruppe bestimmt
+- ob die Zuordnung zum Planzeitpunkt fachlich/technisch aus der aktuellen
+  APH-Logik korrekt ist
+- ob Saisonjahrgang oder tatsächliches Alter verwendet wird
+
+Nur ändern, wenn ein eindeutiger Codefehler vorliegt.
+
+============================================================
+10. TESTS
+============================================================
+
+Mindestens:
+
+A)
+Vereinsbelastung
+gewaehlte_athletik_anzahl = 1
+Tag = Dienstag
+→ jede Woche genau 1 APH-Einheit
+
+B)
+gewaehlte_athletik_anzahl = 2
+Tage Mo + Do
+→ jede Woche genau 2 APH-Einheiten
+
+C)
+STANDARD
+→ bisherige Anzahl unverändert
+
+D)
+Maximalgeschwindigkeit Hauptschwerpunkt
+→ Sprint-/Schnelligkeitsinhalt kommt im Plan vor
+
+E)
+Sprint-Schwerpunkt
+→ Sprintblock liegt vor Kraft/Stabilität
+
+F)
+mehrere Defizite
+→ Hauptschwerpunkte priorisiert, Nebenschwerpunkte nicht alle in jede Einheit gepresst
+
+G)
+Woche 6 / Deload
+→ keine leere oder sinnlose zusätzliche Einheit
+
+H)
+PDF:
+1 APH-Einheit → genau 1 detaillierte APH-Einheit pro Woche
+
+I)
+alte Pläne / Standard
+→ rückwärtskompatibel
+
+J)
+Block-B-Tests weiterhin PASS
+
+K)
+Python-Syntax PASS
+
+============================================================
+11. ABSCHLUSSBERICHT
+============================================================
+
+Berichte:
+
+1. Warum trotz 1 gewählter APH-Einheit weitere "Tag 3"-Einheiten erzeugt wurden
+2. Wo die Anzahl jetzt im Generator begrenzt wird
+3. Wie gewählte Athletiktage zugeordnet werden
+4. Warum Maximalgeschwindigkeit vorher nicht im Plan erschien
+5. Wie Sprint jetzt eingebunden wird
+6. Wie Haupt-/Nebenschwerpunkte verteilt werden
+7. Wie leere/fast leere Einheiten verhindert werden
+8. Ergebnis der Altersgruppenprüfung
+9. geänderte Dateien
+10. Tests PASS/FAIL
+
+Danach STOPPEN.
+
+Nicht verändern:
+Stripe
+Login
+Session
+Kundenverwaltung
+Verträge
+Kundennummern
+andere Module außerhalb der Trainingsplanung,
+außer technisch zwingend erforderlich.

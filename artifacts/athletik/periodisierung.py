@@ -938,15 +938,20 @@ def defizit_score(schwerpunkt_text: str) -> dict[str, int]:
     if not txt:
         return {}  # leer nach strip → Basis-Modus
     _mapping = [
-        (["hüft", "huft", "gluteus", "becken", "seitenasymmetrie"],     "Hüfte"),
-        (["knie", "valgus", "landungskontrolle", "sprungasymmetrie"],   "Knie"),
-        (["rumpf", "core", "rotations", "anti-rotation", "schulter"],   "Rumpf"),
-        (["oberschenkel", "hamstring", "nordisch"],                      "Oberschenkel"),
-        (["sprunggelenk", "ankle", "wade", "fersengang"],               "Sprunggelenk"),
-        (["schnelligkeit", "sprint", "beschleunigung"],                 "Schnelligkeit"),
-        (["explosiv", "sprung", "sprungkraft"],                         "Explosivität"),
-        (["agil", "richtungswechsel", "505"],                           "Agilität"),
-        (["fußball", "fussball", "ausdauer", "aerob", "intermittier"], "Fußball"),
+        (["hüft", "huft", "gluteus", "becken", "seitenasymmetrie"],         "Hüfte"),
+        (["knie", "valgus", "landungskontrolle", "sprungasymmetrie"],       "Knie"),
+        # "ganzkörperstabilität", "stabilität", "schulter" → Rumpf/Core
+        (["rumpf", "core", "rotations", "anti-rotation", "schulter",
+          "stabilität", "stabilitaet", "ganzkörper", "ganzkoerper"],        "Rumpf"),
+        (["oberschenkel", "hamstring", "nordisch"],                          "Oberschenkel"),
+        (["sprunggelenk", "ankle", "wade", "fersengang"],                   "Sprunggelenk"),
+        # "maximalgeschwindigkeit", "geschwindigkeit" → Schnelligkeit
+        (["schnelligkeit", "sprint", "beschleunigung",
+          "maximalgeschwindigkeit", "geschwindigkeit", "sprintschnelligkeit",
+          "antrittsschnelligkeit"],                                          "Schnelligkeit"),
+        (["explosiv", "sprung", "sprungkraft"],                             "Explosivität"),
+        (["agil", "richtungswechsel", "505"],                               "Agilität"),
+        (["fußball", "fussball", "ausdauer", "aerob", "intermittier"],     "Fußball"),
     ]
     counts: dict[str, int] = {}
     for keywords, area in _mapping:
@@ -1148,7 +1153,8 @@ def trainingsplan_multi_erstellen(spieler_id: int, schwerpunkt_text: str,
                                   verfuegbares_equipment: list | None = None,
                                   philosophie_key: str | None = None,
                                   trainingszeit_min: int = 60,
-                                  plan_id: int | None = None) -> int:
+                                  plan_id: int | None = None,
+                                  vb_anzahl: int | None = None) -> int:
     """
     Altersbasierter Trainingsplan mit klarer 4-Phasen-Progression.
     Spec §1–§8: Belastungsnormative, Trainingsreihenfolge, Trainingsprinzipien,
@@ -1241,7 +1247,13 @@ def trainingsplan_multi_erstellen(spieler_id: int, schwerpunkt_text: str,
             # Trainingsphilosophie: Bereich gesperrt oder nicht erlaubt
             if not philosophie_bereich_erlaubt(_philo, area):
                 continue
-            n = max(0, score - 2) if is_deload else score
+            if is_deload:
+                # Standard-Deload: score-2 (kann 0 ergeben).
+                # VB-Modus-Deload: mindestens 1 Exercise pro enthaltenen Bereich,
+                # damit die einzige APH-Einheit nicht leer bleibt.
+                n = max(1 if vb_anzahl is not None else 0, score - 2)
+            else:
+                n = score
             if n <= 0:
                 continue
 
@@ -1305,6 +1317,12 @@ def trainingsplan_multi_erstellen(spieler_id: int, schwerpunkt_text: str,
                 saetze      = _saetze_begrenzen(saetze, _eff_satz_cap)
                 haeufigkeit = _haeufigkeit_begrenzen(haeufigkeit, cfg["haeuf_cap"])
                 tags        = _tags_fuer_haeufigkeit(haeufigkeit)
+
+                # VB-Modus: Tag-Anzahl auf gewaehlte_athletik_anzahl begrenzen.
+                # Im VB-Modus immer sequenzielle Tags 1..vb_anzahl verwenden —
+                # kein altes [1,3]- oder [1,2,3]-Muster, das mehr Einheiten erzeugt als gewählt.
+                if vb_anzahl is not None:
+                    tags = list(range(1, vb_anzahl + 1))
 
                 for tag in tags:
                     week_entries.append((
