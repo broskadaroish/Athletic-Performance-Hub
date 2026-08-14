@@ -1170,8 +1170,8 @@ def spieler_loeschen(spieler_id):
         for tabelle in [
             "verletzung", "anthropometrie", "agilitaet_test", "ausdauer_test",
             "sprint_test", "sprung_test", "fms_test", "y_balance_test",
-            "trainingsplan", "periodisierung", "trainerbeobachtung", "kraft_test",
-            "spieler_zuweisung_log",
+            "trainingsplan", "trainingsplan_versionen", "periodisierung",
+            "trainerbeobachtung", "kraft_test", "spieler_zuweisung_log",
         ]:
             try:
                 conn.execute(f"DELETE FROM {tabelle} WHERE spieler_id=?", (spieler_id,))
