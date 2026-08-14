@@ -1,0 +1,114 @@
+PHASE A5.1 – STRIPE CHECKOUT NACHBEREITUNG / UX- UND STATUS-FIX
+
+Der echte Sandbox-Checkout ist erfolgreich.
+
+Produktions-Test:
+- checkout.session.completed → HTTP 200
+- invoice.paid → HTTP 200
+- customer.subscription.created → HTTP 200
+- lizenztyp = TRAINER_BASIC
+- abo_intervall = monat
+- lizenz_status = trial
+- stripe_customer_id gespeichert
+- stripe_subscription_id gespeichert
+- subscription_current_period_end gespeichert
+
+Bitte jetzt NUR folgende drei Punkte prüfen und minimal korrigieren.
+
+1. ZAHLUNGSSTATUS WÄHREND TESTPHASE
+
+Aktuell wird nach dem 0-Euro-Trial-Checkout:
+zahlungsstatus = "bezahlt"
+
+Das ist fachlich missverständlich, weil während der 30-Tage-Testphase
+noch keine kostenpflichtige Zahlung erfolgt ist.
+
+Gewünschtes Verhalten:
+
+Während Stripe Subscription status = trialing/trial:
+- lizenz_status = trial
+- zahlungsstatus z.B. "testphase" oder "zahlungsmethode_hinterlegt"
+
+Erst nach einer tatsächlich bezahlten kostenpflichtigen Rechnung:
+- zahlungsstatus = "bezahlt"
+
+Dabei invoice.paid unterscheiden:
+Eine 0-Euro-Trial-Invoice darf nicht automatisch als echte Zahlung gewertet werden.
+
+2. VERTRAGSBEGINN
+
+Aktuell:
+vertragsbeginn = NULL
+
+Nach erfolgreichem checkout.session.completed soll für das betreffende
+APH-Konto ein sinnvoller Vertragsbeginn gesetzt werden.
+
+Bevorzugt:
+Datum des erfolgreichen Vertrags-/Checkout-Abschlusses.
+
+Bestehenden Wert niemals überschreiben, falls bereits vorhanden.
+
+vertragsende bei laufendem Abo nicht künstlich setzen.
+subscription_current_period_end bleibt die Stripe-seitige nächste Periode.
+
+3. STRIPE-RÜCKKEHR / LOGIN
+
+Aktuell:
+Nach erfolgreichem Stripe Checkout landet der Nutzer zunächst auf der Login-Seite.
+Nach erneutem Login erscheint die korrekte Success-Meldung.
+
+Bitte Ursache prüfen.
+
+Ziel:
+Wenn vor dem Stripe Checkout eine gültige APH-Session vorhanden war,
+soll sie beim Wechsel zu checkout.stripe.com und zurück möglichst erhalten bleiben.
+
+Prüfen:
+- Session-Cookie
+- SameSite
+- Secure
+- Domain
+- APP_BASE_URL
+- Streamlit Session / ath_sid
+- Weiterleitung success_url
+
+Keine unsichere Login-Umgehung bauen.
+Keine Authentifizierung über Query-Parameter.
+Keine Tokens offen in URL setzen.
+
+Falls technisch wegen Streamlit-Neuverbindung eine vollständige Session-Erhaltung
+nicht zuverlässig möglich ist:
+saubere sichere Alternative implementieren und erläutern.
+
+4. NICHT ÄNDERN
+
+- Stripe Price Mapping
+- 30 Tage Trial
+- Webhook-Signatur
+- Kundenzuordnung
+- bestehende Checkout-Metadata
+- Paketsystem
+- Produktionsdaten anderer Kunden
+
+5. TEST
+
+Mit Sandbox prüfen:
+
+TRAINER_BASIC / monat
+
+Erwartung direkt nach Checkout:
+- lizenz_status = trial
+- zahlungsstatus != bezahlt, solange 0 € berechnet wurden
+- vertragsbeginn gesetzt
+- stripe_customer_id vorhanden
+- stripe_subscription_id vorhanden
+- abo_intervall = monat
+- lizenztyp = TRAINER_BASIC
+
+Danach STOPPEN und berichten:
+1. Ursache zahlungsstatus=bezahlt
+2. neuer Status während Trial
+3. vertragsbeginn gesetzt? JA/NEIN
+4. Ursache des erneuten Logins
+5. wie Rückkehr verbessert wurde
+6. geänderte Dateien

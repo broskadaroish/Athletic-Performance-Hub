@@ -76,6 +76,7 @@ function ensureDbExtensions(): void {
       ["abo_intervall",                   "TEXT"],
       ["cancel_at_period_end",            "INTEGER DEFAULT 0"],
       ["subscription_current_period_end", "TEXT"],
+      ["vertragsbeginn",                  "TEXT"],
     ] as [string, string][]) {
       try {
         conn.exec(`ALTER TABLE vereine ADD COLUMN ${col} ${def}`);
@@ -271,18 +272,26 @@ router.post("/stripe/webhook", (req: Request, res: Response): void => {
           logger.warn({ eventId }, "checkout.session.completed: keine verein_id in metadata — Event ignoriert");
           break;
         }
-        // Tarif wird über customer.subscription.created/updated gesetzt.
-        // Hier: IDs + Aktivierung. Keine Tarif-Änderung allein auf Basis dieses Events.
+        // Tarif und finaler Lizenzstatus werden über customer.subscription.created/-updated gesetzt.
+        // Hier: IDs sichern + Testphase vermerken + Vertragsbeginn setzen (einmalig).
+        //
+        // lizenz_status = 'trial'  — Subscription startet als trialing; subscription.created
+        //                            überschreibt korrekt sobald das Event eintrifft.
+        // zahlungsstatus = 'zahlungsmethode_hinterlegt' — Noch keine kostenpflichtige Zahlung
+        //                            erfolgt (Trial-Invoice ist 0 €).
+        // vertragsbeginn = COALESCE(vertragsbeginn, date('now')) — nur setzen wenn noch leer;
+        //                            bestehender Wert (z. B. manuell gesetzt) bleibt erhalten.
         conn.prepare(`
           UPDATE vereine
-             SET lizenz_status          = 'active',
-                 zahlungsstatus         = 'bezahlt',
+             SET lizenz_status          = 'trial',
+                 zahlungsstatus         = 'zahlungsmethode_hinterlegt',
                  stripe_customer_id     = COALESCE(?, stripe_customer_id),
-                 stripe_subscription_id = COALESCE(?, stripe_subscription_id)
+                 stripe_subscription_id = COALESCE(?, stripe_subscription_id),
+                 vertragsbeginn         = COALESCE(vertragsbeginn, date('now'))
            WHERE id = ?
         `).run(customerId, subId, vereinId);
 
-        logger.info({ vereinId, eventId }, "Checkout abgeschlossen — Lizenz aktiviert");
+        logger.info({ vereinId, eventId }, "Checkout abgeschlossen — Trial-Status gesetzt, Vertragsbeginn vermerkt");
         break;
       }
 
@@ -378,23 +387,39 @@ router.post("/stripe/webhook", (req: Request, res: Response): void => {
       // ── 5. Rechnung bezahlt (invoice.paid ist der empfohlene Event-Name) ───────
       case "invoice.paid":
       case "invoice.payment_succeeded": {
-        const customerId = obj["customer"] as string;
+        const customerId  = obj["customer"] as string;
+        const amountPaid  = (obj["amount_paid"] as number) ?? 0;
+
         interface InvObj {
           lines?: { data?: Array<{ period?: { end?: number }; price?: { id?: string } }> };
         }
         const inv       = obj as InvObj;
         const periodEnd = isoDate(inv.lines?.data?.[0]?.period?.end);
 
-        conn.prepare(`
-          UPDATE vereine
-             SET zahlungsstatus                  = 'bezahlt',
-                 lizenz_status                   = 'active',
-                 lizenz_bis                      = COALESCE(?, lizenz_bis),
-                 subscription_current_period_end = COALESCE(?, subscription_current_period_end)
-           WHERE stripe_customer_id = ?
-        `).run(periodEnd, periodEnd, customerId);
+        if (amountPaid > 0) {
+          // Echte kostenpflichtige Rechnung — Zahlung bestätigen und Lizenz auf 'active' setzen.
+          conn.prepare(`
+            UPDATE vereine
+               SET zahlungsstatus                  = 'bezahlt',
+                   lizenz_status                   = 'active',
+                   lizenz_bis                      = COALESCE(?, lizenz_bis),
+                   subscription_current_period_end = COALESCE(?, subscription_current_period_end)
+             WHERE stripe_customer_id = ?
+          `).run(periodEnd, periodEnd, customerId);
 
-        logger.info({ customerId, periodEnd, eventId }, "Zahlung bestätigt");
+          logger.info({ customerId, amountPaid, periodEnd, eventId }, "Echte Zahlung bestätigt — lizenz_status=active");
+        } else {
+          // 0-Euro-Trial-Invoice — Zahlungsmethode hinterlegt, aber noch kein Geld geflossen.
+          // lizenz_status bleibt unverändert (wird von subscription.created auf 'trial' gesetzt).
+          // Nur period_end aktualisieren, damit UI die nächste Periode korrekt anzeigt.
+          conn.prepare(`
+            UPDATE vereine
+               SET subscription_current_period_end = COALESCE(?, subscription_current_period_end)
+             WHERE stripe_customer_id = ?
+          `).run(periodEnd, customerId);
+
+          logger.info({ customerId, eventId }, "Trial-Invoice (0 €) empfangen — zahlungsstatus unverändert, lizenz_status=trial");
+        }
         break;
       }
 

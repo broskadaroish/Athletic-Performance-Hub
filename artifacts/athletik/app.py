@@ -637,7 +637,14 @@ if "user" not in st.session_state:
                                 if _cookie_ctrl:
                                     _cookie_ctrl.set("ath_sid", _new_sid,
                                                     max_age=_SESSION_MAX_SEC,
-                                                    secure=True, same_site="Strict")
+                                                    secure=True, same_site="Lax")
+                                    # Hinweis: SameSite=Lax (statt Strict) ist erforderlich,
+                                    # damit der Cookie bei der Rückkehr von externen Seiten
+                                    # (Stripe Checkout, OAuth-Flows) mitgesendet wird.
+                                    # Strict würde den Cookie bei top-level GET-Redirects
+                                    # von Drittseiten unterdrücken → User landet auf Login-Seite.
+                                    # Lax erlaubt Cookie bei GET-Navigation, blockiert ihn aber
+                                    # weiterhin bei eingebetteten Ressourcen (CSRF-sicher).
                             except ValueError:
                                 # Passwort wurde während des Logins geändert —
                                 # Anmeldung verweigern
