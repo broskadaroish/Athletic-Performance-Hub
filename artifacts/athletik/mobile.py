@@ -183,38 +183,36 @@ def _inject_screen_width_detect() -> None:
 
 def inject_mobile_sidebar_opener() -> None:
     """
-    Inject a custom floating ☰ button that opens the Streamlit sidebar drawer
-    on narrow (≤768px) viewports.
+    Inject a persistent floating ☰ button that opens the Streamlit sidebar
+    drawer on narrow (≤768px) viewports.
 
-    WHY a custom button?
-    ────────────────────
-    In Streamlit 1.60.0 the only native sidebar toggle is
-      [data-testid="stSidebarCollapseButton"] > button
-    which lives INSIDE [data-testid="stSidebarHeader"] — inside the sidebar
-    itself.  When the sidebar is collapsed there is no native button rendered
-    in the visible page area.  Streamlit's [data-testid="stHeader"] does NOT
-    contain the toggle in this version (confirmed from the JS bundle).
+    Architecture
+    ────────────
+    • Styling:  Defined entirely in theme.py (@media rules for #aph-menu-btn).
+                theme.py CSS is re-injected on every Streamlit rerun → always
+                wins over any older JS-injected style.  This function does NOT
+                inject any <style> tag.
 
-    HOW it works
-    ─────────────
-    A <script> is injected via components.html() (runs in a hidden iframe).
-    The script appends a single <button id="aph-menu-btn"> to window.parent.document.body.
-    On click it finds the real stSidebarCollapseButton and clicks it, so
-    Streamlit's own React state machine handles the open/close — no routing
-    is duplicated, no custom nav is built.
+    • Button:   Appended to window.parent.document.body (outside Streamlit's
+                React tree) via a hidden components.html() iframe.
+                Survives Streamlit reruns because React manages only its own
+                root element and leaves foreign body children untouched.
 
-    DESKTOP guard
-    ─────────────
-    #aph-menu-btn starts with display:none in global CSS (theme.py).
-    A @media (max-width: 768px) rule in the injected <style> sets display:flex.
-    So on ≥769px the button is invisible and never clickable.
+    • Click:    Finds [data-testid="stSidebarCollapseButton"] button — the real
+                Streamlit 1.60.0 toggle — and clicks it.  No custom routing.
 
-    RERUN safety
-    ─────────────
-    The script checks document.getElementById('aph-menu-btn') before creating
-    the button.  On reruns the element already exists → early return.
-    The button is appended to body (outside Streamlit's React tree) so it
-    survives Streamlit reruns.
+    • State:    A MutationObserver registered on window.parent (not in the
+                iframe, so it persists across reruns) watches the sidebar
+                element for class/style/aria-expanded attribute changes and
+                detects open/closed state via getBoundingClientRect().
+                When sidebar is open: adds class .aph-sidebar-open (button
+                hides via CSS rule in theme.py).
+                When sidebar is closed: removes that class (button shows).
+
+    • Guard:    window.parent.__aphSidebarObserverInstalled prevents duplicate
+                observer registration across reruns.
+                window.parent.__aphUpdateMenuBtn is stored on the parent so it
+                remains callable after the iframe that created it is destroyed.
     """
     import streamlit.components.v1 as components
 
@@ -222,71 +220,90 @@ def inject_mobile_sidebar_opener() -> None:
         """<script>
 (function() {
   try {
-    var p = window.parent.document;
-    if (!p || !p.body) return;
+    var W   = window.parent;
+    var doc = W.document;
+    if (!doc || !doc.body) return;
 
-    /* ── Inject style once ────────────────────────────────────────── */
-    if (!p.getElementById('aph-menu-btn-style')) {
-      var s = p.createElement('style');
-      s.id = 'aph-menu-btn-style';
-      s.textContent = [
-        '#aph-menu-btn {',
-        '  display: none;',          /* hidden on desktop by default  */
-        '  position: fixed;',
-        '  top: 8px;',
-        '  left: 8px;',
-        '  z-index: 10001;',
-        '  width: 44px;',
-        '  height: 44px;',
-        '  align-items: center;',
-        '  justify-content: center;',
-        '  background: rgba(22,27,34,0.92);',
-        '  border: 1px solid #30363d;',
-        '  border-radius: 10px;',
-        '  color: #e6edf3;',
-        '  font-size: 22px;',
-        '  line-height: 1;',
-        '  cursor: pointer;',
-        '  box-shadow: 0 2px 12px rgba(0,0,0,.50);',
-        '  -webkit-tap-highlight-color: transparent;',
-        '  touch-action: manipulation;',
-        '}',
-        '#aph-menu-btn:active {',
-        '  background: rgba(88,166,255,0.20);',
-        '  border-color: #58a6ff;',
-        '}',
-        '@media (max-width: 768px) {',
-        '  #aph-menu-btn { display: flex !important; }',
-        '}'
-      ].join('\\n');
-      p.head.appendChild(s);
+    /* ── ensureBtn: create / return #aph-menu-btn in doc.body ────── */
+    function ensureBtn() {
+      var btn = doc.getElementById('aph-menu-btn');
+      if (btn) return btn;
+
+      btn = doc.createElement('button');
+      btn.id = 'aph-menu-btn';
+      btn.setAttribute('aria-label', 'Navigation öffnen');
+      btn.setAttribute('title', 'Navigation öffnen');
+      btn.textContent = '\\u2630';   /* ☰ */
+
+      btn.addEventListener('click', function(e) {
+        e.preventDefault();
+        /* Streamlit 1.60.0 confirmed DOM: toggle button lives inside
+           stSidebarCollapseButton > button inside stSidebarHeader.
+           It is always present even when sidebar is collapsed. */
+        var target = (
+          doc.querySelector('[data-testid="stSidebarCollapseButton"] button') ||
+          doc.querySelector('[data-testid="stSidebarHeader"] button')         ||
+          doc.querySelector('section[data-testid="stSidebar"] button')
+        );
+        if (target) target.click();
+      });
+
+      doc.body.appendChild(btn);
+      return btn;
     }
 
-    /* ── Create button once ───────────────────────────────────────── */
-    if (p.getElementById('aph-menu-btn')) return;
+    /* ── isSidebarOpen: uses bounding rect (works for transform/display hide) */
+    function isSidebarOpen() {
+      var sb = doc.querySelector('section[data-testid="stSidebar"]');
+      if (!sb) return false;
+      /* If sidebar is off-screen (collapsed via CSS transform), right <= 0 */
+      return sb.getBoundingClientRect().right > 10;
+    }
 
-    var btn = p.createElement('button');
-    btn.id  = 'aph-menu-btn';
-    btn.setAttribute('aria-label', 'Navigation öffnen');
-    btn.setAttribute('title', 'Navigation öffnen');
-    btn.textContent = '☰';
-
-    btn.addEventListener('click', function(e) {
-      e.preventDefault();
-      /* Streamlit 1.60.0: toggle button is stSidebarCollapseButton > button,
-         inside the sidebar (stSidebarHeader).  It is always present in DOM
-         even when the sidebar appears collapsed (hidden via CSS transform). */
-      var target = (
-        p.querySelector('[data-testid="stSidebarCollapseButton"] button') ||
-        p.querySelector('[data-testid="stSidebarHeader"] button')         ||
-        p.querySelector('section[data-testid="stSidebar"] button')
-      );
-      if (target) {
-        target.click();
+    /* ── updateBtn: stored on parent window so it survives iframe teardown */
+    W.__aphUpdateMenuBtn = function() {
+      var btn = ensureBtn();
+      if (isSidebarOpen()) {
+        btn.classList.add('aph-sidebar-open');
+      } else {
+        btn.classList.remove('aph-sidebar-open');
       }
-    });
+    };
 
-    p.body.appendChild(btn);
+    /* Initial state */
+    W.__aphUpdateMenuBtn();
+
+    /* ── MutationObserver — registered ONCE on parent window ─────── */
+    if (!W.__aphSidebarObserverInstalled) {
+      W.__aphSidebarObserverInstalled = true;
+
+      var obs = new W.MutationObserver(function() {
+        if (W.__aphUpdateMenuBtn) W.__aphUpdateMenuBtn();
+      });
+
+      /* Watch sidebar for attribute changes (style/class/aria-expanded).
+         The sidebar element is always present in Streamlit's React tree;
+         React updates its attributes rather than recreating the element. */
+      function attachToSidebar() {
+        var sb = doc.querySelector('section[data-testid="stSidebar"]');
+        if (sb) {
+          obs.observe(sb, {
+            attributes:      true,
+            attributeFilter: ['class', 'aria-expanded', 'style']
+          });
+        }
+      }
+
+      /* Also watch body's direct children for structural changes
+         (e.g. React root added after initial load). */
+      obs.observe(doc.body, { childList: true });
+
+      attachToSidebar();
+    } else {
+      /* Observer already running — just refresh button state */
+      W.__aphUpdateMenuBtn();
+    }
+
   } catch(e) {}
 })();
 </script>""",

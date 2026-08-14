@@ -459,11 +459,6 @@ html, body { overflow-x: hidden; max-width: 100vw; }
        the CollapseButton is inside stSidebarHeader (inside the sidebar itself).
        Hide the header strip to reclaim vertical space. */
     header[data-testid="stHeader"]  { display: none !important; }
-    /* Custom floating ☰ button (#aph-menu-btn) is injected via JS in mobile.py.
-       CSS here controls visibility by viewport; JS handles the click logic. */
-    #aph-menu-btn {
-        display: none !important;   /* hidden on desktop; JS/media-query enables on mobile */
-    }
     /* Main block: leave room for the fixed 44px floating button */
     .main .block-container {
         padding-top: 64px !important;
@@ -544,6 +539,60 @@ html, body { overflow-x: hidden; max-width: 100vw; }
 /* render_mobile_nav() is a no-op; inject_mobile_mehr_overlay() is disabled.
    stSegmentedControl is not used for navigation any more.
    If it appears anywhere else on the page, no special CSS needed. */
+
+/* ══ APH Mobile Menu Button (#aph-menu-btn) ══════════════════════════════════
+   Injected into parent DOM (doc.body) by inject_mobile_sidebar_opener().
+   CSS lives HERE in theme.py so it is re-applied on every Streamlit rerun
+   and always beats any older JS-injected style from a previous run.
+   The JS in mobile.py only creates the element and manages the .aph-sidebar-open
+   class — it does NOT inject any <style>.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* Desktop ≥769px: never visible */
+@media (min-width: 769px) {
+    #aph-menu-btn { display: none !important; }
+}
+
+/* Mobile ≤768px: always fixed top-left, above everything */
+@media (max-width: 768px) {
+    #aph-menu-btn {
+        display:          flex !important;
+        position:         fixed !important;
+        top:              8px !important;
+        left:             8px !important;
+        z-index:          2147483000 !important;   /* max safe int — nothing covers this */
+        width:            44px !important;
+        height:           44px !important;
+        min-width:        44px !important;
+        min-height:       44px !important;
+        align-items:      center !important;
+        justify-content:  center !important;
+        background:       rgba(22, 27, 34, 0.92) !important;
+        border:           1px solid #30363d !important;
+        border-radius:    10px !important;
+        color:            #e6edf3 !important;
+        font-size:        22px !important;
+        line-height:      1 !important;
+        cursor:           pointer !important;
+        box-shadow:       0 2px 12px rgba(0, 0, 0, .55) !important;
+        -webkit-tap-highlight-color: transparent !important;
+        touch-action:     manipulation !important;
+        pointer-events:   auto !important;
+        overflow:         visible !important;
+        visibility:       visible !important;
+        opacity:          1 !important;
+        transform:        none !important;
+    }
+    #aph-menu-btn:active {
+        background:       rgba(88, 166, 255, 0.22) !important;
+        border-color:     #58a6ff !important;
+    }
+    /* When sidebar is open the JS adds .aph-sidebar-open — hide the button
+       so the native Streamlit close-arrow inside the sidebar is the only control */
+    #aph-menu-btn.aph-sidebar-open {
+        display:          none !important;
+    }
+}
 
 /* ══ Mobile active-player header pill ════════════════════════════════════════ */
 .aph-mph { display: none; }

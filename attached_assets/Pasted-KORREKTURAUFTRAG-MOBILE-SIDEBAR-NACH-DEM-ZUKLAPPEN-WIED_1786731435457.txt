@@ -1,0 +1,363 @@
+KORREKTURAUFTRAG – MOBILE SIDEBAR NACH DEM ZUKLAPPEN WIEDER ÖFFNEN
+
+Aktueller Stand:
+
+Die neue Mobile-Sidebar funktioniert grundsätzlich.
+
+Auf Android Chrome / Handy-Browser unter aphsystem.de:
+- Sidebar kann geöffnet werden.
+- Desktop-Navigation wird korrekt angezeigt.
+- Der Pfeil zum Zuklappen ist sichtbar.
+- Nach dem Zuklappen verschwindet jedoch der Öffnen-Button/Pfeil vollständig.
+- Danach kann der Benutzer die Sidebar nicht mehr öffnen.
+
+Das muss korrigiert werden.
+
+WICHTIG:
+Die bestehende Navigation, Rollenlogik, Session-Logik und Desktop-Version NICHT umbauen.
+
+--------------------------------------------------
+1. ZIEL
+--------------------------------------------------
+
+Auf Smartphone-Browsern ≤ 768px muss IMMER eine Möglichkeit vorhanden sein,
+die Sidebar wieder zu öffnen.
+
+Gewünschtes Verhalten:
+
+SIDEBAR GESCHLOSSEN:
+→ kleiner Öffnen-Button oben links sichtbar
+→ z.B. "☰" oder "»"
+→ mindestens 44x44 px Touch-Fläche
+→ gut sichtbar auf dem dunklen APH-Hintergrund
+→ position: fixed
+→ hoher z-index
+→ darf nicht zusammen mit der Sidebar verschwinden
+
+SIDEBAR GEÖFFNET:
+→ bestehende vollständige Desktop-Sidebar anzeigen
+→ der vorhandene Streamlit-Pfeil darf zum Schließen verwendet werden
+→ Navigation und Rollenrechte unverändert
+
+Nach dem Schließen:
+→ externer APH-Öffnen-Button muss weiterhin sichtbar bzw. wieder sichtbar sein.
+
+--------------------------------------------------
+2. WICHTIGER ARCHITEKTURPUNKT
+--------------------------------------------------
+
+Der eigene APH-Button darf NICHT innerhalb von
+
+[data-testid="stSidebar"]
+
+liegen.
+
+Sonst verschwindet er beim Schließen der Sidebar ebenfalls.
+
+Der Button muss außerhalb der Sidebar direkt in den Parent-DOM der Streamlit-Seite
+injiziert werden.
+
+Der bereits vorhandene Ansatz mit:
+
+components.html()
+window.parent.document
+
+soll dafür verwendet bzw. korrigiert werden.
+
+--------------------------------------------------
+3. BESTEHENDEN HOTFIX PRÜFEN
+--------------------------------------------------
+
+Prüfe zuerst die aktuelle Implementierung von:
+
+inject_mobile_sidebar_opener()
+
+in mobile.py.
+
+Prüfe insbesondere:
+
+- Wo #aph-menu-btn tatsächlich in den DOM eingefügt wird.
+- Ob der Button versehentlich innerhalb der Sidebar landet.
+- Ob Streamlit bei einem rerun den Button entfernt.
+- Ob CSS den Button im geschlossenen Zustand versteckt.
+- Ob JavaScript den Button nach dem ersten Öffnen entfernt.
+- Ob der Button nach Sidebar-Collapse noch im parent.document vorhanden ist.
+- Ob ein Streamlit-Rerun den Button verliert.
+
+NICHT einfach weitere CSS-Selektoren raten.
+
+--------------------------------------------------
+4. BUTTON PERSISTENT MACHEN
+--------------------------------------------------
+
+Der APH-Mobile-Menübutton muss unabhängig vom Sidebar-Zustand existieren.
+
+Beispielprinzip:
+
+const p = window.parent.document;
+
+let btn = p.getElementById("aph-menu-btn");
+
+if (!btn) {
+    btn = p.createElement("button");
+    btn.id = "aph-menu-btn";
+    p.body.appendChild(btn);
+}
+
+WICHTIG:
+appendChild auf p.body oder einen anderen dauerhaft sichtbaren Root-Container.
+
+NICHT:
+sidebar.appendChild(...)
+
+--------------------------------------------------
+5. ÖFFNEN DER SIDEBAR
+--------------------------------------------------
+
+Beim Klick auf #aph-menu-btn:
+
+1. aktuellen Streamlit-DOM erneut abfragen
+2. echten Sidebar-Control suchen
+3. Streamlit-eigenen Button auslösen
+
+Primär:
+
+[data-testid="stSidebarCollapseButton"] button
+
+Fallback:
+
+[data-testid="stSidebarHeader"] button
+
+Weitere Fallbacks nur verwenden, wenn sie anhand des tatsächlichen
+Streamlit-1.60.0-DOM sinnvoll sind.
+
+Keine eigene Navigation bauen.
+
+Keine eigenen Seitenwechsel implementieren.
+
+--------------------------------------------------
+6. SIDEBAR-ZUSTAND ERKENNEN
+--------------------------------------------------
+
+Prüfe, ob die Sidebar aktuell geöffnet oder geschlossen ist.
+
+Wenn geöffnet:
+→ APH-Öffnen-Button darf ausgeblendet werden, WENN der native Schließen-Pfeil
+  zuverlässig sichtbar ist.
+
+Wenn geschlossen:
+→ #aph-menu-btn MUSS sichtbar sein.
+
+Noch robuster wäre:
+
+Der APH-Button bleibt grundsätzlich vorhanden und wird nur über
+display/visibility gesteuert.
+
+Er darf niemals aus dem DOM gelöscht werden.
+
+--------------------------------------------------
+7. MUTATIONOBSERVER
+--------------------------------------------------
+
+Da Streamlit React verwendet und DOM-Elemente nach Reruns neu erzeugen kann,
+soll der Zustand robust beobachtet werden.
+
+Wenn erforderlich, einen MutationObserver auf parent.document.body verwenden.
+
+Dieser soll lediglich:
+
+- prüfen, ob Sidebar geöffnet/geschlossen ist
+- sicherstellen, dass #aph-menu-btn existiert
+- Sichtbarkeit des Buttons aktualisieren
+
+KEINE Navigation über MutationObserver durchführen.
+
+Keine Endlosschleifen erzeugen.
+
+Observer nur einmal registrieren.
+
+Beispielsweise über ein eindeutiges Flag:
+
+window.parent.__aphSidebarObserverInstalled
+
+--------------------------------------------------
+8. MOBILE CSS
+--------------------------------------------------
+
+Nur ≤768px:
+
+#aph-menu-btn {
+    position: fixed !important;
+    top: 8px !important;
+    left: 8px !important;
+
+    width: 44px !important;
+    height: 44px !important;
+
+    z-index: 2147483000 !important;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    pointer-events: auto !important;
+    touch-action: manipulation;
+}
+
+Der Button darf NICHT durch:
+
+overflow:hidden
+visibility:hidden
+opacity:0
+transform
+Sidebar-Container
+Header-Regeln
+
+unbenutzbar werden.
+
+Desktop ≥769px:
+→ #aph-menu-btn vollständig ausblenden.
+
+--------------------------------------------------
+9. KEINE SCHMALE SIDEBAR ERZWINGEN
+--------------------------------------------------
+
+NICHT versuchen, die geschlossene Sidebar künstlich als 56px breite Sidebar
+stehen zu lassen.
+
+Gewünscht ist weiterhin:
+
+GESCHLOSSEN:
+→ Hauptinhalt nutzt die Bildschirmbreite
+→ nur kleiner APH-Menübutton oben links
+
+GEÖFFNET:
+→ Sidebar fährt als Drawer/Overlay ein
+→ gleiche Navigation wie Desktop
+
+--------------------------------------------------
+10. DESKTOP NICHT VERÄNDERN
+--------------------------------------------------
+
+Desktop ≥769px muss exakt wie bisher funktionieren.
+
+Nicht ändern:
+
+- Desktop-Sidebar
+- Desktop Collapse/Expand
+- Navigation
+- Rollenrechte
+- Superadmin-Menüs
+- Trainer-Menüs
+- Spieler-Auswahl
+- Trainingsplan
+- Diagnostik
+- Session-Restore
+- CookieController
+- Login
+- Datenbank
+- Stripe
+- Vertragslogik
+
+--------------------------------------------------
+11. DATABASE.PY
+--------------------------------------------------
+
+Für diesen Auftrag sind KEINE Änderungen an database.py erforderlich.
+
+database.py nicht verändern.
+
+--------------------------------------------------
+12. TESTS
+--------------------------------------------------
+
+Bitte mindestens folgende Tests durchführen:
+
+A)
+Android/Viewport 360px:
+Sidebar geschlossen
+→ Öffnen-Button sichtbar.
+
+B)
+390px:
+→ Öffnen-Button sichtbar.
+
+C)
+430px:
+→ Öffnen-Button sichtbar.
+
+D)
+Button drücken
+→ Sidebar öffnet.
+
+E)
+Sidebar mit vorhandenem Pfeil schließen
+→ Sidebar schließt.
+
+F)
+Danach:
+→ APH-Öffnen-Button wieder sichtbar.
+
+G)
+APH-Button erneut drücken
+→ Sidebar öffnet erneut.
+
+Diesen Zyklus mindestens 5x simulieren:
+öffnen → schließen → öffnen → schließen.
+
+H)
+Navigation nach Wiederöffnung:
+Startseite
+Spieler
+Diagnostik
+Training
+Entwicklung
+usw.
+→ weiterhin funktionsfähig.
+
+I)
+Streamlit rerun / Seitenwechsel:
+→ Öffnen-Button weiterhin vorhanden.
+
+J)
+Browser Reload:
+→ nach Reload weiterhin funktionsfähig.
+
+K)
+Desktop ≥769px:
+→ APH-Mobile-Button nicht sichtbar.
+→ Desktop unverändert.
+
+L)
+py_compile:
+app.py
+mobile.py
+theme.py
+
+M)
+Block-B:
+35/35 müssen weiterhin PASS sein.
+
+--------------------------------------------------
+13. ABSCHLUSSBERICHT
+--------------------------------------------------
+
+Nach Umsetzung berichten:
+
+1. Warum der Button nach dem Zuklappen verschwunden ist.
+2. Wo #aph-menu-btn vorher im DOM lag.
+3. Wo er jetzt eingefügt wird.
+4. Wie erkannt wird, ob Sidebar offen/geschlossen ist.
+5. Ob MutationObserver benötigt wurde.
+6. Welche Dateien geändert wurden.
+7. Bestätigung: database.py unverändert.
+8. Ergebnis Öffnen → Schließen → Wiederöffnen.
+9. Ergebnis Mobile 360/390/430px.
+10. Ergebnis Desktop.
+11. py_compile Ergebnis.
+12. Block-B Ergebnis.
+
+WICHTIG:
+
+Keine großflächige Umstrukturierung durchführen.
+Nur den Mobile-Sidebar-Öffnungsmechanismus robust korrigieren.
