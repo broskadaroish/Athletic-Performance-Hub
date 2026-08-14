@@ -1,6 +1,9 @@
 """
 modules/mein_vertrag.py — "Mein Vertrag" Seite für Trainer und Vereinsadmin.
 Zeigt Vertragsdaten (read-only) und bietet den Online-Kündigungsflow.
+
+Datenquelle: IMMER aus `vereine` (per verein_id), für alle Rollen.
+`benutzer` liefert nur Login/Profil-Felder.
 """
 from __future__ import annotations
 import logging
@@ -21,13 +24,34 @@ _STATUS_BADGE: dict[str, tuple[str, str]] = {
 # ── Hilfsfunktionen ───────────────────────────────────────────────────────────
 
 def _laden(user: dict) -> dict:
-    """Lädt Vertragsdaten für den aktuellen Benutzer aus der passenden Tabelle."""
-    ist_verein = user.get("rolle") == "Vereinsadmin"
-    eid = user.get("verein_id") if ist_verein else user.get("id")
-    tabelle = "vereine" if ist_verein else "benutzer"
+    """Lädt Vertragsdaten für den aktuellen Benutzer immer aus `vereine`.
+
+    Für alle Rollen (Vereinsadmin und Trainer) wird `verein_id` aus dem
+    User-Objekt verwendet. `benutzer` liefert nur Profil-Felder (E-Mail, Name).
+    """
+    verein_id = user.get("verein_id")
+    if not verein_id:
+        _log.warning("_laden: user hat keine verein_id (user_id=%s)", user.get("id"))
+        return {}
     with get_conn() as conn:
-        row = conn.execute(f"SELECT * FROM {tabelle} WHERE id=?", (eid,)).fetchone()
+        row = conn.execute(
+            "SELECT * FROM vereine WHERE id=?", (verein_id,)
+        ).fetchone()
     return dict(row) if row else {}
+
+
+def _fmt_datum(raw: str | None) -> str | None:
+    """Formatiert ISO-Datum YYYY-MM-DD → DD.MM.YYYY. None wenn kein Wert."""
+    if not raw:
+        return None
+    try:
+        s = str(raw)[:10]
+        teile = s.split("-")
+        if len(teile) == 3:
+            return f"{teile[2]}.{teile[1]}.{teile[0]}"
+    except Exception:
+        pass
+    return str(raw)[:10]
 
 
 def _feld(label: str, wert) -> None:
@@ -44,19 +68,55 @@ def _feld(label: str, wert) -> None:
     )
 
 
-def _preis_str(lizenztyp: str | None) -> str:
-    """Versucht den Monatspreis aus LIZENZ_TYPEN zu lesen."""
+def _preis_str(lizenztyp: str | None, abo_intervall: str | None) -> str:
+    """Liest Preis aus LIZENZ_TYPEN[lizenztyp] passend zum Abrechnungsintervall.
+
+    Format: "9,99 € / Monat" oder "99,00 € / Jahr".
+    Keine zweite Preistabelle — einzige Quelle ist license.py.
+    """
     if not lizenztyp:
         return "Nicht hinterlegt"
     try:
-        from license import LIZENZ_TYPEN  # noqa: F401
+        from license import LIZENZ_TYPEN
         td = LIZENZ_TYPEN.get(lizenztyp, {})
-        pm = td.get("preis_monat") or td.get("preis") or td.get("preis_monatlich")
-        if pm is not None:
-            return f"€ {float(pm):.2f} / Monat"
+        if abo_intervall == "jahr":
+            pm = td.get("preis_jahr")
+            if pm is not None:
+                return f"{float(pm):,.2f} € / Jahr".replace(",", "X").replace(".", ",").replace("X", ".")
+        else:
+            # Standardfall: monatlich
+            pm = td.get("preis_monat")
+            if pm is not None:
+                return f"{float(pm):,.2f} € / Monat".replace(",", "X").replace(".", ",").replace("X", ".")
     except Exception:
         pass
     return "Nicht hinterlegt"
+
+
+def _intervall_label(abo_intervall: str | None) -> str:
+    """Gibt lesbares Label für das Abrechnungsintervall zurück."""
+    if abo_intervall == "jahr":
+        return "Jährlich"
+    if abo_intervall == "monat":
+        return "Monatlich"
+    if abo_intervall:
+        return abo_intervall  # unbekannter Wert → roh anzeigen
+    return "Nicht hinterlegt"
+
+
+def _lizenztyp_label(lizenztyp: str | None) -> str:
+    """Gibt lesbaren Anzeigenamen für den normalisierten Lizenztyp zurück."""
+    if not lizenztyp:
+        return "Nicht hinterlegt"
+    try:
+        from license import LIZENZ_TYPEN
+        td = LIZENZ_TYPEN.get(lizenztyp, {})
+        label = td.get("label")
+        if label:
+            return label
+    except Exception:
+        pass
+    return lizenztyp  # Fallback: rohen Key anzeigen
 
 
 # ── Hauptseite ────────────────────────────────────────────────────────────────
@@ -64,31 +124,81 @@ def _preis_str(lizenztyp: str | None) -> str:
 def page_mein_vertrag() -> None:
     """Hauptseite: Mein Vertrag."""
     user = st.session_state.get("user", {})
+
+    # verein_id für alle Rollen aus dem User-Objekt — vereine ist immer die Quelle
+    verein_id: int | None = user.get("verein_id")
+    # ist_verein steuert weiterhin die Anzeige von Kundentyp-Labels
     ist_verein = user.get("rolle") == "Vereinsadmin"
-    eid: int = user.get("verein_id") if ist_verein else user.get("id")
 
     st.title("📋 Mein Vertrag")
+
+    if not verein_id:
+        st.error("Kein Verein zugeordnet — Vertragsdaten können nicht geladen werden.")
+        return
 
     data = _laden(user)
     if not data:
         st.error("Vertragsdaten konnten nicht geladen werden.")
         return
 
+    # ── Paket- und Vertragsdaten ─────────────────────────────────────────────
+    # Lizenztyp normalisieren (alt → neu), Preis und Intervall aus veriene-Zeile
+    try:
+        from license import normalize_lizenz_typ
+        lizenztyp = normalize_lizenz_typ(
+            data.get("lizenztyp"),
+            ist_technischer_mandant=data.get("ist_technischer_mandant"),
+        )
+    except Exception:
+        lizenztyp = data.get("lizenztyp") or "TRAINER_BASIC"
+
+    lizenz_status = data.get("lizenz_status") or "unbekannt"
+    abo_intervall = data.get("abo_intervall")            # 'monat' | 'jahr' | None
+    sc, sl = _STATUS_BADGE.get(lizenz_status, ("#6e7681", lizenz_status.upper()))
+
+    # ── Datumsfelder je nach Status ─────────────────────────────────────────
+    # Trial:          subscription_current_period_end → "Erste Abbuchung am …"
+    #                 (Fallback: testphase_bis → "Testphase endet am …")
+    # Active:         subscription_current_period_end → "Nächste Verlängerung am …"
+    # Cancelled:      gekuendigt_zum → "Vertragsende am …"
+    datum_label: str | None = None
+    datum_wert:  str | None = None
+
+    if lizenz_status == "trial":
+        cpe = _fmt_datum(data.get("subscription_current_period_end"))
+        if cpe:
+            datum_label = "Erste Abbuchung am"
+            datum_wert  = cpe
+        else:
+            tpb = _fmt_datum(data.get("testphase_bis"))
+            if tpb:
+                datum_label = "Testphase endet am"
+                datum_wert  = tpb
+
+    elif lizenz_status == "active":
+        cpe = _fmt_datum(data.get("subscription_current_period_end"))
+        if cpe:
+            datum_label = "Nächste Verlängerung am"
+            datum_wert  = cpe
+
+    elif lizenz_status == "cancelled":
+        gkz = _fmt_datum(data.get("gekuendigt_zum"))
+        if gkz:
+            datum_label = "Vertragsende am"
+            datum_wert  = gkz
+
     # ── Vertragsinformationen (read-only) ────────────────────────────────────
     st.markdown("### Vertragsinformationen")
 
-    lizenztyp    = data.get("lizenztyp") or data.get("lizenz_typ")
-    lizenz_status = data.get("lizenz_status") or "unbekannt"
-    sc, sl = _STATUS_BADGE.get(lizenz_status, ("#6e7681", lizenz_status.upper()))
+    _feld("Kundennummer",       data.get("kundennummer"))
+    _feld("Kundentyp",          "Verein" if ist_verein else "Trainer")
+    _feld("Aktuelles Paket",    _lizenztyp_label(lizenztyp))
+    _feld("Abrechnungsintervall", _intervall_label(abo_intervall))
+    _feld("Paketpreis",         _preis_str(lizenztyp, abo_intervall))
+    _feld("Vertragsbeginn",     _fmt_datum(data.get("vertragsbeginn")) or data.get("vertragsbeginn"))
 
-    _feld("Kundennummer",                          data.get("kundennummer"))
-    _feld("Kundentyp",                             "Verein" if ist_verein else "Trainer")
-    _feld("Aktuelles Paket",                       lizenztyp)
-    _feld("Paketpreis",                            _preis_str(lizenztyp))
-    _feld("Abrechnungsintervall",                  "Monatlich")
-    _feld("Vertragsbeginn",                        data.get("vertragsbeginn"))
-    _feld("Vertragsende / Nächste Verlängerung",
-          data.get("vertragsende") or data.get("lizenz_bis"))
+    if datum_label and datum_wert:
+        _feld(datum_label, datum_wert)
 
     # Lizenzstatus-Badge
     st.markdown(
@@ -108,16 +218,25 @@ def page_mein_vertrag() -> None:
 
     if data.get("kuendigung_eingegangen"):
         _feld("Kündigung eingegangen am",
-              (data["kuendigung_eingegangen"] or "")[:10])
+              _fmt_datum(data["kuendigung_eingegangen"])
+              or (data["kuendigung_eingegangen"] or "")[:10])
         if data.get("gekuendigt_zum"):
-            _feld("Vertrag endet am", data["gekuendigt_zum"])
+            _feld("Vertrag endet am",
+                  _fmt_datum(data["gekuendigt_zum"]) or data["gekuendigt_zum"])
 
     # ── Aktive Kündigung: Info + ggf. Widerruf ───────────────────────────────
     if data.get("kuendigung_eingegangen"):
         st.markdown("---")
-        eingang   = (data.get("kuendigung_eingegangen") or "")[:10]
-        vende     = data.get("gekuendigt_zum") or "Beendigungsdatum wird noch bestätigt."
-        k_status  = data.get("kuendigungsstatus") or ""
+        eingang  = (
+            _fmt_datum(data.get("kuendigung_eingegangen"))
+            or (data.get("kuendigung_eingegangen") or "")[:10]
+        )
+        vende    = (
+            _fmt_datum(data.get("gekuendigt_zum"))
+            or data.get("gekuendigt_zum")
+            or "Beendigungsdatum wird noch bestätigt."
+        )
+        k_status = data.get("kuendigungsstatus") or ""
 
         if k_status == "eingegangen":
             # ── Widerruf-Frist prüfen ────────────────────────────────────────
@@ -178,7 +297,8 @@ def page_mein_vertrag() -> None:
                     disabled=not wid_confirm,
                     type="primary",
                 ):
-                    ok, grund = kuendigung_widerrufen(eid, ist_verein)
+                    # Immer verein_id + ist_verein=True verwenden (Datenquelle: vereine)
+                    ok, grund = kuendigung_widerrufen(verein_id, True)
                     if ok:
                         _sende_widerruf_email(user, data, ist_verein=ist_verein)
                         st.success(
@@ -224,12 +344,18 @@ def page_mein_vertrag() -> None:
         st.info("Eine Kündigung ist für den aktuellen Vertragsstatus nicht möglich.")
         return
 
-    _kuendigung_flow(user, eid, ist_verein, data)
+    _kuendigung_flow(user, verein_id, ist_verein, data, lizenztyp)
 
 
 # ── Kündigungsflow ────────────────────────────────────────────────────────────
 
-def _kuendigung_flow(user: dict, eid: int, ist_verein: bool, data: dict) -> None:
+def _kuendigung_flow(
+    user: dict,
+    verein_id: int,
+    ist_verein: bool,
+    data: dict,
+    lizenztyp: str,
+) -> None:
     """Dreistufiger Kündigungsflow (Schritt 0 → 1 → 2)."""
     step: int = st.session_state.get("_kuend_step", 0)
 
@@ -250,14 +376,22 @@ def _kuendigung_flow(user: dict, eid: int, ist_verein: bool, data: dict) -> None
     if step == 1:
         st.markdown("### Kündigung bestätigen")
 
-        lizenztyp    = data.get("lizenztyp") or data.get("lizenz_typ") or "—"
         lizenz_status = data.get("lizenz_status") or "—"
-        vertragsende = data.get("vertragsende") or data.get("lizenz_bis") or "Nicht hinterlegt"
+        abo_intervall = data.get("abo_intervall")
+
+        # Nächstes Vertragsende für Anzeige im Bestätigungsschritt
+        vertragsende_anzeige = (
+            _fmt_datum(data.get("subscription_current_period_end"))
+            or _fmt_datum(data.get("lizenz_bis"))
+            or data.get("lizenz_bis")
+            or "Nicht hinterlegt"
+        )
 
         st.markdown(
-            f"**Aktuelles Paket:** {lizenztyp}  \n"
+            f"**Aktuelles Paket:** {_lizenztyp_label(lizenztyp)}  \n"
             f"**Vertragsstatus:** {lizenz_status}  \n"
-            f"**Vertragsende / Nächste Verlängerung:** {vertragsende}"
+            f"**Abrechnungsintervall:** {_intervall_label(abo_intervall)}  \n"
+            f"**Vertragsende / Nächste Verlängerung:** {vertragsende_anzeige}"
         )
         st.markdown("")
 
@@ -293,7 +427,8 @@ def _kuendigung_flow(user: dict, eid: int, ist_verein: bool, data: dict) -> None
             key="kuend_final",
             disabled=not confirmed,
         ):
-            ok, ergebnis = kuendigung_einreichen(eid, ist_verein, grund)
+            # Immer verein_id + True (Datenquelle: vereine für alle Rollen)
+            ok, ergebnis = kuendigung_einreichen(verein_id, True, grund)
             if ok:
                 _sende_email(user, data, ergebnis[:10], ist_verein=ist_verein, grund=grund)
                 st.session_state["_kuend_step"] = 2
@@ -307,14 +442,27 @@ def _kuendigung_flow(user: dict, eid: int, ist_verein: bool, data: dict) -> None
     if step == 2:
         datum  = st.session_state.get("_kuend_datum", "—")
         data2  = _laden(user)
-        vende  = (data2.get("gekuendigt_zum")
-                  or data2.get("vertragsende")
-                  or "Beendigungsdatum wird noch bestätigt.")
+
+        try:
+            from license import normalize_lizenz_typ
+            lt2 = normalize_lizenz_typ(
+                data2.get("lizenztyp"),
+                ist_technischer_mandant=data2.get("ist_technischer_mandant"),
+            )
+        except Exception:
+            lt2 = data2.get("lizenztyp") or "—"
+
+        vende = (
+            _fmt_datum(data2.get("gekuendigt_zum"))
+            or _fmt_datum(data2.get("lizenz_bis"))
+            or data2.get("lizenz_bis")
+            or "Beendigungsdatum wird noch bestätigt."
+        )
 
         st.success("✅ Kündigung erfolgreich übermittelt")
         st.markdown(
             f"**Eingangsdatum:** {datum}  \n"
-            f"**Paket:** {data2.get('lizenztyp') or '—'}  \n"
+            f"**Paket:** {_lizenztyp_label(lt2)}  \n"
             f"**Vertragsende:** {vende}  \n\n"
             "Eine Bestätigungs-E-Mail wurde an deine hinterlegte E-Mail-Adresse gesendet."
         )
@@ -324,7 +472,7 @@ def _kuendigung_flow(user: dict, eid: int, ist_verein: bool, data: dict) -> None
             st.markdown(
                 f"**Kundennummer:** {data2.get('kundennummer') or '—'}  \n"
                 f"**Kündigung eingegangen am:** "
-                f"{(data2.get('kuendigung_eingegangen') or '')[:10]}  \n"
+                f"{_fmt_datum(data2.get('kuendigung_eingegangen')) or (data2.get('kuendigung_eingegangen') or '')[:10]}  \n"
                 f"**Kündigungsstatus:** {data2.get('kuendigungsstatus') or '—'}  \n"
                 f"**Vertragsende:** {vende}"
             )
@@ -340,7 +488,7 @@ def _sende_widerruf_email(user: dict, data: dict, ist_verein: bool = False) -> N
     import os as _os
 
     kundennummer = data.get("kundennummer") or "—"
-    lizenztyp    = data.get("lizenztyp") or data.get("lizenz_typ") or "—"
+    lizenztyp    = data.get("lizenztyp") or "—"
     kundenname   = user.get("vorname") or user.get("name") or ""
     kundenemail  = user.get("email") or ""
     zeitstempel  = _dt.datetime.now().strftime("%d.%m.%Y %H:%M Uhr")
@@ -395,9 +543,17 @@ def _sende_email(
     import os as _os
 
     kundennummer = data.get("kundennummer") or "—"
-    lizenztyp    = data.get("lizenztyp") or data.get("lizenz_typ") or "—"
+    lizenztyp    = data.get("lizenztyp") or "—"
     kundenname   = user.get("vorname") or user.get("name") or ""
     kundenemail  = user.get("email") or ""
+
+    # Vertragsende aus vereine-Daten ermitteln
+    vertragsende = (
+        _fmt_datum(data.get("subscription_current_period_end"))
+        or _fmt_datum(data.get("lizenz_bis"))
+        or data.get("lizenz_bis")
+        or "Wird noch bestätigt"
+    )
 
     # ── 1. Bestätigungs-E-Mail an den Kunden ────────────────────────────────
     try:
@@ -409,9 +565,7 @@ def _sende_email(
                 kundennummer=kundennummer,
                 lizenztyp=lizenztyp,
                 kuendigung_datum=datum,
-                vertragsende=(data.get("vertragsende")
-                              or data.get("lizenz_bis")
-                              or "Wird noch bestätigt"),
+                vertragsende=vertragsende,
             )
             _log.info("Kündigungsbestätigung an %s... gesendet", kundenemail[:4])
     except Exception as exc:
