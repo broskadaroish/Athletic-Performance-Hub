@@ -448,16 +448,19 @@ html, body { overflow-x: hidden; max-width: 100vw; }
 
 /* ── Mobile: ≤768px ────────────────────────────────────────────────────────── */
 @media (max-width: 768px) {
-    /* Hide Streamlit sidebar completely */
-    section[data-testid="stSidebar"]          { display: none !important; }
-    [data-testid="stSidebarCollapsedControl"]  { display: none !important; }
-    button[data-testid="stBaseButton-headerNoPadding"] { display: none !important; }
+    /* Sidebar is a slide-in drawer on mobile — Streamlit shows it via its
+       built-in hamburger (☰). Do NOT hide it. Only tighten its width. */
+    section[data-testid="stSidebar"] {
+        width: min(85vw, 320px) !important;
+        max-width: min(85vw, 320px) !important;
+        min-width: 220px !important;
+    }
     /* Remove default Streamlit top padding/header space */
     header[data-testid="stHeader"]             { display: none !important; }
-    /* Main block: full width, side padding, bottom room for nav bar */
+    /* Main block: full width, normal side padding, no bottom padding for nav bar */
     .main .block-container {
         padding-top: 12px !important;
-        padding-bottom: 80px !important;
+        padding-bottom: 16px !important;
         padding-left: 14px !important;
         padding-right: 14px !important;
         max-width: 100% !important;
@@ -488,6 +491,36 @@ html, body { overflow-x: hidden; max-width: 100vw; }
     h1 a[href^="#"], h2 a[href^="#"], h3 a[href^="#"] { display: none !important; }
 }
 
+/* ── Mobile sidebar: touch-friendly nav items inside the drawer ──────────── */
+@media (max-width: 768px) {
+    /* Nav radio labels: large tap targets (≥44px), full-width */
+    [data-testid="stSidebarContent"] [data-testid="stRadio"] label {
+        min-height: 44px !important;
+        padding: 10px 12px !important;
+        font-size: 15px !important;
+    }
+    /* Sub-nav items slightly smaller but still tap-safe */
+    [data-testid="stSidebarContent"] .subnav [data-testid="stRadio"] label {
+        min-height: 38px !important;
+        padding: 8px 12px !important;
+        font-size: 13px !important;
+    }
+    /* Make sidebar scroll independently if content is tall */
+    [data-testid="stSidebarContent"] {
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+    }
+    /* Sidebar overlay: ensure it slides in from the left */
+    section[data-testid="stSidebar"] {
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        height: 100% !important;
+        z-index: 10000 !important;
+        overflow-y: auto !important;
+    }
+}
+
 /* ── Tablet: 769–1024px ────────────────────────────────────────────────────── */
 @media (min-width: 769px) and (max-width: 1024px) {
     section[data-testid="stSidebar"] {
@@ -500,116 +533,10 @@ html, body { overflow-x: hidden; max-width: 100vw; }
     }
 }
 
-/* ══ Mobile bottom navigation — st.segmented_control ════════════════════════ */
-/* One native Streamlit widget, position:fixed at bottom on mobile.
-   No hidden trigger buttons. No JS event tricks.
-   Safe to target all stSegmentedControl: no other page uses this widget.
-   Python-level guard (render_mobile_nav) also suppresses on desktop after
-   first-rerun screen-width detection. CSS is the primary fallback. */
-
-@media (max-width: 768px) {
-    /* ── Nav container — full-width fixed bar, native-app feel ── */
-    [data-testid="stSegmentedControl"] {
-        position: fixed !important;
-        bottom: 0 !important;
-        left: 0 !important;
-        right: 0 !important;
-        z-index: 9999 !important;
-        background: #0d1117 !important;
-        border-top: 1px solid #21262d !important;
-        box-shadow: 0 -2px 20px rgba(0,0,0,.70) !important;
-        margin: 0 !important;
-        padding: 0 0 calc(8px + env(safe-area-inset-bottom)) !important;
-        border-radius: 0 !important;
-        width: 100vw !important;
-        min-height: 92px !important;
-    }
-    /* ── Inner container — CSS grid: 5 equal columns, no wrap ── */
-    [data-testid="stSegmentedControl"] > div:first-child {
-        display: grid !important;
-        grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
-        width: 100% !important;
-        gap: 0 !important;
-        background: transparent !important;
-        border: none !important;
-        padding: 0 !important;
-        border-radius: 0 !important;
-        min-height: 92px !important;
-    }
-    /* ── Each option button — large tap target, icon above text ── */
-    [data-testid="stSegmentedControl"] button {
-        border-radius: 0 !important;
-        border: none !important;
-        border-top: 3px solid transparent !important;
-        background: none !important;
-        color: #8b949e !important;
-        font-size: 15px !important;
-        font-weight: 600 !important;
-        padding: 10px 2px 8px !important;
-        min-height: 92px !important;
-        width: 100% !important;
-        min-width: 0 !important;
-        display: flex !important;
-        flex-direction: column !important;
-        align-items: center !important;
-        justify-content: center !important;
-        gap: 5px !important;
-        -webkit-tap-highlight-color: transparent !important;
-        white-space: nowrap !important;
-        overflow: hidden !important;
-        text-overflow: clip !important;
-        box-shadow: none !important;
-        line-height: 1.2 !important;
-        cursor: pointer !important;
-    }
-    /* ── Icon (emoji) — 30–32px, clearly larger than label ── */
-    [data-testid="stSegmentedControl"] button > div > p,
-    [data-testid="stSegmentedControl"] button > p,
-    [data-testid="stSegmentedControl"] button span[data-testid="stIconEmoji"],
-    [data-testid="stSegmentedControl"] button [class*="icon"],
-    [data-testid="stSegmentedControl"] button [class*="Icon"],
-    [data-testid="stSegmentedControl"] button img {
-        font-size: 30px !important;
-        line-height: 1 !important;
-        margin: 0 !important;
-        display: block !important;
-    }
-    /* ── Label text — 15–16px, well readable ── */
-    [data-testid="stSegmentedControl"] button span:not([class]),
-    [data-testid="stSegmentedControl"] button [class*="label"],
-    [data-testid="stSegmentedControl"] button [class*="Label"] {
-        font-size: 15px !important;
-        line-height: 1.15 !important;
-        max-width: 100% !important;
-        overflow: hidden !important;
-        text-overflow: ellipsis !important;
-    }
-    /* ── Active / selected option — APH accent + top indicator line ── */
-    [data-testid="stSegmentedControl"] button[kind='segmented_controlActive'] {
-        color: #58a6ff !important;
-        background: rgba(88,166,255,0.09) !important;
-        border-top: 3px solid #58a6ff !important;
-        box-shadow: none !important;
-    }
-    /* ── Ensure main content is not hidden behind fixed nav ── */
-    [data-testid="stMainBlockContainer"] {
-        padding-bottom: 130px !important;
-    }
-}
-
-@media (min-width: 769px) {
-    /* Desktop: mobile nav must NOT be visible — sidebar handles navigation.
-       Multiple properties ensure this even with position:fixed from mobile rules. */
-    [data-testid="stSegmentedControl"] {
-        display: none !important;
-        visibility: hidden !important;
-        height: 0 !important;
-        overflow: hidden !important;
-        pointer-events: none !important;
-        position: static !important;
-        z-index: -1 !important;
-    }
-}
+/* ══ Bottom navigation — disabled: sidebar is the drawer on all viewports ══ */
+/* render_mobile_nav() is a no-op; inject_mobile_mehr_overlay() is disabled.
+   stSegmentedControl is not used for navigation any more.
+   If it appears anywhere else on the page, no special CSS needed. */
 
 /* ══ Mobile active-player header pill ════════════════════════════════════════ */
 .aph-mph { display: none; }

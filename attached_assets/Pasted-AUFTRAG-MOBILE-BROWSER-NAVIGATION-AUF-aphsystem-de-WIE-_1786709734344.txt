@@ -1,0 +1,253 @@
+AUFTRAG – MOBILE BROWSER-NAVIGATION AUF aphsystem.de WIE DESKTOP-SLIDE-NAVIGATION
+
+WICHTIG:
+Es geht NICHT um eine installierte Mobile-App.
+Es geht ausschließlich um die Web-App im normalen Smartphone-Browser,
+wenn der Nutzer https://aphsystem.de öffnet.
+
+AKTUELL:
+Im Handy-Browser wird eine eigene mobile Navigation unten angezeigt,
+z.B.:
+
+Start | Spieler | Tests
+Ausbildung | Mehr
+
+Diese Darstellung möchte ich NICHT.
+
+ZIEL:
+Auch im Smartphone-Browser soll dieselbe Navigation wie im Desktop-Modus
+verwendet werden:
+
+- Slide-/Drawer-Navigation
+- seitlich ein-/ausfahrbar
+- dieselben Menüpunkte
+- dieselben Rollen/Rechte
+- keine separate Bottom-Navigation
+- keine zweizeilige Button-Navigation
+
+Desktop bleibt unverändert.
+
+--------------------------------------------------
+1. BESTAND ZUERST PRÜFEN
+--------------------------------------------------
+
+Prüfe zuerst den vorhandenen Navigationscode.
+
+Suche insbesondere nach:
+
+- render_mobile_nav
+- mobile navigation
+- bottom navigation
+- slide navigation
+- drawer
+- sidebar
+- CSS Media Queries
+- screen width detection
+- detect_screen_width
+- _sw
+- responsive navigation
+- app.py Navigation
+
+Dokumentiere kurz:
+- welche Navigation bei Desktop verwendet wird
+- welche Navigation bei Smartphone-Browser verwendet wird
+- warum aktuell im Browser die Bottom-/Button-Navigation erscheint
+
+Danach nur die tatsächlich notwendige Navigation ändern.
+
+--------------------------------------------------
+2. HANDY-BROWSER
+--------------------------------------------------
+
+Wenn der Nutzer aphsystem.de mit einem Smartphone-Browser öffnet:
+
+NICHT MEHR anzeigen:
+
+Start | Spieler | Tests
+Ausbildung | Mehr
+
+Diese mobile Bottom-/Button-Navigation komplett deaktivieren.
+
+Stattdessen:
+
+die vorhandene Desktop-Slide-Navigation verwenden.
+
+--------------------------------------------------
+3. SLIDE-MENÜ
+--------------------------------------------------
+
+Im Smartphone-Browser:
+
+- Menü standardmäßig geschlossen
+- über Menü-/Hamburger-Button öffnen
+- seitlich einfahren
+- Menüeinträge vertikal untereinander
+- scrollbar
+- große Touch-Flächen
+- nach Auswahl einer Seite wieder schließen
+
+Beispiel:
+
+☰
+
+ATHLETIC PERFORMANCE HUB
+
+🏠 Startseite
+👤 Spieler
+🔬 Diagnostik
+📅 Training
+📈 Entwicklung
+⚖ Vergleich
+👥 Mannschaft
+📄 Dokumente
+⚙ Einstellungen
+👤 Mein Profil
+ℹ Über
+...
+
+Nur die Menüpunkte anzeigen, die der jeweilige Benutzer laut bestehender
+Rollenlogik sehen darf.
+
+--------------------------------------------------
+4. DESKTOP
+--------------------------------------------------
+
+Desktop-Navigation darf sich nicht verändern.
+
+Bei Desktop-Browser:
+bestehendes Verhalten exakt beibehalten.
+
+--------------------------------------------------
+5. TABLET / KLEINE BREITEN
+--------------------------------------------------
+
+Die Navigation soll responsiv funktionieren.
+
+Richtwert:
+
+Desktop:
+bestehende Slide-Navigation unverändert.
+
+Tablet / Smartphone:
+gleiche Slide-Navigation,
+aber schmaler.
+
+z.B.:
+
+width: min(85vw, 320px)
+
+Keine horizontale Überbreite.
+
+--------------------------------------------------
+6. KEINE DOPPELTE NAVIGATION
+--------------------------------------------------
+
+Ganz wichtig:
+
+Im Smartphone-Browser darf nicht gleichzeitig
+
+- Slide-Navigation
+und
+- Bottom-/Button-Navigation
+
+sichtbar sein.
+
+Nur eine Navigation.
+
+--------------------------------------------------
+7. SCREEN-WIDTH-ERKENNUNG NICHT KAPUTTMACHEN
+--------------------------------------------------
+
+Die bestehende Screen-Width-Erkennung darf weiter verwendet werden.
+
+Wichtig:
+Der zuletzt reparierte Session-Restore muss unverändert bleiben.
+
+Nicht ändern:
+
+import time
+time.sleep(0.35)
+st.rerun()
+
+Auch nicht verändern:
+- Login
+- CookieController
+- Session-Validierung
+- Stripe
+- Verträge
+- Kundennummern
+- Trainingsplan
+- Diagnostik
+
+--------------------------------------------------
+8. MOBILE BROWSER TESTS
+--------------------------------------------------
+
+Mindestens testen:
+
+A)
+Chrome Android ca. 360–430 px
+→ keine Bottom-Navigation
+→ Slide-Menü vorhanden
+
+B)
+Smartphone quer
+→ Slide-Menü funktioniert
+
+C)
+Tablet
+→ Slide-Menü funktioniert
+
+D)
+Desktop
+→ bestehende Navigation unverändert
+
+E)
+Menü öffnen
+→ alle erlaubten Menüpunkte sichtbar
+
+F)
+Menüpunkt wählen
+→ richtige Seite
+→ Drawer schließt
+
+G)
+Superadmin
+→ Superadmin-Menüpunkte korrekt
+
+H)
+Trainer
+→ Trainer-Menüpunkte korrekt
+
+I)
+Reload im Handy-Browser
+→ Session bleibt bestehen
+
+J)
+kein Hängen bei:
+"Sitzung wird geprüft …"
+
+K)
+python3 -m py_compile app.py
+
+L)
+Block-B-Tests weiterhin PASS
+
+--------------------------------------------------
+9. ABSCHLUSSBERICHT
+--------------------------------------------------
+
+Danach berichten:
+
+1. Wo die Bottom-/Mobile-Navigation implementiert war
+2. Warum sie im Handy-Browser angezeigt wurde
+3. Welche Datei(en) geändert wurden
+4. Wie jetzt die Desktop-Slide-Navigation auch im Smartphone-Browser verwendet wird
+5. Welche Media Queries / Breitenlogik angepasst wurden
+6. Desktop unverändert?
+7. Session-Fix unverändert?
+8. Testergebnisse
+
+Danach STOPPEN.
+
+Keine weiteren Änderungen.

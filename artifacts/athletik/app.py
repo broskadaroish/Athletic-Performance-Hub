@@ -10802,13 +10802,8 @@ with st.sidebar:
 # ── Route ─────────────────────────────────────────────────────────────────────
 _check_save_ok()
 
-# Mobile: "Mehr" overlay — position:fixed, covers main content on ≤768px
-# Guard: only render on mobile (≤768px); desktop uses sidebar exclusively
-_mob_sw = st.session_state.get("_screen_width", 0)
-if _mob_sw == 0 or _mob_sw <= 768:
-    if inject_mobile_mehr_overlay(_MAIN_SECTIONS):
-        render_mobile_nav(section)
-        st.stop()
+# Bottom navigation removed: sidebar drawer handles all viewports.
+# inject_mobile_mehr_overlay() and render_mobile_nav() are no-ops / disabled.
 
 # Helper: look up active player object for mobile player header
 def _mob_player():
@@ -10865,7 +10860,7 @@ elif section == "📋  Mein Vertrag":
 elif section == "👥  Kundenverwaltung":
     page_kundenverwaltung()
 
-# ── Mobile bottom nav (≤768px only, no <a href>, no page reload) ─────────────
+# ── Screen-width detector (no-op for nav; kept for inject_mobile_player_header guard) ──
 render_mobile_nav(section)
 
 # ═══════════════════════════════════════════════════════════════════════════════

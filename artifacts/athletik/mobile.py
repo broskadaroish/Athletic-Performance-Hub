@@ -183,86 +183,18 @@ def _inject_screen_width_detect() -> None:
 
 def render_mobile_nav(current_section: str) -> None:
     """
-    Render the mobile bottom navigation as a single st.segmented_control.
+    No-op: Bottom navigation is disabled.
 
-    Layout
-    ──────
-    The widget appears position:fixed at the bottom on ≤768px via CSS
-    declared in theme.py ([data-testid="stSegmentedControl"]).
-    On desktop (≥769px) the widget is NOT rendered (Python-level guard) after
-    the first-load screen-width detection rerun. CSS provides an additional
-    hide fallback for the one initial render on desktop before detection fires.
+    Navigation on all viewports (mobile and desktop) is now handled exclusively
+    by the Streamlit sidebar drawer.  On mobile (≤768px) Streamlit's built-in
+    hamburger button (☰) opens the sidebar as a slide-in overlay — the same
+    st.radio nav_section widget used on desktop.
 
-    Screen-width detection
-    ──────────────────────
-    On the very first render, _inject_screen_width_detect() injects a JS snippet
-    that writes window.innerWidth to ?_sw= and triggers a location.replace()
-    reload. handle_mobile_nav_params() (called before the nav radio widget in
-    app.py) reads ?_sw= on that reload and stores it in
-    st.session_state["_screen_width"]. From then on, render_mobile_nav() returns
-    immediately when _screen_width > 768, so the widget is never instantiated on
-    desktop. The one-time reload is harmless; cookie-based auth survives it.
-
-    Navigation flow
-    ───────────────
-    1. User taps an option → on_change callback fires with the new value.
-    2. Callback sets st.session_state["_nav_goto"] (the existing pending-key
-       consumed at app.py line ~9812, BEFORE the nav_section radio widget).
-       This avoids StreamlitAPIException when writing to a widget key.
-    3. Streamlit auto-reruns after the widget change (no explicit st.rerun()
-       needed in the callback).
-    4. On the next rerun, _nav_goto is applied → section changes.
-
-    "⋯ Mehr"
-    ────────
-    Setting "⋯ Mehr" sets mobile_mehr_open = True.
-    In app.py, inject_mobile_mehr_overlay() detects this and renders a
-    native Streamlit Mehr menu (st.button list) → caller calls st.stop().
-    render_mobile_nav() is called before st.stop() so the nav is always visible.
-
-    No hidden buttons. No JS event tricks. No HTML bridges.
+    This function is kept as a stub so that existing call-sites in app.py
+    require no import changes.  The screen-width detector is still injected
+    so that _screen_width is available for other guards (e.g. inject_mobile_player_header).
     """
-    # ── Screen-width guard: inject detector once; skip render on desktop ──────
     _inject_screen_width_detect()
-    _sw = st.session_state.get("_screen_width", 0)
-    if _sw > 768:
-        return  # Desktop detected — sidebar handles navigation
-
-    def _on_nav_change() -> None:
-        choice = st.session_state.get("_mobile_nav_sc")
-        if choice is None:
-            return
-        sec = _BOT_NAV_TO_SECTION.get(choice)
-        if sec is None:          # "⋯ Mehr" selected
-            st.session_state["mobile_mehr_open"] = True
-        else:
-            st.session_state["_nav_goto"] = sec
-            st.session_state["mobile_mehr_open"] = False
-
-    mehr_open = bool(st.session_state.get("mobile_mehr_open"))
-    if mehr_open or current_section not in _BOT_NAV_PRIMARY:
-        # Non-primary sections (e.g. Entwicklung, Vergleich) accessed via Mehr
-        # → highlight "⋯ Mehr" in the nav bar (standard mobile UX)
-        current_default = "⋯ Mehr"
-    else:
-        current_default = _SECTION_TO_BOT_NAV.get(current_section, "🏠 Start")
-
-    # ── State-Synchronisation: verhindert spurious on_change bei programmatischer
-    # Navigation. st.segmented_control feuert on_change wenn default sich ändert
-    # und session_state[key] noch den alten Wert hält (z.B. "🏠 Start" nach
-    # Startseite → Spieler-Button). Durch explizites Setzen auf current_default
-    # VOR dem Widget-Render entsteht kein Mismatch → on_change feuert nur bei
-    # echter Benutzer-Auswahl in der Bottom-Nav.
-    st.session_state["_mobile_nav_sc"] = current_default
-
-    st.segmented_control(
-        label="Navigation",
-        options=_BOT_NAV_OPTS,
-        default=current_default,
-        key="_mobile_nav_sc",
-        on_change=_on_nav_change,
-        label_visibility="collapsed",
-    )
 
 
 # ── "Mehr" full-screen navigation menu ───────────────────────────────────────
