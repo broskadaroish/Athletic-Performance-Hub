@@ -1474,3 +1474,198 @@ def defizit_tabelle(schwerpunkt_text: str) -> list[dict]:
         }
         for area, score in sorted(scores.items(), key=lambda x: -x[1])
     ]
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Wochenplanung: APH-Empfehlungslogik (Spec §9, §12, §13)
+# ─────────────────────────────────────────────────────────────────────────────
+
+_WOCHENTAGE_WP = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"]
+_WT_IDX_WP = {t: i for i, t in enumerate(_WOCHENTAGE_WP)}
+
+
+def _schwerpunkt_intensitaet_wp(schwerpunkt_text: str) -> int:
+    """
+    Gibt die Intensitätsstufe des Trainingsschwerpunkts zurück.
+    0 = leicht (Mobilität, Stabilität, Korrektiv)
+    1 = mittel (Kraft, Hüfte, Knie, Agilität)
+    2 = hoch (Sprint, Beschleunigung, Explosivkraft, Power, Schnelligkeit)
+    """
+    txt = schwerpunkt_text.lower()
+    if any(w in txt for w in ("sprint", "beschleunig", "explosiv", "power", "schnell",
+                               "sprung", "maximum", "plyometrie")):
+        return 2
+    if any(w in txt for w in ("kraft", "agilität", "knie", "hüfte", "oberschenkel",
+                               "fußball")):
+        return 1
+    return 0
+
+
+def empfohlene_athletik_einheiten(
+    alter: float | None,
+    verein_anzahl: int,
+    spielbelastung: str,
+    saison_phase: str = "Normal",
+    hat_defizite: bool = False,
+    trainingszeit_min: int = 60,
+) -> tuple[int, str]:
+    """
+    Berechnet die empfohlene Anzahl wöchentlicher Zusatz-Athletikeinheiten.
+    Berücksichtigt: Alter, Vereinstraining, Spielbelastung, Saisonphase, Defizite.
+    Spec §9, §8, §23.
+
+    Returns:
+        (anzahl, begruendung_text)
+    """
+    alter = alter or 18.0
+
+    # Spielbelastungs-Score
+    _spiel_scores = {
+        "Kein Spiel": 0,
+        "1 Spiel": 1,
+        "2 Spiele": 2,
+        "Turnier / mehrere Spiele": 3,
+        "wechselnd": 1,
+    }
+    spiel_score = _spiel_scores.get(spielbelastung, 1)
+    fussball_score = verein_anzahl + spiel_score  # Gesamtbelastung 0–9+
+
+    # Altersabhängige Maximalgrenze (Spec §8 — keine Erwachsenen-Modelle auf Kinder)
+    if alter < 10:
+        max_empfehlung = 1
+    elif alter < 12:
+        max_empfehlung = 1
+    elif alter < 14:
+        max_empfehlung = 2
+    elif alter < 16:
+        max_empfehlung = 2
+    elif alter < 18:
+        max_empfehlung = 3
+    else:
+        max_empfehlung = 3
+
+    # Saisonperiode-Anpassung (Spec §23)
+    if saison_phase == "Nachsaison":
+        max_empfehlung = min(max_empfehlung, 1)
+    elif saison_phase == "Saison":
+        max_empfehlung = min(max_empfehlung, 2)
+    elif saison_phase == "Vorbereitung" and alter >= 14:
+        max_empfehlung = min(max_empfehlung + 1, 4)
+
+    # Hauptregel: Athletikbelastung im Verhältnis zur Fußballbelastung (Spec §7)
+    if fussball_score <= 1:
+        base = 2
+        grund = "geringe Gesamtbelastung"
+    elif fussball_score <= 3:
+        base = 2 if hat_defizite else 1
+        grund = "mittlere Fußballbelastung"
+    elif fussball_score <= 5:
+        base = 1
+        grund = "hohe Fußballbelastung"
+    else:
+        base = 1
+        grund = "sehr hohe Fußballbelastung"
+
+    # Turnier-Reduktion
+    if spielbelastung == "Turnier / mehrere Spiele":
+        base = max(0, base - 1)
+        grund += " + Turnierwoche"
+
+    empfehlung = min(base, max_empfehlung)
+
+    # Begründungstext
+    teile = []
+    if verein_anzahl > 0:
+        teile.append(f"{verein_anzahl}× Vereinstraining")
+    if spiel_score > 0:
+        teile.append(spielbelastung)
+    teile_str = " + ".join(teile) if teile else "keine Vereinsbelastung angegeben"
+
+    begruendung = (
+        f"Bei {teile_str} empfiehlt APH {empfehlung} zusätzliche "
+        f"Athletikeinheit(en) pro Woche ({grund}"
+    )
+    if saison_phase != "Normal":
+        begruendung += f", Saisonphase: {saison_phase}"
+    if alter < 14:
+        begruendung += f", altersgerechte Anpassung (U14)"
+    elif alter < 18:
+        begruendung += f", altersgerechte Anpassung (U18)"
+    begruendung += ")."
+
+    return empfehlung, begruendung
+
+
+def empfohlene_athletik_tage(
+    anzahl: int,
+    verein_tage: list[str],
+    spiel_tage: list[str],
+    alter: float | None = None,
+    schwerpunkt_text: str = "",
+) -> list[str]:
+    """
+    Schlägt geeignete Wochentage für Athletikeinheiten vor.
+    Berücksichtigt: Vereinstrainingstage, Spieltag, Intensität, Erholung.
+    Spec §12, §13.
+
+    Args:
+        anzahl: Gewünschte Anzahl Athletiktage.
+        verein_tage: z.B. ["Dienstag", "Donnerstag"]
+        spiel_tage: z.B. ["Samstag"] — leer wenn kein Spiel.
+        alter: Spieleralter (für zukünftige Erweiterungen).
+        schwerpunkt_text: Trainingsinhalt-Text zur Intensitätseinschätzung.
+
+    Returns:
+        Sortierte Liste von Wochentagsnamen.
+    """
+    if anzahl <= 0:
+        return []
+
+    verein_idx = {_WT_IDX_WP[t] for t in verein_tage if t in _WT_IDX_WP}
+    spiel_idx  = {_WT_IDX_WP[t] for t in spiel_tage  if t in _WT_IDX_WP}
+    belegt     = verein_idx | spiel_idx
+    intensitaet = _schwerpunkt_intensitaet_wp(schwerpunkt_text)
+
+    # Freie Tage (nicht durch Vereinstraining/Spiel belegt)
+    freie_tage = [i for i in range(7) if i not in belegt]
+
+    def score(tag_idx: int) -> float:
+        """Höherer Score = besserer Tag für Athletik."""
+        s = 0.0
+        # Abstand zu Spieltagen berücksichtigen
+        for si in spiel_idx:
+            abstand_vor_spiel = (si - tag_idx) % 7
+            if abstand_vor_spiel == 1:
+                # Direkt vor Spiel: intensive Inhalte stark bestrafen (Spec §13)
+                s -= 10 if intensitaet >= 2 else 3
+            elif abstand_vor_spiel == 2:
+                s += 1   # 2 Tage vor Spiel: akzeptabel
+            elif abstand_vor_spiel >= 4:
+                s += 2   # Weit weg vom Spiel: gut
+        # Abstand nach Vereinstraining
+        for vi in verein_idx:
+            abstand_nach_verein = (tag_idx - vi) % 7
+            if abstand_nach_verein == 1:
+                s += 1   # Tag nach Vereinstraining: Erholung hat begonnen
+            elif abstand_nach_verein == 2:
+                s += 2   # 2 Tage nach Vereinstraining: ideal
+        # Freie Tage bevorzugen
+        if tag_idx not in belegt:
+            s += 1
+        return s
+
+    # Kandidaten sortieren: freie Tage bevorzugen, dann alle Tage
+    kandidaten_frei = sorted(freie_tage, key=score, reverse=True)
+    kandidaten_alle = sorted(range(7), key=score, reverse=True)
+    # Fülle mit freien Tagen auf, dann falls nötig mit belegten Tagen
+    gewaehlte_idx: list[int] = []
+    for idx in kandidaten_frei:
+        if len(gewaehlte_idx) >= anzahl:
+            break
+        gewaehlte_idx.append(idx)
+    if len(gewaehlte_idx) < anzahl:
+        for idx in kandidaten_alle:
+            if idx not in gewaehlte_idx and len(gewaehlte_idx) < anzahl:
+                gewaehlte_idx.append(idx)
+
+    return [_WOCHENTAGE_WP[i] for i in sorted(gewaehlte_idx)]

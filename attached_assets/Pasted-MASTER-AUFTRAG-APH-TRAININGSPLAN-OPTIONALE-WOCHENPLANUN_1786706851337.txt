@@ -1,0 +1,1599 @@
+MASTER-AUFTRAG – APH TRAININGSPLAN
+OPTIONALE WOCHENPLANUNG MIT VEREINSBELASTUNG, SPIELTAGEN UND
+AUTOMATISCHER ATHLETIK-EMPFEHLUNG
+
+============================================================
+0. GRUNDREGEL – ZUERST BESTAND ANALYSIEREN
+============================================================
+
+Bevor irgendein Code geändert wird:
+
+Analysiere vollständig die aktuell vorhandene Trainingsplan-Erstellung
+im Athletic Performance Hub (APH).
+
+Prüfe insbesondere:
+
+- Welche Dateien sind für die Trainingsplan-Erstellung zuständig?
+- Welche Funktionen erzeugen Trainingspläne?
+- Welche Planparameter existieren bereits?
+- Wie wird die Planlänge verarbeitet?
+- Wie wird die Saisonperiode verarbeitet?
+- Wie wird Equipment verarbeitet?
+- Wie wird Trainingszeit pro Einheit verarbeitet?
+- Wie wird das Alter des Spielers berücksichtigt?
+- Wie werden FMS-Ergebnisse berücksichtigt?
+- Wie werden Y-Balance-Ergebnisse berücksichtigt?
+- Wie werden Sprinttests berücksichtigt?
+- Welche weiteren Tests fließen ein?
+- Wie werden Defizite erkannt?
+- Wie werden Schwerpunkte priorisiert?
+- Wie werden Übungen ausgewählt?
+- Wie werden Belastungsparameter verarbeitet?
+- Wie werden Intensität, Umfang, Dauer, Dichte und Häufigkeit verarbeitet?
+- Wie funktionieren Progression und Periodisierung?
+- Wie werden Trainingspläne gespeichert?
+- Welche DB-Tabellen/Felder oder JSON-Strukturen werden verwendet?
+- Wie funktioniert die bestehende Standard-Planerstellung?
+- Welche bestehenden Hilfsfunktionen können wiederverwendet werden?
+
+WICHTIG:
+
+KEINE zweite Trainingsplan-Engine bauen.
+
+KEINE bestehende Trainingslogik ersetzen.
+
+KEINE funktionierende Standard-Planerstellung entfernen.
+
+Bestehende Funktionen so weit wie möglich wiederverwenden und nur gezielt
+erweitern.
+
+Wenn die bestehende Architektur bereits eine bessere Stelle für diese
+Erweiterung besitzt, diese verwenden.
+
+============================================================
+1. ZIEL DER ERWEITERUNG
+============================================================
+
+APH soll zukünftig zwei Planungsarten unterstützen:
+
+A) STANDARD-PLANUNG
+
+B) WOCHENPLANUNG MIT VEREINSBELASTUNG
+
+Der Trainer entscheidet selbst, welche Variante verwendet wird.
+
+Die bisherige Planerstellung muss vollständig erhalten bleiben.
+
+============================================================
+2. PLANUNGSMODUS
+============================================================
+
+Unter "Planparameter" eine neue Auswahl ergänzen:
+
+PLANUNGSMODUS
+
+Option 1:
+
+STANDARD
+
+Option 2:
+
+MIT VEREINSBELASTUNG / WOCHENPLANUNG
+
+------------------------------------------------------------
+STANDARD
+------------------------------------------------------------
+
+STANDARD muss grundsätzlich so funktionieren wie die bisherige
+Planerstellung.
+
+Es werden weiterhin die bereits vorhandenen Parameter verwendet, z.B.:
+
+- Planlänge
+- Saisonperiode
+- Equipment
+- Trainingszeit pro Einheit
+- Spieler
+- Alter
+- Tests
+- Defizite
+- Schwerpunkte
+- vorhandene Belastungslogik
+- vorhandene Progressionslogik
+
+Der Trainer muss hierbei NICHT angeben:
+
+- Vereinstrainingstage
+- Anzahl Vereinstrainings
+- Spieltage
+- Turniertage
+
+Die neue Erweiterung darf den bisherigen Standardmodus nicht unnötig
+verkomplizieren.
+
+------------------------------------------------------------
+MIT VEREINSBELASTUNG / WOCHENPLANUNG
+------------------------------------------------------------
+
+Nur wenn dieser Modus gewählt wird, werden zusätzliche Parameter
+eingeblendet.
+
+APH berücksichtigt dann die komplette bekannte Wochenbelastung des
+Spielers und schlägt passende zusätzliche Athletikeinheiten vor.
+
+============================================================
+3. BEREITS VORHANDENE PLANPARAMETER BEIBEHALTEN
+============================================================
+
+Folgende bereits vorhandenen Parameter dürfen nicht neu erfunden oder
+doppelt implementiert werden:
+
+- Planlänge, z.B. 4 / 6 / 8 Wochen
+- Saisonperiode, z.B. Normalphase / Vorbereitung usw.
+- verfügbares Equipment
+- Trainingszeit pro Einheit
+- altersentsprechende Planung
+- Testauswertungen
+- Defizite
+- Trainingsschwerpunkte
+- Belastungssteuerung
+- Übungsauswahl
+- Progression
+- Periodisierung
+
+Zuerst prüfen, wie diese aktuell implementiert sind.
+
+Danach nur ergänzen.
+
+============================================================
+4. NEU – VEREINSTRAINING PRO WOCHE
+============================================================
+
+Im Modus "Mit Vereinsbelastung" folgende Frage ergänzen:
+
+"Wie oft trainiert der Spieler pro Woche im Verein?"
+
+Auswahl beispielsweise:
+
+0
+1
+2
+3
+4
+5
+6+
+
+Die UI soll einfach und mobil gut bedienbar sein.
+
+============================================================
+5. NEU – VEREINSTRAININGSTAGE
+============================================================
+
+Danach:
+
+"An welchen Tagen findet das Vereinstraining normalerweise statt?"
+
+Auswahl:
+
+Montag
+Dienstag
+Mittwoch
+Donnerstag
+Freitag
+Samstag
+Sonntag
+
+Multiselect oder geeignete mobile Auswahl verwenden.
+
+Beispiel:
+
+Dienstag
+Donnerstag
+
+Die Anzahl ausgewählter Tage sollte grundsätzlich zur angegebenen
+Trainingshäufigkeit passen.
+
+Beispiel:
+
+Vereinstraining pro Woche = 2
+
+aber 3 Tage ausgewählt
+
+→ freundlichen Hinweis anzeigen.
+
+Keine unnötige harte Sperre einbauen.
+
+============================================================
+6. NEU – SPIELE UND TURNIERE
+============================================================
+
+Zusätzlich fragen:
+
+"Wie hoch ist die typische Spiel-/Turnierbelastung pro Woche?"
+
+Auswahl beispielsweise:
+
+- Kein Spiel
+- 1 Spiel
+- 2 Spiele
+- Turnier / mehrere Spiele
+- wechselnd
+
+Danach:
+
+"Typischer Spiel-/Turniertag"
+
+Auswahl:
+
+Montag
+Dienstag
+Mittwoch
+Donnerstag
+Freitag
+Samstag
+Sonntag
+Wechselnd
+
+Wenn kein Spiel gewählt wurde, muss kein Spieltag angegeben werden.
+
+============================================================
+7. GESAMTBELASTUNG BERECHNEN
+============================================================
+
+APH soll aus den Angaben eine sinnvolle Gesamtbelastung ableiten.
+
+Dabei mindestens berücksichtigen:
+
+- Alter
+- Anzahl Vereinstrainings
+- Vereinstrainingstage
+- Anzahl Spiele
+- Turnierbelastung
+- Spieltag
+- Saisonperiode
+- Trainingszeit
+- vorhandene Testdaten
+- vorhandene Defizite
+- vorhandene Belastungslogik
+- Planlänge
+
+WICHTIG:
+
+Nicht einfach:
+
+"mehr Training = besser"
+
+verwenden.
+
+Die zusätzliche Athletikbelastung muss im Verhältnis zur bereits
+vorhandenen Fußballbelastung stehen.
+
+============================================================
+8. ALTER MUSS WEITERHIN BERÜCKSICHTIGT WERDEN
+============================================================
+
+Die bereits vorhandene altersentsprechende Trainingslogik muss
+weiterverwendet werden.
+
+Keine zweite unabhängige Alterslogik bauen, wenn bereits geeignete
+Funktionen existieren.
+
+Grundprinzip:
+
+Jüngere Spieler:
+
+- geringere zusätzliche Trainingsbelastung
+- kürzere Einheiten
+- technisch saubere Bewegungsausführung
+- Koordination
+- Bewegungsqualität
+- altersgerechte Kraftentwicklung
+- ausreichende Erholung
+
+Mit zunehmendem Alter und Trainingsstatus kann die Planung entsprechend
+angepasst werden.
+
+Aber:
+
+Keine pauschalen Erwachsenen-Trainingsmodelle auf Kinder übertragen.
+
+============================================================
+9. APH EMPFIEHLT DIE ANZAHL DER ATHLETIK-EINHEITEN
+============================================================
+
+Eine zentrale Empfehlung erzeugen.
+
+Beispielsweise Funktion:
+
+empfohlene_athletik_einheiten(...)
+
+Die genaue Implementierung soll zur vorhandenen Architektur passen.
+
+Input mindestens:
+
+- Alter
+- Vereinstraining pro Woche
+- Spielbelastung
+- Turnierbelastung
+- Saisonperiode
+- vorhandene Testdefizite
+- vorhandene Belastungsinformationen
+
+Output mindestens:
+
+- empfohlene Athletikeinheiten pro Woche
+- kurze verständliche Begründung
+
+Beispiele für die Logik:
+
+GERINGE FUSSBALLBELASTUNG
+
+→ eventuell 2 zusätzliche Athletikeinheiten sinnvoll
+
+MITTLERE FUSSBALLBELASTUNG
+
+→ häufig 1–2 Einheiten
+
+HOHE FUSSBALLBELASTUNG
+
+→ eher weniger zusätzliche Belastung
+
+MEHRERE SPIELE / TURNIERWOCHE
+
+→ Athletikbelastung reduzieren bzw. kurze gezielte Einheiten bevorzugen
+
+VORBEREITUNG
+
+→ je nach Alter und Gesamtbelastung eventuell mehr Athletik möglich
+
+NORMAL-/WETTKAMPFPHASE
+
+→ Vereinstraining und Spielbelastung stärker berücksichtigen
+
+Diese Beispiele sind keine starren Regeln.
+
+Bestehende APH-Belastungslogik soll einbezogen werden.
+
+============================================================
+10. TRAINER HAT IMMER DIE LETZTE ENTSCHEIDUNG
+============================================================
+
+APH gibt eine Empfehlung.
+
+Der Trainer entscheidet.
+
+Anzeige beispielsweise:
+
+"APH empfiehlt 2 Athletikeinheiten pro Woche."
+
+Darunter:
+
+[ Empfehlung übernehmen ]
+
+[ Manuell festlegen ]
+
+Bei manueller Festlegung beispielsweise:
+
+1 Einheit
+2 Einheiten
+3 Einheiten
+4 Einheiten
+
+Falls technisch sinnvoll auch 0 ermöglichen.
+
+Der Trainer darf:
+
+- mehr Einheiten wählen
+- weniger Einheiten wählen
+- andere Tage wählen
+
+APH darf bei problematischen Entscheidungen warnen.
+
+APH soll den Trainer aber nicht unnötig blockieren.
+
+============================================================
+11. WARNUNG BEI HOHER ZUSATZBELASTUNG
+============================================================
+
+Wenn der Trainer deutlich mehr zusätzliche Athletikeinheiten auswählt
+als APH empfiehlt:
+
+Warnhinweis anzeigen.
+
+Beispiel:
+
+"Die gewählte Anzahl zusätzlicher Athletikeinheiten ist bei der aktuellen
+Fußballbelastung relativ hoch. Bitte Gesamtbelastung und Regeneration
+berücksichtigen."
+
+Trainer kann trotzdem fortfahren.
+
+Trainer-Override speichern.
+
+============================================================
+12. APH SOLL GEEIGNETE WOCHENTAGE EMPFEHLEN
+============================================================
+
+APH soll nicht nur die Anzahl der Einheiten empfehlen.
+
+APH soll zusätzlich passende Athletiktage vorschlagen.
+
+Beispiel:
+
+Vereinstraining:
+Dienstag
+Donnerstag
+
+Spiel:
+Samstag
+
+APH könnte beispielsweise vorschlagen:
+
+Montag:
+Athletik
+
+Mittwoch:
+optional zweite bzw. kurze Athletikeinheit
+
+Freitag:
+keine intensive Belastung direkt vor dem Spiel
+
+Die konkrete Empfehlung muss aber vom Inhalt und der vorhandenen
+Belastungslogik abhängen.
+
+============================================================
+13. TRAININGSINHALT BEI DER TAGESWAHL BERÜCKSICHTIGEN
+============================================================
+
+Nicht jede Athletikeinheit belastet gleich.
+
+Vorhandene Intensitäts-/Belastungsklassifikation verwenden.
+
+Falls noch keine zentrale Klassifikation existiert, zuerst prüfen, wie
+die bestehende Trainingsplan-Engine Belastungen unterscheidet.
+
+Typischerweise stärker belastend:
+
+- Sprint
+- Beschleunigung
+- Maximalkraft
+- Explosivkraft
+- intensive Plyometrie
+- intensive Schnelligkeitsarbeit
+
+Diese Inhalte nicht unnötig direkt vor einen wichtigen Spiel-/Turniertag
+legen.
+
+Leichtere Inhalte können näher am Spiel liegen, z.B.:
+
+- Mobilität
+- leichte Stabilität
+- Bewegungsqualität
+- korrektive Übungen
+- kurze Aktivierung
+
+Keine starre neue Parallelregel bauen, wenn APH bereits entsprechende
+Belastungsparameter besitzt.
+
+============================================================
+14. TESTS UND DEFIZITE BLEIBEN FÜHREND
+============================================================
+
+SEHR WICHTIG:
+
+Die neue Wochenplanung entscheidet hauptsächlich:
+
+WANN wird trainiert?
+
+WIE OFT wird trainiert?
+
+WIE VIEL Belastung ist sinnvoll?
+
+Die vorhandene Diagnostik entscheidet weiterhin hauptsächlich:
+
+WAS wird trainiert?
+
+WARUM wird es trainiert?
+
+MIT WELCHER PRIORITÄT?
+
+Beispiele vorhandener Diagnostik:
+
+- FMS
+- Y-Balance
+- Sprinttests
+- weitere bereits integrierte Tests
+
+Wenn Tests Defizite zeigen, müssen diese weiterhin in die
+Trainingsplanung einfließen.
+
+============================================================
+15. BEISPIEL TESTDEFIZITE
+============================================================
+
+Beispiel:
+
+Spieler hat:
+
+- eingeschränkte Sprunggelenksmobilität
+- Rumpfstabilitätsdefizit
+- relevante Y-Balance-Asymmetrie
+- Beschleunigungsdefizit
+
+Dann soll die neue Wochenplanung diese Schwerpunkte NICHT überschreiben.
+
+Stattdessen:
+
+APH bestimmt geeignete Anzahl und Tage.
+
+Die bestehende Trainingsplanlogik bestimmt die passenden Übungen und
+Schwerpunkte.
+
+============================================================
+16. PRIORISIERUNG DER DEFIZITE BEIBEHALTEN
+============================================================
+
+Die vorhandene Prioritätslogik weiterverwenden.
+
+Wenn mehrere Defizite vorhanden sind:
+
+Nicht alle gleichzeitig maximal belasten.
+
+Beispielsweise:
+
+Priorität 1
+→ wichtigstes Defizit
+
+Priorität 2
+→ zweites relevantes Defizit
+
+Weitere Themen
+→ integrieren / erhalten
+
+Wenn nur 1–2 relevante Defizite vorhanden sind:
+
+Plan weiterhin hauptsächlich darauf ausrichten.
+
+============================================================
+17. KEINE TESTDATEN VORHANDEN
+============================================================
+
+Wenn keine aktuellen Tests vorhanden sind:
+
+Planerstellung darf nicht ausfallen.
+
+Dann weiterhin die bereits vorhandene altersentsprechende
+Standardplanung verwenden.
+
+Im Modus mit Vereinsbelastung kann trotzdem:
+
+- Trainingshäufigkeit
+- Trainingstage
+- Spielbelastung
+- Regeneration
+
+berücksichtigt werden.
+
+Die Trainingsinhalte kommen dann aus der bestehenden altersgerechten
+Standardlogik.
+
+============================================================
+18. SCHWERPUNKTE WEITER BERÜCKSICHTIGEN
+============================================================
+
+Alle bereits vorhandenen Schwerpunkte des Trainingsplan-Generators müssen
+weiter funktionieren.
+
+Die neue Wochenplanung darf nicht dazu führen, dass Testschwerpunkte
+verschwinden.
+
+Wenn beispielsweise Sprint/Beschleunigung Priorität besitzt, muss dieser
+Schwerpunkt weiterhin sinnvoll im Plan erscheinen.
+
+Wenn Stabilität/Mobilität Priorität besitzt, ebenfalls.
+
+============================================================
+19. BESTEHENDE TRAININGSPHILOSOPHIE BEIBEHALTEN
+============================================================
+
+Die bereits vorhandenen Regeln zur Übungsreihenfolge und
+Trainingsgestaltung nicht überschreiben.
+
+Insbesondere vorhandene Regeln zu:
+
+- Schnelligkeit
+- Kraft
+- komplexen Übungen
+- Mehrgelenksübungen
+- Eingelenksübungen
+- großen/kleinen Muskelgruppen
+- Druck-/Zugbewegungen
+- Oberkörper-/Beinbelastung
+- Energiebereitstellung
+- Belastungsnormativen
+
+weiterverwenden, soweit sie im bestehenden System relevant sind.
+
+============================================================
+20. BELASTUNGSNORMATIVE WEITER VERWENDEN
+============================================================
+
+Bestehende Parameter wie:
+
+- Belastungsintensität
+- Belastungsdauer
+- Belastungsumfang
+- Belastungsdichte
+- Belastungshäufigkeit
+
+dürfen nicht durch eine simple "Anzahl Trainingstage"-Logik ersetzt werden.
+
+Die Wochenplanung ist eine zusätzliche Ebene über der bestehenden
+Trainingsplanung.
+
+============================================================
+21. WOCHENANSICHT
+============================================================
+
+Im erweiterten Modus soll der Plan verständlich nach Wochentagen
+dargestellt werden können.
+
+Beispiel:
+
+WOCHE 1
+
+MONTAG
+APH Athletik
+Schwerpunkt: Rumpfstabilität + Kraft
+Dauer: 35 Minuten
+Intensität: mittel
+
+DIENSTAG
+Vereinstraining
+
+MITTWOCH
+APH Athletik
+Schwerpunkt: Beschleunigung + Sprunggelenk
+Dauer: 30 Minuten
+Intensität: mittel/hoch
+
+DONNERSTAG
+Vereinstraining
+
+FREITAG
+Regeneration / frei
+
+SAMSTAG
+Spiel
+
+SONNTAG
+Regeneration / frei
+
+WICHTIG:
+
+APH kennt die tatsächlichen Inhalte des Vereinstrainings nicht.
+
+Deshalb keine erfundenen Vereinsübungen erstellen.
+
+Nur anzeigen:
+
+"Vereinstraining"
+
+bzw.
+
+"Spiel / Turnier"
+
+============================================================
+22. PLANLÄNGE
+============================================================
+
+Die bestehende Planlänge bleibt erhalten.
+
+Beispiel:
+
+4 Wochen
+6 Wochen
+8 Wochen
+
+Wenn der Trainer beispielsweise auswählt:
+
+APH:
+Montag + Mittwoch
+
+dann sollen diese Tage grundsätzlich über die Planlänge verwendet werden.
+
+Aber:
+
+Die Inhalte dürfen sich entsprechend der bestehenden Progressions- und
+Periodisierungslogik verändern.
+
+Also NICHT einfach jede Woche exakt identische Einheiten kopieren.
+
+============================================================
+23. SAISONPERIODE
+============================================================
+
+Die bereits vorhandene Saisonperioden-Logik muss weiter berücksichtigt
+werden.
+
+Beispiele:
+
+Vorbereitung
+Normal-/Wettkampfphase
+andere bereits vorhandene Phasen
+
+Keine neuen Bezeichnungen erzwingen, wenn im bestehenden System bereits
+konkrete Saisonperioden definiert sind.
+
+Bestehende Werte verwenden.
+
+Die Wochenempfehlung soll die Saisonperiode zusätzlich berücksichtigen.
+
+============================================================
+24. TRAININGSZEIT PRO EINHEIT
+============================================================
+
+Die bereits vorhandene Auswahl "Trainingszeit pro Einheit" weiterverwenden.
+
+APH darf nicht automatisch zusätzliche lange Einheiten erzeugen, wenn
+eine kurze Trainingszeit gewählt wurde.
+
+Wenn die Fußballbelastung hoch ist, kann APH gegebenenfalls eine kürzere
+Einheit empfehlen, sofern dies zur bestehenden Logik passt.
+
+============================================================
+25. EQUIPMENT
+============================================================
+
+Die vorhandene Equipment-Auswahl bleibt unverändert führend für die
+Übungsauswahl.
+
+Beispielsweise:
+
+- Körpergewicht
+- Bänder
+- freie Gewichte
+- Maschinen
+- sonstiges bereits vorhandenes Equipment
+
+Die neue Wochenplanung darf keine Übungen auswählen, für die nicht
+verfügbares Equipment benötigt wird.
+
+============================================================
+26. TRAINER-OVERRIDE FÜR TRAININGSTAGE
+============================================================
+
+Nach der APH-Empfehlung:
+
+Beispiel:
+
+APH Empfehlung:
+
+2 Athletikeinheiten pro Woche
+
+Empfohlene Tage:
+
+Montag
+Mittwoch
+
+Trainer kann:
+
+[ Empfehlung übernehmen ]
+
+oder
+
+[ Tage manuell ändern ]
+
+Bei manueller Änderung:
+
+Montag
+Dienstag
+Mittwoch
+Donnerstag
+Freitag
+Samstag
+Sonntag
+
+als Auswahl anbieten.
+
+============================================================
+27. KONFLIKTWARNUNGEN
+============================================================
+
+Bei manueller Auswahl mögliche Konflikte erkennen.
+
+Beispiele:
+
+ATHLETIK UND VEREINSTRAINING AM SELBEN TAG
+
+→ Hinweis
+
+INTENSIVE SPRINT-/KRAFTEINHEIT DIREKT VOR SPIEL
+
+→ Hinweis
+
+SEHR VIELE BELASTUNGSTAGE HINTEREINANDER
+
+→ Hinweis
+
+ZU VIELE ZUSÄTZLICHE ATHLETIKTAGE IM VERHÄLTNIS ZUR FUSSBALLBELASTUNG
+
+→ Hinweis
+
+Aber:
+
+Trainer darf bewusst überschreiben.
+
+Keine unnötige harte Sperre.
+
+============================================================
+28. GLEICHER TAG KANN BEWUSST GEWÄHLT WERDEN
+============================================================
+
+Nicht grundsätzlich verbieten, dass Athletik und Fußballtraining am
+gleichen Tag stattfinden.
+
+Es kann trainingsmethodisch sinnvoll sein, Belastungen zu bündeln.
+
+Deshalb:
+
+Warnen / informieren, aber Trainer entscheiden lassen.
+
+Wenn möglich vorhandene Intensitätslogik berücksichtigen.
+
+============================================================
+29. TRAINER-OVERRIDE SPEICHERN
+============================================================
+
+Speichern, ob:
+
+APH-Empfehlung verwendet
+
+oder
+
+Trainer manuell geändert hat.
+
+Beispielsweise:
+
+trainer_override = false
+
+oder
+
+trainer_override = true
+
+Die genaue Datenstruktur an die bestehende Architektur anpassen.
+
+============================================================
+30. SPEICHERUNG DER NEUEN PARAMETER
+============================================================
+
+Vor DB-Änderungen zuerst prüfen:
+
+- bestehende Trainingsplan-Tabelle
+- vorhandene Parameterfelder
+- JSON-Strukturen
+- bestehende Migrationen
+- Kompatibilität bestehender Pläne
+
+Nur wirklich notwendige Daten ergänzen.
+
+Benötigte Informationen mindestens:
+
+- planungsmodus
+- verein_training_anzahl
+- verein_trainingstage
+- spielbelastung
+- spieltag
+- empfohlene_athletik_anzahl
+- gewaehlte_athletik_anzahl
+- empfohlene_athletik_tage
+- gewaehlte_athletik_tage
+- trainer_override
+
+Wenn bestehende Strukturen diese Daten bereits sinnvoll aufnehmen können,
+keine unnötigen neuen DB-Spalten erzeugen.
+
+============================================================
+31. BESTEHENDE PLÄNE MÜSSEN FUNKTIONIEREN
+============================================================
+
+Sehr wichtig:
+
+Bereits gespeicherte Trainingspläne dürfen durch die Erweiterung nicht
+kaputtgehen.
+
+Alte Pläne besitzen die neuen Parameter möglicherweise nicht.
+
+Deshalb:
+
+rückwärtskompatible Defaults verwenden.
+
+Bestehende Pläne müssen weiterhin:
+
+- geladen
+- angezeigt
+- bearbeitet
+- exportiert
+
+werden können, soweit diese Funktionen bisher vorhanden sind.
+
+============================================================
+32. STANDARDMODUS MUSS RÜCKWÄRTSKOMPATIBEL SEIN
+============================================================
+
+STANDARD ist der sichere Fallback.
+
+Wenn:
+
+planungsmodus fehlt
+
+oder
+
+ein alter Trainingsplan geladen wird
+
+→ bisheriges Standardverhalten verwenden.
+
+Keine Migration darf bestehende Pläne unbrauchbar machen.
+
+============================================================
+33. UI – PLANPARAMETER
+============================================================
+
+Die Oberfläche soll übersichtlich bleiben.
+
+Vorschlag:
+
+PLANUNGSMODUS
+
+○ Standard
+○ Mit Vereinsbelastung
+
+Bei STANDARD:
+
+nur bisherige Felder anzeigen.
+
+Bei MIT VEREINSBELASTUNG zusätzlich:
+
+Vereinstraining pro Woche
+
+Vereinstrainingstage
+
+Spiel-/Turnierbelastung
+
+Spiel-/Turniertag
+
+APH-Empfehlung Athletik
+
+gewünschte Athletikeinheiten
+
+Athletiktrainingstage
+
+Trainer-Override
+
+Bestehende Felder:
+
+Planlänge
+Saisonperiode
+Equipment
+Trainingszeit
+
+weiterverwenden.
+
+============================================================
+34. NICHT ALLES GLEICHZEITIG ANZEIGEN
+============================================================
+
+UI nicht unnötig überladen.
+
+Neue Felder nur anzeigen, wenn:
+
+"Mit Vereinsbelastung"
+
+aktiviert wurde.
+
+APH-Empfehlung erst anzeigen, wenn die dafür notwendigen Angaben vorhanden
+sind.
+
+============================================================
+35. MOBILE ANSICHT
+============================================================
+
+Die Funktion muss auch auf Smartphone funktionieren.
+
+Keine extrem breiten Tabellen für die Eingabe verwenden.
+
+Trainingstage möglichst mit:
+
+- Multiselect
+- Checkboxen
+- geeigneten Buttons
+
+darstellen.
+
+Vorhandenes APH-Design weiterverwenden.
+
+============================================================
+36. BEISPIEL – STANDARDMODUS
+============================================================
+
+Spieler auswählen
+
+Planungsmodus:
+STANDARD
+
+Planlänge:
+6 Wochen
+
+Saisonperiode:
+Normalphase
+
+Equipment:
+Körpergewicht + Bänder
+
+Trainingszeit:
+30 Minuten
+
+→ Plan erstellen
+
+Das muss weiterhin ähnlich einfach funktionieren wie bisher.
+
+Tests, Alter, Defizite und Schwerpunkte werden wie bisher berücksichtigt.
+
+============================================================
+37. BEISPIEL – ERWEITERTER MODUS
+============================================================
+
+Spieler:
+Beispielspieler
+
+Planungsmodus:
+MIT VEREINSBELASTUNG
+
+Alter:
+aus Spielerprofil
+
+Vereinstraining:
+2× pro Woche
+
+Trainingstage:
+Dienstag
+Donnerstag
+
+Spiel:
+1× pro Woche
+
+Spieltag:
+Samstag
+
+Planlänge:
+6 Wochen
+
+Saisonperiode:
+Normalphase
+
+Trainingszeit:
+30 Minuten
+
+Equipment:
+Körpergewicht + Bänder
+
+APH analysiert:
+
+Fußballbelastung
++
+Alter
++
+Saisonperiode
++
+Tests
++
+Defizite
+
+und zeigt beispielsweise:
+
+APH EMPFEHLUNG
+
+2 Athletikeinheiten pro Woche
+
+Empfohlene Tage:
+
+Montag
+Mittwoch
+
+Begründung:
+
+"Der Spieler hat zwei Vereinstrainings und ein Spiel pro Woche.
+Die zusätzlichen Athletikeinheiten wurden so verteilt, dass die
+Gesamtbelastung und der Spieltag berücksichtigt werden."
+
+Trainer kann übernehmen oder ändern.
+
+============================================================
+38. INHALTLICHE VERTEILUNG
+============================================================
+
+Danach erzeugt die bestehende Plan-Engine die Inhalte.
+
+Beispielsweise:
+
+Montag
+
+Schwerpunkt:
+Kraft / Stabilität
+
+Mittwoch
+
+Schwerpunkt:
+Beschleunigung / Mobilität
+
+Aber nur, wenn diese Schwerpunkte tatsächlich aus:
+
+- Testdaten
+- Alterslogik
+- bestehenden Trainingsregeln
+
+resultieren.
+
+Keine willkürlichen Schwerpunkte vergeben.
+
+============================================================
+39. TESTFALL 1 – STANDARD MUSS WEITER FUNKTIONIEREN
+============================================================
+
+Trainingsplan exakt über den bisherigen Standardweg erstellen.
+
+Prüfen:
+
+- Plan wird erstellt
+- Alter wird berücksichtigt
+- Tests werden berücksichtigt
+- Schwerpunkte werden berücksichtigt
+- Equipment funktioniert
+- Trainingszeit funktioniert
+- Saisonperiode funktioniert
+- Planlänge funktioniert
+
+PASS erforderlich.
+
+============================================================
+40. TESTFALL 2 – KIND MIT 2 TRAININGS + 1 SPIEL
+============================================================
+
+Beispiel:
+
+Alter:
+10 Jahre
+
+Verein:
+2 Trainings
+
+Spiel:
+1
+
+Prüfen:
+
+APH erzeugt eine altersgerechte Empfehlung.
+
+Keine unnötig hohe zusätzliche Belastung.
+
+============================================================
+41. TESTFALL 3 – 3 TRAININGS + SPIEL
+============================================================
+
+Beispiel:
+
+Alter:
+12 Jahre
+
+Verein:
+3 Trainings
+
+Spiel:
+Samstag
+
+Prüfen:
+
+APH berücksichtigt bereits hohe Fußballbelastung.
+
+Nicht automatisch mehrere zusätzliche intensive Athletikeinheiten
+erzeugen.
+
+============================================================
+42. TESTFALL 4 – TRAINING DI/DO + SPIEL SA
+============================================================
+
+Verein:
+
+Dienstag
+Donnerstag
+
+Spiel:
+
+Samstag
+
+Prüfen:
+
+APH empfiehlt sinnvolle zusätzliche Tage.
+
+Intensive Belastung nicht automatisch direkt vor Samstag legen.
+
+============================================================
+43. TESTFALL 5 – TRAINER WÄHLT MEHR
+============================================================
+
+APH empfiehlt:
+
+1 Einheit
+
+Trainer wählt:
+
+3 Einheiten
+
+Erwartung:
+
+Warnung erscheint.
+
+Trainer kann trotzdem fortfahren.
+
+trainer_override wird gespeichert.
+
+============================================================
+44. TESTFALL 6 – TRAINER WÄHLT WENIGER
+============================================================
+
+APH empfiehlt:
+
+2 Einheiten
+
+Trainer wählt:
+
+1 Einheit
+
+Erwartung:
+
+Erlaubt.
+
+Keine Fehlermeldung.
+
+Trainerentscheidung wird gespeichert.
+
+============================================================
+45. TESTFALL 7 – MANUELLE TAGE
+============================================================
+
+APH empfiehlt:
+
+Montag
+Mittwoch
+
+Trainer wählt:
+
+Mittwoch
+Freitag
+
+Spiel:
+Samstag
+
+Falls Freitag eine intensive Einheit enthält:
+
+Warnung anzeigen.
+
+Plan darf trotzdem erstellt werden.
+
+============================================================
+46. TESTFALL 8 – FMS DEFIZIT
+============================================================
+
+FMS zeigt relevantes Defizit.
+
+Prüfen:
+
+Die neue Wochenlogik verändert nicht die bestehende Defizitpriorisierung.
+
+Der Trainingsplan enthält weiterhin die vorgesehenen FMS-bezogenen
+Schwerpunkte.
+
+============================================================
+47. TESTFALL 9 – Y-BALANCE
+============================================================
+
+Y-Balance zeigt relevante Auffälligkeit/Asymmetrie gemäß bestehender
+APH-Auswertung.
+
+Prüfen:
+
+Bestehende Schwerpunktlogik bleibt erhalten.
+
+============================================================
+48. TESTFALL 10 – SPRINTDEFIZIT
+============================================================
+
+Sprinttest erzeugt nach bestehender Logik einen Sprint-/
+Beschleunigungsschwerpunkt.
+
+Prüfen:
+
+Dieser Schwerpunkt bleibt erhalten.
+
+Die Wochenplanung sucht lediglich einen geeigneten Zeitpunkt dafür.
+
+============================================================
+49. TESTFALL 11 – KEINE TESTS
+============================================================
+
+Spieler ohne Testdaten.
+
+Prüfen:
+
+Plan wird trotzdem erstellt.
+
+Bestehende altersentsprechende Standardlogik funktioniert.
+
+Erweiterter Modus kann trotzdem Vereinstraining und Spiel berücksichtigen.
+
+============================================================
+50. TESTFALL 12 – 4/6/8 WOCHEN
+============================================================
+
+Pläne mit verschiedenen Planlängen erstellen.
+
+Prüfen:
+
+gewählte Trainingstage werden korrekt über die Wochen berücksichtigt.
+
+Bestehende Progression bleibt erhalten.
+
+============================================================
+51. TESTFALL 13 – ALTER PLAN
+============================================================
+
+Einen bereits bestehenden Trainingsplan laden, der die neuen Felder nicht
+besitzt.
+
+Prüfen:
+
+kein Crash.
+
+Plan wird weiterhin korrekt dargestellt.
+
+Standard-Fallback greift.
+
+============================================================
+52. TESTFALL 14 – MOBILE / UI
+============================================================
+
+Prüfen:
+
+Neue Eingaben erzeugen keine offensichtlich unbrauchbare mobile
+Darstellung.
+
+Keine unnötigen horizontalen Tabellen für die Parametereingabe.
+
+============================================================
+53. SICHERHEIT / DATEN
+============================================================
+
+Keine bestehenden:
+
+- Spieler
+- Tests
+- Trainingspläne
+- Kunden
+- Benutzer
+- Vertragsdaten
+- Stripe-Daten
+
+löschen oder verändern, außer wenn eine notwendige rückwärtskompatible
+Schema-Erweiterung für die Trainingsplanung erforderlich ist.
+
+Keine Produktionsdaten für Tests manipulieren.
+
+Tests möglichst mit isolierten Testdaten durchführen.
+
+============================================================
+54. KEINE ÄNDERUNGEN AN ANDEREN SYSTEMEN
+============================================================
+
+Dieser Auftrag betrifft die Trainingsplan-Erweiterung.
+
+Nicht verändern:
+
+- Stripe
+- Checkout
+- Kündigungssystem
+- Vertragsverwaltung
+- Kundennummernlogik
+- Login
+- Session-Restore
+- Cookie-System
+- Superadmin-System
+- Kundenverwaltung
+
+Nur ändern, wenn technisch zwingend erforderlich – dann vorher begründen.
+
+============================================================
+55. KEINE UNNÖTIGEN REFACTORS
+============================================================
+
+Keine großflächigen Umbauten nur aus Stilgründen.
+
+Keine funktionierenden Module neu schreiben.
+
+Keine Dateiumbenennungen ohne Notwendigkeit.
+
+Keine neue parallele Plan-Engine.
+
+Minimal-invasive Erweiterung bevorzugen.
+
+============================================================
+56. IMPLEMENTIERUNGSREIHENFOLGE
+============================================================
+
+Arbeite in dieser Reihenfolge:
+
+PHASE 1
+Bestandsaufnahme der aktuellen Trainingsplan-Engine
+
+PHASE 2
+Planungsmodus Standard / Vereinsbelastung ergänzen
+
+PHASE 3
+Vereinstraining + Spielbelastung erfassen
+
+PHASE 4
+APH-Empfehlung für Trainingshäufigkeit implementieren
+
+PHASE 5
+APH-Empfehlung für Trainingstage implementieren
+
+PHASE 6
+Trainer-Override + Warnungen implementieren
+
+PHASE 7
+bestehende Test-/Defizitlogik anbinden bzw. weiterverwenden
+
+PHASE 8
+Speicherung rückwärtskompatibel ergänzen
+
+PHASE 9
+Wochenansicht ergänzen
+
+PHASE 10
+Regressionstests + neue Tests
+
+============================================================
+57. BESONDERS WICHTIGE ARCHITEKTURREGEL
+============================================================
+
+Trenne logisch:
+
+EBENE A – DIAGNOSTIK
+
+entscheidet:
+- Defizite
+- Prioritäten
+- Schwerpunkte
+
+EBENE B – TRAININGSPLAN-ENGINE
+
+entscheidet:
+- Übungen
+- Reihenfolge
+- Belastungsparameter
+- Progression
+- altersgerechte Inhalte
+
+EBENE C – NEUE WOCHENPLANUNG
+
+entscheidet:
+- sinnvolle Anzahl zusätzlicher Athletikeinheiten
+- geeignete Trainingstage
+- Konflikte mit Vereinstraining / Spiel
+- Belastungsverteilung über die Woche
+
+EBENE C darf A und B nicht ersetzen.
+
+============================================================
+58. STANDARDMODUS IST PFLICHT
+============================================================
+
+Nach Abschluss muss der Trainer weiterhin sagen können:
+
+"Ich möchte einfach wie bisher einen normalen Trainingsplan."
+
+Dann:
+
+STANDARD auswählen
+
+und die Planerstellung funktioniert ohne Angaben zu:
+
+Vereinstraining
+Spiel
+Turnier
+Wochentagen
+
+Das ist eine zwingende Anforderung.
+
+============================================================
+59. ERWEITERTER MODUS IST OPTIONAL
+============================================================
+
+Die neue Funktion ist ein Zusatz für Trainer, die eine genauere
+Wochensteuerung wünschen.
+
+Sie darf die einfache Nutzung von APH nicht verschlechtern.
+
+============================================================
+60. ABSCHLUSSBERICHT
+============================================================
+
+Nach Implementierung einen vollständigen Bericht liefern:
+
+1. Welche bestehende Trainingsplan-Architektur wurde gefunden?
+
+2. Welche bestehenden Funktionen wurden wiederverwendet?
+
+3. Welche Dateien wurden geändert?
+
+4. Wurden Datenbankfelder ergänzt?
+   Wenn ja:
+   welche und warum?
+
+5. Wie funktioniert STANDARD?
+
+6. Wie funktioniert MIT VEREINSBELASTUNG?
+
+7. Wie berechnet APH die empfohlene Anzahl Athletikeinheiten?
+
+8. Wie berücksichtigt APH:
+   - Alter
+   - Vereinstraining
+   - Spiele
+   - Turniere
+   - Saisonperiode?
+
+9. Wie bestimmt APH geeignete Wochentage?
+
+10. Wie werden intensive Inhalte in Bezug auf den Spieltag behandelt?
+
+11. Wie bleiben FMS, Y-Balance, Sprint und andere Tests führend?
+
+12. Wie bleiben vorhandene Defizite und Schwerpunkte erhalten?
+
+13. Wie funktioniert die Planung ohne Testdaten?
+
+14. Wie funktioniert Trainer-Override?
+
+15. Welche Warnungen wurden eingebaut?
+
+16. Wie bleiben alte Trainingspläne kompatibel?
+
+17. Funktionieren 4-/6-/8-Wochen-Pläne weiterhin?
+
+18. Funktionieren Equipment und Trainingszeit weiterhin?
+
+19. Welche automatisierten Tests wurden durchgeführt?
+
+20. Testergebnis PASS/FAIL je Test.
+
+21. Gab es bestehende Probleme im Trainingsplan-System, die nicht Teil
+dieses Auftrags waren?
+Diese nur dokumentieren und NICHT ungefragt umbauen.
+
+============================================================
+61. ABSCHLUSSREGEL
+============================================================
+
+Nach erfolgreicher Implementierung und Tests:
+
+STOPPEN.
+
+Keine weiteren Funktionen eigenständig ergänzen.
+
+Keine Änderungen an Stripe, Login, Session, Kundenverwaltung oder anderen
+APH-Bereichen durchführen.
+
+Bestehende Produktionsdaten nicht verändern.
+
+Das Ziel ist eine gezielte Erweiterung des bestehenden
+Trainingsplan-Generators und kein Neuaufbau.

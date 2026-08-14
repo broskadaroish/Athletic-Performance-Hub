@@ -160,7 +160,9 @@ from analytics import (
 from periodisierung import (zyklus_erstellen, zyklus_laden, trainingsplan_multi_erstellen,
                              defizit_tabelle, _alter_zu_plangruppe, _PLANGRUPPEN_CONFIG, _POOL,
                              _ALTERS_ERSATZ, verletzung_aktive_bereiche,
-                             schaetze_tag_dauer_min, _ZEITBUDGET_CONFIG)
+                             schaetze_tag_dauer_min, _ZEITBUDGET_CONFIG,
+                             empfohlene_athletik_einheiten, empfohlene_athletik_tage,
+                             _WOCHENTAGE_WP)
 from trainingsphilosophie import (
     PHILOSOPHIEN, empfehle_philosophie, philosophie_erklaerung,
 )
@@ -3986,6 +3988,22 @@ def page_trainingsplan():
 
         st.markdown("---")
         st.markdown("#### ⚙️ Planparameter")
+
+        # ── Planungsmodus (Spec §2) ────────────────────────────────────────────
+        _planungsmodus = st.radio(
+            "**Planungsmodus**",
+            ["Standard", "Mit Vereinsbelastung / Wochenplanung"],
+            horizontal=True,
+            key="planungsmodus_sel",
+            help=(
+                "**Standard**: Planerstellung wie bisher — Tests, Alter, Defizite und "
+                "Schwerpunkte werden berücksichtigt, keine Angaben zu Vereinstraining oder Spieltagen nötig.\n\n"
+                "**Mit Vereinsbelastung**: APH berücksichtigt die Gesamtwochenbelastung und "
+                "empfiehlt passende Athletikeinheiten und Trainingstage."
+            ),
+        )
+        _vb_modus = _planungsmodus == "Mit Vereinsbelastung / Wochenplanung"
+
         _pc1, _pc2 = st.columns(2)
         plan_laenge = _pc1.selectbox(
             "Planlänge",
@@ -4079,6 +4097,163 @@ def page_trainingsplan():
             f"Warm-Up ~{_zb_prev['warmup_min']} min"
         )
 
+        # ── Vereinsbelastung / Wochenplanung (Spec §4–§13) ───────────────────
+        if _vb_modus:
+            st.markdown("---")
+            st.markdown("#### 🏟️ Vereinsbelastung & Wochenplanung")
+
+            _vb_col1, _vb_col2 = st.columns(2)
+            _vb_verein_anzahl_raw = _vb_col1.selectbox(
+                "Vereinstraining pro Woche",
+                [0, 1, 2, 3, 4, 5, "6+"],
+                index=2,
+                key="vb_verein_anzahl",
+                help="Wie oft trainiert der Spieler pro Woche im Verein?",
+            )
+            _vb_verein_anzahl_int = 6 if str(_vb_verein_anzahl_raw) == "6+" else int(_vb_verein_anzahl_raw)
+
+            _vb_verein_tage = _vb_col2.multiselect(
+                "Vereinstrainingstage",
+                _WOCHENTAGE_WP,
+                default=["Dienstag", "Donnerstag"],
+                key="vb_verein_tage",
+                help="An welchen Tagen findet das Vereinstraining normalerweise statt?",
+            )
+            if _vb_verein_anzahl_int > 0 and len(_vb_verein_tage) != _vb_verein_anzahl_int:
+                st.caption(
+                    f"ℹ️ Vereinstraining/Woche ({_vb_verein_anzahl_int}) ≠ "
+                    f"Anzahl gewählter Tage ({len(_vb_verein_tage)})."
+                )
+
+            _vb_col3, _vb_col4 = st.columns(2)
+            _SPIEL_OPTIONEN = ["Kein Spiel", "1 Spiel", "2 Spiele", "Turnier / mehrere Spiele", "wechselnd"]
+            _vb_spielbelastung = _vb_col3.selectbox(
+                "Spiel-/Turnierbelastung pro Woche",
+                _SPIEL_OPTIONEN,
+                index=1,
+                key="vb_spielbelastung",
+            )
+            _vb_spiel_tage: list[str] = []
+            if _vb_spielbelastung != "Kein Spiel":
+                _vb_spiel_tage = _vb_col4.multiselect(
+                    "Typischer Spiel-/Turniertag",
+                    _WOCHENTAGE_WP + ["Wechselnd"],
+                    default=["Samstag"],
+                    key="vb_spiel_tage",
+                )
+
+            # ── APH-Empfehlung (Spec §9) ──────────────────────────────────
+            _spiel_tage_clean = [t for t in _vb_spiel_tage if t != "Wechselnd"]
+            _vb_empf_anzahl, _vb_empf_begr = empfohlene_athletik_einheiten(
+                alter=_tp_alter,
+                verein_anzahl=_vb_verein_anzahl_int,
+                spielbelastung=_vb_spielbelastung,
+                saison_phase=saison_phase,
+                hat_defizite=_anzahl_defizite > 0,
+                trainingszeit_min=trainingszeit_min,
+            )
+            _vb_empf_tage = empfohlene_athletik_tage(
+                anzahl=_vb_empf_anzahl,
+                verein_tage=_vb_verein_tage,
+                spiel_tage=_spiel_tage_clean,
+                alter=_tp_alter,
+                schwerpunkt_text=schwerpunkt,
+            )
+            st.markdown(
+                f'<div style="background:#0d2a1a;border:1px solid #3fb950;border-radius:10px;'
+                f'padding:14px 18px;margin-bottom:14px">'
+                f'<div style="color:#3fb950;font-weight:700;font-size:14px;margin-bottom:6px">'
+                f'🤖 APH-Empfehlung</div>'
+                f'<div style="color:#c9d1d9;font-size:14px">'
+                f'<b>{_vb_empf_anzahl} Athletikeinheit(en) pro Woche</b></div>'
+                f'<div style="color:#8b949e;font-size:12px;margin-top:4px">Empfohlene Tage: '
+                f'<b>{", ".join(_vb_empf_tage) if _vb_empf_tage else "—"}</b></div>'
+                f'<div style="color:#8b949e;font-size:12px;margin-top:6px;font-style:italic">'
+                f'{_vb_empf_begr}</div>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+
+            # Trainer-Override: Anzahl (Spec §10, §11)
+            _vb_override_anzahl = st.checkbox(
+                "Anzahl der Athletikeinheiten manuell festlegen",
+                key="vb_override_anzahl_cb",
+            )
+            if _vb_override_anzahl:
+                _vb_gewaehlte_anzahl = st.selectbox(
+                    "Gewünschte Athletikeinheiten pro Woche",
+                    [0, 1, 2, 3, 4],
+                    index=min(_vb_empf_anzahl, 4),
+                    key="vb_gewaehlte_anzahl_sel",
+                )
+                if _vb_gewaehlte_anzahl > _vb_empf_anzahl + 1:
+                    st.warning(
+                        "⚠️ Die gewählte Anzahl zusätzlicher Athletikeinheiten ist bei der "
+                        "aktuellen Fußballbelastung relativ hoch. "
+                        "Bitte Gesamtbelastung und Regeneration berücksichtigen."
+                    )
+            else:
+                _vb_gewaehlte_anzahl = _vb_empf_anzahl
+
+            # Trainer-Override: Tage (Spec §26, §27)
+            _vb_override_tage = st.checkbox(
+                "Athletiktage manuell wählen",
+                key="vb_override_tage_cb",
+            )
+            if _vb_override_tage:
+                _vb_gewaehlte_tage = st.multiselect(
+                    "Athletiktrainingstage",
+                    _WOCHENTAGE_WP,
+                    default=_vb_empf_tage,
+                    key="vb_gewaehlte_tage_sel",
+                )
+                # Konfliktwarnungen (Spec §27, §28)
+                _vb_konflikte = []
+                for _vb_t in _vb_gewaehlte_tage:
+                    if _vb_t in _vb_verein_tage:
+                        _vb_konflikte.append(
+                            f"Athletik und Vereinstraining am gleichen Tag ({_vb_t})"
+                        )
+                    if _vb_t in _WOCHENTAGE_WP:
+                        _vb_ti = _WOCHENTAGE_WP.index(_vb_t)
+                        for _st in _spiel_tage_clean:
+                            if _st in _WOCHENTAGE_WP:
+                                _sti = _WOCHENTAGE_WP.index(_st)
+                                if (_sti - _vb_ti) % 7 == 1:
+                                    _vb_konflikte.append(
+                                        f"Athletikeinheit am {_vb_t} direkt vor Spieltag ({_st}) "
+                                        "— bei intensiven Inhalten Regeneration beachten"
+                                    )
+                for _k in set(_vb_konflikte):
+                    st.caption(f"ℹ️ {_k}")
+            else:
+                _vb_gewaehlte_tage = empfohlene_athletik_tage(
+                    anzahl=_vb_gewaehlte_anzahl,
+                    verein_tage=_vb_verein_tage,
+                    spiel_tage=_spiel_tage_clean,
+                    alter=_tp_alter,
+                    schwerpunkt_text=schwerpunkt,
+                )
+
+            _vb_trainer_override = _vb_override_anzahl or _vb_override_tage
+
+            import json as _json_vb
+            _wochenplanung_json = _json_vb.dumps({
+                "planungsmodus": "vereinsbelastung",
+                "verein_training_anzahl": _vb_verein_anzahl_int,
+                "verein_trainingstage": _vb_verein_tage,
+                "spielbelastung": _vb_spielbelastung,
+                "spieltag": _vb_spiel_tage,
+                "empfohlene_athletik_anzahl": _vb_empf_anzahl,
+                "gewaehlte_athletik_anzahl": _vb_gewaehlte_anzahl,
+                "empfohlene_athletik_tage": _vb_empf_tage,
+                "gewaehlte_athletik_tage": _vb_gewaehlte_tage,
+                "trainer_override": _vb_trainer_override,
+                "aph_begruendung": _vb_empf_begr,
+            }, ensure_ascii=False)
+        else:
+            _wochenplanung_json = None
+
         st.markdown("---")
 
         # ── Schutz vor ungewolltem Überschreiben (Spec §4) ───────────────────
@@ -4108,6 +4283,7 @@ def page_trainingsplan():
                     modus=_plan_modus,
                     schwerpunkt=schwerpunkt[:500] if schwerpunkt else "",
                     trainingszeit_min=trainingszeit_min,
+                    wochenplanung_json=_wochenplanung_json,
                 )
                 _philosophie_speichern(sid, selected_philosophie_key)
                 n = trainingsplan_multi_erstellen(
@@ -4237,6 +4413,71 @@ def page_trainingsplan():
         _ci2.metric("Übungen", _total_uebungen)
         _ci3.metric("Bereiche", _total_bereiche)
         _ci4.metric("Einheiten/Woche", _total_tags)
+
+        # ── Wochenansicht (Spec §21) — nur wenn Vereinsbelastungs-Modus gespeichert ──
+        _av_wp_json = _av.get("wochenplanung_json")
+        if _av_wp_json:
+            try:
+                import json as _json_tv
+                _wp = _json_tv.loads(_av_wp_json)
+                if _wp.get("planungsmodus") == "vereinsbelastung":
+                    with st.expander("📅 Wochenansicht", expanded=False):
+                        _wp_verein_tage = _wp.get("verein_trainingstage", [])
+                        _wp_spiel_tage  = [t for t in _wp.get("spieltag", []) if t != "Wechselnd"]
+                        _wp_ath_tage    = _wp.get("gewaehlte_athletik_tage", [])
+                        _wp_spielbel    = _wp.get("spielbelastung", "")
+                        st.caption(
+                            f"🏟️ Vereinstraining: **{', '.join(_wp_verein_tage) or '—'}** · "
+                            f"🏆 Spiel: **{', '.join(_wp_spiel_tage) or '—'}** · "
+                            f"🏋️ Athletik: **{', '.join(_wp_ath_tage) or '—'}**"
+                        )
+                        _TAGE_ALLE_WV = ["Montag","Dienstag","Mittwoch","Donnerstag",
+                                          "Freitag","Samstag","Sonntag"]
+                        # Schwerpunkte aus Plan je Athletik-Tag sammeln
+                        _ath_bereiche: list[str] = []
+                        for _row in plan:
+                            _rb = _row.get("bereich","")
+                            if _rb and _rb not in _ath_bereiche:
+                                _ath_bereiche.append(_rb)
+                        _sp_str = " + ".join(_ath_bereiche[:3]) if _ath_bereiche else "Athletik"
+                        _zeit_min = _av.get("trainingszeit_min", 60)
+                        _total_w_wp = max((r["woche"] for r in plan), default=1)
+
+                        for _wn in range(1, _total_w_wp + 1):
+                            st.markdown(f"**— Woche {_wn} —**")
+                            for _tag in _TAGE_ALLE_WV:
+                                _ist_verein = _tag in _wp_verein_tage
+                                _ist_spiel  = _tag in _wp_spiel_tage
+                                _ist_ath    = _tag in _wp_ath_tage
+                                if _ist_verein and _ist_ath:
+                                    _lbl = "🏟️+🏋️ Vereinstraining + Athletik"
+                                    _clr = "#e3b341"
+                                elif _ist_verein:
+                                    _lbl = "🏟️ Vereinstraining"
+                                    _clr = "#58a6ff"
+                                elif _ist_spiel:
+                                    _lbl = ("🏆 Turnier / Spiel"
+                                            if _wp_spielbel == "Turnier / mehrere Spiele"
+                                            else "🏆 Spiel")
+                                    _clr = "#f85149"
+                                elif _ist_ath:
+                                    _lbl = f"🏋️ APH Athletik · {_sp_str} · {_zeit_min} min"
+                                    _clr = "#3fb950"
+                                else:
+                                    _lbl = "〇 Regeneration / frei"
+                                    _clr = "#444d56"
+                                st.markdown(
+                                    f'<div style="display:flex;gap:10px;align-items:center;'
+                                    f'padding:4px 0;border-bottom:1px solid #21262d">'
+                                    f'<span style="color:#8b949e;font-size:12px;min-width:80px">'
+                                    f'{_tag}</span>'
+                                    f'<span style="color:{_clr};font-size:13px">{_lbl}</span>'
+                                    f'</div>',
+                                    unsafe_allow_html=True,
+                                )
+                            st.markdown("")
+            except Exception:
+                pass
 
         # ── PDF-Druck-Button ──────────────────────────────────────────────────
         _tv_alter   = berechne_alter(auswahl.get("geburtsdatum"))

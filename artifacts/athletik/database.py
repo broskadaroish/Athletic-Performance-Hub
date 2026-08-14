@@ -897,6 +897,14 @@ def _migrate_db():
             except Exception:
                 pass
 
+        # ── Wochenplanung-Erweiterung: wochenplanung_json für Vereinsbelastungs-Modus ──
+        try:
+            conn.execute(
+                "ALTER TABLE trainingsplan_versionen ADD COLUMN wochenplanung_json TEXT DEFAULT NULL"
+            )
+        except Exception:
+            pass  # Spalte existiert bereits
+
         # ── SCHRITT 4: Datenmigration — bestehende Pläne in AKTIV-Version einbetten ──
         try:
             _spieler_ohne_version = conn.execute("""
@@ -2116,7 +2124,8 @@ def trainingsplan_laden(spieler_id):
 def plan_version_erstellen(spieler_id: int, datum: str, erstellt_von: str = "",
                            modus: str = "Basis", schwerpunkt: str = "",
                            trainingszeit_min: int = 60, notizen: str = "",
-                           diagnose_snapshot: str = "") -> int:
+                           diagnose_snapshot: str = "",
+                           wochenplanung_json: str | None = None) -> int:
     """Erstellt eine neue AKTIV-Version und gibt deren ID zurück."""
     with get_conn() as conn:
         max_v = (conn.execute(
@@ -2125,10 +2134,11 @@ def plan_version_erstellen(spieler_id: int, datum: str, erstellt_von: str = "",
         ).fetchone() or [0])[0]
         cur = conn.execute(
             "INSERT INTO trainingsplan_versionen "
-            "(spieler_id,version_nr,datum,erstellt_von,status,modus,schwerpunkt,trainingszeit_min,notizen,diagnose_snapshot) "
-            "VALUES (?,?,?,?,?,?,?,?,?,?)",
+            "(spieler_id,version_nr,datum,erstellt_von,status,modus,schwerpunkt,trainingszeit_min,notizen,"
+            "diagnose_snapshot,wochenplanung_json) "
+            "VALUES (?,?,?,?,?,?,?,?,?,?,?)",
             (spieler_id, max_v + 1, datum, erstellt_von, "AKTIV", modus,
-             schwerpunkt, trainingszeit_min, notizen, diagnose_snapshot),
+             schwerpunkt, trainingszeit_min, notizen, diagnose_snapshot, wochenplanung_json),
         )
         return cur.lastrowid
 
@@ -2146,14 +2156,15 @@ def plan_aktive_version(spieler_id: int) -> dict | None:
     """Gibt die aktive Planversion als Dict zurück oder None."""
     with get_conn() as conn:
         row = conn.execute(
-            "SELECT id,version_nr,datum,erstellt_von,status,modus,schwerpunkt,trainingszeit_min,notizen "
+            "SELECT id,version_nr,datum,erstellt_von,status,modus,schwerpunkt,trainingszeit_min,notizen,"
+            "COALESCE(wochenplanung_json,NULL) as wochenplanung_json "
             "FROM trainingsplan_versionen WHERE spieler_id=? AND status='AKTIV' ORDER BY id DESC LIMIT 1",
             (spieler_id,),
         ).fetchone()
         if not row:
             return None
         return dict(zip(["id","version_nr","datum","erstellt_von","status","modus",
-                          "schwerpunkt","trainingszeit_min","notizen"], row))
+                          "schwerpunkt","trainingszeit_min","notizen","wochenplanung_json"], row))
 
 
 def plan_aktive_version_id(spieler_id: int) -> int | None:
