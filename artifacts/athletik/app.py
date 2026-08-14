@@ -10326,12 +10326,21 @@ def page_ueber_software():
 
     # ── Seiteninhalt ───────────────────────────────────────────────────────────
     if _sub == "impressum":
+        if st.button("← Zurück zu Info", key="legal_back_impressum"):
+            st.session_state["_ueber_sub"] = "info"
+            st.rerun()
         _pg_impressum()
 
     elif _sub == "datenschutz":
+        if st.button("← Zurück zu Info", key="legal_back_datenschutz"):
+            st.session_state["_ueber_sub"] = "info"
+            st.rerun()
         _pg_datenschutz()
 
     elif _sub == "agb":
+        if st.button("← Zurück zu Info", key="legal_back_agb"):
+            st.session_state["_ueber_sub"] = "info"
+            st.rerun()
         _pg_agb()
 
     else:

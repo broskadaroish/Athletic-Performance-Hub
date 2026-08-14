@@ -1,0 +1,101 @@
+# KLEINE KORREKTUR – RÜCKWEG VON IMPRESSUM / DATENSCHUTZ / AGB
+
+Nach der letzten Änderung wurde die obere Navigation:
+
+**Info | Impressum | Datenschutz | AGB**
+
+bewusst entfernt.
+
+Das soll auch so bleiben.
+
+Aktuell gibt es aber auf den Unterseiten:
+
+* Impressum
+* Datenschutz
+* AGB
+
+keinen sichtbaren Weg mehr zurück zur eigentlichen Info-Seite.
+
+## Änderung
+
+Auf jeder dieser drei Unterseiten bitte ganz oben einen einzelnen dezenten Button ergänzen:
+
+**← Zurück zu Info**
+
+Der Button soll beim Klick wieder die normale Info-Seite öffnen.
+
+Bitte dafür die bereits vorhandene Routing-/Session-State-Logik verwenden.
+
+Wenn aktuell beispielsweise `_ueber_sub` für die Unterseiten verwendet wird, soll der Zurück-Button diesen Wert wieder sauber auf den Zustand für die Info-Hauptseite setzen.
+
+Keine neue Routing-Logik erfinden, wenn die vorhandene Struktur genutzt werden kann.
+
+## Gewünschtes Verhalten
+
+### Info-Seite
+
+Weiterhin KEINE obere Button-Leiste.
+
+Unten bleibt:
+
+**Rechtliches**
+
+* Impressum
+* Datenschutz
+* AGB
+
+### Impressum
+
+Oben:
+
+**← Zurück zu Info**
+
+Darunter der vorhandene Impressum-Inhalt.
+
+### Datenschutz
+
+Oben:
+
+**← Zurück zu Info**
+
+Darunter der vorhandene Datenschutz-Inhalt.
+
+### AGB
+
+Oben:
+
+**← Zurück zu Info**
+
+Darunter der vorhandene AGB-Inhalt.
+
+## Wichtig
+
+Nicht wieder die alte 4er-Navigation einbauen.
+
+Nur einen einzelnen Zurück-Button auf den drei Rechteseiten ergänzen.
+
+Nicht verändern:
+
+* Inhalte von Impressum
+* Inhalte Datenschutz
+* Inhalte AGB
+* Support
+* Login
+* Navigation
+* Mobile Navigation
+* Datenbank
+* Session-Logik außerhalb dieses Routing-Zustands
+* übrige Funktionen
+
+Nach Änderung prüfen:
+
+1. Info → Impressum
+2. Impressum → Zurück zu Info
+3. Info → Datenschutz
+4. Datenschutz → Zurück zu Info
+5. Info → AGB
+6. AGB → Zurück zu Info
+7. Desktop
+8. Mobile
+
+Bitte danach kurz berichten, welche Datei geändert wurde und wie der Zurück-Button technisch zurück zur Info-Seite routet.
