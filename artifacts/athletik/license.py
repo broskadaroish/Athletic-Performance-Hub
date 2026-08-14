@@ -445,7 +445,8 @@ def trainer_limit_erreicht(
             return False
         return count >= max_t
     except Exception:
-        return False
+        # B5: fail-closed — bei DB-Fehler KEIN Zugang gewähren (Limit gilt als erreicht)
+        return True
 
 
 def spieler_limit_erreicht(
@@ -462,8 +463,9 @@ def spieler_limit_erreicht(
     try:
         from database import get_conn
         with get_conn() as conn:
+            # spieler hat keine aktiv-Spalte → alle Spieler des Vereins zählen
             count = conn.execute(
-                "SELECT COUNT(*) FROM spieler WHERE verein_id=? AND aktiv=1",
+                "SELECT COUNT(*) FROM spieler WHERE verein_id=?",
                 (verein_id,)
             ).fetchone()[0]
         normed  = normalize_lizenz_typ(lizenz_typ, ist_technischer_mandant)
@@ -473,7 +475,8 @@ def spieler_limit_erreicht(
             return False
         return count >= max_s
     except Exception:
-        return False
+        # B5: fail-closed — bei DB-Fehler KEIN Zugang gewähren (Limit gilt als erreicht)
+        return True
 
 
 def invalidate_lizenz_cache(verein_id: int) -> None:

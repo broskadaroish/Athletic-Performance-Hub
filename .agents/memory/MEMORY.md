@@ -26,3 +26,4 @@
 - [Produktionsarchitektur aphsystem.de](production-architecture.md) — Ubuntu-VPS Docker Compose; SQLite auf Volume /data/athletik.db; Replit Secrets ≠ Produktions-Env-Vars; niemals Volume löschen
 - [Stripe Webhook Phase A4](stripe-phase-a4.md) — esbuild-Pfad 3 Ebenen hoch; express.raw() vor json(); DE/EN-Suffix-Mix; Idempotenz via stripe_events; STRIPE_WEBHOOK_SECRET noch ausstehend
 - [Block B1 Superadmin-Guards](block-b1-guards.md) — letzter-SA-Schutz in benutzer_loeschen()+benutzer_aktivieren(); Mandantenprüfung+Rolleneskalation in benutzer_aktualisieren(); caller_rolle/caller_verein_id Pattern
+- [Block B2-B8 Hardening](block-b2-b8-hardening.md) — atomare Kundennummern (UNIQUE partial index + single-conn), fail-closed Limits (spieler hat kein aktiv-Feld), Downgrade-Schutz in _detail_c_lizenz, Stripe-Block E, Audit-Log für Vertrag+Rechnungsadresse, Stripe-Check vor Kundenlöschung; Testsuite tools/test_block_b.py (35 PASS)

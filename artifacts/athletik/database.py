@@ -2634,6 +2634,24 @@ def _migrate_multitenant():
             conn.execute("ALTER TABLE benutzer ADD COLUMN kundennummer TEXT")
         except Exception:
             pass
+        # ── B2: UNIQUE-Indexes für Kundennummern (idempotent, NULL-sicher) ───
+        # SQLite: partial index WHERE IS NOT NULL erlaubt mehrere NULL-Werte.
+        # Führende Vertragsquelle: vereine (nicht benutzer).
+        # benutzer.kundennummer gilt nur für standalone-Einzeltrainer ohne Verein.
+        try:
+            conn.execute(
+                "CREATE UNIQUE INDEX IF NOT EXISTS idx_vereine_kundennummer "
+                "ON vereine(kundennummer) WHERE kundennummer IS NOT NULL"
+            )
+        except Exception:
+            pass  # Besteht bereits oder Duplikate → keine Datenverlust-Migration
+        try:
+            conn.execute(
+                "CREATE UNIQUE INDEX IF NOT EXISTS idx_benutzer_kundennummer "
+                "ON benutzer(kundennummer) WHERE kundennummer IS NOT NULL"
+            )
+        except Exception:
+            pass  # Besteht bereits oder Duplikate → keine Datenverlust-Migration
         conn.execute("""
             CREATE TABLE IF NOT EXISTS audit_log (
                 id             INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -3905,12 +3923,12 @@ _DIAG_TBLS = [
 
 
 def dashboard_sa_kpis() -> dict:
-    """KPIs für Superadmin-Dashboard."""
+    """KPIs für Superadmin-Dashboard (B3: erweitert um Trial, Abos, Kündigungen, Zahlungsprobleme)."""
     with get_conn() as conn:
-        _tm_filter = "WHERE COALESCE(ist_technischer_mandant,0)=0"
-        n_vereine  = conn.execute(f"SELECT COUNT(*) FROM vereine {_tm_filter}").fetchone()[0]
-        n_aktiv    = conn.execute(f"SELECT COUNT(*) FROM vereine {_tm_filter} AND aktiv=1").fetchone()[0]
-        n_gesperrt = conn.execute(f"SELECT COUNT(*) FROM vereine {_tm_filter} AND aktiv=0").fetchone()[0]
+        _tm = "WHERE COALESCE(ist_technischer_mandant,0)=0"
+        n_vereine  = conn.execute(f"SELECT COUNT(*) FROM vereine {_tm}").fetchone()[0]
+        n_aktiv    = conn.execute(f"SELECT COUNT(*) FROM vereine {_tm} AND aktiv=1").fetchone()[0]
+        n_gesperrt = conn.execute(f"SELECT COUNT(*) FROM vereine {_tm} AND aktiv=0").fetchone()[0]
         n_vadmin   = conn.execute(
             "SELECT COUNT(*) FROM benutzer WHERE rolle='Vereinsadmin' AND aktiv=1"
         ).fetchone()[0]
@@ -3925,10 +3943,83 @@ def dashboard_sa_kpis() -> dict:
                 total_diag += conn.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0]
             except Exception:
                 pass
+
+        # ── B3: Neue KPIs ─────────────────────────────────────────────────────
+        # Standalone-Trainer-Subquery (kein Verein oder technischer Mandant)
+        _sa_trainer_where = (
+            "b.rolle='Trainer' AND "
+            "(b.verein_id IS NULL OR EXISTS ("
+            "SELECT 1 FROM vereine v WHERE v.id=b.verein_id "
+            "AND COALESCE(v.ist_technischer_mandant,0)=1))"
+        )
+
+        # Kunden gesamt (Vereine + standalone Trainer)
+        n_trainer_standalone = conn.execute(
+            f"SELECT COUNT(*) FROM benutzer b WHERE {_sa_trainer_where}"
+        ).fetchone()[0]
+        n_kunden_gesamt = n_vereine + n_trainer_standalone
+
+        # Testphasen (trial)
+        try:
+            n_trial = (
+                conn.execute(
+                    f"SELECT COUNT(*) FROM vereine {_tm} "
+                    "AND COALESCE(lizenz_status,'trial')='trial'"
+                ).fetchone()[0]
+                + conn.execute(
+                    f"SELECT COUNT(*) FROM benutzer b WHERE {_sa_trainer_where} "
+                    "AND COALESCE(b.lizenz_status,'trial')='trial'"
+                ).fetchone()[0]
+            )
+        except Exception:
+            n_trial = 0
+
+        # Aktive Abos (lizenz_status = 'active')
+        try:
+            n_aktive_abos = (
+                conn.execute(
+                    f"SELECT COUNT(*) FROM vereine {_tm} AND lizenz_status='active'"
+                ).fetchone()[0]
+                + conn.execute(
+                    f"SELECT COUNT(*) FROM benutzer b WHERE {_sa_trainer_where} "
+                    "AND b.lizenz_status='active'"
+                ).fetchone()[0]
+            )
+        except Exception:
+            n_aktive_abos = 0
+
+        # Gekündigte Abos
+        try:
+            n_gekuendigt = conn.execute(
+                f"SELECT COUNT(*) FROM vereine {_tm} "
+                "AND kuendigungsstatus IS NOT NULL AND kuendigungsstatus != 'aktiv'"
+            ).fetchone()[0]
+        except Exception:
+            n_gekuendigt = 0
+
+        # Zahlungsprobleme
+        try:
+            n_zahlungsproblem = conn.execute(
+                f"SELECT COUNT(*) FROM vereine {_tm} AND zahlungsstatus='fehlgeschlagen'"
+            ).fetchone()[0]
+        except Exception:
+            n_zahlungsproblem = 0
+
     return {
-        "n_vereine": n_vereine, "n_aktiv": n_aktiv, "n_gesperrt": n_gesperrt,
-        "n_vadmin": n_vadmin, "n_trainer": n_trainer, "n_spieler": n_spieler,
-        "n_benutzer": n_benutzer, "n_diagnostiken": total_diag,
+        "n_vereine":        n_vereine,
+        "n_aktiv":          n_aktiv,
+        "n_gesperrt":       n_gesperrt,
+        "n_vadmin":         n_vadmin,
+        "n_trainer":        n_trainer,
+        "n_spieler":        n_spieler,
+        "n_benutzer":       n_benutzer,
+        "n_diagnostiken":   total_diag,
+        # B3 — neue KPIs
+        "n_kunden_gesamt":  n_kunden_gesamt,
+        "n_trial":          n_trial,
+        "n_aktive_abos":    n_aktive_abos,
+        "n_gekuendigt":     n_gekuendigt,
+        "n_zahlungsproblem": n_zahlungsproblem,
     }
 
 
@@ -4888,7 +4979,11 @@ def rechnungsadresse_laden(benutzer_id: int) -> dict | None:
 # ==========================================================================
 
 def naechste_kundennummer() -> str:
-    """Gibt die nächste freie Kundennummer im Format APH-XXXXXX zurück."""
+    """Gibt die nächste freie Kundennummer im Format APH-XXXXXX zurück.
+
+    Nur als Hilfsfunktion; für die Vergabe bitte kundennummer_vergeben_verein()
+    oder kundennummer_vergeben_benutzer() verwenden — diese sind atomar.
+    """
     with get_conn() as conn:
         _mv = conn.execute(
             "SELECT MAX(CAST(SUBSTR(kundennummer,5) AS INTEGER)) "
@@ -4901,30 +4996,49 @@ def naechste_kundennummer() -> str:
         return f"APH-{max(_mv, _mb)+1:06d}"
 
 
+def _naechste_kundennummer_in_conn(conn) -> str:
+    """Berechnet die nächste Kundennummer innerhalb einer bestehenden Verbindung (atomar)."""
+    mv = conn.execute(
+        "SELECT MAX(CAST(SUBSTR(kundennummer,5) AS INTEGER)) "
+        "FROM vereine WHERE kundennummer LIKE 'APH-%'"
+    ).fetchone()[0] or 0
+    mb = conn.execute(
+        "SELECT MAX(CAST(SUBSTR(kundennummer,5) AS INTEGER)) "
+        "FROM benutzer WHERE kundennummer LIKE 'APH-%'"
+    ).fetchone()[0] or 0
+    return f"APH-{max(mv, mb)+1:06d}"
+
+
 def kundennummer_vergeben_verein(verein_id: int) -> str:
-    """Vergibt eine neue Kundennummer an einen Verein (falls noch keine vorhanden)."""
+    """Vergibt eine neue Kundennummer an einen Verein — atomar in einer Transaktion.
+
+    B2: Lese-/Schreib-/MAX-Berechnung erfolgen in einer einzigen DB-Verbindung,
+    sodass keine race condition zwischen zwei parallelen Registrierungen entsteht.
+    vereine ist die führende Vertragsquelle für Kundennummern.
+    """
     with get_conn() as conn:
         existing = conn.execute(
             "SELECT kundennummer FROM vereine WHERE id=?", (verein_id,)
         ).fetchone()
         if existing and existing[0]:
             return existing[0]
-    kn = naechste_kundennummer()
-    with get_conn() as conn:
+        kn = _naechste_kundennummer_in_conn(conn)
         conn.execute("UPDATE vereine SET kundennummer=? WHERE id=?", (kn, verein_id))
     return kn
 
 
 def kundennummer_vergeben_benutzer(benutzer_id: int) -> str:
-    """Vergibt eine neue Kundennummer an einen standalone Benutzer (kein Verein)."""
+    """Vergibt eine neue Kundennummer an einen standalone-Benutzer — atomar.
+
+    B2: Wie kundennummer_vergeben_verein, aber für Einzeltrainer ohne Verein.
+    """
     with get_conn() as conn:
         existing = conn.execute(
             "SELECT kundennummer FROM benutzer WHERE id=?", (benutzer_id,)
         ).fetchone()
         if existing and existing[0]:
             return existing[0]
-    kn = naechste_kundennummer()
-    with get_conn() as conn:
+        kn = _naechste_kundennummer_in_conn(conn)
         conn.execute("UPDATE benutzer SET kundennummer=? WHERE id=?", (kn, benutzer_id))
     return kn
 
@@ -4953,9 +5067,12 @@ def kunden_liste_laden(
     filter_typ: str = "Alle",
     filter_status: str = "Alle",
     filter_lizenz: str = "Alle",
+    filter_zahlungsstatus: str = "Alle",   # B3: neu
 ) -> list[dict]:
     """Lädt alle Kunden (Vereine + standalone Trainer) für Superadmin-Übersicht.
-    Gibt eine flache Liste von dicts zurück, die beide Kundentypen vereinheitlicht."""
+    Gibt eine flache Liste von dicts zurück, die beide Kundentypen vereinheitlicht.
+    B3: zahlungsstatus in SELECT; filter_zahlungsstatus-Parameter ergänzt.
+    """
     sql = """
         SELECT
             v.id                            AS verein_id,
@@ -4972,8 +5089,8 @@ def kunden_liste_laden(
             b.letzter_login,
             COALESCE(b.aktiv,1)             AS aktiv,
             b.gesperrt_bis,
-            COALESCE(v.lizenztyp,'BASIC')   AS lizenztyp,
-            COALESCE(v.lizenz_status,'trial') AS lizenz_status,
+            COALESCE(v.lizenztyp,'BASIC')        AS lizenztyp,
+            COALESCE(v.lizenz_status,'trial')    AS lizenz_status,
             v.lizenz_bis,
             v.testphase_bis,
             v.vertragsbeginn,
@@ -4982,6 +5099,7 @@ def kunden_liste_laden(
             v.kuendigung_eingegangen,
             v.gekuendigt_zum,
             COALESCE(v.gesperrt,0)          AS verein_gesperrt,
+            v.zahlungsstatus,
             b.telefon
         FROM vereine v
         LEFT JOIN benutzer b
@@ -5016,10 +5134,10 @@ def kunden_liste_laden(
             b.kuendigung_eingegangen,
             b.gekuendigt_zum,
             0                               AS verein_gesperrt,
+            NULL                            AS zahlungsstatus,
             b.telefon
         FROM benutzer b
         -- Trainer-Kunden: Rolle='Trainer' UND (kein Verein ODER technischer Mandant)
-        -- Trainer in echten Vereinen (mit Vereinsadmin) erscheinen nicht als eigene Kunden.
         WHERE b.rolle = 'Trainer'
           AND (
               b.verein_id IS NULL
@@ -5063,9 +5181,15 @@ def kunden_liste_laden(
                 continue
             if filter_status == "Gesperrt" and not r.get("verein_gesperrt"):
                 continue
+            if filter_status == "Trial" and r.get("lizenz_status") != "trial":
+                continue
         # Lizenzstatus-Filter
         if filter_lizenz != "Alle" and r["lizenz_status"] != filter_lizenz:
             continue
+        # Zahlungsstatus-Filter (B3)
+        if filter_zahlungsstatus != "Alle":
+            if (r.get("zahlungsstatus") or "") != filter_zahlungsstatus:
+                continue
         result.append(r)
     return result
 

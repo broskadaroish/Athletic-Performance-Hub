@@ -465,19 +465,19 @@ def _dash_superadmin(user: dict):
 
     kpis = dashboard_sa_kpis()
 
-    # ── KPI-Reihe 1 ───────────────────────────────────────────────────────────
+    # ── KPI-Reihe 1: Kunden-Übersicht ─────────────────────────────────────────
     _kpi_row([
-        ("Vereine",          kpis["n_vereine"],     "🏢", _C["blue"],  f"{kpis['n_aktiv']} aktiv"),
-        ("Gesperrte Vereine",kpis["n_gesperrt"],    "🚫", _C["red"],   "", "", True),
-        ("Vereinsadmins",    kpis["n_vadmin"],      "👔", _C["orange"],""),
-        ("Aktive Benutzer",  kpis["n_benutzer"],    "✅", _C["green"], ""),
+        ("Kunden gesamt",    kpis["n_kunden_gesamt"], "👥", _C["blue"],   f"{kpis['n_vereine']} Vereine"),
+        ("Testphasen",       kpis["n_trial"],          "🔬", _C["orange"], "Trial aktiv"),
+        ("Aktive Abos",      kpis["n_aktive_abos"],    "💳", _C["green"],  "lizenz_status=active"),
+        ("Zahlungsprobleme", kpis["n_zahlungsproblem"],"⚠️", _C["red"],   "", "", kpis["n_zahlungsproblem"] > 0),
     ])
-    # ── KPI-Reihe 2 ───────────────────────────────────────────────────────────
+    # ── KPI-Reihe 2: Status & System ──────────────────────────────────────────
     _kpi_row([
+        ("Gekündigt",        kpis["n_gekuendigt"],  "🚫", _C["red"],    "ausstehend", "", kpis["n_gekuendigt"] > 0),
+        ("Ges. Vereine",     kpis["n_gesperrt"],    "🔒", _C["orange"], "deaktiviert", "", kpis["n_gesperrt"] > 0),
         ("Trainer",          kpis["n_trainer"],     "🧑‍💼", _C["purple"],""),
         ("Spieler gesamt",   kpis["n_spieler"],     "⚽", _C["blue"],  ""),
-        ("Diagnostiken",     kpis["n_diagnostiken"],"🔬", _C["teal"],  "alle Tests"),
-        ("Aktive Abos",      kpis["n_aktiv"],       "💳", _C["green"], "Vereine"),
     ])
 
     st.divider()

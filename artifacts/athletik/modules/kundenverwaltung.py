@@ -402,8 +402,12 @@ def _detail_b_rechnungsadresse(daten: dict) -> None:
                         telefon=f_tel.strip() or None,
                         ust_id=f_ustid.strip() or None,
                     )
-                    audit_log_eintragen(b["id"], "rechnungsadresse_geaendert",
-                                        "", _sa_id())
+                    # B7: Audit-Log für alle SA-Schreibaktionen — Details mitloggen
+                    audit_log_eintragen(
+                        b["id"], "rechnungsadresse_geaendert",
+                        f"email={f_remail.strip()}, ort={f_ort.strip()}",
+                        _sa_id(),
+                    )
                     st.session_state.pop(f"ra_bestaetigt_{b.get('id')}", None)
                     st.success("✅ Rechnungsadresse gespeichert.")
                     st.rerun()
@@ -506,21 +510,55 @@ def _detail_c_lizenz(daten: dict) -> None:
                     " Nochmals speichern zum Bestätigen."
                 )
             else:
-                if ist_verein:
-                    lizenz_setzen(entity_id, neues_paket, neuer_status,
-                                  neue_liz_bis.strip() or None,
-                                  neue_test_bis.strip() or None)
+                # ── B5: Downgrade-Schutz ──────────────────────────────────────
+                # Nur Vereinskunden prüfen (Trainers haben keine Spieler/Trainer-Struktur)
+                _downgrade_fehler = None
+                if ist_verein and neues_paket != lizenztyp:
+                    _neues_def = LIZENZ_TYPEN.get(neues_paket, {})
+                    _max_t_neu = _neues_def.get("max_trainer")
+                    _max_s_neu = _neues_def.get("max_spieler")
+                    if _max_t_neu is not None or _max_s_neu is not None:
+                        from database import get_conn as _gc_dg
+                        with _gc_dg() as _dc:
+                            _ist_trainer = _dc.execute(
+                                "SELECT COUNT(*) FROM benutzer WHERE verein_id=? AND aktiv=1 AND rolle='Trainer'",
+                                (entity_id,)
+                            ).fetchone()[0]
+                            _ist_spieler = _dc.execute(
+                                "SELECT COUNT(*) FROM spieler WHERE verein_id=? AND aktiv=1",
+                                (entity_id,)
+                            ).fetchone()[0]
+                        if _max_t_neu is not None and _ist_trainer > _max_t_neu:
+                            _downgrade_fehler = (
+                                f"❌ Downgrade blockiert: Paket **{neues_paket}** erlaubt max. "
+                                f"**{_max_t_neu} Trainer**, aber der Verein hat **{_ist_trainer} aktive Trainer**. "
+                                "Bitte zuerst Trainer deaktivieren — Daten bleiben erhalten."
+                            )
+                        elif _max_s_neu is not None and _ist_spieler > _max_s_neu:
+                            _downgrade_fehler = (
+                                f"❌ Downgrade blockiert: Paket **{neues_paket}** erlaubt max. "
+                                f"**{_max_s_neu} Spieler**, aber der Verein hat **{_ist_spieler} aktive Spieler**. "
+                                "Bitte zuerst Spieler deaktivieren — Daten bleiben erhalten."
+                            )
+                if _downgrade_fehler:
+                    st.session_state.pop(_pk_key, None)
+                    st.error(_downgrade_fehler)
                 else:
-                    trainer_lizenz_setzen(entity_id, neues_paket, neuer_status,
-                                          neue_liz_bis.strip() or None,
-                                          neue_test_bis.strip() or None)
-                audit_log_eintragen(
-                    b.get("id"), "paket_geaendert",
-                    f"{lizenztyp} → {neues_paket} status={neuer_status}", _sa_id(),
-                )
-                st.session_state.pop(_pk_key, None)
-                st.success("✅ Lizenz gespeichert.")
-                st.rerun()
+                    if ist_verein:
+                        lizenz_setzen(entity_id, neues_paket, neuer_status,
+                                      neue_liz_bis.strip() or None,
+                                      neue_test_bis.strip() or None)
+                    else:
+                        trainer_lizenz_setzen(entity_id, neues_paket, neuer_status,
+                                              neue_liz_bis.strip() or None,
+                                              neue_test_bis.strip() or None)
+                    audit_log_eintragen(
+                        b.get("id"), "paket_geaendert",
+                        f"{lizenztyp} → {neues_paket} status={neuer_status}", _sa_id(),
+                    )
+                    st.session_state.pop(_pk_key, None)
+                    st.success("✅ Lizenz gespeichert.")
+                    st.rerun()
 
 
 def _detail_d_vertrag(daten: dict) -> None:
@@ -585,8 +623,59 @@ def _detail_d_vertrag(daten: dict) -> None:
                     kuendigungsstatus=e_kstat,
                     superadmin_id=_sa_id(),
                 )
+            # B7: Audit-Log für alle SA-Schreibaktionen
+            audit_log_eintragen(
+                b.get("id"), "vertragsdaten_geaendert",
+                f"kstat={e_kstat}, kzum={e_kzum.strip() or '—'}, vende={e_vend.strip() or '—'}",
+                _sa_id(),
+            )
             st.success("✅ Vertragsdaten gespeichert.")
             st.rerun()
+
+
+def _detail_e_stripe(daten: dict) -> None:
+    """Section E: Stripe-Informationen (B4) — nur lesend, nur für Vereine.
+
+    Zeigt Customer-ID, Subscription-ID (jeweils gekürzt), Status und
+    cancel_at_period_end. Keine Stripe-API-Calls — nur DB-Felder.
+    """
+    v = daten.get("verein") or {}
+    if not v:
+        # Standalone-Trainer: Stripe-Block nicht anzeigen (kein Vereins-Stripe)
+        return
+
+    cid  = v.get("stripe_customer_id") or ""
+    sid  = v.get("stripe_subscription_id") or ""
+    zahl = v.get("zahlungsstatus") or "—"
+    cap  = v.get("cancel_at_period_end")
+
+    def _kuerz(s: str) -> str:
+        return (s[:12] + "…") if len(s) > 12 else (s or "—")
+
+    with st.expander("**E — Stripe**", expanded=False):
+        c1, c2 = st.columns(2)
+        c1.markdown(f"**Customer vorhanden:** {'✅ Ja' if cid else '❌ Nein'}")
+        c1.markdown(f"**Customer-ID:** `{_kuerz(cid)}`")
+        c2.markdown(f"**Subscription vorhanden:** {'✅ Ja' if sid else '❌ Nein'}")
+        c2.markdown(f"**Subscription-ID:** `{_kuerz(sid)}`")
+
+        sc1, sc2 = st.columns(2)
+        _zahl_color = "#f85149" if zahl == "fehlgeschlagen" else "#3fb950" if zahl == "bezahlt" else "#8b949e"
+        sc1.markdown(
+            f"**Zahlungsstatus:** "
+            f'<span style="color:{_zahl_color};font-weight:600">{zahl}</span>',
+            unsafe_allow_html=True,
+        )
+        _cap_lbl = "⚠️ Kündigung läuft — endet am Periodenende" if cap else "🔄 Automatisch verlängernd"
+        sc2.markdown(f"**Abo-Verlängerung:** {_cap_lbl}")
+
+        if not cid and not sid:
+            st.info("ℹ️ Noch keine Stripe-Anbindung für diesen Kunden hinterlegt.")
+        else:
+            st.caption(
+                "IDs gekürzt dargestellt — vollständige IDs im Stripe-Dashboard einsehen. "
+                "Änderungen nur über Stripe oder den Webhook-Flow."
+            )
 
 
 def _detail_audit(daten: dict) -> None:
@@ -754,6 +843,25 @@ def _detail_gefahrenbereich(daten: dict) -> None:
             unsafe_allow_html=True,
         )
 
+        # ── B7: Stripe-Abo-Check vor Löschung ───────────────────────────────
+        _stripe_cid = (v.get("stripe_customer_id") or "")
+        _stripe_sid = (v.get("stripe_subscription_id") or "")
+        _liz_stat   = (v.get("lizenz_status") or "")
+        _hat_aktives_abo = bool(_stripe_sid and _liz_stat in ("active", "trial"))
+        if _hat_aktives_abo:
+            st.warning(
+                f"⚠️ **Stripe-Abo aktiv!** Dieser Kunde hat ein laufendes Stripe-Abo "
+                f"(Subscription-ID: `{_stripe_sid[:12]}…`). "
+                "**Bitte zuerst das Abo im Stripe-Dashboard kündigen**, bevor der Kunde "
+                "hier gelöscht wird — sonst entstehen offene Zahlungsansprüche ohne Kundendatensatz."
+            )
+        elif _stripe_cid:
+            st.info(
+                f"ℹ️ Stripe-Customer vorhanden (`{_stripe_cid[:12]}…`), aber kein aktives Abo. "
+                "Stripe-Customer bleibt nach der Löschung im Dashboard bestehen — "
+                "bitte manuell prüfen."
+            )
+
         st.error(
             "⚠️ **Achtung:** Dieser Vorgang ist **nicht rückgängig zu machen**. "
             "Alle Spieler- und Testdaten werden endgültig entfernt. "
@@ -863,6 +971,7 @@ def _kunde_detail(verein_id: int | None, benutzer_id: int | None) -> None:
     _detail_b_rechnungsadresse(daten)
     _detail_c_lizenz(daten)
     _detail_d_vertrag(daten)
+    _detail_e_stripe(daten)
     _detail_audit(daten)
     _detail_gefahrenbereich(daten)
 
@@ -1100,17 +1209,25 @@ def page_kundenverwaltung():
     # ── Tab: Kunden ────────────────────────────────────────────────────────────
     with tab_kunden:
         # Filter-Controls
-        fc1, fc2, fc3, fc4 = st.columns([3, 1, 1, 1])
+        # ── Zeile 1: Suche + Typ + Accountstatus ──────────────────────────────
+        fc1, fc2, fc3 = st.columns([3, 1, 1])
         such        = fc1.text_input("🔍 Suche", placeholder="Kundennummer, Name, E-Mail, Benutzername…",
                                       key="kv_such", label_visibility="collapsed")
         filter_typ  = fc2.selectbox("Kundentyp", ["Alle", "Verein", "Trainer"],
                                      key="kv_typ", label_visibility="collapsed")
         filter_st   = fc3.selectbox(
-            "Accountstatus", ["Alle","Aktiv","Deaktiviert","Gesperrt","E-Mail nicht bestätigt"],
+            "Accountstatus",
+            ["Alle", "Aktiv", "Trial", "Deaktiviert", "Gesperrt", "E-Mail nicht bestätigt"],
             key="kv_status", label_visibility="collapsed",
         )
-        _liz_opts = ["Alle", "trial", "active", "expired", "suspended", "cancelled", "unbekannt"]
+        # ── Zeile 2: Lizenzstatus + Zahlungsstatus (B3) ───────────────────────
+        fc4, fc5, _ = st.columns([1, 1, 2])
+        _liz_opts = ["Alle", "trial", "active", "expired", "suspended", "cancelled"]
         filter_liz  = fc4.selectbox("Lizenzstatus", _liz_opts, key="kv_lizenz",
+                                     label_visibility="collapsed")
+        _zahl_opts  = ["Alle", "fehlgeschlagen", "bezahlt", "zahlungsmethode_hinterlegt",
+                       "ausstehend"]
+        filter_zahl = fc5.selectbox("Zahlungsstatus", _zahl_opts, key="kv_zahlung",
                                      label_visibility="collapsed")
 
         alle_kunden = kunden_liste_laden(
@@ -1118,6 +1235,7 @@ def page_kundenverwaltung():
             filter_typ=filter_typ,
             filter_status=filter_st,
             filter_lizenz=filter_liz,
+            filter_zahlungsstatus=filter_zahl,
         )
 
         alle_kunden_gesamt = kunden_liste_laden()
