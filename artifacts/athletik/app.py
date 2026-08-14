@@ -4514,14 +4514,15 @@ def page_trainingsplan():
                         else:
                             _tv_plan_dicts.append(_row)
                     _tv_pdf_bytes = generate_trainingsplan_pdf(
-                        spieler            = auswahl,
-                        plan_rows          = _tv_plan_dicts,
-                        plangruppe         = _tv_pg,
-                        plangruppen_config = _tv_cfg,
-                        alters_ersatz      = _ALTERS_ERSATZ,
-                        vereinsname        = _tv_vereinsname,
-                        version_nr         = _av.get("version_nr"),
-                        plan_datum         = _av.get("datum", ""),
+                        spieler             = auswahl,
+                        plan_rows           = _tv_plan_dicts,
+                        plangruppe          = _tv_pg,
+                        plangruppen_config  = _tv_cfg,
+                        alters_ersatz       = _ALTERS_ERSATZ,
+                        vereinsname         = _tv_vereinsname,
+                        version_nr          = _av.get("version_nr"),
+                        plan_datum          = _av.get("datum", ""),
+                        wochenplanung_json  = _av.get("wochenplanung_json"),
                     )
                     _tv_vorname  = (auswahl.get("vorname") or "").strip()
                     _tv_nachname = (auswahl.get("nachname") or auswahl.get("name") or "Spieler").strip()

@@ -1604,16 +1604,42 @@ def generate_trainingsplan_pdf(
     vereinsname: str = "",
     version_nr: int | None = None,
     plan_datum: str = "",
+    wochenplanung_json: str | None = None,
 ) -> bytes:
     """
     Druckbarer Trainingsplan-PDF fuer einen Spieler.
     Zeigt Altersgruppe, vollstaendigen Wochenplan, Warm-Up, Substitutionshinweise
     und wissenschaftliche Quellen. Gleicher Stil wie AthletikReport.
 
-    version_nr  — Versionsnummer des aktiven Plans (z.B. 3)
-    plan_datum  — Erstellungsdatum der aktiven Version (ISO-String, z.B. '2026-08-01')
+    version_nr       — Versionsnummer des aktiven Plans (z.B. 3)
+    plan_datum       — Erstellungsdatum der aktiven Version (ISO-String)
+    wochenplanung_json — JSON-String mit Vereinsbelastungs-Parametern (optional).
+                         Wenn vorhanden und Modus 'vereinsbelastung': dynamische
+                         Tagnamen + kompakte Wochenübersicht werden ergänzt.
     """
     alters_ersatz = alters_ersatz or {}
+
+    # ── Wochenplanung parsen (Spec §21 PDF-Erweiterung) ──────────────────────
+    _wp: dict = {}
+    _vb_aktiv = False
+    try:
+        if wochenplanung_json:
+            import json as _json_pdf
+            _wp = _json_pdf.loads(wochenplanung_json)
+            _vb_aktiv = _wp.get("planungsmodus") == "vereinsbelastung"
+    except Exception:
+        _vb_aktiv = False
+
+    # Dynamisches Tag→Wochentag-Mapping:
+    # Im VB-Modus: gewaehlte_athletik_tage[0] = Tag 1, [1] = Tag 2, ...
+    # Im Standard-Modus: unveraendert _NAMEN_SICHER (defined at module level below).
+    if _vb_aktiv:
+        _ath_tage_pdf = _wp.get("gewaehlte_athletik_tage") or []
+        _tag_namen_pdf: dict[int, str] = {0: "Alle Tage"}
+        for _ti, _tw in enumerate(_ath_tage_pdf, start=1):
+            _tag_namen_pdf[_ti] = "%s - %s" % ("Tag %d" % _ti, _safe(_tw))
+    else:
+        _tag_namen_pdf = None  # Fallback auf _NAMEN_SICHER weiter unten
 
     # ── A4 Querformat (Landscape) ─────────────────────────────────────────────
     pdf = AthletikReport(orientation='L', unit='mm', format='A4')
@@ -1772,6 +1798,64 @@ def generate_trainingsplan_pdf(
         tag_nr   = int(row.get("tag") or 1)
         wochen[woche_nr][tag_nr].append(row)
 
+    # ── Wochenübersicht (nur im VB-Modus, einmalig vor dem detaillierten Plan) ──
+    if _vb_aktiv:
+        _vb_verein_tage = _wp.get("verein_trainingstage") or []
+        _vb_spiel_tage  = [t for t in (_wp.get("spieltag") or []) if t != "Wechselnd"]
+        _vb_ath_tage    = _wp.get("gewaehlte_athletik_tage") or []
+        _vb_spielbel    = _wp.get("spielbelastung", "")
+        _vb_begr        = _wp.get("aph_begruendung", "")
+        _TAGE_ALLE_PDF  = ["Montag","Dienstag","Mittwoch","Donnerstag",
+                           "Freitag","Samstag","Sonntag"]
+
+        pdf.check_page_break(60)
+        pdf.section_title("WOCHENUEBERSICHT — BELASTUNGSVERTEILUNG")
+
+        # Meta-Zeile: Planungsparameter
+        pdf.set_font("Helvetica", "", 8)
+        pdf.set_text_color(*pdf.MID)
+        _meta = "Vereinstraining: %s  |  Spiel: %s  |  APH-Athletik: %s" % (
+            _safe(", ".join(_vb_verein_tage) or "—"),
+            _safe(", ".join(_vb_spiel_tage) or "—"),
+            _safe(", ".join(_vb_ath_tage) or "—"),
+        )
+        pdf.cell(0, 4, _meta, new_x="LMARGIN", new_y="NEXT")
+        if _vb_begr:
+            pdf.set_font("Helvetica", "I", 7)
+            pdf.cell(0, 4, _safe(_vb_begr[:140]), new_x="LMARGIN", new_y="NEXT")
+        pdf.ln(2)
+        pdf.set_text_color(*pdf.DARK)
+
+        # Kompakte 7-Tage-Tabelle (Montag–Sonntag)
+        _ue_cols_wb = [("Wochentag", 36), ("Rolle", 80), ("Hinweis", _cw - 116)]
+        pdf.table_header(_ue_cols_wb, font_size=9)
+        _wb_fill = False
+        for _wtag in _TAGE_ALLE_PDF:
+            if _wtag in _vb_verein_tage and _wtag in _vb_ath_tage:
+                _rolle   = "Vereinstraining + APH Athletik"
+                _hinweis = "Doppelbelastung — bitte Intensitaet abstimmen"
+            elif _wtag in _vb_verein_tage:
+                _rolle   = "Vereinstraining"
+                _hinweis = ""
+            elif _wtag in _vb_spiel_tage:
+                _rolle   = ("Turnier / Spiel" if _vb_spielbel == "Turnier / mehrere Spiele"
+                            else "Spiel")
+                _hinweis = "Kein zusaetzliches Athletiktraining vorgesehen"
+            elif _wtag in _vb_ath_tage:
+                _rolle   = "APH Athletik"
+                _hinweis = "Details: Trainingsplan unten"
+            else:
+                _rolle   = "Regeneration / frei"
+                _hinweis = ""
+            pdf.table_row_tp(
+                [_safe(_wtag), _safe(_rolle), _safe(_hinweis)],
+                [c[1] for c in _ue_cols_wb],
+                _wb_fill,
+                font_size=8.5,
+            )
+            _wb_fill = not _wb_fill
+        pdf.ln(4)
+
     for woche_nr in sorted(wochen.keys()):
         is_deload = (woche_nr % 4 == 0)
         woche_label = "WOCHE %d%s" % (woche_nr, " - DELOAD" if is_deload else "")
@@ -1800,7 +1884,9 @@ def generate_trainingsplan_pdf(
 
         tags_in_woche = sorted(wochen[woche_nr].keys())
         for tag_nr in tags_in_woche:
-            tag_label = _NAMEN_SICHER.get(tag_nr, "Tag %d" % tag_nr)
+            # VB-Modus: dynamische Tagnamen; Standard: _NAMEN_SICHER-Fallback
+            _aktiver_namensmap = _tag_namen_pdf if _tag_namen_pdf is not None else _NAMEN_SICHER
+            tag_label = _aktiver_namensmap.get(tag_nr, "Tag %d" % tag_nr)
 
             # Landscape-sichere Seitenumbruchpruefung vor jedem Tag
             if pdf.get_y() > pdf.h - pdf.b_margin - 30:
