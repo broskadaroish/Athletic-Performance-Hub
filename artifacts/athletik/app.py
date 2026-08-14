@@ -310,17 +310,21 @@ detect_screen_width()
 # ─── Login-Gate: Benutzer muss angemeldet sein ────────────────────────────────
 if "user" not in st.session_state:
 
-    # 1. Cookie-basierte Session-Wiederherstellung (nach Browser-Reload)
+    # 1. Cookie-basierte Session-Wiederherstellung (nach Browser-Reload / externer Navigation)
     #
-    # Hintergrund: CookieController ist eine React-Komponente. Beim ersten Run
-    # einer neuen Streamlit-Session (z. B. nach einem Browser-Reload durch die
-    # mobile Bottom-Navigation) ist der Wert noch nicht aus dem Browser
-    # zurückgemeldet worden — _cookie_ctrl.get("ath_sid") gibt None zurück.
-    # Der Controller triggert danach automatisch einen zweiten Rerun mit dem
-    # echten Cookie-Wert. Damit die Login-Seite in diesem Zwischenzustand
-    # NICHT angezeigt wird, zeigen wir beim ersten Run einen Lade-Platzhalter
-    # und stoppen. Im zweiten Rerun ist der Cookie verfügbar und die Session
-    # wird korrekt wiederhergestellt — ohne erneuten Login.
+    # Hintergrund: CookieController ist eine React-Komponente. Nach einem normalen
+    # Seiten-Reload benötigt sie 1 Rerun bis der Cookie-Wert verfügbar ist.
+    # Nach einer top-level Navigation von einer externen Seite (Stripe Checkout,
+    # E-Mail-Links etc.) baut Streamlit eine neue WebSocket-Verbindung auf — die
+    # React-Komponente braucht dabei oft 2–4 Render-Zyklen bis sie den Browser-
+    # Cookie zurückmeldet.
+    #
+    # Lösung: bis zu _COOKIE_MAX_WAIT Reruns abwarten, erst dann Login zeigen.
+    # Die URL-Parameter (?checkout=success etc.) bleiben im Browser erhalten und
+    # werden nach erfolgreichem Restore im eingeloggten Bereich korrekt verarbeitet.
+    # Kein Token in URL — ausschließlich Cookie-basierte Authentifizierung.
+    _COOKIE_MAX_WAIT = 4  # Maximale Wartezyklen bevor Login-Seite angezeigt wird
+
     if _cookie_ctrl and not _qp_verify and not _qp_reset:
         try:
             _stored_sid = _cookie_ctrl.get("ath_sid")
@@ -330,20 +334,29 @@ if "user" not in st.session_state:
                 if _restored:
                     st.session_state["user"]           = _restored
                     st.session_state["_session_token"] = _stored_sid
+                    # Zähler zurücksetzen: nächste externe Navigation beginnt bei 0
+                    st.session_state.pop("_cookie_load_attempts", None)
                     st.rerun()
-            elif not st.session_state.get("_cookie_load_done"):
-                # Erster Run nach neuem Page-Load: Controller noch nicht bereit.
-                # Warte auf den automatischen zweiten Rerun mit echtem Cookie-Wert.
-                st.session_state["_cookie_load_done"] = True
-                st.markdown(
-                    '<div style="min-height:80vh;display:flex;align-items:center;'
-                    'justify-content:center">'
-                    '<div style="color:#8b949e;font-size:14px;text-align:center">'
-                    '<div style="font-size:28px;margin-bottom:12px">⚙️</div>'
-                    'Sitzung wird geprüft …</div></div>',
-                    unsafe_allow_html=True,
-                )
-                st.stop()
+                # Cookie ist da, Session aber ungültig/abgelaufen → sofort Login.
+                # Kein weiteres Warten nötig: der Cookie ist lesbar, die Session
+                # ist einfach abgelaufen oder wurde serverseitig invalidiert.
+            else:
+                # Cookie noch nicht verfügbar — auf CookieController warten.
+                _attempts = st.session_state.get("_cookie_load_attempts", 0)
+                if _attempts < _COOKIE_MAX_WAIT:
+                    st.session_state["_cookie_load_attempts"] = _attempts + 1
+                    st.markdown(
+                        '<div style="min-height:80vh;display:flex;align-items:center;'
+                        'justify-content:center">'
+                        '<div style="color:#8b949e;font-size:14px;text-align:center">'
+                        '<div style="font-size:28px;margin-bottom:12px">⚙️</div>'
+                        'Sitzung wird geprüft …</div></div>',
+                        unsafe_allow_html=True,
+                    )
+                    st.stop()
+                # Nach _COOKIE_MAX_WAIT Versuchen kein Cookie → Login-Seite anzeigen.
+                # _cookie_load_attempts bleibt im session_state, wird beim nächsten
+                # Page-Load (neue Streamlit-Session) automatisch zurückgesetzt.
         except Exception:
             pass
 
@@ -635,16 +648,25 @@ if "user" not in st.session_state:
                                 )
                                 st.session_state["_session_token"] = _new_sid
                                 if _cookie_ctrl:
-                                    _cookie_ctrl.set("ath_sid", _new_sid,
-                                                    max_age=_SESSION_MAX_SEC,
-                                                    secure=True, same_site="Lax")
-                                    # Hinweis: SameSite=Lax (statt Strict) ist erforderlich,
-                                    # damit der Cookie bei der Rückkehr von externen Seiten
-                                    # (Stripe Checkout, OAuth-Flows) mitgesendet wird.
-                                    # Strict würde den Cookie bei top-level GET-Redirects
-                                    # von Drittseiten unterdrücken → User landet auf Login-Seite.
-                                    # Lax erlaubt Cookie bei GET-Navigation, blockiert ihn aber
-                                    # weiterhin bei eingebetteten Ressourcen (CSRF-sicher).
+                                    try:
+                                        _cookie_ctrl.set("ath_sid", _new_sid,
+                                                        max_age=_SESSION_MAX_SEC,
+                                                        path="/",
+                                                        secure=True, same_site="Lax")
+                                    except TypeError:
+                                        # Fallback für ältere Versionen ohne path-Parameter
+                                        _cookie_ctrl.set("ath_sid", _new_sid,
+                                                        max_age=_SESSION_MAX_SEC,
+                                                        secure=True, same_site="Lax")
+                                    # Cookie-Attribute:
+                                    # path="/"        → Cookie gilt für gesamte Domain
+                                    #                   (nicht nur den aktuellen Streamlit-Pfad)
+                                    # secure=True     → nur über HTTPS übertragen
+                                    # same_site="Lax" → Cookie wird bei top-level GET-Redirects
+                                    #                   von externen Seiten mitgesendet (z. B.
+                                    #                   Rückkehr von Stripe Checkout), aber NICHT
+                                    #                   bei eingebetteten cross-site Requests
+                                    #                   (CSRF-Schutz bleibt erhalten)
                             except ValueError:
                                 # Passwort wurde während des Logins geändert —
                                 # Anmeldung verweigern

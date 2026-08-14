@@ -42,13 +42,28 @@ if last.get("target") != target or last.get("ts") != ts:
 ```
 `ts: Date.now()` in jedem Signal verhindert Stale-Value-Loops über Reruns hinweg.
 
-## CookieController-Timing-Fix bleibt
-`_cookie_load_done` Flag im Login-Gate bleibt für echte Browser-Reloads (Seite aktualisieren)
-erhalten. Normale Nav-Klicks brauchen es nicht mehr.
+## CookieController-Timing-Fix: Multi-Retry (Phase A5.2)
+`_cookie_load_done` (bool, 1 Rerun) wurde ersetzt durch `_cookie_load_attempts` (int, max 4 Reruns).
 
-**Why:** Internal Streamlit reruns (via setComponentValue) bewahren die gesamte
-st.session_state. Nur echte Browser-Navigationen (neue WebSocket-Session) brauchen
-den Cookie-Restore.
+**Warum 4 statt 1:** Nach top-level Navigation von externen Seiten (Stripe Checkout, OAuth)
+baut Streamlit eine neue WebSocket-Session auf. Die React-Komponente braucht dabei
+oft 2–4 Zyklen bis der Cookie-Wert verfügbar ist. 1 Rerun reichte nicht.
 
-**How to apply:** Jede mobile Navigationsaktion muss über den Custom Component oder
-über direkte st.session_state-Manipulation + st.rerun() laufen. KEIN `<a href>` für Navigation.
+**Cookie-Attribute für externe Redirects:**
+- `same_site="Lax"` (nicht Strict) → Cookie wird bei GET-Redirects von Drittseiten gesendet
+- `path="/"` → Cookie gilt für gesamte Domain, nicht nur aktuellen Streamlit-Pfad
+- `secure=True` → nur HTTPS
+
+**sessions-Tabelle:** kein `id`-Feld, nur `rowid` (SQLite intern). Cleanup-Query muss `rowid` nutzen.
+
+**Soft-Cleanup:** session_erstellen() deaktiviert älteste Sessions wenn >5 aktive pro Benutzer.
+Verhindert Ansammlung durch wiederholte Stripe-induzierte Neu-Logins.
+
+**?checkout=success Preservation:** Query-Param bleibt in Browser-URL erhalten über alle
+Reruns bis Session wiederhergestellt. Verarbeitung erst nach Login-Gate (Position ~70470 > ~13650).
+
+**Why:** External navigation creates new Streamlit WebSocket → CookieController re-mounts
+and needs multiple cycles. Counter approach is bounded (hard limit) and safe (no auth bypass).
+
+**How to apply:** Jede externe Navigation (OAuth, Payment, etc.) braucht den multi-retry
+Mechanismus. Kein Token in URL setzen.

@@ -4527,6 +4527,23 @@ def session_erstellen(
                VALUES (?, ?, ?, ?, ?, 1, ?)""",
             (token, benutzer_id, jetzt.isoformat(), jetzt.isoformat(), ablauf, token_version),
         )
+        # Soft-Cleanup: maximal _MAX_ACTIVE_SESSIONS parallele Sessions pro Benutzer.
+        # Verhindert Ansammlung durch wiederholte externe Navigationen (z. B. Stripe-Checkout).
+        # Die ältesten (nach letzte_aktivitaet) Sessions werden deaktiviert.
+        # Andere Geräte mit neueren Sessions bleiben unberührt.
+        # Hinweis: sessions hat kein id-Feld — rowid (SQLite-intern) als Schlüssel.
+        _MAX_ACTIVE_SESSIONS = 5
+        conn.execute(
+            """UPDATE sessions SET aktiv=0
+                WHERE benutzer_id=? AND aktiv=1
+                  AND rowid NOT IN (
+                    SELECT rowid FROM sessions
+                     WHERE benutzer_id=? AND aktiv=1
+                     ORDER BY letzte_aktivitaet DESC
+                     LIMIT ?
+                  )""",
+            (benutzer_id, benutzer_id, _MAX_ACTIVE_SESSIONS),
+        )
     return token
 
 

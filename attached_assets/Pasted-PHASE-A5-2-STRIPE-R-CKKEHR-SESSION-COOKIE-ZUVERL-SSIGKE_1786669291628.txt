@@ -1,0 +1,194 @@
+PHASE A5.2 – STRIPE-RÜCKKEHR: SESSION/COOKIE-ZUVERLÄSSIGKEIT FIXEN
+
+Ausgangslage:
+Stripe Checkout funktioniert vollständig.
+
+Nach erfolgreichem Checkout:
+Stripe → https://aphsystem.de?checkout=success
+
+Problem:
+Der Nutzer landet zunächst auf der Login-Seite.
+Nach erneutem Login erscheint die korrekte Success-Meldung.
+
+Bereits geprüft:
+
+- Cookie ath_sid wird beim Login gesetzt
+- secure=True
+- same_site="Lax"
+- serverseitige Session bleibt bestehen
+- sessions-Tabelle zeigt für den betroffenen Benutzer weiterhin aktive,
+  gültige Sessions
+- also KEIN serverseitiger Sessionverlust
+
+Beispiel Benutzer id=7:
+mehrere aktive Sessions vorhanden,
+aktiv=1,
+ablauf_am erst am Folgetag.
+
+Damit liegt das Problem sehr wahrscheinlich beim clientseitigen Cookie-Lesen /
+Streamlit-Neustart nach externer Stripe-Rückkehr.
+
+Bitte ausschließlich diesen Session-Restore-Flow analysieren und minimal korrigieren.
+
+1. BESTEHENDEN FLOW PRÜFEN
+
+app.py:
+
+CookieController:
+_cookie_ctrl = CookieController(...)
+
+Login:
+_cookie_ctrl.set(
+    "ath_sid",
+    _new_sid,
+    max_age=...,
+    secure=True,
+    same_site="Lax"
+)
+
+Restore:
+wenn "user" nicht in st.session_state:
+    _stored_sid = _cookie_ctrl.get("ath_sid")
+
+Problem:
+CookieController ist eine clientseitige React-Komponente.
+Bei einem komplett neuen Streamlit-Dokument nach Rückkehr von Stripe
+kann get("ath_sid") zunächst None liefern.
+
+Der aktuelle _cookie_load_done-Mechanismus reicht offenbar nicht zuverlässig.
+
+2. KEINE UNSICHERE LÖSUNG
+
+NICHT:
+- Session-Token in success_url
+- Session-ID in Query-Parameter
+- Login umgehen
+- Benutzer-ID aus URL vertrauen
+- Cookies ohne secure
+- Authentifizierung nur anhand checkout=success
+
+3. ROBUSTER COOKIE-RESTORE
+
+Bitte eine robuste Lösung bauen, die nach externer top-level Navigation
+von Stripe zuverlässig auf den Cookie wartet.
+
+Mögliche sichere Richtung:
+
+- beim ersten Run ohne user CookieController initialisieren
+- nicht sofort Login rendern
+- mehrere kurze kontrollierte Reruns/Wartezyklen erlauben,
+  bis CookieController den Browser-Cookie geliefert hat
+- harte Obergrenze verwenden, damit keine Endlosschleife entsteht
+- sobald ath_sid vorhanden:
+  session_validieren()
+  user + _session_token wiederherstellen
+  rerun
+- erst wenn nach mehreren Versuchen wirklich kein Cookie vorhanden ist:
+  Login anzeigen
+
+Wichtig:
+Der Benutzer darf nicht dauerhaft auf "Sitzung wird geprüft ..." hängen.
+
+4. CHECKOUT-QUERY-PARAM NICHT ZU FRÜH VERLIEREN
+
+Prüfen, wann:
+?checkout=success
+
+gelesen und gelöscht wird.
+
+Erst nachdem:
+- bestehende Session erfolgreich wiederhergestellt wurde
+
+soll der Success-Banner in session_state übernommen werden.
+
+Ein nicht eingeloggter Besucher mit ?checkout=success darf dadurch NICHT
+authentifiziert werden.
+
+5. COOKIE ATTRIBUTE PRÜFEN
+
+Prüfen:
+- Cookie Path
+- Domain
+- Secure
+- SameSite
+- max_age
+
+Falls CookieController standardmäßig einen ungeeigneten Path setzt,
+explizit path="/" verwenden, sofern von der installierten Version unterstützt.
+
+APP läuft direkt unter:
+https://aphsystem.de
+
+Cookie soll für die gesamte Domain / gelten.
+
+6. MEHRFACHE SESSION-ERZEUGUNG
+
+In der sessions-Tabelle entstehen beim erneuten Login mehrere parallele aktive
+Sessions pro Benutzer.
+
+Bitte prüfen, ob das beabsichtigt ist.
+
+NICHT pauschal alle Sessions löschen.
+
+Wenn sinnvoll:
+bei gleichem Browser / erneutem Login sauber bestehende Session verwenden
+oder alte Session kontrolliert deaktivieren.
+
+Aber nur wenn dies ohne Risiko für andere Geräte möglich ist.
+
+7. TESTS
+
+Bitte testen:
+
+A)
+normaler Login
+→ Cookie gesetzt
+→ Reload
+→ bleibt eingeloggt
+
+B)
+normaler Login
+→ externe Navigation
+→ zurück zu aphsystem.de
+→ bleibt eingeloggt
+
+C)
+Stripe-Simulation:
+eingeloggt
+→ externe Seite
+→ zurück mit ?checkout=success
+→ Session wird aus ath_sid wiederhergestellt
+→ Success-Meldung erscheint
+→ KEINE Login-Seite
+
+D)
+kein Cookie + ?checkout=success
+→ Nutzer bleibt NICHT authentifiziert
+→ Login-Seite
+
+E)
+ungültiger/abgelaufener ath_sid
+→ Login-Seite
+
+8. KEINE ÄNDERUNGEN AN
+
+- Stripe Checkout
+- Webhook
+- Price Mapping
+- Trial
+- DB-Zahlungsstatus
+- Paketsystem
+- Lizenzlogik
+
+Danach berichten:
+
+1. genaue Ursache
+2. warum SameSite=Lax allein nicht genügt hat
+3. wie viele Cookie-Leseversuche/Reruns jetzt verwendet werden
+4. Cookie Path/Domain
+5. Verhalten bei ungültigem Cookie
+6. Verhalten bei ?checkout=success ohne Login
+7. geänderte Dateien
+8. Tests bestanden? JA/NEIN
+
+Danach STOPPEN.
