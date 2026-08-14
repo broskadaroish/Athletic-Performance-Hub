@@ -360,6 +360,53 @@ if "user" not in st.session_state:
         except Exception:
             pass
 
+    # ── Rerun-Schutz: Testszenarien-Checkliste ───────────────────────────────
+    #
+    # Die folgenden Szenarien beschreiben das erwartete Verhalten des
+    # Session-Restore-Mechanismus. Zur manuellen Verifikation nach Änderungen:
+    #
+    # A) Normaler Browser-Reload mit gültigem ath_sid-Cookie:
+    #    → CookieController liefert Cookie nach 1–2 Reruns.
+    #    → session_validieren() gibt user-dict zurück → session_state["user"] gesetzt.
+    #    → Nutzer sieht die App ohne Login-Aufforderung.
+    #    → _cookie_load_attempts wird auf 0 zurückgesetzt.
+    #
+    # B) Rückkehr von Stripe Checkout (?checkout=success) mit gültigem Cookie:
+    #    → Neue WebSocket-Verbindung → 2–4 Reruns bis Cookie lesbar.
+    #    → Ladeanimation ("Sitzung wird geprüft …") erscheint bis zu 4× kurz.
+    #    → Nach Restore: _qp_checkout="success" noch im Browser → Banner gesetzt.
+    #    → Kein erneuter Login erforderlich.
+    #
+    # C) Erster Aufruf ohne Cookie (kein ath_sid im Browser):
+    #    → _cookie_ctrl.get("ath_sid") → None für jeden Zyklus.
+    #    → Ladeanimation läuft _COOKIE_MAX_WAIT (=4) Mal, dann Login-Seite.
+    #    → _cookie_load_attempts wächst bis 4, danach kein weiterer Increment
+    #      (Bedingung _attempts < _COOKIE_MAX_WAIT ist False → kein st.stop() mehr).
+    #
+    # D) Ungültiger oder abgelaufener ath_sid-Cookie:
+    #    → _cookie_ctrl.get("ath_sid") liefert Token-String.
+    #    → session_validieren() gibt None zurück (abgelaufen/invalidiert/version-mismatch).
+    #    → Kein Warte-Zyklus, kein Increment — sofort Login-Seite.
+    #
+    # E) ?checkout=success ohne gültigen ath_sid-Cookie:
+    #    → if "user" not in st.session_state → Login-Gate aktiv.
+    #    → st.stop() am Ende des Login-Blocks (Zeile ~1157) verhindert Ausführung
+    #      der Checkout-Verarbeitungslogik (Zeile ~1261).
+    #    → Nutzer sieht Login-Seite; Param wird nicht als Authentifizierung gewertet.
+    #
+    # F) Gültige Session, aber session_token_version stimmt nicht überein
+    #    (Passwort wurde nach Session-Erstellung geändert):
+    #    → session_validieren() erkennt Version-Mismatch → Session deaktiviert → None.
+    #    → Szenario D greift → sofort Login-Seite.
+    #    → Alternativ: per-Rerun-Check (session_token_aktiv) nach Login-Gate invalidiert
+    #      den session_state → __logout_ok__ gesetzt → Login mit Hinweismeldung.
+    #
+    # ── Rerun-Loop-Schutz ────────────────────────────────────────────────────
+    # _cookie_load_attempts wird nur inkrementiert wenn _attempts < _COOKIE_MAX_WAIT.
+    # Nach Erreichen des Limits keine st.stop() mehr → Login-Seite wird angezeigt.
+    # Der Zähler verbleibt im session_state (wächst nicht weiter) und wird beim
+    # nächsten echten Page-Load (neue Streamlit-Session) automatisch zurückgesetzt.
+
     # ── Zentrierter Container ─────────────────────────────────────────────────
     _lc1, _lc2, _lc3 = st.columns([1, 2, 1])
     with _lc2:
