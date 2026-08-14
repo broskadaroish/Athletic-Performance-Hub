@@ -630,7 +630,7 @@ def page_lizenz_superadmin() -> None:
         tage    = info.get("tage_verbleibend")
         ablauf  = info.get("ablauf_datum")
         badge   = _status_badge(info["lizenz_status"])
-        typ_def = LIZENZ_TYPEN.get(info["lizenz_typ"], LIZENZ_TYPEN["BASIC"])
+        typ_def = LIZENZ_TYPEN.get(info["lizenz_typ"]) or LIZENZ_TYPEN.get("TRAINER_BASIC") or next(iter(LIZENZ_TYPEN.values()))
 
         with st.expander(
             f"{v.get('name', '—')}  |  {typ_def['label']}  |  "
