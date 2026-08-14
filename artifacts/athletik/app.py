@@ -4571,8 +4571,21 @@ def page_trainingsplan():
             ("🟢", "Glute Bridge",             "2×10",       "Langsam, Becken oben halten 2 s"),
             ("🎯", "Mini-Band Walk",           "2×10 m",     "Lateral, Knie leicht gebeugt"),
         ]
+        # _tag_namen: Im Vereinsbelastungs-Modus gewaehlte_athletik_tage verwenden,
+        # sonst die bisherige Standardzuordnung (Spec §21, Nachbesserung).
         _tag_namen = {1:"Tag 1 — Montag", 2:"Tag 2 — Mittwoch", 3:"Tag 3 — Freitag",
                       4:"Tag 4 — Samstag", 0:"Alle Tage"}
+        try:
+            if _av_wp_json:
+                import json as _json_tn
+                _wp_tn = _json_tn.loads(_av_wp_json)
+                _ath_tage_tn = _wp_tn.get("gewaehlte_athletik_tage") or []
+                if _ath_tage_tn:
+                    _tag_namen = {0: "Alle Tage"}
+                    for _ti, _tw in enumerate(_ath_tage_tn, start=1):
+                        _tag_namen[_ti] = f"Tag {_ti} — {_tw}"
+        except Exception:
+            pass  # Fallback: Standard-Zuordnung bleibt
         _BEREICHE_ALL = ["Sprunggelenk","Knie","Hüfte","Rumpf","Oberschenkel",
                          "Schnelligkeit","Explosivität","Agilität","Fußball"]
         _zeit_soll = _av["trainingszeit_min"]

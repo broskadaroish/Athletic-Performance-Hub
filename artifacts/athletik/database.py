@@ -2173,14 +2173,17 @@ def plan_aktive_version_id(spieler_id: int) -> int | None:
 
 
 def plan_versionen_laden(spieler_id: int) -> list:
-    """Alle Versionen (AKTIV + ARCHIVIERT) für Historien-Anzeige."""
+    """Alle Versionen (AKTIV + ARCHIVIERT) für Historien-Anzeige.
+    Gibt wochenplanung_json mit zurück (NULL für alte Pläne ohne Wochenplanung)."""
     with get_conn() as conn:
         rows = conn.execute(
-            "SELECT id,version_nr,datum,erstellt_von,status,modus,trainingszeit_min,notizen "
+            "SELECT id,version_nr,datum,erstellt_von,status,modus,trainingszeit_min,notizen,"
+            "COALESCE(wochenplanung_json,NULL) as wochenplanung_json "
             "FROM trainingsplan_versionen WHERE spieler_id=? ORDER BY id DESC",
             (spieler_id,),
         ).fetchall()
-        cols = ["id","version_nr","datum","erstellt_von","status","modus","trainingszeit_min","notizen"]
+        cols = ["id","version_nr","datum","erstellt_von","status","modus",
+                "trainingszeit_min","notizen","wochenplanung_json"]
         return [dict(zip(cols, r)) for r in rows]
 
 

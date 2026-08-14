@@ -1,0 +1,94 @@
+KLEINER NACHBESSERUNGSAUFTRAG – WOCHENPLANUNG
+
+Die neue Wochenplanung ist erfolgreich implementiert und alle Tests bestehen.
+
+Bitte KEINE neue Architektur bauen und KEINE anderen Bereiche verändern.
+
+Es sollen ausschließlich die zwei im Abschlussbericht genannten offenen Punkte
+geprüft und sauber in die neue Wochenplanung integriert werden.
+
+1. WOCHENTAGE IM TRAININGSPLAN
+
+Aktuell bildet `_tag_namen` in `tab_view` Tag 1–4 weiterhin auf feste
+Wochentage (Mo/Mi/Fr/Sa) ab.
+
+Das darf im Modus "Mit Vereinsbelastung" nicht zu einem Widerspruch mit den
+vom Trainer gewählten `gewaehlte_athletik_tage` führen.
+
+Beispiel:
+
+Trainer/APH wählt:
+Montag + Donnerstag
+
+Dann muss die Wochenansicht bzw. Darstellung der APH-Einheiten auch
+Montag + Donnerstag verwenden und darf nicht aufgrund der alten
+Standardzuordnung Montag + Mittwoch anzeigen.
+
+WICHTIG:
+
+Im Planungsmodus STANDARD muss die bisherige `_tag_namen`-Logik unverändert
+weiter funktionieren.
+
+Nur wenn eine gültige Wochenplanung mit `gewaehlte_athletik_tage` vorhanden
+ist, sollen diese Tage für die Darstellung verwendet werden.
+
+Keine Änderung der eigentlichen Trainingsinhalte oder Defizitlogik.
+
+2. PLANHISTORIE
+
+`plan_versionen_laden()` so erweitern, dass `wochenplanung_json` ebenfalls
+zurückgegeben wird.
+
+Alte Datensätze mit NULL müssen weiterhin problemlos funktionieren.
+
+Keine Migration alter Daten erzwingen.
+
+3. TESTS
+
+Mindestens prüfen:
+
+A)
+STANDARD
+→ bisherige Tag-Darstellung unverändert.
+
+B)
+Vereinsbelastung:
+gewählte Athletiktage Montag + Donnerstag
+→ Darstellung zeigt Montag + Donnerstag.
+
+C)
+Andere Auswahl:
+Dienstag + Freitag
+→ Darstellung zeigt Dienstag + Freitag.
+
+D)
+Alter Plan mit `wochenplanung_json = NULL`
+→ kein Crash und bisherige Darstellung.
+
+E)
+Plan-Historie mit Wochenplanung
+→ `wochenplanung_json` wird korrekt geladen.
+
+F)
+Bestehende Block-B-Tests weiterhin vollständig PASS.
+
+G)
+Python-Syntaxprüfung PASS.
+
+Danach Abschlussbericht mit:
+- geänderten Dateien
+- genauer Änderung
+- Testergebnissen
+
+Danach STOPPEN.
+
+Nicht verändern:
+Stripe
+Login
+Session
+Kundenverwaltung
+Verträge
+Kundennummern
+Diagnostik
+bestehende Trainingsinhalte
+Produktionsdaten.
