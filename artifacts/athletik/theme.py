@@ -455,11 +455,70 @@ html, body { overflow-x: hidden; max-width: 100vw; }
         max-width: min(85vw, 320px) !important;
         min-width: 220px !important;
     }
-    /* Remove default Streamlit top padding/header space */
-    header[data-testid="stHeader"]             { display: none !important; }
-    /* Main block: full width, normal side padding, no bottom padding for nav bar */
+    /* ── Streamlit header: keep visible for the sidebar-open hamburger button ──
+       Do NOT use display:none on stHeader — it contains stSidebarCollapsedControl.
+       Instead: make the header a minimal transparent strip and hide its toolbar. */
+    header[data-testid="stHeader"] {
+        display: flex !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        pointer-events: auto !important;
+        background: transparent !important;
+        box-shadow: none !important;
+        height: auto !important;
+        min-height: 44px !important;
+        padding: 0 !important;
+        z-index: 9999 !important;
+    }
+    /* Hide the toolbar / deploy / share / main-menu icons on mobile */
+    header[data-testid="stHeader"] [data-testid="stToolbar"],
+    header[data-testid="stHeader"] [data-testid="stDecoration"],
+    header[data-testid="stHeader"] [data-testid="stStatusWidget"],
+    header[data-testid="stHeader"] #MainMenu,
+    header[data-testid="stHeader"] [data-testid="stMainMenu"],
+    header[data-testid="stHeader"] [data-testid="stAppViewBlockContainer"] {
+        display: none !important;
+    }
+    /* ── Sidebar open button (hamburger ☰) — prominent, tap-safe ── */
+    /* Streamlit 1.x uses stSidebarCollapsedControl; older also used
+       stSidebarToggleButton and generic header-kind buttons. All covered. */
+    [data-testid="stSidebarCollapsedControl"],
+    [data-testid="stSidebarToggleButton"],
+    button[kind="header"],
+    header[data-testid="stHeader"] button {
+        display: flex !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        pointer-events: auto !important;
+        position: fixed !important;
+        top: 8px !important;
+        left: 8px !important;
+        z-index: 10001 !important;
+        width: 44px !important;
+        height: 44px !important;
+        min-width: 44px !important;
+        min-height: 44px !important;
+        align-items: center !important;
+        justify-content: center !important;
+        background: rgba(22, 27, 34, 0.92) !important;
+        border: 1px solid #30363d !important;
+        border-radius: 10px !important;
+        color: #e6edf3 !important;
+        font-size: 20px !important;
+        cursor: pointer !important;
+        box-shadow: 0 2px 12px rgba(0,0,0,.45) !important;
+        -webkit-tap-highlight-color: transparent !important;
+    }
+    [data-testid="stSidebarCollapsedControl"]:active,
+    [data-testid="stSidebarToggleButton"]:active,
+    button[kind="header"]:active,
+    header[data-testid="stHeader"] button:active {
+        background: rgba(88,166,255,0.18) !important;
+        border-color: #58a6ff !important;
+    }
+    /* Main block: push content below the fixed hamburger button */
     .main .block-container {
-        padding-top: 12px !important;
+        padding-top: 64px !important;
         padding-bottom: 16px !important;
         padding-left: 14px !important;
         padding-right: 14px !important;

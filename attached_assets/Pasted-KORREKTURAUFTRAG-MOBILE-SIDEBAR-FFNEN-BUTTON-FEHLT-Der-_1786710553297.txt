@@ -1,0 +1,116 @@
+KORREKTURAUFTRAG – MOBILE SIDEBAR ÖFFNEN-BUTTON FEHLT
+
+Der letzte Umbau der mobilen Browser-Navigation ist grundsätzlich richtig:
+Die alte Bottom-Navigation ist auf dem Smartphone verschwunden.
+
+ABER:
+Auf aphsystem.de im normalen Android-Chrome-Browser gibt es jetzt KEINEN
+sichtbaren Button, Pfeil oder Hamburger, um die Sidebar/Slide-Navigation zu öffnen.
+
+Dadurch hat der Benutzer auf Mobile aktuell überhaupt keine Navigation.
+
+ZIEL:
+Auf Smartphone-Browsern muss oben links ein gut sichtbarer Menü-Button
+(Hamburger ☰ oder der vorhandene Streamlit SidebarCollapsedControl)
+angezeigt werden.
+
+Beim Antippen:
+→ bestehende Sidebar fährt von links als Drawer ein
+→ bestehende Desktop-Navigation wird darin angezeigt
+→ Rollen/Rechte bleiben identisch
+→ nach Auswahl eines Menüpunktes soll der Drawer wieder schließen
+
+WICHTIG:
+NICHT wieder die alte Bottom-Navigation aktivieren.
+Keine neue Navigation bauen.
+Nur den Öffnen-Button der bereits vorhandenen Sidebar/Drawer-Navigation
+auf Mobile zuverlässig sichtbar machen.
+
+1. Prüfe in theme.py ALLE CSS-Regeln für:
+
+[data-testid="stSidebarCollapsedControl"]
+[data-testid="collapsedControl"]
+button[kind="header"]
+stSidebar
+header
+MainMenu
+Toolbar
+display:none
+visibility:hidden
+opacity:0
+pointer-events:none
+
+Insbesondere prüfen, ob eine globale oder spätere CSS-Regel den
+SidebarCollapsedControl weiterhin versteckt.
+
+2. Bei Viewports <= 768px muss der Sidebar-Öffnen-Button:
+
+- display: flex bzw. sichtbar
+- visibility: visible
+- opacity: 1
+- pointer-events: auto
+- ausreichend hoher z-index
+- oben links sichtbar
+- mindestens ca. 44x44 px Touchfläche
+
+sein.
+
+3. Nicht ausschließlich auf einen möglicherweise versionsabhängigen
+Streamlit-Selektor verlassen.
+
+Prüfe anhand der aktuell verwendeten Streamlit-Version, welcher DOM-Selektor
+für den Sidebar-Öffnen-Button tatsächlich verwendet wird.
+
+Wenn mehrere Streamlit-kompatible Selektoren nötig sind, gezielt unterstützen.
+
+4. WICHTIG:
+Der Button darf NICHT hinter dem Seiteninhalt, Header oder einem Overlay liegen.
+
+Auf Mobile muss er optisch eindeutig sichtbar und anklickbar sein.
+
+5. Desktop NICHT verändern.
+
+6. NICHT verändern:
+- Session-Restore
+- CookieController
+- Login
+- Stripe
+- Datenbank
+- Trainingsplan
+- PDF
+- mobile Screen-Width-Erkennung
+- Rollen-/Navigationslogik
+
+7. Tests:
+
+A) 360px Smartphone:
+→ Menü-Button sichtbar
+
+B) 390–430px Smartphone:
+→ Menü-Button sichtbar
+
+C) Button antippen:
+→ Sidebar öffnet sich als Drawer
+
+D) Sidebar enthält dieselben erlaubten Menüpunkte wie Desktop
+
+E) Navigation funktioniert
+
+F) Bottom-Navigation bleibt verschwunden
+
+G) Desktop unverändert
+
+H)
+python3 -m py_compile app.py mobile.py theme.py
+
+I)
+Block-B 35/35
+
+Danach Abschlussbericht mit:
+- genaue Ursache, warum der Button unsichtbar war
+- betroffene CSS-Regel
+- genaue Änderung
+- verwendeter Streamlit-DOM-Selektor
+- Testergebnisse
+
+Danach STOPPEN. Keine weiteren Änderungen.
