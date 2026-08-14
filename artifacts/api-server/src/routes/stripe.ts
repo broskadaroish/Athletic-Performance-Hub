@@ -185,6 +185,7 @@ interface SubscriptionObj {
   status?: string;
   customer?: string;
   current_period_end?: number;
+  cancel_at?: number;
   cancel_at_period_end?: boolean;
   items?: { data?: Array<{ price?: { id?: string } }> };
   metadata?: Record<string, string>;
@@ -344,6 +345,13 @@ router.post("/stripe/webhook", (req: Request, res: Response): void => {
         const customerId  = sub.customer ?? "";
         const lizenzStatus = subLizenzStatus(status, cancelAtEnd);
 
+        // gekuendigt_zum: Stripe setzt cancel_at wenn cancel_at_period_end=true.
+        // Beim Rücknehmen (false) muss der Wert gecleart werden.
+        const cancelAt    = sub.cancel_at ?? null;
+        const gekuendigtZum = cancelAtEnd
+          ? (isoDate(cancelAt) ?? periodEnd)   // cancel_at fällt mit period_end zusammen
+          : null;                              // Rücknahme → Feld leeren
+
         conn.prepare(`
           UPDATE vereine
              SET lizenz_status                   = ?,
@@ -352,17 +360,23 @@ router.post("/stripe/webhook", (req: Request, res: Response): void => {
                  lizenz_bis                      = COALESCE(?, lizenz_bis),
                  subscription_current_period_end = COALESCE(?, subscription_current_period_end),
                  cancel_at_period_end            = ?,
+                 gekuendigt_zum                  = ?,
                  stripe_subscription_id          = ?
            WHERE stripe_subscription_id = ? OR stripe_customer_id = ?
         `).run(
           lizenzStatus,
           lizenzTyp, intervall,
           periodEnd, periodEnd,
-          cancelAtEnd ? 1 : 0, subId,
+          cancelAtEnd ? 1 : 0,
+          gekuendigtZum,
+          subId,
           subId, customerId,
         );
 
-        logger.info({ subId, lizenzTyp, lizenzStatus, cancelAtEnd, eventId }, "Abonnement aktualisiert");
+        logger.info(
+          { subId, lizenzTyp, lizenzStatus, cancelAtEnd, gekuendigtZum, eventId },
+          "Abonnement aktualisiert",
+        );
         break;
       }
 
@@ -371,16 +385,19 @@ router.post("/stripe/webhook", (req: Request, res: Response): void => {
         const subId     = obj["id"] as string;
         const periodEnd = isoDate(obj["current_period_end"] as number | undefined);
 
+        // lizenz_status='beendet' sperrt kostenpflichtige Features; Konto + Spielerdaten bleiben.
+        // zahlungsstatus='beendet' macht den Ablauf im Superadmin-Dashboard sichtbar.
         conn.prepare(`
           UPDATE vereine
-             SET lizenz_status        = 'expired',
+             SET lizenz_status        = 'beendet',
+                 zahlungsstatus       = 'beendet',
                  lizenz_bis           = COALESCE(?, lizenz_bis),
                  cancel_at_period_end = 0
            WHERE stripe_subscription_id = ?
         `).run(periodEnd, subId);
 
-        // Konto und Kundendaten bleiben erhalten — nur kostenpflichtige Features gesperrt
-        logger.info({ subId, eventId }, "Abonnement beendet — Lizenz auf expired gesetzt");
+        // Konto und Spielerdaten bleiben vollständig erhalten — nur kostenpflichtige Features gesperrt
+        logger.info({ subId, eventId }, "Abonnement beendet — Lizenz auf 'beendet' gesetzt");
         break;
       }
 

@@ -9,6 +9,7 @@ from __future__ import annotations
 import logging
 import streamlit as st
 from database import get_conn, kuendigung_einreichen, kuendigung_widerrufen
+import logging as _logging_mv
 
 _log = logging.getLogger("athletik.kuendigung")
 
@@ -238,7 +239,7 @@ def page_mein_vertrag() -> None:
         )
         k_status = data.get("kuendigungsstatus") or ""
 
-        if k_status == "eingegangen":
+        if k_status in ("eingegangen", "vorgemerkt"):
             # ── Widerruf-Frist prüfen ────────────────────────────────────────
             import os as _os_mv, datetime as _dt_mv
             frist_ok   = True   # True = Widerruf noch innerhalb der Frist
@@ -263,13 +264,25 @@ def page_mein_vertrag() -> None:
             except Exception:
                 pass
 
-            # Noch nicht vom Admin bestätigt → Widerruf ggf. möglich
-            st.warning(
-                f"**Deine Kündigung ist eingegangen und wird geprüft.**\n\n"
-                f"Eingangsdatum: **{eingang}**  \n"
-                "Solange sie noch nicht bestätigt wurde, kannst du sie "
-                "ggf. zurückziehen."
-            )
+            # ── Kündigungsstatus-Banner ──────────────────────────────────────
+            if k_status == "vorgemerkt":
+                _zugang_bis = (
+                    _fmt_datum(data.get("gekuendigt_zum"))
+                    or _fmt_datum(data.get("subscription_current_period_end"))
+                    or "Periodenende"
+                )
+                st.warning(
+                    f"**Kündigung vorgemerkt – Zugang bis {_zugang_bis}**\n\n"
+                    "Dein Abo läuft bis zum Periodenende regulär weiter. "
+                    "Du kannst die Kündigung noch zurücknehmen."
+                )
+            else:
+                st.warning(
+                    f"**Deine Kündigung ist eingegangen und wird geprüft.**\n\n"
+                    f"Eingangsdatum: **{eingang}**  \n"
+                    "Solange sie noch nicht bestätigt wurde, kannst du sie "
+                    "ggf. zurückziehen."
+                )
             if frist_text:
                 if frist_ok:
                     st.info(f"⏰ {frist_text}")
@@ -297,27 +310,42 @@ def page_mein_vertrag() -> None:
                     disabled=not wid_confirm,
                     type="primary",
                 ):
-                    # Immer verein_id + ist_verein=True verwenden (Datenquelle: vereine)
-                    ok, grund = kuendigung_widerrufen(verein_id, True)
-                    if ok:
-                        _sende_widerruf_email(user, data, ist_verein=ist_verein)
-                        st.success(
-                            "✅ Deine Kündigung wurde zurückgezogen. "
-                            "Dein Vertrag läuft weiter."
-                        )
-                        st.rerun()
-                    elif grund == "frist_abgelaufen":
-                        st.error(
-                            "Die Widerruf-Frist ist soeben abgelaufen. "
-                            "Ein Widerruf ist leider nicht mehr möglich. "
-                            "Bitte wende dich an support@aphsystem.de."
-                        )
-                    else:
-                        st.error(
-                            "Die Kündigung kann nicht mehr zurückgezogen werden — "
-                            "sie wurde bereits vom Support bestätigt. "
-                            "Bitte wende dich an support@aphsystem.de."
-                        )
+                    # ── Stripe-Widerruf (wenn vorgemerkt via Stripe) ─────────
+                    _wid_stripe_ok = True
+                    if k_status == "vorgemerkt" and data.get("stripe_subscription_id"):
+                        try:
+                            from stripe_service import kuendigung_widerrufen_stripe
+                            kuendigung_widerrufen_stripe(data["stripe_subscription_id"])
+                        except Exception as _e:
+                            _log.error("Stripe-Widerruf fehlgeschlagen: %s", _e)
+                            st.error(
+                                f"Die Kündigung konnte nicht bei Stripe zurückgenommen werden: {_e}\n\n"
+                                "Bitte versuche es erneut oder kontaktiere support@aphsystem.de."
+                            )
+                            _wid_stripe_ok = False
+
+                    if _wid_stripe_ok:
+                        # Immer verein_id + ist_verein=True verwenden (Datenquelle: vereine)
+                        ok, grund = kuendigung_widerrufen(verein_id, True)
+                        if ok:
+                            _sende_widerruf_email(user, data, ist_verein=ist_verein)
+                            st.success(
+                                "✅ Deine Kündigung wurde zurückgezogen. "
+                                "Dein Vertrag läuft weiter."
+                            )
+                            st.rerun()
+                        elif grund == "frist_abgelaufen":
+                            st.error(
+                                "Die Widerruf-Frist ist soeben abgelaufen. "
+                                "Ein Widerruf ist leider nicht mehr möglich. "
+                                "Bitte wende dich an support@aphsystem.de."
+                            )
+                        else:
+                            st.error(
+                                "Die Kündigung kann nicht mehr zurückgezogen werden — "
+                                "sie wurde bereits vom Support bestätigt. "
+                                "Bitte wende dich an support@aphsystem.de."
+                            )
             else:
                 st.info(
                     "Ein Widerruf ist nicht mehr möglich, da die Widerruf-Frist "
@@ -427,15 +455,50 @@ def _kuendigung_flow(
             key="kuend_final",
             disabled=not confirmed,
         ):
-            # Immer verein_id + True (Datenquelle: vereine für alle Rollen)
-            ok, ergebnis = kuendigung_einreichen(verein_id, True, grund)
-            if ok:
-                _sende_email(user, data, ergebnis[:10], ist_verein=ist_verein, grund=grund)
-                st.session_state["_kuend_step"] = 2
-                st.session_state["_kuend_datum"] = ergebnis[:10]
-                st.rerun()
+            # ── Stripe-Kündigung vormerken (wenn Subscription vorhanden) ────
+            stripe_sub_id = data.get("stripe_subscription_id")
+            _stripe_ok = True
+            _stripe_period_end: str | None = None
+            _kuend_status = "eingegangen"  # Fallback: manuelle Lizenz
+
+            if stripe_sub_id:
+                try:
+                    from stripe_service import kuendigung_vormerken
+                    _sub = kuendigung_vormerken(stripe_sub_id)
+                    import datetime as _dt_mv
+                    _ts = _sub.get("current_period_end")
+                    if _ts:
+                        _stripe_period_end = _dt_mv.datetime.fromtimestamp(_ts).date().isoformat()
+                    _kuend_status = "vorgemerkt"
+                except Exception as _e:
+                    _log.error("Stripe-Kündigung fehlgeschlagen: %s", _e)
+                    st.error(
+                        f"Die Kündigung konnte nicht bei Stripe vorgemerkt werden: {_e}\n\n"
+                        "Bitte versuche es erneut oder kontaktiere support@aphsystem.de."
+                    )
+                    _stripe_ok = False
             else:
-                st.error("Für diesen Vertrag liegt bereits eine Kündigung vor.")
+                # Kein Stripe-Abo — manuelle Lizenz, mit Hinweis fortfahren
+                st.info(
+                    "ℹ️ Diese Lizenz wird manuell verwaltet. "
+                    "Deine Kündigung wird aufgezeichnet und vom Support bearbeitet."
+                )
+
+            if _stripe_ok:
+                # Immer verein_id + True (Datenquelle: vereine für alle Rollen)
+                ok, ergebnis = kuendigung_einreichen(
+                    verein_id, True, grund,
+                    kuendigungsstatus_override=_kuend_status,
+                    cancel_at_period_end=bool(stripe_sub_id),
+                    gekuendigt_zum=_stripe_period_end,
+                )
+                if ok:
+                    _sende_email(user, data, ergebnis[:10], ist_verein=ist_verein, grund=grund)
+                    st.session_state["_kuend_step"] = 2
+                    st.session_state["_kuend_datum"] = ergebnis[:10]
+                    st.rerun()
+                else:
+                    st.error("Für diesen Vertrag liegt bereits eine Kündigung vor.")
         return
 
     # ── Schritt 2: Bestätigungsseite ────────────────────────────────────────

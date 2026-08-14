@@ -280,6 +280,7 @@ TESTPHASE_TAGE = 30   # Tage kostenlose Testphase bei Neuregistrierung
 #   "expired"   — Testphase oder Lizenz abgelaufen (on-the-fly berechnet, kein DB-Write)
 #   "suspended" — manuell gesperrt durch Superadmin
 #   "cancelled" — Abo gekündigt, läuft noch bis Lizenzende
+#   "beendet"   — Abo vollständig beendet (Stripe subscription.deleted) — Zugang gesperrt
 
 
 class LizenzInfo(TypedDict):
@@ -396,7 +397,7 @@ def enforce_license_gate() -> None:
         _zeige_gesperrt_page()
         st.stop()
 
-    if info["lizenz_status"] == "expired":
+    if info["lizenz_status"] in ("expired", "beendet"):
         _zeige_abgelaufen_page(info)
         st.stop()
 

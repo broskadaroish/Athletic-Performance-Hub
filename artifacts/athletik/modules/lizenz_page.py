@@ -49,6 +49,7 @@ def _status_badge(status: str) -> str:
         "expired":   (_C["red"],    "Abgelaufen"),
         "suspended": (_C["red"],    "Gesperrt"),
         "cancelled": (_C["orange"], "Gekündigt"),
+        "beendet":   (_C["red"],    "Beendet"),
     }
     color, label = farben.get(status, (_C["muted"], status.capitalize()))
     return (
@@ -348,7 +349,7 @@ def page_lizenz_superadmin() -> None:
     with col_f1:
         filter_status = st.selectbox(
             "Status filtern",
-            ["Alle", "trial", "active", "expired", "suspended", "cancelled"],
+            ["Alle", "trial", "active", "expired", "suspended", "cancelled", "beendet"],
             key="lizenz_sa_filter",
         )
     with col_f2:
@@ -371,7 +372,7 @@ def page_lizenz_superadmin() -> None:
 
         with st.expander(
             f"{v.get('name', '—')}  |  {typ_def['label']}  |  "
-            f"{'Abgelaufen' if info['lizenz_status'] in ('expired', 'suspended') else (str(tage) + ' Tage' if tage is not None else '—')}",
+            f"{'Abgelaufen' if info['lizenz_status'] in ('expired', 'suspended', 'beendet') else (str(tage) + ' Tage' if tage is not None else '—')}",
             expanded=False,
         ):
             r1c1, r1c2 = st.columns([2, 2])
@@ -404,13 +405,12 @@ def page_lizenz_superadmin() -> None:
                     key=f"typ_{v['id']}",
                 )
             with ed_c2:
+                _sa_statuses = ["trial", "active", "expired", "suspended", "cancelled", "beendet"]
                 neuer_status = st.selectbox(
                     "Status",
-                    ["trial", "active", "expired", "suspended", "cancelled"],
-                    index=["trial","active","expired","suspended","cancelled"].index(
-                        info["lizenz_status"] if info["lizenz_status"] in
-                        ["trial","active","expired","suspended","cancelled"] else "trial"
-                    ),
+                    _sa_statuses,
+                    index=_sa_statuses.index(info["lizenz_status"])
+                          if info["lizenz_status"] in _sa_statuses else 0,
                     key=f"status_{v['id']}",
                 )
             with ed_c3:
@@ -450,6 +450,28 @@ def page_lizenz_superadmin() -> None:
                         invalidate_lizenz_cache(v["id"])
                         st.success(f"Testphase um {extra_tage} Tage verlängert.")
                         st.rerun()
+
+            # ── Stripe-Kündigungsfelder ────────────────────────────────────
+            _cap_val = v.get("cancel_at_period_end")
+            _kuend_st = v.get("kuendigungsstatus") or "—"
+            _gek_zum  = v.get("gekuendigt_zum") or "—"
+            _kuend_ein = v.get("kuendigung_eingegangen") or "—"
+            if _cap_val or _kuend_st not in ("aktiv", "—", None):
+                st.markdown(
+                    f'<div style="background:{_C["surf"]};border:1px solid {_C["border"]};'
+                    f'border-radius:6px;padding:10px 14px;margin-top:10px">'
+                    f'<div style="font-size:11px;font-weight:700;color:{_C["orange"]};margin-bottom:6px">🔔 Kündigung</div>'
+                    f'<div style="font-size:11px;color:{_C["muted"]}">Status: '
+                    f'<span style="color:{_C["text"]}">{_kuend_st}</span></div>'
+                    f'<div style="font-size:11px;color:{_C["muted"]}">cancel_at_period_end: '
+                    f'<span style="color:{_C["text"]}">{"✅ Ja" if _cap_val else "Nein"}</span></div>'
+                    f'<div style="font-size:11px;color:{_C["muted"]}">Vertragsende: '
+                    f'<span style="color:{_C["text"]}">{_gek_zum}</span></div>'
+                    f'<div style="font-size:11px;color:{_C["muted"]}">Kündigung eingegangen: '
+                    f'<span style="color:{_C["text"]}">{_kuend_ein[:10] if _kuend_ein != "—" else "—"}</span></div>'
+                    f'</div>',
+                    unsafe_allow_html=True,
+                )
 
             # ── Rechnungen ─────────────────────────────────────────────────
             rechnungen = rechnungen_laden(v["id"])

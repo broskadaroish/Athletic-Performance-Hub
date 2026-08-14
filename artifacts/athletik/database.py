@@ -2558,6 +2558,7 @@ def _migrate_multitenant():
             ("kuendigung_eingegangen",  "TEXT"),
             ("gekuendigt_zum",          "TEXT"),
             ("kuendigungsstatus",       "TEXT"),
+            ("cancel_at_period_end",    "INTEGER DEFAULT 0"),
         ]
         for col, typ in neue_verein_vertrag_cols:
             try:
@@ -3112,7 +3113,9 @@ def alle_vereine_lizenz() -> list[dict]:
         return _rows(conn.execute(
             """SELECT id, name, aktiv, lizenztyp, lizenz_bis, lizenz_status,
                       testphase_bis, gesperrt, stripe_customer_id,
-                      stripe_subscription_id, zahlungsstatus
+                      stripe_subscription_id, zahlungsstatus,
+                      cancel_at_period_end, kuendigungsstatus, gekuendigt_zum,
+                      kuendigung_eingegangen
                  FROM vereine
                 ORDER BY erstellt_am DESC""",
         ).fetchall())
@@ -4250,39 +4253,60 @@ def pw_reset_token_validieren(token: str) -> int | None:
         return bid
 
 
-def kuendigung_einreichen(entity_id: int, ist_verein: bool,
-                          grund: str | None = None) -> tuple[bool, str]:
-    """Speichert eine Kündigung. Gibt (True, iso-zeitstempel) oder (False, 'bereits_gekuendigt')."""
+def kuendigung_einreichen(
+    entity_id: int,
+    ist_verein: bool,
+    grund: str | None = None,
+    *,
+    kuendigungsstatus_override: str | None = None,
+    cancel_at_period_end: bool = False,
+    gekuendigt_zum: str | None = None,
+) -> tuple[bool, str]:
+    """Speichert eine Kündigung. Gibt (True, iso-zeitstempel) oder (False, 'bereits_gekuendigt').
+
+    kuendigungsstatus_override: wenn angegeben, wird dieser Status gesetzt statt 'eingegangen'
+    cancel_at_period_end: setzt cancel_at_period_end=1 (nur für vereine-Tabelle, Stripe-backed)
+    gekuendigt_zum: ISO-Datum des Vertragsendes aus Stripe (optional)
+    """
     from datetime import datetime
     jetzt = datetime.utcnow().isoformat()
     tabelle = "vereine" if ist_verein else "benutzer"
+    status = kuendigungsstatus_override or "eingegangen"
     with get_conn() as conn:
         row = conn.execute(
             f"SELECT kuendigung_eingegangen FROM {tabelle} WHERE id=?", (entity_id,)
         ).fetchone()
         if row and row[0]:
             return False, "bereits_gekuendigt"
-        conn.execute(
-            f"UPDATE {tabelle} SET kuendigung_eingegangen=?, "
-            f"kuendigungsstatus='eingegangen', kuendigung_grund=? WHERE id=?",
-            (jetzt, grund, entity_id),
-        )
+        if ist_verein and cancel_at_period_end:
+            conn.execute(
+                f"UPDATE {tabelle} SET kuendigung_eingegangen=?, "
+                f"kuendigungsstatus=?, kuendigung_grund=?, "
+                f"cancel_at_period_end=1, gekuendigt_zum=COALESCE(?,gekuendigt_zum) WHERE id=?",
+                (jetzt, status, grund, gekuendigt_zum, entity_id),
+            )
+        else:
+            conn.execute(
+                f"UPDATE {tabelle} SET kuendigung_eingegangen=?, "
+                f"kuendigungsstatus=?, kuendigung_grund=? WHERE id=?",
+                (jetzt, status, grund, entity_id),
+            )
     return True, jetzt
 
 
 def kuendigung_widerrufen(entity_id: int, ist_verein: bool) -> tuple[bool, str]:
     """Zieht eine eingereichte Kündigung zurück.
 
-    Nur möglich solange kuendigungsstatus='eingegangen' UND die optionale
-    Widerruf-Frist (KUENDIGUNG_WIDERRUF_STUNDEN, 0 = unbegrenzt) noch nicht
-    abgelaufen ist.
+    Nur möglich solange kuendigungsstatus IN ('eingegangen','vorgemerkt') UND die
+    optionale Widerruf-Frist (KUENDIGUNG_WIDERRUF_STUNDEN, 0 = unbegrenzt) noch
+    nicht abgelaufen ist.
 
     Atomisches bedingtes UPDATE — kein TOCTOU-Risiko: die Frist- und
     Statusprüfung erfolgt direkt in der WHERE-Klausel des UPDATEs.
 
     Gibt zurück:
       (True,  'ok')                — Widerruf erfolgreich
-      (False, 'frist_abgelaufen')  — Frist überschritten, Status noch 'eingegangen'
+      (False, 'frist_abgelaufen')  — Frist überschritten, Status noch 'eingegangen'/'vorgemerkt'
       (False, 'nicht_widerrufbar') — Status bereits 'bestaetigt' oder 'beendet'
     """
     import os as _os
@@ -4302,12 +4326,16 @@ def kuendigung_widerrufen(entity_id: int, ist_verein: bool) -> tuple[bool, str]:
         pass
 
     with get_conn() as conn:
+        # Beide Zustände ('eingegangen' und 'vorgemerkt') sind widerrufbar
+        _cancel_reset = "cancel_at_period_end=0, gekuendigt_zum=NULL, " if ist_verein else ""
         cur = conn.execute(
             f"UPDATE {tabelle} SET "
             f"kuendigung_eingegangen=NULL, "
             f"kuendigungsstatus='aktiv', "
-            f"kuendigung_grund=NULL "
-            f"WHERE id=? AND kuendigungsstatus='eingegangen' "
+            f"kuendigung_grund=NULL, "
+            f"{_cancel_reset}"
+            f"kuendigung_bestaetigung_am=NULL "
+            f"WHERE id=? AND kuendigungsstatus IN ('eingegangen','vorgemerkt') "
             f"AND (? IS NULL OR kuendigung_eingegangen >= ?)",
             (entity_id, frist_cutoff, frist_cutoff),
         )
@@ -4317,8 +4345,8 @@ def kuendigung_widerrufen(entity_id: int, ist_verein: bool) -> tuple[bool, str]:
                 f"SELECT kuendigungsstatus FROM {tabelle} WHERE id=?",
                 (entity_id,),
             ).fetchone()
-            if row and row["kuendigungsstatus"] == "eingegangen" and frist_cutoff:
-                # Status noch 'eingegangen' → UPDATE scheiterte an der Frist
+            if row and row["kuendigungsstatus"] in ("eingegangen", "vorgemerkt") and frist_cutoff:
+                # Status noch widerrufbar → UPDATE scheiterte an der Frist
                 return False, "frist_abgelaufen"
             return False, "nicht_widerrufbar"
     return True, "ok"

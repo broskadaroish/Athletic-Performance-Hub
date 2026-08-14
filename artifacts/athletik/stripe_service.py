@@ -261,6 +261,38 @@ def subscription_reaktivieren(subscription_id: str) -> dict:
     return sub
 
 
+# ── Kündigung via Stripe (A6) ──────────────────────────────────────────────────
+
+def kuendigung_vormerken(subscription_id: str) -> dict:
+    """Setzt cancel_at_period_end=True in Stripe — Subscription läuft bis Periodenende.
+
+    Wirft RuntimeError oder stripe.error.StripeError bei Fehler.
+    Gibt das aktualisierte Subscription-Objekt zurück (cancel_at_period_end, current_period_end etc.).
+    """
+    stripe = _get_stripe()
+    sub = stripe.Subscription.modify(
+        subscription_id,
+        cancel_at_period_end=True,
+    )
+    logger.info("Stripe-Kündigung vorgemerkt: %s (cancel_at_period_end=True)", subscription_id)
+    return sub
+
+
+def kuendigung_widerrufen_stripe(subscription_id: str) -> dict:
+    """Setzt cancel_at_period_end=False in Stripe — Subscription läuft normal weiter.
+
+    Wirft RuntimeError oder stripe.error.StripeError bei Fehler.
+    Gibt das aktualisierte Subscription-Objekt zurück.
+    """
+    stripe = _get_stripe()
+    sub = stripe.Subscription.modify(
+        subscription_id,
+        cancel_at_period_end=False,
+    )
+    logger.info("Stripe-Kündigung zurückgenommen: %s (cancel_at_period_end=False)", subscription_id)
+    return sub
+
+
 def subscription_upgraden(
     subscription_id: str,
     neuer_price_id: str,
