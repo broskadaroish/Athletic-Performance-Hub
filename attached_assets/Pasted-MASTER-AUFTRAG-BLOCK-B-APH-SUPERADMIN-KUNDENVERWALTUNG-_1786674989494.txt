@@ -1,0 +1,1236 @@
+MASTER-AUFTRAG BLOCK B
+APH SUPERADMIN / KUNDENVERWALTUNG / ROLLEN / PAKETLIMITS / BETREIBER-SYSTEM
+
+============================================================
+GRUNDREGEL
+============================================================
+
+Block A – Stripe / Checkout / Trial / Vertrag / Kündigung /
+Payment Failure / Paketwechsel / End-to-End-Tests ist abgeschlossen.
+
+Jetzt beginnt BLOCK B.
+
+WICHTIG:
+
+NICHT sofort neue Funktionen bauen.
+
+ZUERST muss eine vollständige Bestandsaufnahme des bestehenden
+APH-Systems durchgeführt werden.
+
+APH besitzt bereits zahlreiche Funktionen für:
+
+- Superadmin
+- Kundenverwaltung
+- Benutzerverwaltung
+- Vereine
+- Trainer
+- technische Mandanten
+- Lizenzen
+- Pakete
+- Paketlimits
+- Vertragsverwaltung
+- Stripe
+- Sessions
+- Rollen
+- Kündigungen
+- Zahlungsstatus
+
+Diese bestehenden Funktionen müssen bevorzugt weiterverwendet,
+verbessert oder vereinheitlicht werden.
+
+VERBOTEN:
+
+- zweite Kundenverwaltung bauen
+- zweite Benutzerverwaltung bauen
+- zweite Lizenzlogik bauen
+- zweite Preisdefinition bauen
+- zweite Stripe-Logik bauen
+- bestehende funktionierende Module unnötig ersetzen
+- Produktionsdaten für Tests verändern
+- Live-Zahlungen durchführen
+- Live-Keys verwenden
+- Tabellen oder Kundendaten löschen
+
+Zentrale Paket-/Lizenzdefinitionen sollen weiterhin aus den bereits
+vorhandenen zentralen Funktionen, insbesondere license.py bzw. der
+tatsächlich bestehenden zentralen Paketdefinition, stammen.
+
+============================================================
+ARBEITSWEISE
+============================================================
+
+Block B besteht aus:
+
+B0 – Bestandsaufnahme / Gap-Analyse
+B1 – Superadmin-Schutz / Rollen / Mandantentrennung
+B2 – Kunden- und Vertragsdatenmodell
+B3 – Superadmin Dashboard / Kundenverwaltung
+B4 – Kundendetails / Benutzerverwaltung
+B5 – Paketlimits / Feature-Rechte / Downgrade-Schutz
+B6 – Supportaktionen / Sperren / Trial-Verwaltung
+B7 – Audit-Log / Sicherheit
+B8 – End-to-End-Tests Block B
+
+STRIKTE REIHENFOLGE:
+
+B0
+↓
+B1
+↓
+B2
+↓
+B3
+↓
+B4
+↓
+B5
+↓
+B6
+↓
+B7
+↓
+B8
+
+Keine parallele Bearbeitung zentraler Dateien.
+
+Bei einem kritischen Fehler:
+
+SOFORT STOPPEN UND BERICHTEN.
+
+============================================================
+B0 – VOLLSTÄNDIGE BESTANDSAUFNAHME
+============================================================
+
+B0 IST VERPFLICHTEND.
+
+Noch keinen produktiven Code verändern.
+
+Analysiere zunächst das komplette bestehende System hinsichtlich
+Block B.
+
+------------------------------------------------------------
+B0.1 SUPERADMIN
+------------------------------------------------------------
+
+Prüfe:
+
+- Wo wird Superadmin erkannt?
+- Welche Rolle/Schreibweise wird verwendet?
+- Welche Superadmin-Seiten existieren?
+- Welche Superadmin-Funktionen existieren?
+- Kundenverwaltung?
+- Benutzerverwaltung?
+- Lizenzverwaltung?
+- Vertragsverwaltung?
+- Kündigungen?
+- Zahlungsstatus?
+- Stripe-Informationen?
+- Testphasen?
+- Sperren?
+- Paketänderungen?
+
+Prüfe besonders:
+
+Kann ein Superadmin gelöscht werden?
+
+Kann ein Superadmin deaktiviert werden?
+
+Kann der letzte aktive Superadmin gelöscht/deaktiviert werden?
+
+Kann Superadmin durch folgende Prozesse verschwinden:
+
+- Benutzer löschen
+- Verein löschen
+- Mandant löschen
+- Cascade Delete
+- Cleanup
+- Registrierung
+- Migration
+- Testdaten-Cleanup
+- Datenbankinitialisierung
+
+Es gab bereits einen realen Fall, bei dem kein Superadmin mehr in der
+Produktionsdatenbank vorhanden war.
+
+Die Ursache bzw. mögliche Ursache muss deshalb besonders untersucht
+werden.
+
+------------------------------------------------------------
+B0.2 KUNDENVERWALTUNG
+------------------------------------------------------------
+
+Prüfe vorhandene Funktionen für:
+
+- Kunden anzeigen
+- Kunden suchen
+- Kunden filtern
+- Kunden aktivieren
+- Kunden deaktivieren
+- Kunden sperren
+- Kunden entsperren
+- Kunden löschen
+- Kundendetails
+- Vertragsdetails
+- Trainerkunden
+- Vereinskunden
+- technische Mandanten
+
+Prüfe die tatsächliche Beziehung:
+
+benutzer
+↔
+vereine
+↔
+technische Mandanten
+
+------------------------------------------------------------
+B0.3 KUNDENNUMMERN
+------------------------------------------------------------
+
+Besonders analysieren:
+
+Es gab bereits folgenden Zustand:
+
+Benutzer:
+APH-000007
+
+zugehöriger technischer Mandant:
+APH-000006
+
+Prüfe deshalb:
+
+- Wie werden Kundennummern erzeugt?
+- Was bezeichnet benutzer.kundennummer?
+- Was bezeichnet vereine.kundennummer?
+- Welche Nummer ist Vertrags-/Kundennummer?
+- Werden Nummern doppelt vergeben?
+- Gibt es unterschiedliche Nummern für Benutzer und Kundenkonto?
+- Welche Nummer wird im UI angezeigt?
+- Welche Nummer verwenden Support-/Admin-Funktionen?
+
+Noch keine bestehenden Kundennummern ändern.
+
+Erst Architektur dokumentieren.
+
+Grundsätzlich bevorzugtes Modell:
+
+vereine / technischer Mandant
+= Kundenkonto / Vertrag
+
+benutzer
+= Person innerhalb des Kundenkontos
+
+Aber vorhandene Architektur zuerst prüfen.
+
+------------------------------------------------------------
+B0.4 BENUTZERVERWALTUNG
+------------------------------------------------------------
+
+Prüfe:
+
+- Benutzerliste
+- Benutzer erstellen
+- Benutzer ändern
+- Benutzer deaktivieren
+- Benutzer reaktivieren
+- Benutzer löschen
+- Passwort-Reset
+- E-Mail-Verifikation
+- Login-Sperren
+- letzter Login
+- Rollen
+- Mandantenzuordnung
+
+Prüfe alle tatsächlich vorhandenen Rollen.
+
+Beispiele:
+
+Superadmin
+Vereinsadmin
+Trainer
+Spieler
+Eltern
+
+Nur Rollen nennen, die tatsächlich im Code existieren.
+
+------------------------------------------------------------
+B0.5 ROLLEN UND MANDANTENTRENNUNG
+------------------------------------------------------------
+
+Prüfe NICHT nur die UI.
+
+Prüfe Backend-/DB-Funktionen.
+
+Fragen:
+
+Kann Mandant A Daten von Mandant B lesen?
+
+Kann Mandant A Spieler von Mandant B laden?
+
+Kann Mandant A Spieler von Mandant B ändern?
+
+Kann Mandant A Benutzer von Mandant B ändern?
+
+Kann ein Trainer seine verein_id manipulieren?
+
+Kann ein Trainer seine Rolle ändern?
+
+Kann ein Trainer Superadmin werden?
+
+Sind kritische Funktionen serverseitig geschützt?
+
+------------------------------------------------------------
+B0.6 LIZENZSYSTEM
+------------------------------------------------------------
+
+Prüfe:
+
+- license.py
+- Paketdefinitionen
+- Preise
+- Intervalle
+- Spielerlimits
+- Trainerlimits
+- Feature-Rechte
+
+Suche vorhandene Funktionen wie:
+
+trainer_limit_erreicht()
+spieler_limit_erreicht()
+feature_erlaubt()
+
+oder funktional entsprechende Implementierungen.
+
+Prüfe außerdem, ob Paket-/Preisdefinitionen mehrfach im Projekt
+vorhanden sind.
+
+Suche insbesondere nach:
+
+BASIC
+PRO
+TRAINER_BASIC
+TRAINER_PRO
+VEREIN_BASIC
+VEREIN_PRO
+
+------------------------------------------------------------
+B0.7 VERTRAG / STRIPE
+------------------------------------------------------------
+
+Nur analysieren.
+
+Block A nicht neu bauen.
+
+Prüfe vorhandene Daten:
+
+stripe_customer_id
+stripe_subscription_id
+lizenztyp
+abo_intervall
+lizenz_status
+zahlungsstatus
+testphase_bis
+vertragsbeginn
+vertragsende
+subscription_current_period_end
+cancel_at_period_end
+kuendigungsstatus
+gekuendigt_zum
+
+Prüfe:
+
+Welche Tabelle ist für Vertragsdaten führend?
+
+Soll-Zustand grundsätzlich:
+
+vereine / technischer Mandant
+= Vertragsquelle
+
+benutzer
+= Benutzer-/Profildaten
+
+Aber zuerst bestehenden Code analysieren.
+
+------------------------------------------------------------
+B0.8 PAKETLIMITS
+------------------------------------------------------------
+
+Prüfe, ob Paketlimits bereits SERVERSEITIG durchgesetzt werden.
+
+Nicht nur Buttons prüfen.
+
+Aktuelle Pakete laut bestehendem System prüfen und mit zentraler
+Paketdefinition abgleichen.
+
+Erwartetes Modell:
+
+TRAINER_BASIC
+1 Trainer
+max. 20 Spieler
+9,99 €/Monat
+99 €/Jahr
+
+TRAINER_PRO
+1 Trainer
+Spieler unbegrenzt
+14,99 €/Monat
+149 €/Jahr
+
+VEREIN_BASIC
+max. 2 Trainer
+max. 50 Spieler
+24,99 €/Monat
+249 €/Jahr
+
+VEREIN_PRO
+max. 15 Trainer
+Spieler unbegrenzt
+39,99 €/Monat
+399 €/Jahr
+
+WICHTIG:
+
+Falls die tatsächliche zentrale Paketdefinition davon abweicht,
+NICHT stillschweigend ändern.
+
+Abweichung im Bericht nennen.
+
+------------------------------------------------------------
+B0.9 AUDIT / LOGGING
+------------------------------------------------------------
+
+Prüfe vorhandene:
+
+- Audit-Logs
+- Admin-Logs
+- Login-Logs
+- Lizenz-Logs
+- Stripe-Event-Logs
+- lizenz_warn_log
+- sonstige Logtabellen
+
+Keine neue Tabelle erstellen, wenn bereits eine geeignete vorhanden
+ist.
+
+------------------------------------------------------------
+B0.10 DATENBANK
+------------------------------------------------------------
+
+Liste alle relevanten Tabellen.
+
+Insbesondere prüfen:
+
+benutzer
+vereine
+sessions
+stripe_events
+lizenz_warn_log
+
+sowie weitere relevante Tabellen.
+
+Dokumentiere wichtige Spalten.
+
+Keine Migration in B0.
+
+------------------------------------------------------------
+B0.11 UI
+------------------------------------------------------------
+
+Liste vorhandene Seiten/Module:
+
+- Superadmin
+- Kundenverwaltung
+- Benutzerverwaltung
+- Lizenzverwaltung
+- Mein Vertrag
+- Abonnement
+- Kündigung
+- Zahlungsprobleme
+
+Nenne die zugehörigen Dateien/Funktionen.
+
+------------------------------------------------------------
+B0.12 TECHNISCHE SCHULDEN / DUPLIKATE
+------------------------------------------------------------
+
+Suche nach:
+
+- mehrfachen Preisdefinitionen
+- mehrfacher Lizenzlogik
+- BASIC vs TRAINER_BASIC
+- Vertragsdaten in benutzer UND vereine
+- unterschiedlichen Kundennummern
+- mehrfachen Rollenprüfungen
+- alten Admin-Funktionen
+- nicht mehr verwendeten Funktionen
+- möglichen Cascade-/Delete-Problemen
+
+Noch nichts korrigieren.
+
+------------------------------------------------------------
+B0.13 GAP-ANALYSE
+------------------------------------------------------------
+
+Erstelle eine Tabelle:
+
+Funktion
+Status
+vorhandene Datei/Funktion
+Problem
+Handlungsbedarf
+
+Status:
+
+✅ VORHANDEN
+🟡 TEILWEISE
+❌ FEHLT
+⚠️ FEHLERHAFT / RISIKO
+
+------------------------------------------------------------
+B0.14 PLAN ANPASSEN
+------------------------------------------------------------
+
+Nach B0:
+
+Passe B1–B8 anhand des TATSÄCHLICHEN Bestands an.
+
+Wichtig:
+
+Wenn etwas bereits vollständig vorhanden ist:
+
+NICHT neu bauen.
+
+Wenn etwas teilweise vorhanden ist:
+
+bestehende Funktion verbessern.
+
+Nur fehlende Funktionen neu implementieren.
+
+Danach B0-Bericht ausgeben.
+
+Anschließend darf mit B1 fortgefahren werden, sofern kein kritisches
+Architektur-/Datenproblem festgestellt wurde.
+
+Bei kritischem Problem:
+
+STOPPEN.
+
+============================================================
+B1 – SUPERADMIN-SCHUTZ / ROLLEN / MANDANTENTRENNUNG
+============================================================
+
+Implementiere nur die nach B0 tatsächlich erforderlichen Änderungen.
+
+------------------------------------------------------------
+B1.1 SUPERADMIN SCHÜTZEN
+------------------------------------------------------------
+
+Superadmin ist systemkritisch.
+
+Normale Kunden-/Benutzerfunktionen dürfen ihn nicht löschen.
+
+Serverseitig schützen gegen:
+
+- Benutzer löschen
+- Mandant löschen
+- Cascade Delete
+- Cleanup
+- Test-Cleanup
+- automatische Bereinigung
+
+Wenn nur ein aktiver Superadmin existiert:
+
+darf dieser nicht deaktiviert oder gelöscht werden.
+
+Keine automatische Superadmin-Neuanlage bei jedem App-Start.
+
+Falls Recovery-Mechanismus erforderlich:
+
+sicher und explizit gestalten.
+
+------------------------------------------------------------
+B1.2 ROLLENESKALATION VERHINDERN
+------------------------------------------------------------
+
+Trainer darf nicht:
+
+- Superadmin werden
+- fremden Mandanten verwalten
+- eigene Rolle unzulässig erhöhen
+
+Vereinsadmin darf nur erlaubte Rollen innerhalb des eigenen Mandanten
+verwalten.
+
+Kritische Aktionen serverseitig prüfen.
+
+------------------------------------------------------------
+B1.3 MANDANTENTRENNUNG
+------------------------------------------------------------
+
+Jede relevante Datenoperation muss Ziel-Mandant prüfen.
+
+Mindestens:
+
+Spieler
+Trainer
+Benutzer
+Tests
+Trainingspläne
+Diagnostik
+Verträge
+
+Keine Cross-Tenant-IDOR.
+
+============================================================
+B2 – KUNDEN- UND VERTRAGSDATENMODELL
+============================================================
+
+Nur nach B0 notwendige Korrekturen durchführen.
+
+------------------------------------------------------------
+B2.1 FÜHRENDE VERTRAGSQUELLE
+------------------------------------------------------------
+
+Für Vertragsdaten soll grundsätzlich der Mandant in `vereine`
+führend sein:
+
+lizenztyp
+abo_intervall
+lizenz_status
+zahlungsstatus
+testphase_bis
+stripe_customer_id
+stripe_subscription_id
+vertragsbeginn
+vertragsende
+subscription_current_period_end
+cancel_at_period_end
+kuendigungsstatus
+gekuendigt_zum
+
+Benutzer bleibt Quelle für personenbezogene Benutzerdaten.
+
+Bestehende Kompatibilitätsfelder nicht blind löschen.
+
+------------------------------------------------------------
+B2.2 KUNDENNUMMER
+------------------------------------------------------------
+
+Eine klare fachliche Definition herstellen:
+
+Kundenkonto/Mandant
+→ Vertragskundennummer
+
+Benutzer
+→ Benutzer innerhalb dieses Kundenkontos
+
+Bestehende Nummern NICHT massenhaft ändern.
+
+Keine gefährliche Produktionsmigration.
+
+UI eindeutig gestalten.
+
+============================================================
+B3 – SUPERADMIN DASHBOARD / KUNDENVERWALTUNG
+============================================================
+
+Bestehende Admin-Seiten erweitern, nicht unnötig ersetzen.
+
+------------------------------------------------------------
+B3.1 DASHBOARD
+------------------------------------------------------------
+
+Mindestens anzeigen:
+
+Kunden gesamt
+aktive Kunden
+Testphasen
+aktive Abos
+gekündigte Abos
+Zahlungsprobleme
+gesperrte Kunden
+
+Aufteilung:
+
+Einzeltrainer
+Vereine
+
+Pakete:
+
+TRAINER_BASIC
+TRAINER_PRO
+VEREIN_BASIC
+VEREIN_PRO
+
+Optional:
+
+Registrierungen 7 Tage
+Registrierungen 30 Tage
+Kündigungen 30 Tage
+
+Keine erfundenen Umsätze.
+
+------------------------------------------------------------
+B3.2 KUNDENLISTE
+------------------------------------------------------------
+
+Mindestens:
+
+Kundennummer
+Name
+Kundentyp
+Paket
+Intervall
+Lizenzstatus
+Zahlungsstatus
+Testphase bis
+Vertragsbeginn
+nächste Verlängerung
+Kündigung
+Traineranzahl
+Spieleranzahl
+aktiv/gesperrt
+
+Suche:
+
+Kundennummer
+Name
+E-Mail
+Verein
+
+Filter:
+
+Trainer/Verein
+Paket
+Lizenzstatus
+Zahlungsstatus
+Trial
+aktiv
+gekündigt
+gesperrt
+
+============================================================
+B4 – KUNDENDETAIL / BENUTZERVERWALTUNG
+============================================================
+
+------------------------------------------------------------
+B4.1 KUNDENDETAIL
+------------------------------------------------------------
+
+Bereiche:
+
+STAMMDATEN
+
+- Kundennummer
+- Kundentyp
+- Name
+- Ansprechpartner
+- E-Mail
+- Telefon
+- Adresse
+- erstellt am
+
+VERTRAG
+
+- Paket
+- Intervall
+- Preis
+- Lizenzstatus
+- Zahlungsstatus
+- Testphase
+- Vertragsbeginn
+- erste/nächste Abbuchung
+- Kündigungsstatus
+- gekündigt zum
+
+NUTZUNG
+
+Trainer:
+aktuell / Limit
+
+Spieler:
+aktuell / Limit
+
+Bei unbegrenzt:
+
+"unbegrenzt"
+
+STRIPE
+
+Nur ungefährliche Informationen:
+
+Customer vorhanden JA/NEIN
+Subscription vorhanden JA/NEIN
+Subscription Status
+cancel_at_period_end
+
+IDs nur gekürzt.
+
+Keine Secrets.
+
+------------------------------------------------------------
+B4.2 BENUTZERVERWALTUNG
+------------------------------------------------------------
+
+Soweit nach B0 erforderlich:
+
+Benutzer anzeigen
+Trainer hinzufügen
+deaktivieren
+reaktivieren
+Name ändern
+E-Mail ändern
+zulässige Rolle ändern
+Passwort-Reset auslösen
+E-Mail-Verifikation prüfen
+letzten Login anzeigen
+
+Passwörter niemals anzeigen.
+
+============================================================
+B5 – PAKETLIMITS / FEATURE-RECHTE / DOWNGRADE
+============================================================
+
+------------------------------------------------------------
+B5.1 SERVERSEITIGE LIMITS
+------------------------------------------------------------
+
+Zentrale Paketdefinition verwenden.
+
+TRAINER_BASIC:
+
+21. Spieler blockieren.
+
+VEREIN_BASIC:
+
+3. Trainer blockieren.
+51. Spieler blockieren.
+
+PRO:
+
+entsprechende bestehende Limits verwenden.
+
+Nicht nur UI blockieren.
+
+------------------------------------------------------------
+B5.2 DOWNGRADE
+------------------------------------------------------------
+
+Beispiel:
+
+VEREIN_PRO
+8 Trainer
+120 Spieler
+
+→ VEREIN_BASIC
+
+NICHT:
+
+Trainer oder Spieler löschen.
+
+Stattdessen Downgrade blockieren, solange Nutzung über Zielpaket liegt.
+
+Meldung beispielsweise:
+
+"Downgrade derzeit nicht möglich.
+
+Aktuell:
+8 Trainer / erlaubt wären 2
+120 Spieler / erlaubt wären 50
+
+Bitte reduziere zunächst deine Nutzung."
+
+Gleiches für:
+
+TRAINER_PRO → TRAINER_BASIC
+
+bei >20 Spielern.
+
+------------------------------------------------------------
+B5.3 FEATURE-RECHTE
+------------------------------------------------------------
+
+Vorhandenes feature_erlaubt() bzw. zentrale bestehende Funktion
+verwenden.
+
+Keine zweite Feature-Matrix.
+
+UI:
+
+"Nur in Pro verfügbar"
+
+wenn sinnvoll.
+
+Backend trotzdem serverseitig sperren.
+
+============================================================
+B6 – SUPPORTAKTIONEN / SPERREN / TRIAL
+============================================================
+
+------------------------------------------------------------
+B6.1 SUPERADMIN SUPPORTAKTIONEN
+------------------------------------------------------------
+
+Soweit sinnvoll:
+
+Kunde aktivieren
+deaktivieren
+sperren
+entsperren
+Benutzer reaktivieren
+Passwort-Reset auslösen
+E-Mail-Verifikation neu anstoßen
+Trial verwalten
+
+Bei aktivem Stripe-Abo:
+
+Paket NICHT einfach lokal ändern.
+
+Tarifwechsel muss vorhandene Stripe-Logik aus Block A verwenden.
+
+------------------------------------------------------------
+B6.2 SPERREN
+------------------------------------------------------------
+
+Beim Sperren:
+
+keine Daten löschen
+Stripe nicht automatisch kündigen
+Zugang blockieren
+Grund optional speichern
+Zeitpunkt speichern
+
+Beim Entsperren:
+
+Zugang wiederherstellen.
+
+Zahlungsstatus unabhängig lassen.
+
+------------------------------------------------------------
+B6.3 TRIAL
+------------------------------------------------------------
+
+Superadmin darf Testphase sehen.
+
+Falls Trial-Verlängerung implementiert wird:
+
+bei Stripe-Trial muss Stripe ebenfalls synchronisiert werden.
+
+Nicht nur lokales DB-Datum ändern.
+
+Keine Inkonsistenz Stripe ↔ APH.
+
+============================================================
+B7 – AUDIT / SICHERHEIT
+============================================================
+
+------------------------------------------------------------
+B7.1 AUDIT LOG
+------------------------------------------------------------
+
+Vorhandene geeignete Logstruktur bevorzugen.
+
+Falls keine existiert, minimal geeignete Audit-Struktur erstellen.
+
+Mindestens:
+
+Zeitpunkt
+handelnder Benutzer
+Aktion
+Zielkunde
+Zielbenutzer
+alter Wert
+neuer Wert
+
+Aktionen beispielsweise:
+
+sperren
+entsperren
+Trial ändern
+Benutzer deaktivieren
+reaktivieren
+Rolle ändern
+Support-Kündigungsaktion
+Paketwechsel anstoßen
+
+NIEMALS loggen:
+
+Passwörter
+Session-Tokens
+Stripe Secret Keys
+vollständige Zahlungsdaten
+
+------------------------------------------------------------
+B7.2 KUNDEN LÖSCHEN
+------------------------------------------------------------
+
+Keine gefährliche Ein-Klick-Löschung.
+
+Vor endgültiger Löschung:
+
+Warnung
+Bestätigung
+Kundennummer ggf. erneut eingeben
+aktive Stripe Subscription prüfen
+
+Bei aktivem Stripe-Abo:
+
+Löschung blockieren.
+
+Superadmin niemals über Kundenlöschung entfernen.
+
+Bevorzugt:
+
+Deaktivieren/Sperren statt physischer Löschung.
+
+============================================================
+B8 – END-TO-END-TESTS
+============================================================
+
+Mindestens folgende 25 Tests durchführen bzw. soweit externe
+Produktionsumgebung erforderlich ist einen konkreten Testplan liefern.
+
+TEST 1
+Superadmin sieht Kundenliste.
+
+TEST 2
+Trainer sieht keine fremden Mandanten.
+
+TEST 3
+Vereinsadmin sieht nur eigenen Verein.
+
+TEST 4
+TRAINER_BASIC Spieler 1–20 möglich.
+
+TEST 5
+TRAINER_BASIC Spieler 21 blockiert.
+
+TEST 6
+VEREIN_BASIC Trainer 1–2 möglich.
+
+TEST 7
+VEREIN_BASIC Trainer 3 blockiert.
+
+TEST 8
+VEREIN_BASIC Spieler 51 blockiert.
+
+TEST 9
+PRO-Spielerlimit gemäß Paketdefinition funktioniert.
+
+TEST 10
+Downgrade bei überschrittenem Limit blockiert.
+
+TEST 11
+Downgrade löscht keine Daten.
+
+TEST 12
+Superadmin kann Kunde sperren.
+
+TEST 13
+Superadmin kann Kunde entsperren.
+
+TEST 14
+gesperrter Kunde erhält keinen normalen Zugriff.
+
+TEST 15
+Trial-Kunde funktioniert.
+
+TEST 16
+gekündigter Kunde bleibt bis Vertragsende aktiv.
+
+TEST 17
+beendetes Abo wird korrekt eingeschränkt.
+
+TEST 18
+Zahlungsproblem wird korrekt angezeigt.
+
+TEST 19
+Superadmin kann nicht über normale Löschfunktion gelöscht werden.
+
+TEST 20
+letzter aktiver Superadmin kann nicht deaktiviert werden.
+
+TEST 21
+Trainer → Superadmin Rolleneskalation wird blockiert.
+
+TEST 22
+Mandant A kann Spieler von Mandant B nicht lesen.
+
+TEST 23
+Mandant A kann Benutzer von Mandant B nicht verändern.
+
+TEST 24
+Audit-Log schreibt Supportaktion.
+
+TEST 25
+Passwörter, Session-Tokens und Stripe Secrets erscheinen nicht im
+Admin-UI oder Audit-Log.
+
+============================================================
+DATENBANKREGELN
+============================================================
+
+Vor jeder DB-Änderung:
+
+bestehende Struktur prüfen.
+
+Nur tatsächlich fehlende Felder ergänzen.
+
+Migrationen müssen:
+
+- idempotent sein
+- bestehende Tabellen erhalten
+- bestehende Daten erhalten
+- keine Kundendaten löschen
+
+Mögliche Felder nur falls wirklich benötigt:
+
+sperrgrund
+gesperrt_am
+gesperrt_von
+
+Audit-Tabelle nur wenn keine geeignete bestehende Struktur existiert.
+
+============================================================
+PRODUKTIONSSCHUTZ
+============================================================
+
+Während Entwicklung:
+
+KEINE echten Produktionskunden für Tests verändern.
+
+KEINE bestehenden Produktionskunden löschen.
+
+KEINE echten Stripe-Zahlungen.
+
+KEINE Live-Keys.
+
+KEINE bestehende Subscription eigenmächtig verändern.
+
+Wenn ein Test nur auf aphsystem.de/VPS möglich ist:
+
+NICHT eigenmächtig durchführen.
+
+Stattdessen:
+
+1. erklären, was getestet werden muss
+2. konkreten Shell-/SQL-/Browser-Test nennen
+3. erwartetes Ergebnis nennen
+4. auf manuelle Durchführung warten
+
+============================================================
+QUALITÄTSREGELN
+============================================================
+
+Keine riesige Neuimplementierung, wenn bestehende Funktionen vorhanden
+sind.
+
+Bestehende Architektur respektieren.
+
+Keine Hardcodes für bestimmte Kunden wie:
+
+APH-000007
+verein_id=3
+benutzer_id=6
+
+Keine Test-Sonderlogik für einzelne Kunden.
+
+Keine Secrets in Code oder Logs.
+
+Keine versteckten Rollen-Bypässe.
+
+Keine Rechteprüfung ausschließlich im Frontend.
+
+Keine automatische Löschung von Kunden-/Spielerdaten bei Lizenz- oder
+Paketänderungen.
+
+============================================================
+ABSCHLUSSBERICHT BLOCK B
+============================================================
+
+Am Ende einen vollständigen Bericht erstellen:
+
+1. Was war vor Block B bereits vorhanden?
+
+2. Welche Funktionen waren nur teilweise vorhanden?
+
+3. Welche Funktionen fehlten vollständig?
+
+4. Welche kritischen Probleme wurden gefunden?
+
+5. Superadmin-Schutz vollständig?
+JA/NEIN
+
+6. Letzter Superadmin geschützt?
+JA/NEIN
+
+7. Kundenverwaltung vollständig?
+JA/NEIN
+
+8. Mandantentrennung geprüft?
+JA/NEIN
+
+9. Rollenrechte serverseitig?
+JA/NEIN
+
+10. Paketlimits serverseitig?
+JA/NEIN
+
+11. Downgrade-Schutz?
+JA/NEIN
+
+12. Feature-Rechte zentral?
+JA/NEIN
+
+13. Sperren/Entsperren?
+JA/NEIN
+
+14. Trial-Verwaltung?
+JA/NEIN
+
+15. Audit-Log?
+JA/NEIN
+
+16. Was ist jetzt die führende Vertragsdatenquelle?
+
+17. Was ist jetzt die fachlich führende Kundennummer?
+
+18. Welche Dateien wurden geändert?
+
+19. Welche DB-Spalten wurden ergänzt?
+
+20. Welche Tabellen wurden ergänzt?
+
+21. Welche bestehenden Funktionen wurden weiterverwendet?
+
+22. Welche Doppel-/Altlogik wurde gefunden?
+
+23. Welche davon wurde bereinigt?
+
+24. Testergebnis:
+X / 25 bestanden
+
+25. Welche Tests benötigen noch VPS/Browser?
+
+26. Gibt es bekannte Fehler?
+
+27. Gibt es Sicherheitsrisiken?
+
+28. Gibt es offene technische Schulden?
+
+29. Ist Block B bereit für Produktion?
+JA / NEIN / MIT EINSCHRÄNKUNGEN
+
+30. Was muss vor Block C noch erledigt werden?
+
+============================================================
+ABSCHLUSS
+============================================================
+
+Nach B8 und Abschlussbericht:
+
+STOPPEN.
+
+BLOCK C NICHT BEGINNEN.
+
+Keinen weiteren Entwicklungsblock eigenständig starten.
