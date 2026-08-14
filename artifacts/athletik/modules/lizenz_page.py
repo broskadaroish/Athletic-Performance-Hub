@@ -19,6 +19,8 @@ from database import (
     alle_vereine_lizenz,
     stripe_ids_setzen,
     verein_kapazitaet_laden,
+    webhook_fehler_laden,
+    webhook_fehler_loeschen,
 )
 from license import (
     LIZENZ_TYPEN,
@@ -754,3 +756,64 @@ def page_lizenz_superadmin() -> None:
                     f'{len(rechnungen)} Rechnung(en) vorhanden</div>',
                     unsafe_allow_html=True,
                 )
+
+    # ── Webhook-Fehler-Log ────────────────────────────────────────────────────
+    st.markdown("---")
+    st.markdown(
+        f'<h3 style="color:{_C["orange"]};font-size:16px;font-weight:700;margin-bottom:8px">'
+        f'⚠ Stripe Webhook-Fehler</h3>',
+        unsafe_allow_html=True,
+    )
+
+    fehler_liste = webhook_fehler_laden(limit=50)
+
+    if not fehler_liste:
+        st.markdown(
+            f'<div style="color:{_C["green"]};font-size:13px">✅ Keine fehlerhaften Webhook-Events vorhanden.</div>',
+            unsafe_allow_html=True,
+        )
+    else:
+        # Aufschlüsselung nach Fehlertyp
+        sig_fehler   = [f for f in fehler_liste if "Signaturprüfung" in f.get("fehlergrund", "")]
+        price_fehler = [f for f in fehler_liste if "Price-ID" in f.get("fehlergrund", "")]
+        zahlung_fehler = [f for f in fehler_liste if "Zahlung fehlgeschlagen" in f.get("fehlergrund", "")]
+        sonstige     = [f for f in fehler_liste
+                        if f not in sig_fehler and f not in price_fehler and f not in zahlung_fehler]
+
+        kf1, kf2, kf3, kf4 = st.columns(4)
+        with kf1:
+            _kpi("Signaturprüfung", str(len(sig_fehler)), _C["red"] if sig_fehler else _C["muted"])
+        with kf2:
+            _kpi("Unbekannte Price-ID", str(len(price_fehler)), _C["orange"] if price_fehler else _C["muted"])
+        with kf3:
+            _kpi("Zahlung fehlgeschlagen", str(len(zahlung_fehler)), _C["orange"] if zahlung_fehler else _C["muted"])
+        with kf4:
+            _kpi("Sonstige Fehler", str(len(sonstige)), _C["red"] if sonstige else _C["muted"])
+
+        st.markdown("")
+
+        import pandas as pd
+        df_fehler = pd.DataFrame(fehler_liste)
+        df_fehler = df_fehler.rename(columns={
+            "id":          "ID",
+            "event_id":    "Event-ID",
+            "event_type":  "Event-Typ",
+            "fehlergrund": "Fehlergrund",
+            "zeitstempel": "Zeitstempel",
+        })
+        anzeige_cols = [c for c in ["Zeitstempel", "Event-Typ", "Fehlergrund", "Event-ID"] if c in df_fehler.columns]
+        st.dataframe(
+            df_fehler[anzeige_cols],
+            use_container_width=True,
+            hide_index=True,
+        )
+
+        st.markdown("")
+        if st.button(
+            "🗑 Alle Webhook-Fehler löschen",
+            key="webhook_fehler_loeschen_btn",
+            help="Löscht alle gespeicherten Webhook-Fehler aus der Datenbank.",
+        ):
+            anzahl = webhook_fehler_loeschen()
+            st.success(f"✅ {anzahl} Webhook-Fehler gelöscht.")
+            st.rerun()

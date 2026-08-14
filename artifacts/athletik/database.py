@@ -476,6 +476,15 @@ def init_db():
             benutzer_id INTEGER REFERENCES benutzer(id) ON DELETE SET NULL,
             verein_id   INTEGER REFERENCES vereine(id)  ON DELETE SET NULL
         );
+
+        -- ── Stripe-Webhook-Fehler (Superadmin-Monitoring) ──────────────────────
+        CREATE TABLE IF NOT EXISTS webhook_fehler (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            event_id    TEXT,
+            event_type  TEXT,
+            fehlergrund TEXT    NOT NULL,
+            zeitstempel TEXT    NOT NULL DEFAULT (datetime('now'))
+        );
         """)
     # Migrationen: neue Spalten und Indizes für bestehende Datenbanken nachträglich anlegen
     _migrate_spieler_columns()
@@ -483,6 +492,60 @@ def init_db():
     _migrate_multitenant()
     _migrate_szl_actor_fk()  # Korrigiert ON DELETE SET NULL auf ausfuehrender_id
     _create_indexes()
+
+
+# ─── Stripe-Webhook-Fehler ────────────────────────────────────────────────────
+
+def webhook_fehler_speichern(
+    fehlergrund: str,
+    event_id: str | None = None,
+    event_type: str | None = None,
+) -> None:
+    """Speichert einen fehlerhaften Stripe-Webhook-Event für das Superadmin-Dashboard."""
+    with get_conn() as conn:
+        # Tabelle anlegen falls sie (in älteren DBs) noch nicht existiert
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS webhook_fehler (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                event_id    TEXT,
+                event_type  TEXT,
+                fehlergrund TEXT    NOT NULL,
+                zeitstempel TEXT    NOT NULL DEFAULT (datetime('now'))
+            )
+        """)
+        conn.execute(
+            "INSERT INTO webhook_fehler (event_id, event_type, fehlergrund) VALUES (?, ?, ?)",
+            (event_id, event_type, fehlergrund),
+        )
+
+
+def webhook_fehler_laden(limit: int = 50) -> list[dict]:
+    """Gibt die letzten fehlerhaften Stripe-Webhook-Events zurück (neueste zuerst)."""
+    with get_conn() as conn:
+        # Tabelle anlegen falls sie (in älteren DBs) noch nicht existiert
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS webhook_fehler (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                event_id    TEXT,
+                event_type  TEXT,
+                fehlergrund TEXT    NOT NULL,
+                zeitstempel TEXT    NOT NULL DEFAULT (datetime('now'))
+            )
+        """)
+        return _rows(conn.execute(
+            """SELECT id, event_id, event_type, fehlergrund, zeitstempel
+               FROM webhook_fehler
+               ORDER BY id DESC
+               LIMIT ?""",
+            (limit,),
+        ).fetchall())
+
+
+def webhook_fehler_loeschen() -> int:
+    """Löscht alle gespeicherten Webhook-Fehler. Gibt Anzahl gelöschter Zeilen zurück."""
+    with get_conn() as conn:
+        cur = conn.execute("DELETE FROM webhook_fehler")
+        return cur.rowcount
 
 
 # ─── Trainerbeobachtungen ─────────────────────────────────────────────────────

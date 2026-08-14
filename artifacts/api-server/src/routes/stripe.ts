@@ -65,6 +65,16 @@ function ensureDbExtensions(): void {
         processed_at TEXT NOT NULL DEFAULT (datetime('now'))
       )
     `);
+    // Webhook-Fehler-Tabelle für Superadmin-Monitoring
+    conn.exec(`
+      CREATE TABLE IF NOT EXISTS webhook_fehler (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        event_id    TEXT,
+        event_type  TEXT,
+        fehlergrund TEXT    NOT NULL,
+        zeitstempel TEXT    NOT NULL DEFAULT (datetime('now'))
+      )
+    `);
     // Neue vereine-Spalten — ALTER TABLE schlägt still fehl wenn bereits vorhanden.
     // Vollständige Liste aller Spalten, die routes/stripe.ts per UPDATE referenziert:
     //   abo_intervall                   — Phase A2 (Streamlit), fehlte im API-Server
@@ -89,6 +99,43 @@ function ensureDbExtensions(): void {
     logger.info("Stripe DB-Erweiterungen initialisiert");
   } finally {
     conn.close();
+  }
+}
+
+// ── Webhook-Fehler in DB schreiben ────────────────────────────────────────────
+// Kapselt das Einfügen in webhook_fehler, damit Fehler beim Logging selbst
+// den Hauptfluss nicht unterbrechen.
+
+function logWebhookFehler(
+  fehlergrund: string,
+  eventId?: string,
+  eventType?: string,
+): void {
+  try {
+    const conn = getDb();
+    try {
+      // Tabelle anlegen falls ensureDbExtensions noch nicht gelaufen ist
+      // (z. B. bei Signaturfehlern vor der Signaturprüfung)
+      conn.exec(`
+        CREATE TABLE IF NOT EXISTS webhook_fehler (
+          id          INTEGER PRIMARY KEY AUTOINCREMENT,
+          event_id    TEXT,
+          event_type  TEXT,
+          fehlergrund TEXT    NOT NULL,
+          zeitstempel TEXT    NOT NULL DEFAULT (datetime('now'))
+        )
+      `);
+      conn.prepare(
+        "INSERT INTO webhook_fehler (event_id, event_type, fehlergrund) VALUES (?, ?, ?)",
+      ).run(eventId ?? null, eventType ?? null, fehlergrund);
+    } finally {
+      conn.close();
+    }
+  } catch (logErr) {
+    logger.warn(
+      { logErrMsg: (logErr as Error).message },
+      "Webhook-Fehler konnte nicht in DB gespeichert werden",
+    );
   }
 }
 
@@ -235,6 +282,7 @@ router.post("/stripe/webhook", (req: Request, res: Response): void => {
       { errType: (err as Error).constructor?.name },
       "Stripe Webhook: Signaturprüfung fehlgeschlagen",
     );
+    logWebhookFehler("Signaturprüfung fehlgeschlagen");
     res.status(400).json({ error: "Signaturprüfung fehlgeschlagen" });
     return;
   }
@@ -272,6 +320,7 @@ router.post("/stripe/webhook", (req: Request, res: Response): void => {
 
         if (!vereinId) {
           logger.warn({ eventId }, "checkout.session.completed: keine verein_id in metadata — Event ignoriert");
+          logWebhookFehler("checkout.session.completed: keine verein_id in metadata", eventId, eventType);
           break;
         }
         // Tarif und finaler Lizenzstatus werden über customer.subscription.created/-updated gesetzt.
@@ -310,6 +359,13 @@ router.post("/stripe/webhook", (req: Request, res: Response): void => {
         const customerId  = sub.customer ?? "";
         const lizenzStatus = subLizenzStatus(status, cancelAtEnd);
 
+        if (!lizenzTyp) {
+          logWebhookFehler(
+            `Unbekannte Price-ID empfangen: "${priceId}" — Tarif kann nicht zugeordnet werden`,
+            eventId, eventType,
+          );
+        }
+
         conn.prepare(`
           UPDATE vereine
              SET stripe_subscription_id          = ?,
@@ -345,6 +401,13 @@ router.post("/stripe/webhook", (req: Request, res: Response): void => {
         const periodEnd   = isoDate(sub.current_period_end);
         const customerId  = sub.customer ?? "";
         const lizenzStatus = subLizenzStatus(status, cancelAtEnd);
+
+        if (!lizenzTyp) {
+          logWebhookFehler(
+            `Unbekannte Price-ID empfangen: "${priceId}" — Tarif kann nicht zugeordnet werden`,
+            eventId, eventType,
+          );
+        }
 
         // gekuendigt_zum: Stripe setzt cancel_at wenn cancel_at_period_end=true.
         // Beim Rücknehmen (false) muss der Wert gecleart werden.
@@ -454,6 +517,10 @@ router.post("/stripe/webhook", (req: Request, res: Response): void => {
 
         // Benutzerkonto und Daten bleiben unberührt — nur Status für Support sichtbar
         logger.warn({ customerId, eventId }, "Stripe-Zahlung fehlgeschlagen");
+        logWebhookFehler(
+          `Zahlung fehlgeschlagen für customer_id: ${customerId}`,
+          eventId, eventType,
+        );
         break;
       }
 
@@ -471,9 +538,14 @@ router.post("/stripe/webhook", (req: Request, res: Response): void => {
   } catch (err) {
     // Verarbeitungsfehler: Event NICHT als erledigt markieren.
     // HTTP 500 → Stripe stellt das Event später erneut zu.
+    const errMsg = (err as Error).message ?? "Unbekannter Fehler";
     logger.error(
-      { errMsg: (err as Error).message, eventType, eventId },
+      { errMsg, eventType, eventId },
       "Fehler beim Verarbeiten des Stripe Events — Stripe wird erneut zustellen",
+    );
+    logWebhookFehler(
+      `Verarbeitungsfehler: ${errMsg}`,
+      eventId, eventType,
     );
     conn.close();
     res.status(500).json({ error: "Interner Verarbeitungsfehler" });
