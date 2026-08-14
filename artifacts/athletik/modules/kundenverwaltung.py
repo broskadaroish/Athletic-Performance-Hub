@@ -224,21 +224,24 @@ def _detail_a_kundenkonto(daten: dict) -> None:
         e_aktiv = st.checkbox("Konto aktiv", value=bool(b.get("aktiv")), key=f"ekd_ak_{b.get('id')}")
 
         if st.button("💾 Stammdaten speichern", key=f"ekd_save_{b.get('id')}"):
-            kundenstamm_aendern(
-                b["id"], v.get("id"),
-                vorname=e_vn.strip() or None,
-                nachname=e_nn.strip() or None,
-                telefon=e_tel.strip() or None,
-                vereinsname=e_vname.strip() if kundentyp == "Verein" else None,
-                ansprechpartner=e_ansp.strip() if kundentyp == "Verein" else None,
-                aktiv=1 if e_aktiv else 0,
-                superadmin_id=_sa_id(),
-            )
-            benutzer_aktivieren(b["id"], 1 if e_aktiv else 0)
-            audit_log_eintragen(b["id"], "account_status_geaendert",
-                                f"aktiv={'1' if e_aktiv else '0'}", _sa_id())
-            st.success("✅ Gespeichert.")
-            st.rerun()
+            try:
+                kundenstamm_aendern(
+                    b["id"], v.get("id"),
+                    vorname=e_vn.strip() or None,
+                    nachname=e_nn.strip() or None,
+                    telefon=e_tel.strip() or None,
+                    vereinsname=e_vname.strip() if kundentyp == "Verein" else None,
+                    ansprechpartner=e_ansp.strip() if kundentyp == "Verein" else None,
+                    aktiv=1 if e_aktiv else 0,
+                    superadmin_id=_sa_id(),
+                )
+                benutzer_aktivieren(b["id"], 1 if e_aktiv else 0)
+                audit_log_eintragen(b["id"], "account_status_geaendert",
+                                    f"aktiv={'1' if e_aktiv else '0'}", _sa_id())
+                st.success("✅ Gespeichert.")
+                st.rerun()
+            except ValueError as _kv_e:
+                st.error(str(_kv_e))
 
         st.markdown("---")
         st.markdown("**⚡ Account-Status**")

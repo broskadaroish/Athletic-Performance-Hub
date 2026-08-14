@@ -259,7 +259,10 @@ def _trainer_karte(b: dict, admin_rolle: str, admin_user: dict):
         aktiv = b.get("aktiv", 1)
         if st.button("✅ Aktivieren" if not aktiv else "🚫 Deaktivieren",
                      key=f"tp_ak_{vid}", use_container_width=True):
-            benutzer_aktivieren(vid, 0 if aktiv else 1)
+            try:
+                benutzer_aktivieren(vid, 0 if aktiv else 1)
+            except ValueError as _bav_e:
+                st.error(str(_bav_e))
             st.rerun()
         st.markdown("</div>", unsafe_allow_html=True)
 
@@ -358,15 +361,22 @@ def _trainer_edit_form(b: dict, admin_user: dict, admin_rolle: str, vereine: lis
 
             if st.form_submit_button("💾 Profil speichern", type="primary",
                                      use_container_width=True):
-                benutzer_aktualisieren(vid, f_vid, f_vn.strip(), f_nn.strip(),
-                                        f_em.strip(), f_rol)
-                benutzer_profil_aktualisieren(vid, f_vn.strip(), f_nn.strip(),
-                                               f_em.strip(),
-                                               f_tel.strip() or None,
-                                               _liz_to_str(f_liz))
-                benutzer_aktivieren(vid, 1 if f_aktiv else 0)
-                st.success("✅ Profil gespeichert.")
-                st.rerun()
+                try:
+                    benutzer_aktualisieren(
+                        vid, f_vid, f_vn.strip(), f_nn.strip(),
+                        f_em.strip(), f_rol,
+                        caller_rolle=admin_rolle,
+                        caller_verein_id=admin_user.get("verein_id"),
+                    )
+                    benutzer_profil_aktualisieren(vid, f_vn.strip(), f_nn.strip(),
+                                                   f_em.strip(),
+                                                   f_tel.strip() or None,
+                                                   _liz_to_str(f_liz))
+                    benutzer_aktivieren(vid, 1 if f_aktiv else 0)
+                    st.success("✅ Profil gespeichert.")
+                    st.rerun()
+                except (ValueError, PermissionError) as _tp_e:
+                    st.error(str(_tp_e))
 
     # ── Tab: Foto ──────────────────────────────────────────────────────────────
     with tab_foto:

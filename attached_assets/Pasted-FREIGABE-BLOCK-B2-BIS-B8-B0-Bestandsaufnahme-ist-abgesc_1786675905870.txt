@@ -1,0 +1,96 @@
+FREIGABE BLOCK B2 BIS B8
+
+B0-Bestandsaufnahme ist abgeschlossen.
+B1 wird separat abgeschlossen.
+
+Danach bitte B2 bis B8 strikt sequenziell ausführen:
+
+B2
+↓
+B3
+↓
+B4
+↓
+B5
+↓
+B6
+↓
+B7
+↓
+B8
+
+WICHTIG:
+
+- Nutze ausschließlich die Ergebnisse aus B0.
+- Bestehende Funktionen verbessern statt neu bauen.
+- Keine zweite Kundenverwaltung.
+- Keine zweite Benutzerverwaltung.
+- Keine zweite Lizenz-/Preislogik.
+- Keine unnötigen DB-Migrationen.
+- Keine Produktionsdaten verändern.
+- Keine Live-Zahlungen.
+- Keine Live-Keys.
+- Keine parallele Bearbeitung zentraler Dateien.
+- Bei kritischem Fehler sofort STOPPEN und berichten.
+
+B2:
+- Kundennummern-/Vertragsdatenmodell nur konsolidieren, soweit laut B0 nötig
+- führende Vertragsquelle = vereine / technischer Mandant
+- Legacy-Felder nicht blind löschen
+- UNIQUE/atomare Kundennummern nur sicher und migrationsverträglich
+
+B3:
+- bestehendes Superadmin-Dashboard/Kundenliste erweitern
+- fehlende Filter ergänzen:
+  Trial
+  gesperrt
+  Zahlungsstatus
+- vorhandene UI weiterverwenden
+
+B4:
+- bestehende Kundendetailseite erweitern
+- Stripe-/Vertragsblock ergänzen
+- Benutzerverwaltung nur gegen Spec validieren und Lücken schließen
+
+B5:
+- Paketlimits fail-closed machen
+- Legacy max_trainer/max_spieler darf zentrale Paketdefinition nicht unsicher übersteuern
+- Downgrade-Schutz implementieren
+- niemals Trainer/Spieler löschen
+
+B6:
+- bestehende Sperren/Entsperren validieren
+- Trial-Verlängerung nur wenn sauber mit Stripe synchronisierbar
+- keine lokale Trial-Verlängerung bei aktivem Stripe-Trial ohne Stripe-Sync
+
+B7:
+- vorhandenes audit_log weiterverwenden
+- fehlende Superadmin-Supportaktionen ergänzen
+- vor Kundenlöschung aktive Stripe-Subscription prüfen
+- letzten Superadmin weiterhin schützen
+
+B8:
+- die vorgesehenen 25 Block-B-Tests durchführen
+- interne Tests automatisch
+- VPS/Browser-Tests nur als konkrete manuelle Testanweisungen ausgeben
+- keine Produktionsdaten eigenmächtig verändern
+
+Nach jedem Block kurz intern prüfen, dann mit dem nächsten fortfahren.
+
+Am Ende vollständigen Abschlussbericht liefern:
+
+1. B2 vollständig? JA/NEIN
+2. B3 vollständig? JA/NEIN
+3. B4 vollständig? JA/NEIN
+4. B5 vollständig? JA/NEIN
+5. B6 vollständig? JA/NEIN
+6. B7 vollständig? JA/NEIN
+7. B8 Tests bestanden: X/25
+8. geänderte Dateien
+9. DB-Änderungen
+10. bekannte Fehler
+11. welche Tests noch auf VPS/Browser nötig sind
+12. Produktionsreife Block B: JA/NEIN/MIT EINSCHRÄNKUNGEN
+
+Danach STOPPEN.
+Block C NICHT beginnen.

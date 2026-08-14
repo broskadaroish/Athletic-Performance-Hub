@@ -106,8 +106,12 @@ def page_benutzerverwaltung():
                 b1, b2 = st.columns(2)
                 if b1.button("💾 Speichern", key=f"sv_{u['id']}"):
                     try:
-                        benutzer_aktualisieren(u["id"], sel_verein_id, vorname.strip(),
-                                              nachname.strip(), email.strip(), neue_rolle)
+                        benutzer_aktualisieren(
+                            u["id"], sel_verein_id, vorname.strip(),
+                            nachname.strip(), email.strip(), neue_rolle,
+                            caller_rolle=rolle,
+                            caller_verein_id=meine_verein_id,
+                        )
                         benutzer_aktivieren(u["id"], 1 if aktiv else 0)
                         # Freischaltungs-E-Mail senden wenn Konto gerade aktiviert wurde
                         if not _aktiv and aktiv:
@@ -146,7 +150,7 @@ def page_benutzerverwaltung():
                                 )
                         st.success("Benutzer gespeichert.")
                         st.rerun()
-                    except ValueError as _ve:
+                    except (ValueError, PermissionError) as _ve:
                         st.error(str(_ve))
 
                 # Passwort ändern

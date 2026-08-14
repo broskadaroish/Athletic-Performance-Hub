@@ -3445,10 +3445,42 @@ def benutzer_speichern(
             raise
 
 
-def benutzer_aktualisieren(benutzer_id, verein_id, vorname, nachname, email, rolle) -> None:
+def benutzer_aktualisieren(
+    benutzer_id, verein_id, vorname, nachname, email, rolle,
+    *, caller_rolle: str | None = None, caller_verein_id: int | None = None,
+) -> None:
+    """Aktualisiert Stammdaten und Rolle eines Benutzers.
+
+    Guards (serverseitig):
+    - Rolleneskalation zu 'Superadmin' ist nur für Superadmins erlaubt.
+    - Nicht-Superadmins dürfen nur Benutzer des eigenen Mandanten (verein_id) ändern.
+
+    caller_rolle / caller_verein_id: Rolle und Verein des aufrufenden Benutzers.
+    Sind beide None, wird der Aufruf als vertrauenswürdiger interner Aufruf behandelt.
+    """
     import sqlite3 as _sqlite3
     email_norm = normalize_email(email)
+
+    # ── Guard 1: Rolleneskalation zu Superadmin verhindern ────────────────────
+    if rolle == "Superadmin" and caller_rolle is not None and caller_rolle != "Superadmin":
+        raise PermissionError(
+            "Rolleneskalation zu 'Superadmin' ist nicht erlaubt."
+        )
+
     with get_conn() as conn:
+        # ── Guard 2: Mandantentrennung — nur Superadmin darf fremde Benutzer ändern
+        if caller_rolle is not None and caller_rolle != "Superadmin":
+            ziel = conn.execute(
+                "SELECT verein_id FROM benutzer WHERE id=?", (benutzer_id,)
+            ).fetchone()
+            if ziel is None:
+                raise PermissionError("Benutzer nicht gefunden.")
+            if ziel[0] != caller_verein_id:
+                raise PermissionError(
+                    "Zugriff verweigert: Dieser Benutzer gehört zu einem anderen Mandanten."
+                )
+        # ─────────────────────────────────────────────────────────────────────
+
         try:
             conn.execute("""
                 UPDATE benutzer
@@ -3462,7 +3494,27 @@ def benutzer_aktualisieren(benutzer_id, verein_id, vorname, nachname, email, rol
 
 
 def benutzer_aktivieren(benutzer_id: int, aktiv: int) -> None:
+    """Aktiviert oder deaktiviert einen Benutzer.
+
+    Guard (serverseitig): Den letzten aktiven Superadmin nicht deaktivierbar.
+    Wirft ValueError wenn der Guard greift.
+    """
     with get_conn() as conn:
+        # ── Guard: letzten aktiven Superadmin schützen ────────────────────────
+        if aktiv == 0:
+            ziel = conn.execute(
+                "SELECT rolle FROM benutzer WHERE id=?", (benutzer_id,)
+            ).fetchone()
+            if ziel and ziel[0] == "Superadmin":
+                n_aktive_sa = conn.execute(
+                    "SELECT COUNT(*) FROM benutzer WHERE rolle='Superadmin' AND aktiv=1"
+                ).fetchone()[0]
+                if n_aktive_sa <= 1:
+                    raise ValueError(
+                        "Der letzte aktive Superadmin kann nicht deaktiviert werden. "
+                        "Bitte zuerst einen weiteren Superadmin anlegen."
+                    )
+        # ─────────────────────────────────────────────────────────────────────
         conn.execute(
             "UPDATE benutzer SET aktiv=? WHERE id=?", (aktiv, benutzer_id)
         )
@@ -3812,8 +3864,26 @@ def trainer_statistiken(benutzer_id: int) -> dict:
 
 
 def benutzer_loeschen(benutzer_id: int) -> tuple[bool, str]:
-    """Löscht einen Benutzer — nur wenn keine Spieler zugeordnet sind."""
+    """Löscht einen Benutzer — nur wenn keine Spieler zugeordnet sind.
+
+    Guard (serverseitig): Der letzte aktive Superadmin kann nicht gelöscht werden.
+    """
     with get_conn() as conn:
+        # ── Guard: letzten aktiven Superadmin schützen ────────────────────────
+        ziel = conn.execute(
+            "SELECT rolle, aktiv FROM benutzer WHERE id=?", (benutzer_id,)
+        ).fetchone()
+        if ziel and ziel[0] == "Superadmin":
+            n_aktive_sa = conn.execute(
+                "SELECT COUNT(*) FROM benutzer WHERE rolle='Superadmin' AND aktiv=1"
+            ).fetchone()[0]
+            if n_aktive_sa <= 1:
+                return False, (
+                    "Der letzte aktive Superadmin kann nicht gelöscht werden. "
+                    "Bitte zuerst einen weiteren Superadmin anlegen."
+                )
+        # ─────────────────────────────────────────────────────────────────────
+
         spieler_n = conn.execute(
             "SELECT COUNT(*) FROM spieler WHERE trainer_id=?", (benutzer_id,)
         ).fetchone()[0]
