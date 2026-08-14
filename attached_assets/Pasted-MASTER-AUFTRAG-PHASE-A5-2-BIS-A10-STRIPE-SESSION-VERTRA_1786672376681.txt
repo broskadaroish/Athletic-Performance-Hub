@@ -1,0 +1,862 @@
+MASTER-AUFTRAG PHASE A5.2 BIS A10
+STRIPE / SESSION / VERTRAGSANZEIGE / KÜNDIGUNG / PAYMENT FAILURE / TRIAL-ENDE / PAKETWECHSEL / ENDTOEND-TEST
+
+AUSGANGSLAGE
+
+Das APH-System ist eine bestehende Streamlit-/Node-/SQLite-Anwendung mit:
+
+- Streamlit Hauptapp
+- Express API-Server
+- SQLite Produktions-/Testdatenbank
+- Stripe Sandbox/Testmodus
+- Webhook unter:
+  /api/stripe/webhook
+
+Bereits vorhanden:
+
+PAKETE
+
+TRAINER_BASIC
+- 1 Trainer
+- 20 Spieler
+- 9,99 € / Monat
+- 99 € / Jahr
+
+TRAINER_PRO
+- 1 Trainer
+- unbegrenzt Spieler
+- 14,99 € / Monat
+- 149 € / Jahr
+
+VEREIN_BASIC
+- 2 Trainer
+- 50 Spieler
+- 24,99 € / Monat
+- 249 € / Jahr
+
+VEREIN_PRO
+- 15 Trainer
+- unbegrenzt Spieler
+- 39,99 € / Monat
+- 399 € / Jahr
+
+STRIPE
+
+- STRIPE_SECRET_KEY
+- STRIPE_WEBHOOK_SECRET
+- 8 Stripe Price IDs
+- 30 Tage Trial
+- payment_method_collection = always
+- Stripe Checkout mode=subscription
+- Stripe Customer IDs
+- Stripe Subscription IDs
+
+WEBHOOK EVENTS
+
+checkout.session.completed
+customer.subscription.created
+customer.subscription.updated
+customer.subscription.deleted
+invoice.paid
+invoice.payment_failed
+
+SICHERHEIT
+
+- Webhook-Signaturprüfung
+- Raw Request Body
+- Fail-closed bei fehlenden Secrets
+- HTTP 400 bei ungültiger Signatur
+- HTTP 500 bei interner Event-Verarbeitung mit Fehler
+- Idempotenz über stripe_events
+- Event erst nach erfolgreicher Verarbeitung als erledigt markieren
+
+DB
+
+vereine enthält u.a.:
+
+lizenztyp
+abo_intervall
+lizenz_status
+testphase_bis
+stripe_customer_id
+stripe_subscription_id
+zahlungsstatus
+vertragsbeginn
+vertragsende
+cancel_at_period_end
+subscription_current_period_end
+kuendigung_eingegangen
+gekuendigt_zum
+kuendigungsstatus
+kuendigung_grund
+kuendigung_bestaetigung_am
+
+WICHTIG
+
+- Bestehende funktionierende Logik nicht unnötig umbauen.
+- Keine zweite Stripe-Architektur bauen.
+- Keine zweite Preislogik erfinden.
+- Keine Live-Keys.
+- Keine echten Zahlungen.
+- Keine Produktionsdaten anderer Kunden verändern.
+- Keine bestehenden Spieler/Testdaten löschen.
+- Keine Tabellen ersetzen.
+- Alle Migrationen idempotent.
+- Keine geheimen Stripe-Daten loggen.
+- Keine Kartendaten speichern.
+
+Wenn lokale Testdaten fehlen:
+NICHT Produktions-Kundennummern erfinden.
+Dann generische Testdaten / lokale Fixtures verwenden und im Bericht sagen,
+welche Prüfungen ich anschließend auf dem VPS ausführen soll.
+
+==================================================
+PHASE A5.2 – SESSION-RESTORE NACH STRIPE
+==================================================
+
+ZIEL:
+Nach erfolgreichem Stripe Checkout soll ein bereits eingeloggter Nutzer
+direkt wieder in APH landen, ohne erneuten Login.
+
+AUSGANGSPROBLEM:
+
+Nach Checkout:
+Stripe → success_url → APH
+
+Nutzer landet zunächst auf Login-Seite.
+Nach erneutem Login erscheint die Success-Meldung.
+
+Serverseitige Session bleibt bestehen.
+
+Prüfe vorhandene Logik:
+
+CookieController
+ath_sid
+session_erstellen()
+session_validieren()
+st.session_state["user"]
+st.session_state["_session_token"]
+checkout Query-Param
+SameSite
+Secure
+Path
+Domain
+
+1. COOKIE
+
+ath_sid muss gesetzt werden mit:
+
+secure=True
+same_site="Lax"
+path="/"
+
+Falls installierte CookieController-Version path nicht unterstützt:
+sicherer Fallback.
+
+2. COOKIE-RESTORE
+
+Wenn neue Streamlit-Session startet und "user" fehlt:
+
+CookieController kann beim ersten Render noch None liefern.
+
+Implementiere robust:
+
+_COOKIE_MAX_WAIT = 4
+
+- mehrere kontrollierte Reruns
+- keine Endlosschleife
+- Ladeanzeige während Cookie-Wartephase
+- sobald ath_sid vorhanden:
+  session_validieren()
+  user + _session_token wiederherstellen
+- bei ungültigem Cookie sofort Login
+- nach maximalen Versuchen Login
+
+3. CHECKOUT QUERY PARAM
+
+?checkout=success oder ?checkout=cancel
+
+darf keine Authentifizierung erzeugen.
+
+Erst nach gültiger Session:
+- Banner in session_state
+- Query Param entfernen
+- Success/Cancel-Meldung anzeigen
+
+Ohne gültige Session:
+- Login bleibt erforderlich
+
+4. SESSION CLEANUP
+
+Prüfe Mehrfachsessions.
+
+Falls sinnvoll:
+maximal z.B. 5 aktive Sessions pro Benutzer
+älteste sauber deaktivieren.
+
+Nicht alle Geräte pauschal abmelden.
+
+5. TESTS
+
+A:
+Login → Reload → bleibt eingeloggt
+
+B:
+Login → externe Navigation → zurück → bleibt eingeloggt
+
+C:
+Login → ?checkout=success → Session wiederhergestellt → Success-Banner
+
+D:
+kein Cookie + ?checkout=success → keine Authentifizierung
+
+E:
+ungültiges Cookie → Login
+
+F:
+kein Endlos-Rerun
+
+==================================================
+PHASE A5.3 – VERTRAGSANZEIGE / DATENQUELLE
+==================================================
+
+ZIEL:
+"Mein Vertrag" muss die echten Stripe-/Mandantenwerte korrekt anzeigen.
+
+Problem kann sein:
+
+- BASIC statt TRAINER_BASIC
+- Paketpreis fehlt
+- Vertragsbeginn fehlt
+- nächste Abbuchung / Verlängerung fehlt
+
+1. FÜHRENDE DATENQUELLE
+
+Prüfe, ob Vertragsseite aktuell teils aus benutzer, teils aus vereine liest.
+
+Für Stripe-/Vertragsdaten muss führende Quelle sein:
+
+vereine / technischer Mandant
+
+Benutzer-Tabelle nur für:
+- Login
+- Profil
+- personenbezogene Daten
+
+2. PAKETNAME
+
+Neue Stripe-Verträge anzeigen als:
+
+TRAINER_BASIC
+TRAINER_PRO
+VEREIN_BASIC
+VEREIN_PRO
+
+Altwerte BASIC/PRO nur über normalize_lizenz_typ() kompatibel behandeln.
+
+Keine pauschale Altbestandsmigration ohne Notwendigkeit.
+
+3. PREISANZEIGE
+
+Preis aus zentraler Paketdefinition ableiten:
+
+lizenztyp + abo_intervall
+
+Keine zweite Preistabelle neu erfinden.
+
+Erwartungen:
+
+TRAINER_BASIC monat → 9,99 € / Monat
+TRAINER_BASIC jahr → 99 € / Jahr
+
+TRAINER_PRO monat → 14,99 € / Monat
+TRAINER_PRO jahr → 149 € / Jahr
+
+VEREIN_BASIC monat → 24,99 € / Monat
+VEREIN_BASIC jahr → 249 € / Jahr
+
+VEREIN_PRO monat → 39,99 € / Monat
+VEREIN_PRO jahr → 399 € / Jahr
+
+4. VERTRAGSBEGINN
+
+checkout.session.completed:
+
+vertragsbeginn = COALESCE(vertragsbeginn, date('now'))
+
+Nur setzen wenn noch leer.
+
+5. NÄCHSTE ABBUCHUNG / VERLÄNGERUNG
+
+Während Trial:
+
+wenn subscription_current_period_end vorhanden:
+
+"Erste Abbuchung am DD.MM.YYYY"
+
+oder:
+
+"Testphase endet am DD.MM.YYYY"
+
+Bei aktivem Abo:
+
+"Nächste Verlängerung am DD.MM.YYYY"
+
+Bei gekündigtem Abo:
+
+"Vertragsende am DD.MM.YYYY"
+
+Kein künstliches Vertragsende setzen.
+
+6. TEST
+
+Mit einem lokalen passenden Testaccount:
+
+TRAINER_BASIC
+monat
+trial
+stripe_customer_id vorhanden
+stripe_subscription_id vorhanden
+
+Erwartung:
+
+Paket = TRAINER_BASIC
+Preis = 9,99 € / Monat
+Intervall = Monatlich
+Vertragsbeginn gesetzt
+Lizenzstatus = TESTPHASE
+erste Abbuchung / nächste Verlängerung sichtbar
+
+==================================================
+PHASE A6 – KÜNDIGUNG
+==================================================
+
+ZIEL:
+Kunde kann Abo sauber kündigen.
+
+1. KÜNDIGUNG WÄHREND TRIAL
+
+Bevorzugtes Verhalten:
+
+Stripe:
+cancel_at_period_end = true
+
+APH:
+
+kuendigung_eingegangen = 1
+kuendigungsstatus = vorgemerkt
+cancel_at_period_end = 1
+gekuendigt_zum = Ende Trial/Periode
+
+Zugang bleibt bis Periodenende.
+
+Keine Daten löschen.
+
+2. KÜNDIGUNG AKTIVES ABO
+
+cancel_at_period_end = true
+
+Nutzung bis Ende bezahlter Periode.
+
+Keine sofortige Sperre.
+
+3. KÜNDIGUNG ZURÜCKNEHMEN
+
+Falls Subscription noch aktiv:
+
+cancel_at_period_end = false
+
+APH Status entsprechend zurücksetzen.
+
+4. WEBHOOK
+
+customer.subscription.updated:
+
+cancel_at_period_end synchronisieren.
+
+customer.subscription.deleted:
+
+nach tatsächlichem Ende:
+
+lizenz_status = beendet / inaktiv
+zahlungsstatus passend
+kostenpflichtige Features sperren
+
+Konto und Daten nicht löschen.
+
+5. UI
+
+Anzeigen:
+
+"Kündigung vorgemerkt"
+"Zugang bis DD.MM.YYYY"
+
+Button:
+
+"Kündigung zurücknehmen"
+
+nur wenn zulässig.
+
+6. TEST
+
+TRAINER_BASIC monat
+
+- Kündigung setzen
+- Stripe updated
+- Webhook updated
+- UI korrekt
+- Zugang bleibt
+- Rücknahme möglich
+
+==================================================
+PHASE A7 – FEHLGESCHLAGENE ZAHLUNG
+==================================================
+
+ZIEL:
+Zahlungsfehler sauber behandeln.
+
+invoice.payment_failed:
+
+zahlungsstatus =
+"zahlung_fehlgeschlagen"
+oder klar definierter gleichwertiger Status
+
+Konto nicht löschen.
+Spieler nicht löschen.
+Subscription nicht doppelt erzeugen.
+
+1. GRACE PERIOD
+
+Empfehlung:
+
+Status:
+zahlung_offen / zahlung_fehlgeschlagen
+
+Warnhinweis:
+
+"Zahlung fehlgeschlagen.
+Bitte Zahlungsmethode aktualisieren."
+
+Nicht sofort hart sperren.
+
+Falls bestehende Lizenzlogik eine Grace Period unterstützt:
+verwenden.
+
+Falls nicht:
+minimal und konfigurierbar ergänzen.
+
+2. SUPERADMIN
+
+Sichtbar:
+
+- Zahlungsproblem
+- Kunde
+- Paket
+- Stripe Status
+- letzte fehlgeschlagene Zahlung
+
+3. TEST
+
+Stripe Sandbox Payment Failure simulieren.
+
+Prüfen:
+
+invoice.payment_failed
+Webhook 200
+Status korrekt
+Account bleibt bestehen
+Daten bleiben bestehen
+
+==================================================
+PHASE A8 – TRIAL-ENDE / ERSTE ZAHLUNG
+==================================================
+
+ZIEL:
+Nach 30 Tagen automatische erste Abbuchung.
+
+1. TRIALING → ACTIVE
+
+customer.subscription.updated oder passendes Event:
+
+lizenz_status = active
+
+2. invoice.paid
+
+Nur wenn:
+
+amount_paid > 0
+
+dann:
+
+zahlungsstatus = bezahlt
+lizenz_status = active
+subscription_current_period_end aktualisieren
+
+Wenn:
+
+amount_paid == 0
+
+keine echte Zahlung markieren.
+
+3. TEST CLOCK
+
+Wenn möglich:
+Stripe Test Clock / Sandbox-Zeitbeschleunigung verwenden.
+
+Kein echtes 30-Tage-Warten.
+
+4. ERSTE ZAHLUNG FEHLGESCHLAGEN
+
+Dann A7-Logik anwenden.
+
+5. TEST
+
+TRAINER_BASIC monat:
+
+Trial endet
+9,99 € Testrechnung
+invoice.paid
+active
+bezahlt
+nächste Verlängerung korrekt
+
+==================================================
+PHASE A9 – PAKET- UND INTERVALLWECHSEL
+==================================================
+
+ZIEL:
+Tarifwechsel ohne doppelte Subscription.
+
+ERLAUBT:
+
+Trainer:
+
+TRAINER_BASIC ↔ TRAINER_PRO
+
+Verein:
+
+VEREIN_BASIC ↔ VEREIN_PRO
+
+Intervall:
+
+monat ↔ jahr
+
+NICHT ERLAUBT:
+
+Trainer → Verein-Paket
+Verein → Trainer-Paket
+
+1. UPGRADE
+
+TRAINER_BASIC → TRAINER_PRO
+
+Stripe bestehende Subscription aktualisieren.
+
+Keine neue Subscription erstellen.
+
+Neue Price ID setzen.
+
+APH lizenztyp aktualisieren.
+
+Features/Limits korrekt.
+
+2. DOWNGRADE
+
+TRAINER_PRO → TRAINER_BASIC
+
+Wenn aktuelle Nutzung neues Limit überschreitet:
+
+NICHT Daten löschen.
+
+Entweder:
+- Downgrade blockieren
+oder
+- zum Periodenende vormerken
+
+Klare Meldung.
+
+3. INTERVALLWECHSEL
+
+monat → jahr
+jahr → monat
+
+Fachlich klar entscheiden:
+
+- sofort
+oder
+- zum Periodenende
+
+Keine überraschenden Sofortabbuchungen.
+
+4. PRORATION
+
+Bestehende Stripe-Funktion prüfen.
+
+Proration nur wenn klar gewollt.
+
+Wenn zum Periodenende:
+proration_behavior entsprechend setzen.
+
+5. UI
+
+"Tarif wechseln"
+
+anzeigen:
+
+Aktuelles Paket
+Neues Paket
+aktuelles Intervall
+neues Intervall
+wirksam ab
+
+6. TESTS
+
+TRAINER_BASIC monat → TRAINER_PRO monat
+
+TRAINER_PRO monat → TRAINER_BASIC monat
+
+TRAINER_BASIC monat → TRAINER_BASIC jahr
+
+Prüfen:
+
+richtige Price ID
+richtige Subscription
+keine zweite Subscription
+DB synchron
+
+==================================================
+PHASE A10 – KOMPLETTER SANDBOX-ENDTEST
+==================================================
+
+Erstelle einen strukturierten End-to-End-Testplan.
+
+TEST 1
+Trainer Basic monat registrieren
+
+TEST 2
+Trainer Pro jährlich registrieren
+
+TEST 3
+Verein Basic monat registrieren
+
+TEST 4
+Verein Pro jährlich registrieren
+
+TEST 5
+Checkout abbrechen
+
+TEST 6
+Checkout erfolgreich
+
+TEST 7
+Stripe-Rückkehr ohne erneuten Login
+
+TEST 8
+Vertragsanzeige korrekt
+
+TEST 9
+Kündigung während Trial
+
+TEST 10
+Kündigung zurücknehmen
+
+TEST 11
+Kündigung aktives Abo
+
+TEST 12
+customer.subscription.deleted
+
+TEST 13
+Payment Failure
+
+TEST 14
+Payment Recovery / invoice.paid
+
+TEST 15
+Trial-Ende
+
+TEST 16
+Basic → Pro
+
+TEST 17
+Pro → Basic
+
+TEST 18
+monat → jahr
+
+TEST 19
+Webhook doppelt senden
+→ keine doppelte Verarbeitung
+
+TEST 20
+Webhook ungültige Signatur
+→ 400
+
+TEST 21
+Webhook Secret fehlt
+→ fail closed
+
+TEST 22
+?checkout=success ohne Cookie
+→ kein Login
+
+TEST 23
+Reload mit Cookie
+→ Session wiederhergestellt
+
+TEST 24
+Superadmin sieht korrekten Vertragsstatus
+
+TEST 25
+Keine doppelte Subscription pro Mandant
+
+==================================================
+SUPERADMIN
+==================================================
+
+Superadmin soll mindestens sehen:
+
+Kundennummer
+Kundentyp
+Paket
+Intervall
+Lizenzstatus
+Zahlungsstatus
+Testphase bis
+Vertragsbeginn
+nächste Verlängerung
+Kündigung vorgemerkt
+Stripe Customer vorhanden JA/NEIN
+Stripe Subscription vorhanden JA/NEIN
+
+Keine Secret Keys anzeigen.
+
+Stripe IDs nur gekürzt anzeigen wenn nicht zwingend nötig.
+
+==================================================
+STATUS-MODELL
+==================================================
+
+Bitte bestehende Werte prüfen und konsistent halten.
+
+lizenz_status soll z.B. sauber unterscheiden:
+
+trial
+active
+payment_issue / grace
+cancel_pending
+ended / inactive
+
+Nur vorhandene/kompatible Werte verwenden,
+wenn das System bereits andere Begriffe nutzt.
+
+zahlungsstatus z.B.:
+
+offen
+zahlungsmethode_hinterlegt
+bezahlt
+zahlung_fehlgeschlagen
+
+Keine unnötige Statusvielfalt.
+
+==================================================
+DOPPELTE SUBSCRIPTIONS VERHINDERN
+==================================================
+
+Vor jedem Checkout:
+
+prüfen:
+
+stripe_subscription_id vorhanden?
+
+Wenn gültige aktive/trialing Subscription existiert:
+
+KEINE neue Subscription anlegen.
+
+Stattdessen:
+
+Hinweis:
+"Es besteht bereits ein Abonnement."
+
+oder:
+bestehendes Abo verwalten.
+
+==================================================
+BACKUP / TESTS
+==================================================
+
+Vor jedem DB-Schreibtest:
+
+Backup erstellen oder isolierte lokale Testdaten verwenden.
+
+Keine produktiven Kundendaten überschreiben.
+
+Wenn VPS-/Produktionsdaten für Test nötig wären:
+STOPPEN und mir exakten Prüf-/Testbefehl nennen,
+statt Produktionsdaten eigenmächtig zu ändern.
+
+==================================================
+ARBEITSWEISE
+==================================================
+
+Arbeite strikt:
+
+A5.2
+→ testen
+
+A5.3
+→ testen
+
+A6
+→ testen
+
+A7
+→ testen
+
+A8
+→ testen
+
+A9
+→ testen
+
+A10
+→ Gesamttest
+
+Wenn kritischer Fehler:
+
+STOPPEN.
+
+Nicht einfach weiterarbeiten.
+
+==================================================
+ABSCHLUSSBERICHT
+==================================================
+
+Am Ende berichten:
+
+1. A5.2 Session-Restore vollständig? JA/NEIN
+2. A5.3 Vertragsanzeige vollständig? JA/NEIN
+3. A6 Kündigung vollständig? JA/NEIN
+4. A7 Payment Failure vollständig? JA/NEIN
+5. A8 Trial-Ende vollständig? JA/NEIN
+6. A9 Paketwechsel vollständig? JA/NEIN
+7. A10 Tests bestanden: X / 25
+8. Welche Dateien geändert?
+9. Welche DB-Spalten ergänzt?
+10. Welche finalen Stripe Events verwendet?
+11. Welche lizenz_status Werte?
+12. Welche zahlungsstatus Werte?
+13. Wie funktioniert Kündigung?
+14. Wie funktioniert Payment Failure?
+15. Wie funktioniert Trial-Ende?
+16. Wie funktioniert Upgrade?
+17. Wie funktioniert Downgrade?
+18. Wie wird doppelte Subscription verhindert?
+19. Gibt es bekannte Fehler?
+20. Was fehlt noch vor Live-Modus?
+
+Danach STOPPEN.
+
+KEIN LIVE-MODUS.
+KEINE LIVE-KEYS.
+KEINE ECHTEN ZAHLUNGEN.
