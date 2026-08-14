@@ -415,13 +415,15 @@ if "user" not in st.session_state:
     # ── Zentrierter Container ─────────────────────────────────────────────────
     _lc1, _lc2, _lc3 = st.columns([1, 2, 1])
     with _lc2:
-        if os.path.exists(_APP_ICON_PATH):
+        _aph_logo_path = os.path.join(os.path.dirname(__file__), "assets", "aph_logo.png")
+        if os.path.exists(_aph_logo_path):
             _li1, _li2, _li3 = st.columns([1, 2, 1])
-            _li2.image(_APP_ICON_PATH, width=72)
+            _li2.image(_aph_logo_path, width=120)
         st.markdown(
-            '<h2 style="color:#e6edf3;text-align:center;margin:16px 0 4px">Athletic Performance Hub</h2>'
-            '<p style="color:#8b949e;text-align:center;font-size:13px;margin-bottom:20px">'
-            'Football Performance &amp; Diagnostics</p>',
+            '<h2 style="color:#e6edf3;text-align:center;margin:16px 0 4px;font-size:18px;'
+            'letter-spacing:0.5px">ATHLETIC PERFORMANCE HUB</h2>'
+            '<p style="color:#c9a84c;text-align:center;font-size:11px;font-weight:600;'
+            'letter-spacing:2px;margin-bottom:24px">TESTS · ANALYSE · TRAINING</p>',
             unsafe_allow_html=True,
         )
 
@@ -10247,27 +10249,6 @@ def page_ueber_software():
 
     _sub = st.session_state.get("_ueber_sub", "info")
 
-    # ── Sub-Navigation ─────────────────────────────────────────────────────────
-    _nc1, _nc2, _nc3, _nc4 = st.columns(4)
-    if _nc1.button("ℹ️ Info", key="ueber_sub_info", use_container_width=True,
-                   type="primary" if _sub == "info" else "secondary"):
-        st.session_state["_ueber_sub"] = "info"
-        st.rerun()
-    if _nc2.button("📋 Impressum", key="ueber_sub_impressum", use_container_width=True,
-                   type="primary" if _sub == "impressum" else "secondary"):
-        st.session_state["_ueber_sub"] = "impressum"
-        st.rerun()
-    if _nc3.button("🔒 Datenschutz", key="ueber_sub_datenschutz", use_container_width=True,
-                   type="primary" if _sub == "datenschutz" else "secondary"):
-        st.session_state["_ueber_sub"] = "datenschutz"
-        st.rerun()
-    if _nc4.button("📄 AGB", key="ueber_sub_agb", use_container_width=True,
-                   type="primary" if _sub == "agb" else "secondary"):
-        st.session_state["_ueber_sub"] = "agb"
-        st.rerun()
-
-    st.markdown('<hr style="border-color:#21262d;margin:8px 0 16px">', unsafe_allow_html=True)
-
     # ── Seiteninhalt ───────────────────────────────────────────────────────────
     if _sub == "impressum":
         _pg_impressum()
@@ -10280,33 +10261,23 @@ def page_ueber_software():
 
     else:
         # ── INFO ──────────────────────────────────────────────────────────────
-        import io as _uio
-        _ueber_logo = logo_laden()
-        if _ueber_logo:
-            try:
-                _ulcol, _umcol, _urcol = st.columns([1, 2, 1])
-                with _umcol:
-                    st.image(_uio.BytesIO(_ueber_logo), use_container_width=True)
-            except Exception:
-                pass
-        _icon_path = os.path.join(os.path.dirname(__file__), "assets", "app_logo.png")
-        if not _ueber_logo and os.path.exists(_icon_path):
-            try:
-                _ulcol2, _umcol2, _urcol2 = st.columns([1, 2, 1])
-                with _umcol2:
-                    st.image(_icon_path, use_container_width=True)
-            except Exception:
-                pass
+        # Große APH-Produktgrafik (responsiv, zentriert, kein Overflow)
+        _brand_overview_path = os.path.join(os.path.dirname(__file__), "assets", "aph_brand_overview.png")
+        if os.path.exists(_brand_overview_path):
+            st.markdown(
+                '<div style="text-align:center;max-width:900px;margin:0 auto 8px auto;overflow:hidden">',
+                unsafe_allow_html=True,
+            )
+            st.image(_brand_overview_path, use_container_width=True)
+            st.markdown('</div>', unsafe_allow_html=True)
 
-        _has_logo   = bool(_ueber_logo) or os.path.exists(_icon_path)
-        _hdr_icon   = "" if _has_logo else '<div style="font-size:64px;text-align:center">⚽</div>'
-        _hdr_pad    = "8px" if _has_logo else "40px"
         st.markdown(
-            f'<div translate="no" style="text-align:center;padding:{_hdr_pad} 0 20px">'
-            f'{_hdr_icon}'
+            f'<div translate="no" style="text-align:center;padding:8px 0 20px">'
             f'<h1 style="color:#e6edf3;font-size:22px;font-weight:800;'
-            f'letter-spacing:0.5px;margin:16px 0 4px">{APP_NAME}</h1>'
-            f'<div style="color:#58a6ff;font-size:12px;font-weight:600;'
+            f'letter-spacing:0.5px;margin:8px 0 4px">{APP_NAME}</h1>'
+            f'<div style="color:#c9a84c;font-size:11px;font-weight:600;'
+            f'letter-spacing:2px;margin-bottom:4px">TESTS · ANALYSE · TRAINING</div>'
+            f'<div style="color:#58a6ff;font-size:11px;font-weight:600;'
             f'letter-spacing:2px">VERSION {APP_VERSION}</div>'
             f'</div>',
             unsafe_allow_html=True,
@@ -10439,16 +10410,19 @@ if _user_rolle_nav == "Superadmin":
 
 with st.sidebar:
     # ── Logo ──────────────────────────────────────────────────────────────────
+    _sb_aph_logo = os.path.join(os.path.dirname(__file__), "assets", "aph_logo.png")
+    if os.path.exists(_sb_aph_logo):
+        _sbl1, _sbl2, _sbl3 = st.columns([1, 3, 1])
+        with _sbl2:
+            st.image(_sb_aph_logo, use_container_width=True)
     st.markdown(
-        f'<div style="padding:10px 0 8px;text-align:center">'
-        f'<div style="font-weight:800;font-size:13px;color:{C["text"]};letter-spacing:0.5px;margin-top:6px">ATHLETIC PERFORMANCE HUB</div>'
-        f'<div style="font-weight:700;font-size:11px;color:{C["text"]};letter-spacing:0.5px">APH · Football Diagnostics</div>'
+        f'<div style="padding:6px 0 8px;text-align:center">'
+        f'<div style="font-weight:800;font-size:13px;color:{C["text"]};letter-spacing:0.5px;margin-top:4px">ATHLETIC PERFORMANCE HUB</div>'
+        f'<div style="font-weight:600;font-size:10px;color:#c9a84c;letter-spacing:1.5px;margin-top:2px">TESTS · ANALYSE · TRAINING</div>'
         f'<div style="font-size:9px;color:{C["muted"]};margin-top:2px">v{APP_VERSION}</div>'
         f'</div>',
         unsafe_allow_html=True,
     )
-    if os.path.exists(_APP_ICON_PATH):
-        st.image(_APP_ICON_PATH, width=64)
 
     # ── Global player selector ────────────────────────────────────────────────
     alle_spieler = spieler_laden(_akt_user()["id"], _akt_user()["rolle"], _akt_user()["verein_id"])

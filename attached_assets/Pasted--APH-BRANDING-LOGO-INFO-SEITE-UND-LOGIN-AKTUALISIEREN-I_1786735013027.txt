@@ -1,0 +1,592 @@
+# APH BRANDING – LOGO, INFO-SEITE UND LOGIN AKTUALISIEREN
+
+Ich habe dieser Nachricht **zwei neue APH-Bilder als Anhänge** beigefügt.
+
+Bitte übernimm beide Bilder dauerhaft in die Projekt-Assets.
+
+## Die beiden Bilder unterscheiden
+
+### Bild 1 – APH Logo
+
+Das **quadratische Bild** mit dem großen APH-Markenzeichen und Sprinter ist das neue Hauptlogo.
+
+Bitte dauerhaft und sinnvoll im bestehenden Asset-System des Projekts speichern, vorzugsweise unter einem eindeutigen Namen wie:
+
+`aph_logo.png`
+
+### Bild 2 – APH Produktgrafik
+
+Das **große/breite APH-Bild** mit den fünf Bereichen:
+
+* Sprint
+* FMS
+* Y-Balance
+* Analyse
+* Trainingsplan
+
+ist die große Produkt-/Informationsgrafik.
+
+Bitte ebenfalls dauerhaft im bestehenden Asset-System speichern, vorzugsweise als:
+
+`aph_brand_overview.png`
+
+WICHTIG:
+
+Bitte zuerst selbst prüfen, welchen Asset-Ordner und welche Bildladefunktionen das bestehende Projekt verwendet.
+
+Keine Pfade erfinden und keine unnötige neue Asset-Struktur anlegen.
+
+---
+
+# 1. INFO-SEITE – OBERE NAVIGATION ENTFERNEN
+
+Auf der Info-Seite befindet sich aktuell ganz oben eine zusätzliche horizontale Navigation:
+
+**ℹ️ Info | 📋 Impressum | 🔒 Datenschutz | 📄 AGB**
+
+Diese komplette **obere Button-Leiste entfernen**.
+
+WICHTIG:
+
+Nicht die eigentlichen Seiten oder Inhalte von Impressum, Datenschutz und AGB löschen.
+
+Weiter unten auf der Info-Seite befindet sich bereits die Sektion:
+
+## Rechtliches
+
+Dort bleiben die drei Buttons:
+
+* 📋 Impressum
+* 🔒 Datenschutz
+* 📄 AGB
+
+vollständig erhalten und weiterhin funktionsfähig.
+
+Auch:
+
+**📧 Support kontaktieren**
+
+bleibt erhalten.
+
+Der Footer:
+
+**© 2026 Broska Daroish. Alle Rechte vorbehalten.**
+
+bleibt ebenfalls erhalten.
+
+## Gewünschter Aufbau der Info-Seite
+
+Nach der Änderung:
+
+1. APH Branding / Information
+2. große APH-Produktgrafik
+3. bestehende Informationen über die Plattform
+4. Support kontaktieren
+5. Rechtliches
+
+   * Impressum
+   * Datenschutz
+   * AGB
+6. Copyright-Footer
+
+Es soll keine doppelte Navigation für Impressum, Datenschutz und AGB mehr geben.
+
+---
+
+# 2. INFO-SEITE – ALTES GROSSES LOGO ERSETZEN
+
+Auf der Info-Seite befindet sich aktuell noch das große alte runde Logo:
+
+**ATHLETIK DIAGNOSTIK FUSSBALL**
+
+Dieses alte Bild an dieser Stelle vollständig entfernen.
+
+Dort stattdessen die neue große APH-Produktgrafik verwenden:
+
+`aph_brand_overview.png`
+
+Das ist ausdrücklich das Bild mit:
+
+* APH
+* Athletic Performance Hub
+* Sprint
+* FMS
+* Y-Balance
+* Analyse
+* Trainingsplan
+
+Diese Position ist bewusst gewählt, weil die Grafik hier die Funktionen und Identität der Plattform erklärt.
+
+## Darstellung
+
+Die Grafik:
+
+* horizontal zentrieren
+* Seitenverhältnis immer erhalten
+* niemals verzerren
+* responsive darstellen
+* auf Desktop groß und hochwertig präsentieren
+* die Inhalte sollen auf Desktop gut erkennbar sein
+* auf Tablet proportional verkleinern
+* auf Smartphone an die verfügbare Breite anpassen
+* keinen horizontalen Overflow erzeugen
+* keine unnötige weiße Umrandung
+* sauber in das bestehende Dark-Theme integrieren
+
+Das Bild nicht künstlich auf eine feste Höhe strecken.
+
+---
+
+# 3. KLEINES APH-LOGO IM KOPFBEREICH ERSETZEN
+
+Im APH-Kopf-/Infobereich wird aktuell noch das alte kleine Logo „Athletik Diagnostik“ verwendet.
+
+Dieses durch das neue:
+
+`aph_logo.png`
+
+ersetzen.
+
+Hier ausdrücklich NICHT die große Produktgrafik verwenden.
+
+`aph_logo.png` ist das neue eigentliche APH-Markenzeichen.
+
+## Darstellung
+
+* kompakt
+* quadratisch
+* Seitenverhältnis erhalten
+* keine Verzerrung
+* sauber zum bestehenden Dark-Theme passend
+* Desktop und Mobile berücksichtigen
+* nicht unnötig groß darstellen
+
+---
+
+# 4. APH BEZEICHNUNG AKTUALISIEREN
+
+Aktuell wird teilweise noch folgende Bezeichnung verwendet:
+
+**APH · Football Diagnostics**
+
+Diese Bezeichnung soll im sichtbaren APH-Branding nicht mehr verwendet werden.
+
+Ändern in:
+
+**TESTS · ANALYSE · TRAINING**
+
+Der Hauptname bleibt:
+
+**ATHLETIC PERFORMANCE HUB**
+
+Die Darstellung soll also beispielsweise lauten:
+
+**ATHLETIC PERFORMANCE HUB**
+
+**TESTS · ANALYSE · TRAINING**
+
+**v1.0.0**
+
+WICHTIG:
+
+Falls die Versionsnummer dynamisch erzeugt wird, diese Logik nicht verändern und keine Versionsnummer hart codieren.
+
+---
+
+# 5. LOGIN-SEITE – ALTES LOGO ERSETZEN
+
+Auf der Login-Seite das bisherige alte Athletik-Diagnostik-Logo ebenfalls entfernen.
+
+Dort das neue:
+
+`aph_logo.png`
+
+verwenden.
+
+Die große Produktgrafik `aph_brand_overview.png` NICHT auf der Login-Seite verwenden.
+
+Die Login-Seite benötigt das kompakte Markenlogo.
+
+---
+
+# 6. SINNVOLLE POSITION DES LOGOS AUF DER LOGIN-SEITE
+
+Das neue APH-Logo soll nicht einfach irgendwo eingefügt werden.
+
+Es soll einen klaren gestalterischen Zweck erfüllen.
+
+Das Logo soll:
+
+**zentriert oberhalb des Login-Formulars**
+
+positioniert werden.
+
+Der Nutzer soll beim Öffnen der Seite zuerst APH erkennen und danach unmittelbar zum Login geführt werden.
+
+## Gewünschter Aufbau
+
+**[APH LOGO]**
+
+**ATHLETIC PERFORMANCE HUB**
+
+**TESTS · ANALYSE · TRAINING**
+
+danach mit einem angemessenen Abstand:
+
+**bestehendes Login-Formular**
+
+Keine unnötigen zusätzlichen Texte hinzufügen.
+
+---
+
+# 7. LOGIN – DESKTOP DARSTELLUNG
+
+Auf Desktop:
+
+* APH-Logo gut sichtbar
+* aber nicht überdimensioniert
+* horizontal zentriert
+* Titel darunter sauber ausgerichtet
+* `TESTS · ANALYSE · TRAINING` etwas dezenter als der Haupttitel
+* angemessener Abstand zum Login
+* Login-Formular darf nicht unnötig weit nach unten gedrückt werden
+* bestehendes Dark-Theme beibehalten
+
+Das Ergebnis soll wie der Einstieg in eine professionelle Sport-Performance-Plattform wirken.
+
+---
+
+# 8. LOGIN – MOBILE DARSTELLUNG
+
+Auf Smartphones:
+
+* APH-Logo proportional verkleinern
+* kein horizontales Überlaufen
+* kein abgeschnittenes Logo
+* Haupttitel sauber darstellen
+* `TESTS · ANALYSE · TRAINING` lesbar halten
+* Login ohne unnötig langes Scrollen erreichbar
+* keine riesigen Leerflächen
+* keine Verzerrung des Logos
+
+Die bestehende Mobile-Navigation nicht verändern.
+
+---
+
+# 9. WEITERE VERWENDUNGEN DES ALTEN LOGOS SUCHEN
+
+Bitte projektweit nach Verwendungen des alten:
+
+**Athletik Diagnostik**
+
+Logos suchen.
+
+Prüfen, wo dieses Bild noch sichtbar verwendet wird.
+
+Nicht automatisch überall dasselbe neue Bild einsetzen.
+
+Es gilt:
+
+## Kleine Markenpositionen
+
+Wenn dort ein Logo sinnvoll ist:
+
+→ `aph_logo.png`
+
+## Große Produkt-/Informationsdarstellung
+
+Nur an einer sinnvollen großen Informations-/Marketingposition:
+
+→ `aph_brand_overview.png`
+
+verwenden.
+
+Die große Produktgrafik nicht als kleines Icon oder Miniatur verwenden.
+
+---
+
+# 10. FAVICON / BROWSER-TAB PRÜFEN
+
+Bitte prüfen, welches Favicon bzw. Browser-Tab-Icon aktuell verwendet wird.
+
+Feststellen:
+
+* Dateiname
+* Speicherort
+* technische Einbindung
+* ob noch das alte Athletik-Diagnostik-Logo verwendet wird
+
+Das Favicon in diesem Auftrag aber noch NICHT automatisch ersetzen.
+
+Grund:
+
+Das neue `aph_logo.png` enthält zusätzliche Details und den Schriftzug „ATHLETIC PERFORMANCE HUB“.
+
+Bei 16x16 bzw. 32x32 Pixeln wäre das wahrscheinlich zu detailliert.
+
+Für das Favicon wird später gegebenenfalls eine eigene vereinfachte APH-Icon-Version verwendet.
+
+Daher aktuell:
+
+**nur prüfen und berichten.**
+
+Nicht automatisch zuschneiden.
+
+---
+
+# 11. ALTE BILDER NICHT SOFORT LÖSCHEN
+
+Bitte zunächst feststellen:
+
+* welches Bild aktuell auf der Info-Seite verwendet wird
+* welches Bild beim Login verwendet wird
+* welches Bild im APH-Kopfbereich verwendet wird
+* wo diese Dateien sonst noch referenziert werden
+
+Alte Dateien erst dann löschen, wenn zweifelsfrei feststeht, dass sie nirgendwo mehr benötigt werden.
+
+Im Zweifel alte Datei zunächst behalten.
+
+Keine kaputten Bildpfade erzeugen.
+
+---
+
+# 12. APH MARKENSTRUKTUR
+
+Nach dieser Änderung soll das Branding klar aufgebaut sein:
+
+## Marke
+
+**APH**
+
+## Name
+
+**ATHLETIC PERFORMANCE HUB**
+
+## Kurzbeschreibung
+
+**TESTS · ANALYSE · TRAINING**
+
+Diese drei Elemente bilden ab jetzt das zentrale sichtbare APH-Branding.
+
+---
+
+# 13. GROSSE PRODUKTGRAFIK
+
+Die große Grafik mit:
+
+**SPRINT · FMS · Y-BALANCE · ANALYSE · TRAININGSPLAN**
+
+dient als visuelle Erklärung des Systems.
+
+Sie ist kein Ersatz für das kompakte Logo.
+
+Primärer Einsatzort:
+
+**Info-Seite**
+
+---
+
+# 14. DESIGN NICHT KOMPLETT UMBAUEN
+
+Dieser Auftrag ist eine gezielte Branding-Aktualisierung.
+
+Das bestehende APH-Design grundsätzlich beibehalten.
+
+Nicht ohne Not:
+
+* Farben der gesamten Plattform ändern
+* Navigation neu bauen
+* Cards neu gestalten
+* Seitenstruktur umbauen
+* neue Animationen hinzufügen
+* neue Frameworks einbauen
+* CSS komplett neu schreiben
+* bestehende Komponenten refactoren
+
+Nur Änderungen durchführen, die für diesen Auftrag erforderlich sind.
+
+---
+
+# 15. FUNKTIONEN NICHT VERÄNDERN
+
+Nicht verändern:
+
+* Login-Logik
+* Logout
+* Registrierung
+* Benutzername
+* Passwort
+* Passwort vergessen
+* E-Mail-Verifikation
+* Reset-Links
+* Sessions
+* Cookies
+* Session-Persistenz
+* Rollen
+* Superadmin
+* Trainer
+* Verein
+* Spieler
+* Kundenverwaltung
+* Lizenzverwaltung
+* Datenbank
+* SQLite
+* Kundentrennung
+* Spielerdaten
+* Spieler löschen
+* FMS
+* FMS-Auswertung
+* Y-Balance
+* Y-Balance-Auswertung
+* Sprinttests
+* Sprint-Auswertung
+* Trainingsplan
+* Trainingsplan-Generator
+* Trainingslogik
+* Berichte/PDF
+* Kalender
+* Server-Konfiguration
+* Docker
+* Nginx
+* Deployment
+* E-Mail/SMTP
+
+Keine fachliche Logik verändern.
+
+---
+
+# 16. INFO-SEITE NACH DER ÄNDERUNG TESTEN
+
+Prüfen:
+
+* obere Leiste `Info | Impressum | Datenschutz | AGB` entfernt
+* keine unnötige Leerfläche dadurch entstanden
+* neue große APH-Grafik vorhanden
+* Grafik korrekt skaliert
+* Support kontaktieren weiterhin vorhanden
+* Sektion „Rechtliches“ weiterhin vorhanden
+* Impressum erreichbar
+* Datenschutz erreichbar
+* AGB erreichbar
+* Footer vorhanden
+
+---
+
+# 17. LOGIN NACH DER ÄNDERUNG TESTEN
+
+Prüfen:
+
+* altes Logo entfernt
+* neues `aph_logo.png` vorhanden
+* Logo sinnvoll oberhalb des Login-Formulars positioniert
+* `ATHLETIC PERFORMANCE HUB` korrekt
+* `TESTS · ANALYSE · TRAINING` korrekt
+* Login funktioniert weiterhin
+* Passwort-Funktionen weiterhin erreichbar
+* keine Layoutprobleme
+* Desktop korrekt
+* Mobile korrekt
+
+---
+
+# 18. APH-KOPFBEREICH TESTEN
+
+Prüfen:
+
+* altes Logo entfernt
+* neues APH-Logo sichtbar
+* keine Verzerrung
+* Haupttitel korrekt
+* `TESTS · ANALYSE · TRAINING` sichtbar
+* Versionsanzeige unverändert
+* Desktop sauber
+* Mobile sauber
+
+---
+
+# 19. RESPONSIVE TEST
+
+Mindestens prüfen:
+
+## Desktop
+
+* Login
+* Info
+* APH-Kopfbereich
+
+## Smartphone
+
+* Login
+* Info
+* APH-Kopfbereich
+* Rechtliches
+* große APH-Produktgrafik
+
+Insbesondere kontrollieren:
+
+* kein horizontaler Overflow
+* keine abgeschnittenen Bilder
+* keine verzerrten Bilder
+* keine übergroßen Logos
+* keine gequetschten Texte
+* keine unnötig großen Leerflächen
+* keine überdeckten Buttons
+* keine Regression der Mobile-Navigation
+
+---
+
+# 20. TECHNISCHE PRÜFUNG
+
+Nach Umsetzung:
+
+* Python-Syntax prüfen
+* Imports prüfen
+* Anwendung starten
+* geänderte Seiten aufrufen
+* vorhandene relevante automatisierte Tests ausführen
+* soweit möglich Browser-/Streamlit-Fehler kontrollieren
+
+Keine neuen Fehler durch Bildpfade, HTML oder CSS erzeugen.
+
+---
+
+# 21. ABSCHLUSSBERICHT
+
+Nach Durchführung bitte nicht nur „fertig“ schreiben.
+
+Bitte konkret berichten:
+
+1. Welche Dateien wurden geändert?
+2. In welchem Projektordner wurden die beiden angehängten neuen Bilder gespeichert?
+3. Wie heißen die beiden Dateien jetzt tatsächlich?
+4. Welches alte Bild wurde auf der Info-Seite ersetzt?
+5. Wird dort jetzt die große APH-Produktgrafik verwendet?
+6. Welches alte Logo wurde auf der Login-Seite ersetzt?
+7. Wird dort jetzt das kompakte APH-Logo verwendet?
+8. Welches Logo wird im APH-Kopfbereich verwendet?
+9. Wurde `APH · Football Diagnostics` entfernt?
+10. Wird jetzt `TESTS · ANALYSE · TRAINING` verwendet?
+11. Wurde die obere Navigation `Info | Impressum | Datenschutz | AGB` entfernt?
+12. Ist die untere Sektion `Rechtliches` weiterhin vorhanden?
+13. Funktionieren Impressum, Datenschutz und AGB weiterhin?
+14. Ist `Support kontaktieren` weiterhin vorhanden?
+15. Welches Favicon wird aktuell verwendet?
+16. Wo ist das Favicon eingebunden?
+17. Welche alten Logo-/Bilddateien sind noch vorhanden?
+18. Warum wurden diese alten Dateien gegebenenfalls behalten?
+19. Desktop geprüft?
+20. Mobile geprüft?
+21. Welche automatisierten Tests wurden ausgeführt?
+22. Mit welchem Ergebnis?
+23. Sind neue Fehler oder Warnungen aufgetreten?
+
+WICHTIG:
+
+Bestehende funktionierende Bereiche außerhalb dieses Auftrags nicht verändern.
+
+Ziel ist eine saubere, professionelle und einheitliche APH-Markenidentität:
+
+**APH**
+**ATHLETIC PERFORMANCE HUB**
+**TESTS · ANALYSE · TRAINING**
