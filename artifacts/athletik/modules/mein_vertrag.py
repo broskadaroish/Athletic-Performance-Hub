@@ -29,6 +29,12 @@ def _laden(user: dict) -> dict:
 
     Für alle Rollen (Vereinsadmin und Trainer) wird `verein_id` aus dem
     User-Objekt verwendet. `benutzer` liefert nur Profil-Felder (E-Mail, Name).
+
+    Sonderfall technischer Mandant (Einzeltrainer):
+    Vertragsdaten kommen aus `vereine`, aber die fachliche Kundennummer
+    wird aus `benutzer.kundennummer` übernommen — der technische Mandant
+    hat eine eigene (interne) Kundennummer, die nie dem Kunden angezeigt
+    werden soll.
     """
     verein_id = user.get("verein_id")
     if not verein_id:
@@ -38,7 +44,16 @@ def _laden(user: dict) -> dict:
         row = conn.execute(
             "SELECT * FROM vereine WHERE id=?", (verein_id,)
         ).fetchone()
-    return dict(row) if row else {}
+    if not row:
+        return {}
+    data = dict(row)
+    # Für Trainer mit technischem Mandant: sichtbare Kundennummer aus benutzer,
+    # nicht aus vereine (deren kundennummer ist eine interne Mandanten-Nummer).
+    if data.get("ist_technischer_mandant"):
+        benutzer_kn = user.get("kundennummer")
+        if benutzer_kn:
+            data["kundennummer"] = benutzer_kn
+    return data
 
 
 def _fmt_datum(raw: str | None) -> str | None:
