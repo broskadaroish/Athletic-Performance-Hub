@@ -1,0 +1,130 @@
+HOTFIX NACH BLOCK B – KUNDENDETAIL LIEST FALSCHE VERTRAGSQUELLE
+
+WICHTIG:
+Keine konkrete Produktions-Kundennummer voraussetzen.
+Replit hat keinen Zugriff auf die VPS-Produktionsdaten.
+
+Produktionsbefund:
+Bei einem Trainerkonto mit technischem Mandanten sind die Vertragsdaten im zugehörigen Datensatz aus `vereine` korrekt, während die Legacy-Felder in `benutzer` teilweise veraltet oder leer sind.
+
+Beispiel des beobachteten Musters:
+
+benutzer:
+- lizenztyp = BASIC
+- lizenz_status = trial
+- testphase_bis = NULL
+- vertragsbeginn = NULL
+
+zugehöriger technischer Mandant in vereine:
+- lizenztyp = TRAINER_BASIC
+- lizenz_status = trial
+- testphase_bis gesetzt
+- vertragsbeginn gesetzt
+- stripe_customer_id vorhanden
+- stripe_subscription_id vorhanden
+- zahlungsstatus gesetzt
+- subscription_current_period_end gesetzt
+- abo_intervall gesetzt
+
+PROBLEM:
+Die Superadmin-Kundenverwaltung / Kundendetailseite liest offenbar noch teilweise Vertrags-/Lizenzdaten aus `benutzer`.
+
+Dadurch kann die UI anzeigen:
+- BASIC statt TRAINER_BASIC
+- Testphase bis: —
+- Vertragsbeginn: —
+- "Noch kein Paket zugewiesen"
+
+obwohl der zugehörige Mandant in `vereine` bereits korrekte Vertragsdaten enthält.
+
+AUFGABE:
+
+1. Prüfe die bestehende Datenquelle der Superadmin-Kundenverwaltung und Kundendetailseite.
+
+2. Für Vertrags-/Lizenz-/Stripe-Daten muss der zugehörige Datensatz aus `vereine`
+bzw. beim Einzeltrainer der technische Mandant die führende Quelle sein.
+
+Folgende Felder aus `vereine` verwenden:
+
+- lizenztyp
+- lizenz_status
+- lizenz_bis
+- testphase_bis
+- vertragsbeginn
+- vertragsende
+- abo_intervall
+- zahlungsstatus
+- stripe_customer_id
+- stripe_subscription_id
+- subscription_current_period_end
+- cancel_at_period_end
+- kuendigungsstatus
+- gekuendigt_zum
+
+3. `benutzer` nur für personenbezogene Daten verwenden:
+
+- vorname
+- nachname
+- email
+- benutzername
+- rolle
+- aktiv
+- Login-/Profildaten
+
+4. Der Hinweis:
+"Noch kein Paket zugewiesen"
+
+darf nur erscheinen, wenn auch der zugehörige Mandant in `vereine`
+wirklich keinen gültigen lizenztyp besitzt.
+
+5. Bestehende Daten NICHT migrieren.
+Keine Produktionsdaten ändern.
+Keine Legacy-Felder löschen.
+
+6. Keine feste Kundennummer verwenden.
+Mit lokalen/generischen Testdaten arbeiten.
+
+7. Kundennummern nur analysieren:
+Bitte berichten, ob die UI aktuell `benutzer.kundennummer` oder
+`vereine.kundennummer` verwendet und welche fachlich als Vertragskundennummer
+gelten sollte.
+
+TESTS:
+
+Erzeuge lokal/generisch einen Fall:
+
+Benutzer:
+- Rolle Trainer
+- Legacy lizenztyp BASIC
+- testphase_bis NULL
+- vertragsbeginn NULL
+- verein_id gesetzt
+
+zugehöriger Mandant:
+- lizenztyp TRAINER_BASIC
+- lizenz_status trial
+- testphase_bis gesetzt
+- vertragsbeginn gesetzt
+- zahlungsstatus zahlungsmethode_hinterlegt
+- abo_intervall monat
+- stripe_customer_id vorhanden
+- stripe_subscription_id vorhanden
+- subscription_current_period_end gesetzt
+
+Erwartete UI:
+- Paket = TRAINER_BASIC
+- korrekter Preis aus zentraler Paketdefinition
+- Testphase bis sichtbar
+- Vertragsbeginn sichtbar
+- Zahlungsstatus korrekt
+- Stripe Customer/Subscription vorhanden
+- KEIN "Noch kein Paket zugewiesen"
+
+Danach berichten:
+1. Ursache
+2. geänderte Dateien
+3. führende Datenquelle jetzt
+4. Kundennummern-Empfehlung
+5. Tests bestanden JA/NEIN
+
+Danach STOPPEN.

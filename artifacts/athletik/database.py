@@ -5082,7 +5082,7 @@ def kunden_liste_laden(
             v.id                            AS verein_id,
             b.id                            AS benutzer_id,
             'Verein'                        AS kundentyp,
-            v.kundennummer,
+            v.kundennummer                  AS kundennummer,
             v.name                          AS vereinsname,
             b.vorname,
             b.nachname,
@@ -5113,6 +5113,8 @@ def kunden_liste_laden(
 
         UNION ALL
 
+        -- Trainer-Kunden: Vertrags-/Lizenz-/Stripe-Felder kommen aus dem technischen Mandant (vereine v2),
+        -- personenbezogene Daten aus benutzer (b). COALESCE bevorzugt v2 gegenüber b.
         SELECT
             NULL                            AS verein_id,
             b.id                            AS benutzer_id,
@@ -5128,27 +5130,30 @@ def kunden_liste_laden(
             b.letzter_login,
             COALESCE(b.aktiv,1)             AS aktiv,
             b.gesperrt_bis,
-            COALESCE(b.lizenztyp,'BASIC')        AS lizenztyp,
-            COALESCE(b.lizenz_status,'trial')    AS lizenz_status,
-            b.lizenz_bis,
-            b.testphase_bis,
-            b.vertragsbeginn,
-            b.vertragsende,
-            COALESCE(b.kuendigungsstatus,'aktiv') AS kuendigungsstatus,
-            b.kuendigung_eingegangen,
-            b.gekuendigt_zum,
+            COALESCE(v2.lizenztyp,  b.lizenztyp,  'BASIC')        AS lizenztyp,
+            COALESCE(v2.lizenz_status, b.lizenz_status, 'trial')   AS lizenz_status,
+            COALESCE(v2.lizenz_bis,    b.lizenz_bis)               AS lizenz_bis,
+            COALESCE(v2.testphase_bis, b.testphase_bis)            AS testphase_bis,
+            COALESCE(v2.vertragsbeginn, b.vertragsbeginn)          AS vertragsbeginn,
+            COALESCE(v2.vertragsende,   b.vertragsende)            AS vertragsende,
+            COALESCE(v2.kuendigungsstatus, b.kuendigungsstatus, 'aktiv') AS kuendigungsstatus,
+            COALESCE(v2.kuendigung_eingegangen, b.kuendigung_eingegangen) AS kuendigung_eingegangen,
+            COALESCE(v2.gekuendigt_zum, b.gekuendigt_zum)          AS gekuendigt_zum,
             0                               AS verein_gesperrt,
-            NULL                            AS zahlungsstatus,
+            v2.zahlungsstatus,
             b.telefon
         FROM benutzer b
+        LEFT JOIN vereine v2
+               ON v2.id = b.verein_id
+              AND COALESCE(v2.ist_technischer_mandant, 0) = 1
         -- Trainer-Kunden: Rolle='Trainer' UND (kein Verein ODER technischer Mandant)
         WHERE b.rolle = 'Trainer'
           AND (
               b.verein_id IS NULL
               OR EXISTS (
-                  SELECT 1 FROM vereine v2
-                  WHERE v2.id = b.verein_id
-                    AND COALESCE(v2.ist_technischer_mandant, 0) = 1
+                  SELECT 1 FROM vereine v3
+                  WHERE v3.id = b.verein_id
+                    AND COALESCE(v3.ist_technischer_mandant, 0) = 1
               )
           )
 
@@ -5221,9 +5226,10 @@ def kunde_vollstaendig_laden(
                 _v_raw = _row(conn.execute(
                     "SELECT * FROM vereine WHERE id=?", (b.get("verein_id"),)
                 ).fetchone())
-                # Technischer Mandant (persönlicher Verein für Einzeltrainer) wird
-                # als kein echter Verein behandelt → v=None → kundentyp='Trainer'
-                v = None if (_v_raw or {}).get("ist_technischer_mandant") else _v_raw
+                # Technischer Mandant: wird als v zurückgegeben — ist_technischer_mandant=1
+                # signalisiert der UI, dass es ein Trainer-Konto ist (keine Vereinsstruktur),
+                # aber vereine ist die führende Datenquelle für Vertrag/Lizenz/Stripe.
+                v = _v_raw  # v.get("ist_technischer_mandant") in UI auswerten
             else:
                 v = None
 

@@ -420,18 +420,22 @@ def _detail_c_lizenz(daten: dict) -> None:
     Bestehende Pakete aus license.py; keine Pakete/Preise verändern."""
     b = daten.get("benutzer") or {}
     v = daten.get("verein") or {}
-    ist_verein = bool(v)
+    # Echter Verein: v vorhanden UND kein technischer Mandant
+    # Trainer mit techn. Mandant: v vorhanden UND ist_technischer_mandant=1  → vereine ist führende Quelle
+    # Standalone-Trainer ohne Mandant: v ist None → benutzer ist Quelle
+    ist_verein  = bool(v) and not v.get("ist_technischer_mandant")
+    hat_mandant = bool(v) and bool(v.get("ist_technischer_mandant"))
 
-    # Einheitliche Datenquelle: Verein → v-Dict, Trainer → b-Dict
-    src        = v if ist_verein else b
-    entity_id  = v["id"] if ist_verein else b["id"]   # verein_id oder benutzer_id
-    key_pfx    = f"v{entity_id}" if ist_verein else f"b{entity_id}"
+    # vereine-Datensatz (echter Verein ODER technischer Mandant) ist führende Datenquelle
+    src        = v if (ist_verein or hat_mandant) else b
+    entity_id  = v["id"] if (ist_verein or hat_mandant) else b["id"]
+    key_pfx    = f"v{entity_id}" if (ist_verein or hat_mandant) else f"b{entity_id}"
 
     lizenztyp  = (src.get("lizenztyp") or "BASIC").upper()
     liz_status = src.get("lizenz_status") or "trial"
     liz_bis    = src.get("lizenz_bis") or "—"
     testphase  = src.get("testphase_bis") or "—"
-    paket_def  = LIZENZ_TYPEN.get(lizenztyp, LIZENZ_TYPEN.get("BASIC", {}))
+    paket_def  = LIZENZ_TYPEN.get(lizenztyp) or next(iter(LIZENZ_TYPEN.values()), {})
 
     with st.expander("**C — Lizenz / Paket**", expanded=False):
         c1, c2, c3 = st.columns(3)
@@ -544,11 +548,13 @@ def _detail_c_lizenz(daten: dict) -> None:
                     st.session_state.pop(_pk_key, None)
                     st.error(_downgrade_fehler)
                 else:
-                    if ist_verein:
+                    if ist_verein or hat_mandant:
+                        # Echter Verein UND Trainer mit technischem Mandant: schreibt in vereine
                         lizenz_setzen(entity_id, neues_paket, neuer_status,
                                       neue_liz_bis.strip() or None,
                                       neue_test_bis.strip() or None)
                     else:
+                        # Standalone-Trainer ohne Mandant: schreibt in benutzer
                         trainer_lizenz_setzen(entity_id, neues_paket, neuer_status,
                                               neue_liz_bis.strip() or None,
                                               neue_test_bis.strip() or None)
@@ -563,15 +569,17 @@ def _detail_c_lizenz(daten: dict) -> None:
 
 def _detail_d_vertrag(daten: dict) -> None:
     """Section D: Vertragsdaten — für Verein UND Trainer.
-    Vereine: schreibt via vertragsfelder_setzen().
-    Trainer: schreibt via trainer_vertrag_setzen()."""
+    Vereine UND Trainer mit technischem Mandant: schreibt via vertragsfelder_setzen() (→ vereine).
+    Standalone-Trainer ohne Mandant: schreibt via trainer_vertrag_setzen() (→ benutzer)."""
     b = daten.get("benutzer") or {}
     v = daten.get("verein") or {}
-    ist_verein = bool(v)
+    ist_verein  = bool(v) and not v.get("ist_technischer_mandant")
+    hat_mandant = bool(v) and bool(v.get("ist_technischer_mandant"))
 
-    src       = v if ist_verein else b
-    entity_id = v["id"] if ist_verein else b["id"]
-    key_pfx   = f"v{entity_id}" if ist_verein else f"b{entity_id}"
+    # vereine-Datensatz ist führende Quelle für Vertragsdaten
+    src       = v if (ist_verein or hat_mandant) else b
+    entity_id = v["id"] if (ist_verein or hat_mandant) else b["id"]
+    key_pfx   = f"v{entity_id}" if (ist_verein or hat_mandant) else f"b{entity_id}"
 
     with st.expander("**D — Vertrag**", expanded=False):
         c1, c2 = st.columns(2)
@@ -603,7 +611,8 @@ def _detail_d_vertrag(daten: dict) -> None:
                                 key=f"vt_kstat_{key_pfx}")
 
         if st.button("💾 Vertragsdaten speichern", key=f"vt_save_{key_pfx}"):
-            if ist_verein:
+            if ist_verein or hat_mandant:
+                # Echter Verein UND Trainer mit technischem Mandant: schreibt in vereine
                 vertragsfelder_setzen(
                     entity_id,
                     vertragsbeginn=e_vbeg.strip() or None,
@@ -614,6 +623,7 @@ def _detail_d_vertrag(daten: dict) -> None:
                     superadmin_id=_sa_id(),
                 )
             else:
+                # Standalone-Trainer ohne Mandant: schreibt in benutzer
                 trainer_vertrag_setzen(
                     entity_id,
                     vertragsbeginn=e_vbeg.strip() or None,
@@ -706,7 +716,11 @@ def _detail_gefahrenbereich(daten: dict) -> None:
     v   = daten.get("verein") or {}
     bid = b.get("id")
     vid = v.get("id")
-    kn  = v.get("kundennummer") or b.get("kundennummer") or "—"
+    # Technischer Mandant: Kundennummer liegt auf benutzer, nicht auf vereine
+    if v.get("ist_technischer_mandant"):
+        kn  = b.get("kundennummer") or v.get("kundennummer") or "—"
+    else:
+        kn  = v.get("kundennummer") or b.get("kundennummer") or "—"
     name_str = (
         v.get("name")
         or f"{b.get('vorname','') or ''} {b.get('nachname','') or ''}".strip()
@@ -956,9 +970,15 @@ def _kunde_detail(verein_id: int | None, benutzer_id: int | None) -> None:
 
     b   = daten.get("benutzer") or {}
     v   = daten.get("verein") or {}
-    kn  = v.get("kundennummer") or b.get("kundennummer") or "—"
-    typ = "Verein" if v else "Trainer"
-    tit = v.get("name") or f"{b.get('vorname','')} {b.get('nachname','')}".strip() or "Unbekannt"
+    # Technischer Mandant: ist Trainer-Konto — Kundennummer liegt auf benutzer, Typ bleibt "Trainer"
+    _ist_tech_mandant = bool(v) and bool(v.get("ist_technischer_mandant"))
+    if _ist_tech_mandant:
+        kn  = b.get("kundennummer") or v.get("kundennummer") or "—"
+        typ = "Trainer"
+    else:
+        kn  = v.get("kundennummer") or b.get("kundennummer") or "—"
+        typ = "Verein" if v else "Trainer"
+    tit = (None if _ist_tech_mandant else v.get("name")) or f"{b.get('vorname','')} {b.get('nachname','')}".strip() or "Unbekannt"
 
     st.markdown(
         f'<h2 style="color:#e6edf3;margin-bottom:4px">{kn} — {tit}</h2>'
