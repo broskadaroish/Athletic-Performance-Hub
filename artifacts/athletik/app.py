@@ -8443,8 +8443,8 @@ def page_einstellungen():
         vereinsname = c1.text_input("Vereinsname", value=st.session_state.get("cfg_vereinsname", ""), key="cfg_vname")
         saison      = c2.text_input("Aktuelle Saison", value=st.session_state.get("cfg_saison", "2025/26"), key="cfg_saison")
         if st.button("💾 Speichern", key="cfg_save", type="primary"):
+            # cfg_saison wird automatisch via Widget-Key gesetzt — kein manuelles Setzen
             st.session_state["cfg_vereinsname"] = vereinsname
-            st.session_state["cfg_saison"]      = saison
             st.toast("✅ Einstellungen gespeichert (Session).", icon=None)
 
         st.markdown("---")
