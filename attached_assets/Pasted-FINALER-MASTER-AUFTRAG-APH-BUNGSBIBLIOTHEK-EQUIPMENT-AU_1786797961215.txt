@@ -1,0 +1,1231 @@
+FINALER MASTER-AUFTRAG
+APH – ÜBUNGSBIBLIOTHEK + EQUIPMENT + AUTOMATISCHER PLAN
++ PLAN BEARBEITEN + MANUELLE PLANERSTELLUNG
+
+============================================================
+0. ZIEL UND WICHTIGSTE REGEL
+============================================================
+
+APH besitzt bereits eine funktionierende Trainingsplanlogik.
+
+Diese darf NICHT ersetzt oder neu aufgebaut werden.
+
+Die bestehenden drei Arbeitsweisen müssen vollständig erhalten bleiben:
+
+A) AUTOMATISCHER TRAININGSPLAN
+Tests/Diagnostik → Defizite → Haupt-/Nebenschwerpunkte →
+altersgerechte Planung → Belastung/Periodisierung →
+automatische Übungsauswahl.
+
+B) AUTOMATISCHEN PLAN ALS TRAINER BEARBEITEN
+Der Trainer kann einen generierten Trainingsplan anschließend
+manuell verändern, Übungen hinzufügen/austauschen/anpassen.
+
+C) TRAININGSPLAN KOMPLETT MANUELL ERSTELLEN
+Der Trainer kann weiterhin selbst einen Trainingsplan erstellen
+und Übungen frei auswählen.
+
+NEU soll hinzukommen:
+
+1. sauber definierte Equipment-Zuordnung PRO ÜBUNG
+2. bestehende schwache Equipmentbereiche sinnvoll erweitern
+3. Equipmentfilter im automatischen Generator
+4. Equipmentfilter beim Bearbeiten eines Plans
+5. Equipmentfilter bei „Manuelle Übungen hinzufügen“
+
+GRUNDREGEL:
+
+DIAGNOSTIK BESTIMMT, WAS TRAINIERT WIRD.
+EQUIPMENT BESTIMMT, MIT WELCHEN PASSENDEN ÜBUNGEN ES UMGESETZT WIRD.
+DER TRAINER BEHÄLT DIE MANUELLE KONTROLLE.
+
+Equipment darf niemals die Defizit-/Schwerpunktlogik ersetzen.
+
+============================================================
+1. ZUERST BESTEHENDE ARCHITEKTUR PRÜFEN
+============================================================
+
+Vor Änderungen exakt prüfen:
+
+- _POOL
+- _OLYMPIC_POOL
+- _ALTERS_ERSATZ
+- _EQUIPMENT_PRIMÄR
+- _EQUIPMENT_FALLBACK_POOL
+- _EQUIPMENT_ALLE
+- trainingsplan_multi_erstellen()
+- defizit_score()
+- Schwerpunkt-/Prioritätslogik
+- Alterslogik
+- Trainingssequenz
+- Zeitbudget
+- Periodisierung
+- Wochenplanung
+- automatische Planerstellung
+- Manuell-Tab
+- Funktion zum Hinzufügen von Übungen
+- Funktion zum Bearbeiten bestehender/generierter Pläne
+- PDF-Ausgabe
+
+Bestandsprüfung hat ergeben:
+
+_POOL = 169 Übungen
+_OLYMPIC_POOL = 6 Übungen
+
+Effektive Trainerbibliothek aktuell:
+175 Übungen.
+
+Diese bestehende Struktur NICHT ersetzen.
+
+============================================================
+2. DIE DREI ARBEITSWEISEN MÜSSEN BLEIBEN
+============================================================
+
+Nach der Änderung muss APH weiterhin exakt diese drei Wege ermöglichen:
+
+------------------------------------------------------------
+MODUS 1 – AUTOMATISCH
+------------------------------------------------------------
+
+Trainer lässt APH einen Plan generieren.
+
+APH verwendet weiterhin:
+
+- vorhandene Tests
+- FMS
+- Y-Balance
+- Sprint
+- Sprung
+- Agilität
+- Ausdauer
+- Spiro, falls vorhanden
+- Defizite
+- Hauptschwerpunkte
+- Nebenschwerpunkte
+- Alter
+- Saisonperiode
+- Planlänge
+- Trainingszeit
+- Wochenplanung
+- Vereinsbelastung
+- Spiel/Turnier
+- Belastungssteuerung
+- Periodisierung
+
+ERST DANACH wird Equipment berücksichtigt.
+
+------------------------------------------------------------
+MODUS 2 – GENERIERTEN PLAN BEARBEITEN
+------------------------------------------------------------
+
+Der Trainer kann einen automatisch generierten Plan weiterhin verändern.
+
+Er kann:
+
+- Übungen hinzufügen
+- Übungen austauschen
+- Übungen entfernen
+- Parameter verändern
+- eigene Übungen verwenden
+
+NEU:
+Beim Hinzufügen/Austauschen soll nach Equipment gefiltert werden können.
+
+------------------------------------------------------------
+MODUS 3 – KOMPLETT MANUELL
+------------------------------------------------------------
+
+Trainer kann weiterhin ohne automatische Generierung selbst planen.
+
+NEU:
+Auch hier kann er Bereich + Equipment auswählen und dadurch
+die Bibliothek filtern.
+
+Keine dieser drei Möglichkeiten entfernen oder einschränken.
+
+============================================================
+3. PRIORITÄTSKETTE DES AUTOMATISCHEN GENERATORS
+============================================================
+
+Die fachliche Reihenfolge muss sein:
+
+1. Testdaten
+2. Defizite/Auffälligkeiten
+3. Hauptschwerpunkte
+4. Nebenschwerpunkte
+5. Alter / Plangruppe
+6. Saisonperiode
+7. Vereinsbelastung / Spiel / Turnier
+8. Trainingszeit / Zeitbudget
+9. Periodisierung / Progression
+10. Trainingsbereiche
+11. verfügbares Equipment
+12. konkrete passende Übungen
+
+Equipment steht bewusst weit hinten.
+
+NICHT:
+
+Equipment → Schwerpunkt → Plan
+
+SONDERN:
+
+Diagnostik → Schwerpunkt → Trainingsbereich → Equipment → Übung
+
+============================================================
+4. BEISPIEL FÜR DIE GEWÜNSCHTE LOGIK
+============================================================
+
+Tests ergeben:
+
+Hauptschwerpunkte:
+- Maximalgeschwindigkeit
+- Rumpfstabilität
+
+Nebenschwerpunkt:
+- Hüftstabilität
+
+Trainer besitzt:
+
+- Körpergewicht
+- Miniband
+- Schlitten
+
+Dann bleiben die Schwerpunkte:
+
+Maximalgeschwindigkeit
+Rumpfstabilität
+Hüftstabilität
+
+APH sucht lediglich innerhalb dieser Bereiche passende Übungen.
+
+Beispielsweise:
+
+Maximalgeschwindigkeit:
+→ passende Sprint-/Schlittenübung
+
+Rumpfstabilität:
+→ passende Körpergewichtsübung
+
+Hüftstabilität:
+→ passende Minibandübung
+
+FALSCH wäre:
+
+„Schlitten vorhanden“
+→ Schlitten wird automatisch Hauptschwerpunkt.
+
+Das darf niemals passieren.
+
+============================================================
+5. BESTEHENDE ÜBUNGEN BEIBEHALTEN
+============================================================
+
+Die vorhandenen 175 Übungen nicht löschen.
+
+Keine Übungsnamen unnötig ändern.
+
+_POOL und _OLYMPIC_POOL bleiben bestehen.
+
+_ALTERS_ERSATZ weiterhin verwenden.
+
+Keine komplett neue Exercise-Datenbank bauen.
+
+============================================================
+6. ZENTRALE EQUIPMENT-METADATEN PRO ÜBUNG
+============================================================
+
+Aktuelles Problem:
+
+Equipment wird grob über:
+
+_EQUIPMENT_PRIMÄR[(bereich, pool_key)]
+
+zugeordnet.
+
+Das ist nicht genau genug.
+
+Beispiele aus Bestandsprüfung:
+
+- Cable Woodchop
+- Kabelzug Sprungrotation
+- Single Leg Leg Press
+- Front Squat (leicht)
+- Lying Hamstring Curl
+- Sled Push (leicht)
+- Resistenz-Sprints (Band)
+- Gewichtete Sprintstarts
+- Trap Bar Jump
+- Landmine Rotation
+- Ab Wheel Rollout
+
+können dadurch falsches Equipment bekommen.
+
+Deshalb zentrale Equipment-Metadaten PRO ÜBUNG einführen.
+
+Beispiel:
+
+_UEBUNG_EQUIPMENT = {
+    "Dead Bug": {"Körpergewicht"},
+    "Plank": {"Körpergewicht"},
+    "Seitliches Miniband Gehen": {"Miniband"},
+    "Resistance Band Psoas March": {"Powerband"},
+    "Single Leg Leg Press": {"Maschine"},
+    "Cable Woodchop": {"Maschine"},
+    "Sled Push (leicht)": {"Schlitten"},
+    "Kettlebell Swing": {"Kettlebell"},
+    "Medizinball Rotationswurf": {"Medizinball"},
+    "Front Squat (leicht)": {"Langhanteln"},
+}
+
+Eine Übung darf mehrere mögliche Equipmentarten besitzen.
+
+Beispiel:
+
+Goblet Squat:
+{"Kurzhanteln", "Kettlebell"}
+
+============================================================
+7. EQUIPMENT-KATEGORIEN VEREINHEITLICHEN
+============================================================
+
+Bestehende UI-Kategorien berücksichtigen:
+
+- Körpergewicht
+- Miniband
+- Powerband
+- Freie Gewichte
+- Kurzhanteln
+- Langhanteln
+- Kettlebell
+- Medizinball
+- Maschine
+- Schlitten
+- Ball
+
+Aktuell problematisch laut Prüfung:
+
+Powerband
+Kurzhanteln
+Langhanteln
+Schlitten
+
+haben teilweise keine echte Wirkung.
+
+Das muss behoben werden.
+
+Keine auswählbare Equipmentoption darf anschließend wirkungslos sein.
+
+============================================================
+8. FREIE GEWICHTE ALS OBERKATEGORIE
+============================================================
+
+„Freie Gewichte“ sinnvoll als Oberkategorie behandeln.
+
+Wenn gewählt:
+
+Freie Gewichte
+
+dürfen – sofern fachlich passend – Übungen mit:
+
+- Kurzhanteln
+- Langhanteln
+- Kettlebell
+- Trap Bar
+- Landmine
+
+verfügbar werden.
+
+ABER:
+
+Nur Kurzhanteln gewählt
+→ keine reine Langhantelübung.
+
+Nur Langhanteln gewählt
+→ keine reine Kurzhantelübung.
+
+Nur Kettlebell gewählt
+→ keine reine Langhantelübung.
+
+Alias-/Oberkategorien zentral lösen.
+
+Keine verstreuten String-Hacks.
+
+============================================================
+9. BAND NORMALISIEREN
+============================================================
+
+Bestandsprüfung ergab Begriffe:
+
+Miniband
+Band
+Banded
+Resistance Band
+Band-Ass.
+Powerband
+
+Fachlich unterscheiden.
+
+Kurzes Miniband:
+→ Miniband
+
+Langes Widerstands-/Assistenzband:
+→ Powerband
+
+Nicht einfach alles pauschal zu „Band“ machen.
+
+============================================================
+10. SPEZIALGERÄTE
+============================================================
+
+Prüfen:
+
+- Kabelzug
+- Trap Bar
+- Landmine
+- Ab Wheel
+
+Sinnvoll einer bestehenden Kategorie zuordnen oder,
+wenn wirklich erforderlich, eigene Kategorie verwenden.
+
+Beispiel mögliche Zuordnung:
+
+Kabelzug → Maschine
+Trap Bar → Freie Gewichte
+Landmine → Freie Gewichte/Langhanteln
+Ab Wheel → ggf. Spezialgerät bzw. Körpergewicht + Gerät
+
+Fachlich entscheiden und im Abschlussbericht dokumentieren.
+
+============================================================
+11. BESTEHENDE BIBLIOTHEK FACHLICH ERWEITERN
+============================================================
+
+Die schwach besetzten Equipmentbereiche dürfen gezielt erweitert werden:
+
+- Maschine
+- Schlitten
+- Kurzhanteln
+- Freie Gewichte
+- Langhanteln
+- Powerband
+
+ABER:
+
+Keine Bodybuilding-Übungsbibliothek bauen.
+
+Neue Übungen müssen einen klaren Nutzen für:
+
+Fußball-Athletik
+Leistungsentwicklung
+Verletzungsprävention im Rahmen der bestehenden Trainingslogik
+bzw. die vorhandenen APH-Schwerpunkte besitzen.
+
+Keine unnötigen 50–100 neuen Übungen hinzufügen.
+
+Ziel:
+Jede schwache Equipmentkategorie erhält eine fachlich sinnvolle Auswahl.
+
+Richtwert:
+ca. 8–15 sinnvolle Übungen pro bisher schwacher Equipmentkategorie,
+sofern fachlich sinnvoll.
+
+============================================================
+12. MÖGLICHE NEUE ÜBUNGEN
+============================================================
+
+Nicht blind übernehmen.
+Fachlich gegen vorhandene Bibliothek prüfen und Duplikate vermeiden.
+
+SCHLITTEN z.B.:
+
+- Sled Sprint
+- Sled Push
+- Heavy Sled Push
+- leichte resisted acceleration
+- rückwärts Schlittenziehen
+- laterales Schlittenziehen, falls sinnvoll
+
+KURZHANTELN z.B.:
+
+- DB Split Squat
+- DB Reverse Lunge
+- DB Step-Up
+- DB Single-Leg RDL
+- DB Romanian Deadlift
+- DB Goblet Squat nur wenn fachlich/terminologisch passend
+- DB Hip Thrust
+
+LANGHANTEL z.B.:
+
+- Front Squat
+- Back Squat nur wenn alters-/trainingsgerecht
+- Romanian Deadlift
+- Hip Thrust
+- Split Squat
+- Deadlift-Variante
+- Olympic-Varianten ausschließlich unter bestehendem Gate
+
+MASCHINE z.B.:
+
+- Single Leg Press
+- Leg Press
+- Seated Leg Curl
+- Lying Leg Curl
+- Calf Raise
+- Cable Hip Flexion
+- Cable Woodchop
+- Cable Rotation
+
+POWERBAND z.B.:
+
+- resisted acceleration
+- Psoas March
+- assisted Nordic
+- Hip Flexion
+- Sprint Arm Drive
+- Anti-Rotation Varianten
+
+Nur sinnvolle Übungen übernehmen.
+
+============================================================
+13. JEDE NEUE ÜBUNG MUSS IN DIE APH-LOGIK PASSEN
+============================================================
+
+Neue Übungen dürfen nicht einfach nur Namen sein.
+
+Sie müssen korrekt zugeordnet werden zu:
+
+- Bereich
+- Pool/Trainingsart
+- Schwerpunkt
+- Equipment
+- Alters-/Plangruppe bzw. bestehender Alterslogik
+- Trainingssequenz
+- Intensität/Belastungsart
+- Progressionslogik, soweit bestehend
+
+Neue Übungen müssen vom Generator fachlich auswählbar sein.
+
+============================================================
+14. ALTERSGERECHTE LOGIK BEIBEHALTEN
+============================================================
+
+Ganz wichtig:
+
+Eine neue Langhantel-/Maschinen-/Schlittenübung darf nicht automatisch
+für jedes Alter verfügbar sein.
+
+Bestehende Alterslogik / _ALTERS_ERSATZ / Plangruppen respektieren.
+
+Beispielsweise dürfen anspruchsvolle Kraft-/Olympic-Übungen nicht durch
+die Equipment-Erweiterung plötzlich in Kinderplänen auftauchen.
+
+Bestehende Gates nicht umgehen.
+
+============================================================
+15. AUTOMATISCHER GENERATOR – EQUIPMENTFILTER
+============================================================
+
+Der Generator soll künftig möglichst auf Übungsebene prüfen:
+
+Ist mindestens eine zulässige Equipmentart verfügbar?
+
+Wenn JA:
+Übung kann verwendet werden.
+
+Wenn NEIN:
+Übung nicht verwenden.
+
+Beispiel:
+
+Goblet Squat:
+{"Kurzhanteln", "Kettlebell"}
+
+Verfügbar:
+Kettlebell
+
+→ erlaubt.
+
+Verfügbar:
+Maschine
+
+→ nicht erlaubt.
+
+============================================================
+16. FALLBACK BEI FEHLENDEM EQUIPMENT
+============================================================
+
+Wenn für einen diagnostisch wichtigen Schwerpunkt kein gewünschtes Equipment
+vorhanden ist:
+
+NICHT den Schwerpunkt entfernen.
+
+Stattdessen nach einer fachlich passenden Alternative für denselben
+Schwerpunkt suchen.
+
+Beispiel:
+
+Hauptschwerpunkt Hüftkraft
+
+bevorzugte Übung:
+Langhantel Hip Thrust
+
+Langhantel nicht verfügbar.
+
+Dann:
+passende Körpergewichts-/Miniband-/Kurzhantelalternative,
+wenn verfügbar.
+
+Priorität des Schwerpunkts bleibt bestehen.
+
+============================================================
+17. KEINE STILLEN LEEREN SCHWERPUNKTE
+============================================================
+
+Wenn ein Hauptschwerpunkt erkannt wurde, darf dieser nicht einfach aus dem
+Plan verschwinden, nur weil eine bestimmte Equipmentart fehlt.
+
+Fallback innerhalb desselben Trainingsziels suchen.
+
+Wenn wirklich keine passende Übung existiert:
+sauberen Hinweis erzeugen bzw. bestehende sichere Fallbacklogik verwenden.
+
+============================================================
+18. AUTOMATISCH GENERIERTEN PLAN BEARBEITEN
+============================================================
+
+Prüfe die bestehende Funktion zum Bearbeiten eines generierten Plans.
+
+Diese muss erhalten bleiben.
+
+Beim:
+
+- Übung hinzufügen
+- Übung ersetzen
+
+soll der Trainer optional Equipment auswählen können.
+
+Filter:
+
+Trainingsbereich
++
+Equipment
+=
+passende Übungsliste
+
+Dabei möglichst den Bereich/Schwerpunkt der bestehenden Übung vorauswählen.
+
+Der Trainer darf den Filter ändern.
+
+============================================================
+19. MANUELLE ÜBUNGEN HINZUFÜGEN
+============================================================
+
+Im bestehenden Bereich:
+
+„Manuelle Übungen hinzufügen“
+
+Equipmentfilter ergänzen.
+
+Empfohlene Reihenfolge:
+
+1. Trainingsbereich
+2. Verfügbare Ausrüstung
+3. Übung
+4. Sätze
+5. Wiederholungen / Dauer
+6. Häufigkeit
+7. Woche
+8. bestehende weitere Parameter
+
+Beispiel:
+
+Bereich:
+Hüfte
+
+Equipment:
+☑ Körpergewicht
+☑ Miniband
+
+Übungsauswahl zeigt ausschließlich passende Hüftübungen,
+die mit Körpergewicht ODER Miniband möglich sind.
+
+============================================================
+20. EQUIPMENT-MULTISELECT MANUELL
+============================================================
+
+Auswahl:
+
+Verfügbare Ausrüstung
+
+als Multiselect.
+
+Optionen aus derselben zentralen Equipmentdefinition wie der automatische
+Generator verwenden.
+
+Keine zweite Equipmentliste hardcoden.
+
+Wenn im aktuellen Trainingsplan bereits Equipment unter Planparameter
+ausgewählt wurde:
+
+diese Auswahl im Manuell-Bereich standardmäßig übernehmen.
+
+Trainer kann sie dort trotzdem ändern.
+
+============================================================
+21. DYNAMISCHER MANUELLER FILTER
+============================================================
+
+Wenn Trainer Equipment ändert:
+
+Übungsliste sofort neu filtern.
+
+Beispiel:
+
+Bereich:
+Oberschenkel
+
+Equipment:
+Maschine
+
+→ nur passende Maschinenübungen im Bereich Oberschenkel.
+
+Equipment:
+Kurzhanteln
+
+→ passende Kurzhantelübungen.
+
+Equipment:
+Körpergewicht + Miniband
+
+→ Union aller passenden Übungen.
+
+============================================================
+22. „EIGENE ÜBUNG EINGEBEN“
+============================================================
+
+Die vorhandene Option:
+
+✏️ Eigene Übung eingeben...
+
+muss IMMER verfügbar bleiben.
+
+Auch wenn Equipmentfilter keine Übung findet.
+
+Trainer behält vollständige manuelle Freiheit.
+
+Optional kann bei eigener Übung Equipment ausgewählt werden,
+aber dafür NICHT unnötig die Datenbank migrieren.
+
+Zuerst bestehende Persistenz prüfen.
+
+============================================================
+23. MANUELLER TRAININGSPLAN BLEIBT FREI
+============================================================
+
+Beim komplett manuellen Erstellen entscheidet der Trainer.
+
+APH darf aufgrund von Tests/Defiziten dort keine Übung erzwingen.
+
+Equipment dient hier ausschließlich als Such-/Filterhilfe.
+
+Der Trainer kann weiterhin eigene Übungen eingeben.
+
+============================================================
+24. GENERIERTER PLAN BLEIBT EDITIERBAR
+============================================================
+
+Nach automatischer Generierung:
+
+Trainer kann weiterhin:
+
+- Übung löschen
+- Übung hinzufügen
+- Übung ersetzen
+- Sätze ändern
+- Wiederholungen ändern
+- Dauer ändern
+- Häufigkeit ändern
+- eigene Übung verwenden
+
+Keine bestehende Bearbeitungsmöglichkeit entfernen.
+
+============================================================
+25. SCHWERPUNKTE BLEIBEN UNABHÄNGIG VOM EQUIPMENT
+============================================================
+
+Regressionstest:
+
+Gleicher Spieler
++
+gleiche Tests
++
+gleiche Planparameter
+
+aber:
+
+Equipment A
+
+vs.
+
+Equipment B
+
+Erwartung:
+
+Hauptschwerpunkte identisch.
+Nebenschwerpunkte identisch.
+
+Nur die konkrete Übungsauswahl darf sich ändern.
+
+============================================================
+26. BEISPIEL REGRESSION
+============================================================
+
+Spieler:
+
+Haupt:
+Maximalgeschwindigkeit
+Rumpfstabilität
+
+Neben:
+Hüfte
+
+PLAN A Equipment:
+
+Körpergewicht
+Miniband
+Schlitten
+
+PLAN B Equipment:
+
+Körpergewicht
+Kurzhanteln
+Maschine
+
+Erwartung:
+
+Plan A und B behalten dieselben diagnostischen Prioritäten.
+
+Plan A verwendet passende Übungen aus Equipment A.
+
+Plan B verwendet passende Übungen aus Equipment B.
+
+============================================================
+27. TRAININGSREIHENFOLGE BEIBEHALTEN
+============================================================
+
+Bestehende Trainingssequenz nicht verändern.
+
+Weiterhin fachliche Reihenfolge berücksichtigen, insbesondere:
+
+- Schnelligkeit / explosive Inhalte früh
+- technisch/neuromuskulär anspruchsvolle Inhalte vor ermüdenden Inhalten
+- Mehrgelenksübungen vor isolierteren Übungen
+- bestehende APH-Kraft-/Stabilitätsreihenfolge
+- vorhandene Sequenz-Slots
+
+Neue Übungen korrekt in die bestehende Sequenz integrieren.
+
+============================================================
+28. ZEITBUDGET
+============================================================
+
+Neue Übungen dürfen nicht dazu führen, dass Trainingszeit ignoriert wird.
+
+Bestehende Trainingszeit pro Einheit weiterhin berücksichtigen.
+
+Neue Bibliotheksgröße darf nicht automatisch mehr Übungen pro Einheit bedeuten.
+
+============================================================
+29. WOCHENPLANUNG
+============================================================
+
+Bestehende Wochenplanung unverändert lassen.
+
+Standardmodus:
+wie bisher.
+
+Mit Vereinsbelastung:
+wie bisher.
+
+gewaehlte_athletik_anzahl
+und
+gewaehlte_athletik_tage
+
+weiterhin respektieren.
+
+Equipment darf keine zusätzlichen Trainingstage erzeugen.
+
+============================================================
+30. PERIODISIERUNG
+============================================================
+
+4 / 6 / 8 Wochen weiterhin korrekt.
+
+Progression / Deload / Belastungssteuerung nicht durch Equipmentlogik verändern.
+
+Equipment verändert Übungsauswahl,
+nicht Periodisierungsprinzip.
+
+============================================================
+31. PDF
+============================================================
+
+Bestehende PDF-Logik nicht unnötig verändern.
+
+Neue Übungen müssen wie bestehende Übungen ausgegeben werden.
+
+Wochenplanung weiterhin korrekt.
+
+Keine zusätzlichen PDF-Seiten nur wegen Equipment erzeugen.
+
+Equipment muss nicht zwingend im PDF angezeigt werden,
+sofern es bisher nicht Bestandteil des Layouts ist.
+
+============================================================
+32. KEINE UNNÖTIGE DATENBANKMIGRATION
+============================================================
+
+Keine DB-Änderung nur für die Bibliotheks-Metadaten.
+
+Equipment-Zuordnung möglichst zentral im Code bei der Übungsbibliothek
+implementieren.
+
+Bestehende Trainingsplandaten müssen rückwärtskompatibel bleiben.
+
+Alte Trainingspläne müssen weiterhin geladen werden.
+
+============================================================
+33. TRAINING.PY
+============================================================
+
+Die separate training.py-Bibliothek mit aktuell ca. 41 DB-Übungen
+jetzt NICHT ungefragt umbauen.
+
+Aktueller Schwerpunkt:
+
+_POOL
++
+_OLYMPIC_POOL
+
+Im Abschlussbericht dokumentieren, ob später eine Zusammenführung sinnvoll wäre.
+
+============================================================
+34. DUPLIKATE
+============================================================
+
+Vor Aufnahme neuer Übungen prüfen:
+
+- gleicher Name
+- gleiche Bewegung mit anderem Namen
+- praktisch identische Varianten
+
+Keine unnötigen Duplikate erzeugen.
+
+============================================================
+35. TEST – BIBLIOTHEK
+============================================================
+
+A)
+Alle bestehenden 175 Übungen besitzen nachher Equipment-Metadaten.
+
+B)
+Alle neu ergänzten Übungen ebenfalls.
+
+C)
+0 Übungen ohne Equipment-Zuordnung.
+
+D)
+Keine unbekannte Equipmentkategorie.
+
+E)
+Keine UI-Equipmentoption ohne Funktion.
+
+============================================================
+36. TEST – SCHWACHE EQUIPMENTKATEGORIEN
+============================================================
+
+Prüfen:
+
+Powerband
+Kurzhanteln
+Langhanteln
+Schlitten
+Maschine
+Freie Gewichte
+
+Für jede Kategorie berichten:
+
+- Anzahl vorher
+- Anzahl nachher
+- neue Übungen
+- Bereiche, in denen sie verwendet werden können
+
+============================================================
+37. TEST – AUTOMATISCHER GENERATOR
+============================================================
+
+F)
+Nur Körpergewicht:
+keine zwingende Maschinen-/Langhantel-/Schlittenübung.
+
+G)
+Nur Maschine:
+passende Maschinenübungen.
+
+H)
+Nur Kurzhanteln:
+passende Kurzhantelübungen.
+
+I)
+Nur Langhanteln:
+passende Langhantelübungen.
+
+J)
+Nur Schlitten:
+nur fachlich passende Schlittenübungen.
+
+K)
+Nur Powerband:
+passende Bandübungen.
+
+L)
+Körpergewicht + Miniband:
+korrekte Union.
+
+M)
+Freie Gewichte:
+Oberkategorie funktioniert korrekt.
+
+============================================================
+38. TEST – DIAGNOSTIK
+============================================================
+
+N)
+Gleiche Tests + unterschiedliches Equipment:
+Hauptschwerpunkte identisch.
+
+O)
+Nebenschwerpunkte identisch.
+
+P)
+FMS-Schwerpunkte unverändert.
+
+Q)
+Y-Balance-Schwerpunkte unverändert.
+
+R)
+Sprint-Schwerpunkte unverändert.
+
+S)
+Sprung/Agilität/Ausdauer-Schwerpunkte unverändert.
+
+Equipment darf nur konkrete Übungen verändern.
+
+============================================================
+39. TEST – ALTER
+============================================================
+
+T)
+Kinder-/Jugendplan mit Langhantel verfügbar:
+keine ungeeignete Erwachsenen-/Olympic-Übung durch Equipmentfilter einschleusen.
+
+U)
+Olympic Gate weiterhin aktiv.
+
+V)
+_ALTERS_ERSATZ weiterhin aktiv.
+
+============================================================
+40. TEST – MANUELL
+============================================================
+
+W)
+Manuell → Bereich Rumpf + Körpergewicht:
+nur passende Rumpf-Körpergewichtsübungen.
+
+X)
+Manuell → Oberschenkel + Maschine:
+passende Maschinenübungen.
+
+Y)
+Manuell → Hüfte + Miniband:
+passende Minibandübungen.
+
+Z)
+Manuell → Schnelligkeit + Schlitten:
+passende Schlittenübungen.
+
+AA)
+Mehrfachauswahl:
+korrekte Union.
+
+AB)
+Eigene Übung:
+immer verfügbar.
+
+============================================================
+41. TEST – GENERIERTEN PLAN BEARBEITEN
+============================================================
+
+AC)
+Generierten Plan öffnen.
+
+AD)
+Übung hinzufügen funktioniert.
+
+AE)
+Equipmentfilter funktioniert.
+
+AF)
+Übung ersetzen funktioniert, sofern bestehende Funktion vorhanden.
+
+AG)
+Übung löschen funktioniert.
+
+AH)
+Sätze/Wiederholungen bestehend editierbar.
+
+AI)
+Eigene Übung weiterhin möglich.
+
+============================================================
+42. RÜCKWÄRTSKOMPATIBILITÄT
+============================================================
+
+AJ)
+Alter Trainingsplan ohne neue Equipment-Metadaten:
+lädt weiterhin.
+
+AK)
+Standardplan:
+funktioniert.
+
+AL)
+Vereinsbelastungsplan:
+funktioniert.
+
+AM)
+4-Wochen-Plan:
+funktioniert.
+
+AN)
+6-Wochen-Plan:
+funktioniert.
+
+AO)
+8-Wochen-Plan:
+funktioniert.
+
+============================================================
+43. NICHT ANFASSEN
+============================================================
+
+Keine Änderungen an:
+
+- Login
+- Session/Cookies
+- Stripe
+- Vertragslogik
+- Kundennummern
+- Benutzerverwaltung
+- Rechnungsdaten
+- AGB
+- Datenschutz
+- E-Mail-Verifikation
+- Mobile Navigation
+- Spieler löschen
+
+database.py nur ändern, wenn technisch absolut zwingend.
+Bevor database.py geändert wird, prüfen, ob es ohne DB-Migration lösbar ist.
+
+Bevorzugt:
+keine DB-Änderung.
+
+============================================================
+44. TECHNISCHE TESTS
+============================================================
+
+python3 -m py_compile aller geänderten Python-Dateien.
+
+Block-B:
+35/35 PASS.
+
+Bestehende Trainingsplan-/Wochenplanungstests ausführen.
+
+Neue Equipmenttests separat ausführen.
+
+============================================================
+45. ABSCHLUSSBERICHT
+============================================================
+
+Nach Fertigstellung exakt berichten:
+
+1. Gesamtzahl Übungen VORHER
+2. Gesamtzahl Übungen NACHHER
+
+3. Welche neuen Übungen ergänzt wurden
+
+4. Anzahl Übungen je Equipment:
+- Körpergewicht
+- Miniband
+- Powerband
+- Freie Gewichte
+- Kurzhanteln
+- Langhanteln
+- Kettlebell
+- Medizinball
+- Maschine
+- Schlitten
+- Ball
+
+5. Wo Equipment-Metadaten gespeichert sind
+
+6. Bestätigung:
+jede Übung besitzt Equipment-Metadaten
+
+7. Wie Freie Gewichte als Oberkategorie funktionieren
+
+8. Wie Miniband/Powerband unterschieden werden
+
+9. Wie automatische Planerstellung jetzt Equipment verwendet
+
+10. Bestätigung:
+Tests/Defizite bestimmen weiterhin Haupt-/Nebenschwerpunkte
+
+11. Wie Equipment-Fallback funktioniert
+
+12. Wie altersgerechte Auswahl geschützt wird
+
+13. Wie „Manuelle Übungen hinzufügen“ jetzt funktioniert
+
+14. Wie Equipment dort ausgewählt wird
+
+15. Wie die Übungsliste dynamisch gefiltert wird
+
+16. Wie ein automatisch generierter Plan weiterhin bearbeitet werden kann
+
+17. Bestätigung:
+komplett manuelle Planerstellung weiterhin möglich
+
+18. Geänderte Dateien
+
+19. Datenbankänderung?
+Erwartung möglichst: NEIN
+
+20. Ergebnisse aller Equipmenttests
+
+21. Ergebnisse Diagnostik-Regressionsprüfung
+
+22. Ergebnisse Altersprüfung
+
+23. Ergebnisse Wochenplanung 4/6/8 Wochen
+
+24. py_compile
+
+25. Block-B 35/35
+
+Danach STOPPEN.
+
+Keine weiteren Funktionen oder Refactorings durchführen.
