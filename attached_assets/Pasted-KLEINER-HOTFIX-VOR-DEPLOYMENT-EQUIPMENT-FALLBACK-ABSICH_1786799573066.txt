@@ -1,0 +1,99 @@
+KLEINER HOTFIX VOR DEPLOYMENT – EQUIPMENT-FALLBACK ABSICHERN
+
+Task #240 ist grundsätzlich korrekt umgesetzt.
+
+Vor Deployment bitte nur folgende Punkte korrigieren/prüfen.
+
+1. WICHTIG: KEIN UNGEFILTERTER EQUIPMENT-FALLBACK
+
+Aktuell enthält trainingsplan_multi_erstellen() sinngemäß:
+
+if not _filtered:
+    _fb = equipment-kompatible Übungen aus stabilisation
+    exercises = _fb if _fb else _pool_fuer_area(... "stabilisation" ...)
+
+Der letzte ungefilterte Fallback ist nicht zulässig.
+
+Wenn verfuegbares_equipment gesetzt ist, darf NIEMALS eine Übung in den Plan
+gelangen, deren _UEBUNG_EQUIPMENT nicht mit dem verfügbaren Equipment kompatibel ist.
+
+Regel:
+
+Equipmentfilter aktiv
+→ jede final verwendete Übung MUSS _equip_verfuegbar(...) == True erfüllen.
+
+Wenn im gewünschten Pool keine Übung passt:
+
+1. equipment-kompatiblen Fallback im selben Trainingsziel/Bereich suchen
+2. ggf. weitere bestehende altersgerechte Pools desselben Bereichs prüfen
+3. Schwerpunkt NICHT verändern
+4. wenn wirklich keine passende Übung existiert:
+   keine inkompatible Übung erzwingen
+
+Stattdessen bestehende sichere Fallback-/Hinweislogik verwenden bzw.
+den Bereich ohne inkompatible Übung behandeln.
+
+KEIN ungefiltertes:
+_pool_fuer_area(...)
+als letzten Fallback verwenden, solange Equipmentfilter aktiv ist.
+
+2. REGRESSIONSTEST
+
+Für jede Equipment-Auswahl:
+
+- Körpergewicht
+- Miniband
+- Powerband
+- Kurzhanteln
+- Langhanteln
+- Maschine
+- Schlitten
+
+einen Plan generieren und anschließend JEDE erzeugte Übung prüfen:
+
+assert _equip_verfuegbar(uebungsname, _equip_expanded(auswahl))
+
+Erwartung:
+0 inkompatible Übungen.
+
+3. SCHWERPUNKTE BLEIBEN ERHALTEN
+
+Gleicher Spieler + gleiche Tests + anderes Equipment:
+
+Haupt- und Nebenschwerpunkte müssen identisch bleiben.
+
+Nur konkrete Übungen dürfen wechseln.
+
+4. EQUIPMENT-METADATEN KURZ PRÜFEN
+
+Bitte fachlich prüfen:
+
+- "Lying Hamstring Curl" → ist Körpergewicht wirklich korrekt?
+- "Pallof Press" / "Pallof Press Stand" → sollte Powerband zusätzlich möglich sein?
+- weitere offensichtlich widersprüchliche Mehrfach-Tags
+
+Nur eindeutige Fehler korrigieren.
+Keine großflächige Neubewertung aller Übungen.
+
+5. MANUELL / SWAP
+
+Dort ebenfalls sicherstellen:
+
+Wenn Equipmentfilter gesetzt ist,
+werden ausschließlich kompatible Bibliotheksübungen angezeigt.
+
+"Eigene Übung eingeben..." bleibt immer möglich.
+
+6. TESTS
+
+- py_compile
+- Block-B 35/35
+- neuer globaler Equipment-Kompatibilitätstest
+- Auto-Generator
+- Manuell-Tab
+- Swap-Tab
+
+Danach Abschlussbericht und STOPPEN.
+
+Keine DB-Änderung.
+Keine Änderungen an Diagnostik, Alter, Wochenplanung, Stripe, Session oder Login.

@@ -807,14 +807,14 @@ _UEBUNG_EQUIPMENT: dict[str, frozenset[str]] = {
     # ── RUMPF — stabilisation ─────────────────────────────────────────────
     "Dead Bug":                     frozenset({"Körpergewicht"}),
     "Plank":                        frozenset({"Körpergewicht"}),
-    "Pallof Press":                 frozenset({"Miniband", "Maschine"}),
+    "Pallof Press":                 frozenset({"Miniband", "Maschine", "Powerband"}),
     "Seitstütz":                    frozenset({"Körpergewicht"}),
     "Hollow Body Hold":             frozenset({"Körpergewicht"}),
     "Bird Dog":                     frozenset({"Körpergewicht"}),
     # ── RUMPF — kraft ─────────────────────────────────────────────────────
     "Ab Wheel Rollout":             frozenset({"Körpergewicht"}),
     "Plank mit Armheben":           frozenset({"Körpergewicht"}),
-    "Pallof Press Stand":           frozenset({"Miniband", "Maschine"}),
+    "Pallof Press Stand":           frozenset({"Miniband", "Maschine", "Powerband"}),
     "Russischer Twist":             frozenset({"Körpergewicht", "Medizinball"}),
     "Cable Woodchop":               frozenset({"Maschine"}),
     "Copenhagen Side Plank Dyn.":   frozenset({"Körpergewicht"}),
@@ -901,7 +901,7 @@ _UEBUNG_EQUIPMENT: dict[str, frozenset[str]] = {
     # ── OBERSCHENKEL — stabilisation ──────────────────────────────────────
     "Nordic Hamstring Eccentric":   frozenset({"Körpergewicht"}),
     "Einbeiniges RDL (leicht)":     frozenset({"Körpergewicht"}),
-    "Lying Hamstring Curl":         frozenset({"Körpergewicht", "Maschine"}),
+    "Lying Hamstring Curl":         frozenset({"Maschine"}),
     "Gluteal Bridge Variante":      frozenset({"Körpergewicht"}),
     "Prone Hip Ext. (isometr.)":    frozenset({"Körpergewicht"}),
     "Hamstring Wall Bridge":        frozenset({"Körpergewicht"}),
@@ -1554,7 +1554,8 @@ def trainingsplan_multi_erstellen(spieler_id: int, schwerpunkt_text: str,
                     # Fallback 1: stabilisation-Pool des gleichen Bereichs versuchen
                     _fb = [e for e in _pool_fuer_area(area, "stabilisation", n, offset=offset)
                            if _equip_verfuegbar(e[0], _equip_exp_set)]
-                    exercises = _fb if _fb else _pool_fuer_area(area, "stabilisation", n, offset=offset)
+                    # Kein ungefilterter Fallback: lieber leer als inkompatible Übung
+                    exercises = _fb  # kann leer sein → Bereich wird übersprungen
                 else:
                     exercises = _filtered
 
