@@ -53,6 +53,7 @@ _POOL: dict[str, dict[str, list]] = {
             ("Russischer Twist",            "3", "16",            "2×/Woche"),
             ("Cable Woodchop",              "3", "12 je Seite",   "2×/Woche"),
             ("Copenhagen Side Plank Dyn.", "3", "8 je Seite",    "2×/Woche"),
+            ("Banded Pallof Press",         "3", "12 je Seite",   "2×/Woche"),
         ],
         "power": [
             ("Medizinball Rotationswurf",   "4", "8",             "2×/Woche"),
@@ -75,6 +76,7 @@ _POOL: dict[str, dict[str, list]] = {
             ("Psoas March",                 "3", "10 je Seite",   "2×/Woche"),
             ("Resistance Band Psoas March", "3", "10 je Seite",   "2×/Woche"),
             ("Side Plank mit Abduktion",    "3", "10 je Seite",   "2×/Woche"),
+            ("Hip Abduktor Maschine",       "3", "15 je Seite",   "2×/Woche"),
         ],
         "kraft": [
             ("Copenhagen Plank",            "3", "30 Sekunden",   "3×/Woche"),
@@ -83,6 +85,9 @@ _POOL: dict[str, dict[str, list]] = {
             ("Hip Thrust",                  "4", "10",            "2×/Woche"),
             ("Sumo Deadlift",               "3", "8",             "2×/Woche"),
             ("Lateral Step-Up",             "3", "10 je Seite",   "2×/Woche"),
+            ("DB Lateral Lunge",            "3", "10 je Seite",   "2×/Woche"),
+            ("Sled Push Heavy",             "4", "20 Meter",      "1×/Woche"),
+            ("Cable Pull-Through",          "3", "12",            "2×/Woche"),
         ],
         "power": [
             ("Explosiver Hip Thrust",       "4", "6",             "2×/Woche"),
@@ -110,6 +115,8 @@ _POOL: dict[str, dict[str, list]] = {
             ("Single Leg Leg Press",        "3", "10 je Seite",   "2×/Woche"),
             ("Walking Lunge",               "3", "12 je Seite",   "2×/Woche"),
             ("Front Squat (leicht)",        "4", "8",             "2×/Woche"),
+            ("DB Step-Up",                  "3", "10 je Seite",   "2×/Woche"),
+            ("Leg Press beidbeinig",        "4", "12",            "2×/Woche"),
         ],
         "power": [
             ("Drop Landing → Sprung",       "4", "5",             "2×/Woche"),
@@ -165,6 +172,10 @@ _POOL: dict[str, dict[str, list]] = {
             ("Good Morning",               "3", "10",            "2×/Woche"),
             ("Einbeinige Kniebeuge (halb)", "3", "8 je Seite",    "2×/Woche"),
             ("Nordic Eccentric (Band-Ass.)","3", "6",             "2×/Woche"),
+            ("BB Romanian Deadlift",        "3", "8",             "2×/Woche"),
+            ("Leg Curl Maschine",           "4", "12",            "2×/Woche"),
+            ("DB Single-Leg RDL",           "3", "8 je Seite",    "2×/Woche"),
+            ("Band-Assisted Nordic",        "3", "5",             "2×/Woche"),
         ],
         "power": [
             ("Explosive Nordic",            "4", "4",             "1×/Woche"),
@@ -195,6 +206,8 @@ _POOL: dict[str, dict[str, list]] = {
             ("Gewichtete Sprintstarts",     "5", "10 m",          "2×/Woche"),
             ("Fallsprints (Partnerfreigabe)","6","10 m",          "2×/Woche"),
             ("Sled Push (leicht)",          "4", "20 Meter",      "1×/Woche"),
+            ("Sled Sprint",                 "5", "20 Meter",      "1×/Woche"),
+            ("Rückwärts Schlitten ziehen",  "4", "20 Meter",      "1×/Woche"),
         ],
         "power": [
             ("20–30 m Maximalsprints",      "6", "30 m",          "1×/Woche"),
@@ -777,6 +790,270 @@ _OLYMPIC_POOL: list[tuple] = [
 ]
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# §4b Per-Übung Equipment-Metadaten (Spec §4b)
+#
+# Miniband  = kurzes Schlaufenband (Loop Band, z. B. Glute Band)
+# Powerband = langes Widerstandsband (Resistance Band, Assist Band)
+# Freie Gewichte = Oberkategorie → wird zu Unterkat. expandiert
+# Kurzhanteln / Langhanteln / Kettlebell / Trap Bar / Landmine = Unterkat.
+# ─────────────────────────────────────────────────────────────────────────────
+
+_FREIE_GEWICHTE_UNTERKAT: frozenset[str] = frozenset({
+    "Kurzhanteln", "Langhanteln", "Kettlebell", "Trap Bar", "Landmine",
+})
+
+_UEBUNG_EQUIPMENT: dict[str, frozenset[str]] = {
+    # ── RUMPF — stabilisation ─────────────────────────────────────────────
+    "Dead Bug":                     frozenset({"Körpergewicht"}),
+    "Plank":                        frozenset({"Körpergewicht"}),
+    "Pallof Press":                 frozenset({"Miniband", "Maschine"}),
+    "Seitstütz":                    frozenset({"Körpergewicht"}),
+    "Hollow Body Hold":             frozenset({"Körpergewicht"}),
+    "Bird Dog":                     frozenset({"Körpergewicht"}),
+    # ── RUMPF — kraft ─────────────────────────────────────────────────────
+    "Ab Wheel Rollout":             frozenset({"Körpergewicht"}),
+    "Plank mit Armheben":           frozenset({"Körpergewicht"}),
+    "Pallof Press Stand":           frozenset({"Miniband", "Maschine"}),
+    "Russischer Twist":             frozenset({"Körpergewicht", "Medizinball"}),
+    "Cable Woodchop":               frozenset({"Maschine"}),
+    "Copenhagen Side Plank Dyn.":   frozenset({"Körpergewicht"}),
+    "Banded Pallof Press":          frozenset({"Powerband"}),
+    # ── RUMPF — power ─────────────────────────────────────────────────────
+    "Medizinball Rotationswurf":    frozenset({"Medizinball"}),
+    "Landmine Rotation":            frozenset({"Freie Gewichte", "Landmine"}),
+    "Hanging Knee Raise":           frozenset({"Körpergewicht"}),
+    "Farmer's Walk":                frozenset({"Freie Gewichte", "Kurzhanteln", "Langhanteln", "Kettlebell"}),
+    "Medizinball Chest Pass":       frozenset({"Medizinball"}),
+    "Kabelzug Sprungrotation":      frozenset({"Maschine"}),
+    # ── HÜFTE — stabilisation ─────────────────────────────────────────────
+    "Seitliches Miniband Gehen":    frozenset({"Miniband"}),
+    "90/90 Hüftrotation":           frozenset({"Körpergewicht"}),
+    "Einbeinige Hüftbrücke":        frozenset({"Körpergewicht"}),
+    "Copenhagen Plank (kurz)":      frozenset({"Körpergewicht"}),
+    "Monster Walk (Band)":          frozenset({"Miniband"}),
+    "Side-Lying Clam Shell":        frozenset({"Körpergewicht", "Miniband"}),
+    "Psoas March":                  frozenset({"Körpergewicht"}),
+    "Resistance Band Psoas March":  frozenset({"Powerband", "Miniband"}),
+    "Side Plank mit Abduktion":     frozenset({"Körpergewicht", "Miniband"}),
+    "Hip Abduktor Maschine":        frozenset({"Maschine"}),
+    # ── HÜFTE — kraft ─────────────────────────────────────────────────────
+    "Copenhagen Plank":             frozenset({"Körpergewicht"}),
+    "Einbeiniges Hip Hinge":        frozenset({"Körpergewicht"}),
+    "Banded Lateral Walk":          frozenset({"Miniband"}),
+    "Hip Thrust":                   frozenset({"Freie Gewichte", "Langhanteln", "Körpergewicht"}),
+    "Sumo Deadlift":                frozenset({"Freie Gewichte", "Langhanteln"}),
+    "Lateral Step-Up":              frozenset({"Körpergewicht", "Kurzhanteln"}),
+    "DB Lateral Lunge":             frozenset({"Kurzhanteln"}),
+    "Sled Push Heavy":              frozenset({"Schlitten"}),
+    "Cable Pull-Through":           frozenset({"Maschine"}),
+    # ── HÜFTE — power ─────────────────────────────────────────────────────
+    "Explosiver Hip Thrust":        frozenset({"Freie Gewichte", "Langhanteln", "Körpergewicht"}),
+    "Lateral Bound stabilisiert":   frozenset({"Körpergewicht"}),
+    "Single-Leg Glute Bridge +Gew": frozenset({"Freie Gewichte", "Kurzhanteln"}),
+    "Resisted Hip Abduction":       frozenset({"Miniband", "Maschine"}),
+    "Broad Jump aus Hüfte":         frozenset({"Körpergewicht"}),
+    "Kettlebell Swing einbeinig":   frozenset({"Kettlebell"}),
+    # ── KNIE — stabilisation ──────────────────────────────────────────────
+    "Single Leg Squat (Qualität)":  frozenset({"Körpergewicht"}),
+    "Step Down":                    frozenset({"Körpergewicht"}),
+    "Seitliche Miniband Squats":    frozenset({"Miniband"}),
+    "Valgus-Kontroll Lunge":        frozenset({"Körpergewicht"}),
+    "Terminal Knee Ext. (Band)":    frozenset({"Miniband", "Powerband"}),
+    "Slow Squat (5 s Exzentrik)":   frozenset({"Körpergewicht"}),
+    # ── KNIE — kraft ──────────────────────────────────────────────────────
+    "Bulgarian Split Squat":        frozenset({"Körpergewicht", "Kurzhanteln", "Langhanteln"}),
+    "Reverse Lunge":                frozenset({"Körpergewicht", "Kurzhanteln"}),
+    "Box Squat":                    frozenset({"Freie Gewichte", "Langhanteln"}),
+    "Single Leg Leg Press":         frozenset({"Maschine"}),
+    "Walking Lunge":                frozenset({"Körpergewicht", "Kurzhanteln", "Langhanteln"}),
+    "Front Squat (leicht)":         frozenset({"Freie Gewichte", "Langhanteln"}),
+    "DB Step-Up":                   frozenset({"Kurzhanteln"}),
+    "Leg Press beidbeinig":         frozenset({"Maschine"}),
+    # ── KNIE — power ──────────────────────────────────────────────────────
+    "Drop Landing → Sprung":        frozenset({"Körpergewicht"}),
+    "Bounding":                     frozenset({"Körpergewicht"}),
+    "Single Leg Jump & Stabi":      frozenset({"Körpergewicht"}),
+    "Box Jump einbeinig":           frozenset({"Körpergewicht"}),
+    "Split Jump":                   frozenset({"Körpergewicht"}),
+    "Lateral Box Jump":             frozenset({"Körpergewicht"}),
+    # ── SPRUNGGELENK — stabilisation ──────────────────────────────────────
+    "Knie zur Wand Mobilisation":   frozenset({"Körpergewicht"}),
+    "Einbeinstand Balance Pad":     frozenset({"Körpergewicht"}),
+    "Einbeinige Wadenheben":        frozenset({"Körpergewicht"}),
+    "Fersengang / Zehengang":       frozenset({"Körpergewicht"}),
+    "Fußkreisen einbeinig":         frozenset({"Körpergewicht"}),
+    "Einbeinstand (Augen zu)":      frozenset({"Körpergewicht"}),
+    # ── SPRUNGGELENK — kraft ──────────────────────────────────────────────
+    "Single Leg Calf Raise (Treppe)":frozenset({"Körpergewicht"}),
+    "Ankle Banded Dorsiflexion":    frozenset({"Miniband", "Powerband"}),
+    "Pogo Hops beidbeinig":         frozenset({"Körpergewicht"}),
+    "Einbeinige Pogo Hops":         frozenset({"Körpergewicht"}),
+    "Banded Tibialis Raise":        frozenset({"Miniband", "Powerband"}),
+    "Seated Calf Raise":            frozenset({"Maschine", "Körpergewicht"}),
+    # ── SPRUNGGELENK — power ──────────────────────────────────────────────
+    "Ankle Jumps reaktiv":          frozenset({"Körpergewicht"}),
+    "Depth Drop → Sprung":          frozenset({"Körpergewicht"}),
+    "Lateral Hops reaktiv":         frozenset({"Körpergewicht"}),
+    "Einbeinige Hüpfsprints":       frozenset({"Körpergewicht"}),
+    "Springseil (Einzel)":          frozenset({"Körpergewicht"}),
+    "Box Drop Einbeinig":           frozenset({"Körpergewicht"}),
+    # ── OBERSCHENKEL — stabilisation ──────────────────────────────────────
+    "Nordic Hamstring Eccentric":   frozenset({"Körpergewicht"}),
+    "Einbeiniges RDL (leicht)":     frozenset({"Körpergewicht"}),
+    "Lying Hamstring Curl":         frozenset({"Körpergewicht", "Maschine"}),
+    "Gluteal Bridge Variante":      frozenset({"Körpergewicht"}),
+    "Prone Hip Ext. (isometr.)":    frozenset({"Körpergewicht"}),
+    "Hamstring Wall Bridge":        frozenset({"Körpergewicht"}),
+    "Hamstring Bridge":             frozenset({"Körpergewicht"}),
+    # ── OBERSCHENKEL — kraft ──────────────────────────────────────────────
+    "Nordic Hamstring Curl":        frozenset({"Körpergewicht"}),
+    "Romanian Deadlift einbeinig":  frozenset({"Körpergewicht", "Freie Gewichte", "Kurzhanteln", "Langhanteln"}),
+    "Seated Leg Curl":              frozenset({"Maschine"}),
+    "Good Morning":                 frozenset({"Freie Gewichte", "Langhanteln"}),
+    "Einbeinige Kniebeuge (halb)":  frozenset({"Körpergewicht"}),
+    "Nordic Eccentric (Band-Ass.":  frozenset({"Powerband"}),
+    "Nordic Eccentric (Band-Ass.)": frozenset({"Powerband"}),
+    "BB Romanian Deadlift":         frozenset({"Langhanteln"}),
+    "Leg Curl Maschine":            frozenset({"Maschine"}),
+    "DB Single-Leg RDL":            frozenset({"Kurzhanteln"}),
+    "Band-Assisted Nordic":         frozenset({"Powerband"}),
+    # ── OBERSCHENKEL — power ──────────────────────────────────────────────
+    "Explosive Nordic":             frozenset({"Körpergewicht"}),
+    "Hamstring Sliders reaktiv":    frozenset({"Körpergewicht"}),
+    "Power RDL":                    frozenset({"Freie Gewichte", "Langhanteln"}),
+    "Sprung aus Kniebeuge":         frozenset({"Körpergewicht"}),
+    "Glute Ham Raise":              frozenset({"Körpergewicht"}),
+    "Einbeiniger Sprung aus Stand": frozenset({"Körpergewicht"}),
+    # ── SCHNELLIGKEIT — stabilisation ─────────────────────────────────────
+    "Lauf-ABC (A-Skip)":            frozenset({"Körpergewicht"}),
+    "Steigerungsläufe":             frozenset({"Körpergewicht"}),
+    "Lauf-ABC (B-Skip)":            frozenset({"Körpergewicht"}),
+    "Anfersen / Knieheben":         frozenset({"Körpergewicht"}),
+    "Koordinationsleiter Sprint":   frozenset({"Körpergewicht"}),
+    "Schrittfrequenz-Drills":       frozenset({"Körpergewicht"}),
+    "High Knee Drill":              frozenset({"Körpergewicht"}),
+    "Standing Knee Drive":          frozenset({"Körpergewicht"}),
+    # ── SCHNELLIGKEIT — kraft ─────────────────────────────────────────────
+    "10 m Sprintstarts":            frozenset({"Körpergewicht"}),
+    "Beschleunigungs-ABC":          frozenset({"Körpergewicht"}),
+    "Wall Drills":                  frozenset({"Körpergewicht"}),
+    "Resistenz-Sprints (Band)":     frozenset({"Powerband"}),
+    "Gewichtete Sprintstarts":      frozenset({"Freie Gewichte"}),
+    "Fallsprints (Partnerfreigabe)":frozenset({"Körpergewicht"}),
+    "Sled Push (leicht)":           frozenset({"Schlitten"}),
+    "Sled Sprint":                  frozenset({"Schlitten"}),
+    "Rückwärts Schlitten ziehen":   frozenset({"Schlitten"}),
+    # ── SCHNELLIGKEIT — power ─────────────────────────────────────────────
+    "20–30 m Maximalsprints":       frozenset({"Körpergewicht"}),
+    "Reaktionssprints":             frozenset({"Körpergewicht"}),
+    "Fliegende 30er":               frozenset({"Körpergewicht"}),
+    "Bergaufsprints":               frozenset({"Körpergewicht"}),
+    "Max. 10 m Wdh.-Sprints":       frozenset({"Körpergewicht"}),
+    "Flying 20 m":                  frozenset({"Körpergewicht"}),
+    # ── EXPLOSIVITÄT — stabilisation ──────────────────────────────────────
+    "Koordinations-Hops":           frozenset({"Körpergewicht"}),
+    "Squat Jump Einführung":        frozenset({"Körpergewicht"}),
+    "Knieheben einbeinig":          frozenset({"Körpergewicht"}),
+    "Balance → Sprung Intro":       frozenset({"Körpergewicht"}),
+    "Tiefknie-Absprung (Technik)":  frozenset({"Körpergewicht"}),
+    "Zweischritt-Absprung":         frozenset({"Körpergewicht"}),
+    # ── EXPLOSIVITÄT — kraft ──────────────────────────────────────────────
+    "Squat Jump":                   frozenset({"Körpergewicht"}),
+    "Box Jump beidbeinig":          frozenset({"Körpergewicht"}),
+    "Medicine Ball Slam":           frozenset({"Medizinball"}),
+    "Hürdensprünge":                frozenset({"Körpergewicht"}),
+    "Kettlebell Swing":             frozenset({"Kettlebell"}),
+    "Trap Bar Jump (leicht)":       frozenset({"Trap Bar", "Freie Gewichte"}),
+    # ── EXPLOSIVITÄT — power ──────────────────────────────────────────────
+    "Depth Jump":                   frozenset({"Körpergewicht"}),
+    "Einbeinige Plyo Sprünge":      frozenset({"Körpergewicht"}),
+    "Box Jump maximal":             frozenset({"Körpergewicht"}),
+    "Reaktive Sprünge (DJ-RSI)":    frozenset({"Körpergewicht"}),
+    "Bounding (Weitsprung)":        frozenset({"Körpergewicht"}),
+    "Plyo Push-Up":                 frozenset({"Körpergewicht"}),
+    # ── AGILITÄT — stabilisation ──────────────────────────────────────────
+    "Footwork Leitertraining":      frozenset({"Körpergewicht"}),
+    "Deceleration Drill":           frozenset({"Körpergewicht"}),
+    "Hexagon Drill":                frozenset({"Körpergewicht"}),
+    "Lateral Shuffle (Technik)":    frozenset({"Körpergewicht"}),
+    "Seitwärtslauf Koordination":   frozenset({"Körpergewicht"}),
+    "Kreuzschritt-Drill":           frozenset({"Körpergewicht"}),
+    # ── AGILITÄT — kraft ──────────────────────────────────────────────────
+    "5-10-5 Shuttle":               frozenset({"Körpergewicht"}),
+    "Pro Agility Drill":            frozenset({"Körpergewicht"}),
+    "T-Test":                       frozenset({"Körpergewicht"}),
+    "Seitwärts Sprints":            frozenset({"Körpergewicht"}),
+    "L-Drill":                      frozenset({"Körpergewicht"}),
+    "Backwards Sprint":             frozenset({"Körpergewicht"}),
+    # ── AGILITÄT — power ──────────────────────────────────────────────────
+    "Randomized Agility (Signal)":  frozenset({"Körpergewicht"}),
+    "Illinois Test Tempo":          frozenset({"Körpergewicht"}),
+    "COD Speed Drills":             frozenset({"Körpergewicht"}),
+    "Fußball-Agility Parcours":     frozenset({"Ball", "Körpergewicht"}),
+    "Drop-Step → Sprint":           frozenset({"Körpergewicht"}),
+    "Reaktions-Agility-Parcours":   frozenset({"Körpergewicht"}),
+    # ── FUSSBALL — stabilisation ──────────────────────────────────────────
+    "Einbeinige Ballkontakte":      frozenset({"Ball"}),
+    "Ballkontrolle Gleichgewicht":  frozenset({"Ball"}),
+    "Fußballkoordination Leiter":   frozenset({"Ball", "Körpergewicht"}),
+    "Einbeiniges Torwarttraining":  frozenset({"Ball"}),
+    "Technik Passspiel (Kontrol.":  frozenset({"Ball"}),
+    "Technik Passspiel (Kontrol.)": frozenset({"Ball"}),
+    "1-Touch-Kontrolle einbeinig":  frozenset({"Ball"}),
+    # ── FUSSBALL — kraft ──────────────────────────────────────────────────
+    "Partner Widerstandsdrücken":   frozenset({"Körpergewicht"}),
+    "Zweikampf Stabilität":         frozenset({"Körpergewicht"}),
+    "Koordination Leitertraining":  frozenset({"Körpergewicht"}),
+    "Ballführung unter Druck":      frozenset({"Ball"}),
+    "Pressing-Simulation mit Ball": frozenset({"Ball"}),
+    "Sprung-Kopfball-Vorbereitung": frozenset({"Ball"}),
+    # ── FUSSBALL — power ──────────────────────────────────────────────────
+    "Repeated Sprint Ability (RSA)":frozenset({"Körpergewicht"}),
+    "30-30 Intervallläufe":         frozenset({"Körpergewicht"}),
+    "Pressingsimulation":           frozenset({"Körpergewicht"}),
+    "Schusstraining explosiv":      frozenset({"Ball"}),
+    "RSA + Ballkontrolle":          frozenset({"Ball"}),
+    "High-Int. Dribbling-Intervall":frozenset({"Ball"}),
+    # ── OLYMPISCHES GEWICHTHEBEN ──────────────────────────────────────────
+    "Hang Power Clean":             frozenset({"Langhanteln"}),
+    "Power Clean":                  frozenset({"Langhanteln"}),
+    "High Pull":                    frozenset({"Langhanteln"}),
+    "Power Clean + Push Press":     frozenset({"Langhanteln"}),
+    "Hang Snatch (leicht)":         frozenset({"Langhanteln"}),
+    "Push Press":                   frozenset({"Langhanteln"}),
+}
+
+
+def _equip_expanded(equip_sel: set | None) -> set | None:
+    """
+    Expandiert 'Freie Gewichte' in der Auswahl auf alle Unterkategorien.
+    Beispiel: {'Freie Gewichte', 'Miniband'} → {'Freie Gewichte', 'Miniband',
+               'Kurzhanteln', 'Langhanteln', 'Kettlebell', 'Trap Bar', 'Landmine'}
+    None → kein Filter (alles erlaubt).
+    """
+    if equip_sel is None:
+        return None
+    expanded = set(equip_sel)
+    if "Freie Gewichte" in expanded:
+        expanded.update(_FREIE_GEWICHTE_UNTERKAT)
+    return expanded
+
+
+def _equip_verfuegbar(uebung: str, equip_exp: set | None) -> bool:
+    """
+    Prüft ob eine Übung mit dem verfügbaren Equipment durchführbar ist.
+    Gibt True zurück wenn:
+    - equip_exp ist None (kein Filter) ODER
+    - mindestens ein Equipment-Tag der Übung in equip_exp ist.
+    Übungen ohne Dict-Eintrag werden als Körpergewicht-Übung behandelt.
+    """
+    if equip_exp is None:
+        return True
+    tags = _UEBUNG_EQUIPMENT.get(uebung, frozenset({"Körpergewicht"}))
+    return bool(tags & equip_exp)
+
+
 def _olympic_geeignet(plangruppe: str, pool_key: str, verletzt: set) -> bool:
     """
     Olympisches Gewichtheben nur wenn (Spec §6):
@@ -1268,6 +1545,18 @@ def trainingsplan_multi_erstellen(spieler_id: int, schwerpunkt_text: str,
                     eq_primary   = _EQUIPMENT_PRIMÄR.get((area, effective_pk), "Körpergewicht")
 
             exercises = _pool_fuer_area(area, effective_pk, n, offset=offset)
+
+            # §4b Per-Übung Equipment-Filter (nach Pool-Key-Fallback)
+            if _equip_set is not None:
+                _equip_exp_set = _equip_expanded(_equip_set)
+                _filtered = [e for e in exercises if _equip_verfuegbar(e[0], _equip_exp_set)]
+                if not _filtered:
+                    # Fallback 1: stabilisation-Pool des gleichen Bereichs versuchen
+                    _fb = [e for e in _pool_fuer_area(area, "stabilisation", n, offset=offset)
+                           if _equip_verfuegbar(e[0], _equip_exp_set)]
+                    exercises = _fb if _fb else _pool_fuer_area(area, "stabilisation", n, offset=offset)
+                else:
+                    exercises = _filtered
 
             # §2 Sequenz-Slot + §5 Energiesystem + §8 Dokumentation
             seq_order = _TRAININGS_SEQUENZ.get((area, effective_pk), 15)

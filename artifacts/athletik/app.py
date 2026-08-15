@@ -160,6 +160,7 @@ from analytics import (
 )
 from periodisierung import (zyklus_erstellen, zyklus_laden, trainingsplan_multi_erstellen,
                              defizit_tabelle, _alter_zu_plangruppe, _PLANGRUPPEN_CONFIG, _POOL,
+                             _equip_expanded, _equip_verfuegbar, _UEBUNG_EQUIPMENT,
                              _ALTERS_ERSATZ, verletzung_aktive_bereiche,
                              schaetze_tag_dauer_min, _ZEITBUDGET_CONFIG,
                              empfohlene_athletik_einheiten, empfohlene_athletik_tage,
@@ -4402,19 +4403,36 @@ def page_trainingsplan():
                                              "Schnelligkeit","Explosivität","Agilität","Fußball"],
                                 key="manual_bereich")
 
+        # Equipment-Filter für Manuell-Tab
+        _EQUIPMENT_ALLE_MANUAL = [
+            "Körpergewicht", "Miniband", "Powerband", "Freie Gewichte",
+            "Kurzhanteln", "Langhanteln", "Kettlebell", "Medizinball",
+            "Maschine", "Schlitten", "Ball",
+        ]
+        _manual_equip_default = list(st.session_state.get("equip_sel", []))
+        _manual_equip = mc2.multiselect(
+            "Equipment-Filter",
+            _EQUIPMENT_ALLE_MANUAL,
+            default=_manual_equip_default,
+            key="manual_equip_filter",
+            help="Nur Übungen anzeigen, die mit dem gewählten Equipment durchführbar sind. "
+                 "Leer lassen = alle Übungen zeigen.",
+        )
+
         # Übungskatalog aus Pool für gewählten Bereich (ohne Duplikate, alle Phasen)
+        _manual_equip_exp = _equip_expanded(set(_manual_equip)) if _manual_equip else None
         _katalog: list[str] = []
         for _pk in ["stabilisation", "kraft", "power"]:
             for _u, *_ in _POOL.get(bereich, {}).get(_pk, []):
-                if _u not in _katalog:
+                if _u not in _katalog and _equip_verfuegbar(_u, _manual_equip_exp):
                     _katalog.append(_u)
         _EIGENE_OPT = "✏️ Eigene Übung eingeben..."
         _katalog_opts = _katalog + [_EIGENE_OPT]
 
-        _ub_sel = mc2.selectbox("Übungsname", _katalog_opts,
-                                key=f"manual_ub_{bereich}",
-                                help="Alle Übungen aus dem Katalog für diesen Bereich. "
-                                     "Ganz unten: eigene Übung frei eingeben.")
+        _ub_sel = st.selectbox("Übungsname", _katalog_opts,
+                               key=f"manual_ub_{bereich}",
+                               help="Alle Übungen aus dem Katalog für diesen Bereich "
+                                    "gefiltert nach Equipment. Ganz unten: eigene Übung frei eingeben.")
         if _ub_sel == _EIGENE_OPT:
             uebung = st.text_input("Eigene Übung eingeben", key="manual_ub_custom",
                                    placeholder="z. B. Reverse Lunge mit Rotation")
@@ -4814,10 +4832,23 @@ def page_trainingsplan():
                                                          _BEREICHE_ALL,
                                                          index=_BEREICHE_ALL.index(breich) if breich in _BEREICHE_ALL else 0,
                                                          key=f"swap_bereich_{eid}")
+                                _EQUIPMENT_ALLE_SWAP = [
+                                    "Körpergewicht", "Miniband", "Powerband", "Freie Gewichte",
+                                    "Kurzhanteln", "Langhanteln", "Kettlebell", "Medizinball",
+                                    "Maschine", "Schlitten", "Ball",
+                                ]
+                                _swap_equip = st.multiselect(
+                                    "Equipment-Filter (optional)",
+                                    _EQUIPMENT_ALLE_SWAP,
+                                    default=list(st.session_state.get("equip_sel", [])),
+                                    key=f"swap_equip_{eid}",
+                                    help="Nur Übungen mit passendem Equipment anzeigen. Leer = alle.",
+                                )
+                                _swap_equip_exp = _equip_expanded(set(_swap_equip)) if _swap_equip else None
                                 _sw_pool: list[str] = []
                                 for _pk in ["stabilisation","kraft","power"]:
                                     for _u, *_ in _POOL.get(_sw_b_sel,{}).get(_pk,[]):
-                                        if _u not in _sw_pool:
+                                        if _u not in _sw_pool and _equip_verfuegbar(_u, _swap_equip_exp):
                                             _sw_pool.append(_u)
                                 _EIGENE_SW = "✏️ Eigene Übung eingeben…"
                                 _sw_sel = st.selectbox(
