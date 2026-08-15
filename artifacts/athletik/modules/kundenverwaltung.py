@@ -218,9 +218,9 @@ def _detail_a_kundenkonto(daten: dict) -> None:
         e_tel  = ec1.text_input("Telefon",   value=b.get("telefon") or v.get("telefon") or "",
                                 key=f"ekd_tel_{b.get('id')}")
         if kundentyp == "Verein":
-            e_vname = ec2.text_input("Vereinsname", value=v.get("name",""), key=f"ekd_vname_{b.get('id')}")
+            e_vname = ec2.text_input("Vereinsname", value=v.get("name") or "", key=f"ekd_vname_{b.get('id')}")
             e_ansp  = ec1.text_input("Ansprechpartner (Nachname + Vorname getrennt)",
-                                     value=v.get("ansprechpartner",""), key=f"ekd_ansp_{b.get('id')}")
+                                     value=v.get("ansprechpartner") or "", key=f"ekd_ansp_{b.get('id')}")
         e_aktiv = st.checkbox("Konto aktiv", value=bool(b.get("aktiv")), key=f"ekd_ak_{b.get('id')}")
 
         if st.button("💾 Stammdaten speichern", key=f"ekd_save_{b.get('id')}"):
