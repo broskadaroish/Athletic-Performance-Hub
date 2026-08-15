@@ -1,0 +1,149 @@
+PRÜFAUFTRAG – APH ÜBUNGSBIBLIOTHEK UND EQUIPMENT
+
+Noch KEINE Änderungen am Code durchführen.
+
+Analysiere die aktuelle Trainings-/Übungsbibliothek vollständig.
+
+1. Ermittle die exakte Gesamtzahl aller vorhandenen Übungen.
+
+2. Ermittle für jede Übung:
+- Name
+- Trainingsbereich / Kategorie
+- vorhandene Equipment-Zuordnung
+- Alters-/Plangruppen-Zuordnung, falls vorhanden
+- Schwerpunkt/Defizit-Zuordnung, falls vorhanden
+
+3. Erstelle eine Statistik:
+- Gesamtzahl Übungen
+- Körpergewicht
+- Widerstandsband / Miniband
+- Freigewicht
+- Kurzhantel
+- Langhantel
+- Kettlebell
+- Maschine
+- sonstige vorhandene Equipmentarten
+- Übungen ohne Equipment-Zuordnung
+
+Dabei NICHT neue Kategorien erfinden.
+Zuerst die tatsächlich im aktuellen Code vorhandenen Begriffe ermitteln.
+
+4. Prüfe den bereits vorhandenen Trainingsplan-Parameter
+„Verfügbare Ausrüstung“.
+
+Ermittle:
+- welche Auswahlmöglichkeiten dort tatsächlich vorhanden sind
+- wie diese intern gespeichert werden
+- wie der Plan-Generator damit Übungen filtert
+- ob jede dort auswählbare Equipmentart tatsächlich Übungen
+  in der Übungsbibliothek besitzt
+
+5. Erstelle eine Matrix:
+
+Equipment | Anzahl Übungen | Beispiele | vom Generator berücksichtigt?
+
+Damit muss sofort sichtbar werden, ob z.B.
+„Maschine“ auswählbar ist, aber kaum/keine Maschinenübungen existieren.
+
+6. Prüfe außerdem die Funktion:
+„Manuelle Übungen hinzufügen“.
+
+Ermittle:
+- wo diese implementiert ist
+- aus welcher Bibliothek die Übungsauswahl kommt
+- welche Filter dort bereits existieren
+- ob aktuell Equipment berücksichtigt wird
+- ob die bestehende Equipment-Filterlogik des automatischen
+  Plan-Generators wiederverwendet werden kann
+
+7. Ziel für einen SPÄTEREN Auftrag:
+
+Bei „Manuelle Übungen hinzufügen“ soll zusätzlich
+„Verfügbare Ausrüstung“ auswählbar sein.
+
+Beispiel:
+Band ausgewählt
+→ nur passende Bandübungen anzeigen
+
+Maschine ausgewählt
+→ nur Maschinenübungen
+
+Freigewicht ausgewählt
+→ nur passende Freigewichtsübungen
+
+Mehrere Equipmentarten ausgewählt
+→ alle Übungen anzeigen, die mit mindestens einer der
+ausgewählten verfügbaren Ausrüstungen durchgeführt werden können.
+
+„Alle“
+→ komplette Übungsbibliothek.
+
+WICHTIG:
+Noch NICHT implementieren.
+
+Zuerst feststellen, wie die aktuelle Datenstruktur tatsächlich aufgebaut ist.
+
+8. Zusätzlich prüfen:
+
+Sind die Equipment-Bezeichnungen in der Bibliothek einheitlich?
+
+Beispielsweise:
+„Band“
+„Widerstandsband“
+„Resistance Band“
+„Miniband“
+
+oder:
+
+„Freihantel“
+„Freigewicht“
+„Kurzhantel“
+„Langhantel“
+
+Nicht automatisch zusammenführen.
+Nur Inkonsistenzen im Bericht auflisten.
+
+9. Keine Änderungen an:
+- Trainingsplan-Generator
+- Übungen
+- Datenbank
+- Tests
+- Alterslogik
+- Defizitlogik
+- Wochenplanung
+- PDF
+- Stripe
+- Session
+- Login
+
+10. ABSCHLUSSBERICHT
+
+Bitte exakt berichten:
+
+A) Gesamtzahl Übungen
+
+B) Anzahl je Trainingsbereich
+
+C) Anzahl je Equipmentart
+
+D) Liste aller tatsächlich verwendeten Equipment-Bezeichnungen
+
+E) Equipmentarten aus „Verfügbare Ausrüstung“
+
+F) Welche dieser Equipmentarten ausreichend Übungen besitzen
+
+G) Welche Equipmentarten fehlen oder kaum Übungen besitzen
+
+H) Übungen ohne Equipment-Zuordnung
+
+I) Inkonsistente Equipment-Bezeichnungen
+
+J) Wie der automatische Generator aktuell Equipment filtert
+
+K) Wie „Manuelle Übungen hinzufügen“ aktuell funktioniert
+
+L) Konkreter Vorschlag, wie dort derselbe Equipmentfilter
+wiederverwendet werden kann
+
+Danach STOPPEN.
+Noch keinen Code ändern.
