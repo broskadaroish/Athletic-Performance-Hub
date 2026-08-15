@@ -1,0 +1,125 @@
+PRÜF- UND ABSCHLUSSAUFTRAG ZU TASK #240
+
+Task #240 wurde als abgeschlossen markiert, aber es fehlt ein vollständiger Abschlussbericht.
+
+Bitte KEINE neuen Änderungen durchführen.
+
+Prüfe nur den aktuell vorhandenen Code und liefere einen belastbaren Abschlussbericht.
+
+Bitte exakt berichten:
+
+1. Welche Dateien wurden durch Task #240 geändert?
+
+2. Wie viele Übungen waren vorher vorhanden?
+- _POOL
+- _OLYMPIC_POOL
+- Gesamt
+
+3. Wie viele Übungen sind jetzt vorhanden?
+- _POOL
+- _OLYMPIC_POOL
+- Gesamt
+
+4. Liste aller neu hinzugefügten Übungen, gruppiert nach Equipment:
+- Powerband
+- Kurzhanteln
+- Langhanteln
+- Maschine
+- Schlitten
+- sonstige
+
+5. Wo ist die zentrale Equipment-Metadatenstruktur implementiert?
+Bitte Funktions-/Variablennamen nennen.
+
+6. Vollständigkeit prüfen:
+Jede Übung aus _POOL + _OLYMPIC_POOL muss mindestens eine Equipment-Zuordnung besitzen.
+Ergebnis:
+X / X zugeordnet
+Y ohne Zuordnung
+
+7. Anzahl Übungen je Equipment:
+- Körpergewicht
+- Miniband
+- Powerband
+- Freie Gewichte
+- Kurzhanteln
+- Langhanteln
+- Kettlebell
+- Medizinball
+- Maschine
+- Schlitten
+- Ball
+
+8. Welche Übungen besitzen mehrere mögliche Equipmentarten?
+
+9. Wie funktioniert „Freie Gewichte“ als Oberkategorie?
+
+10. Wie werden Miniband und Powerband unterschieden?
+
+11. Wurde der automatische Generator wirklich auf Übungsebene umgestellt?
+Bitte genaue Funktion und Logik nennen.
+
+12. Nachweis:
+Wenn nur Körpergewicht verfügbar ist, dürfen keine zwingenden Maschinen-/Langhantel-/Schlittenübungen durchkommen.
+
+13. Nachweis:
+Powerband hat jetzt Wirkung.
+
+14. Nachweis:
+Kurzhanteln haben jetzt Wirkung.
+
+15. Nachweis:
+Langhanteln haben jetzt Wirkung.
+
+16. Nachweis:
+Schlitten hat jetzt Wirkung.
+
+17. Wie funktioniert der Equipmentfilter im Manuell-Tab?
+Bitte genaue Reihenfolge nennen:
+Bereich → Equipment → Übung?
+
+18. Wie funktioniert der Equipmentfilter im Swap-/Bearbeiten-Tab?
+
+19. Bleibt „Eigene Übung eingeben“ weiterhin verfügbar?
+
+20. Bestätigung:
+Automatisch generieren bleibt erhalten.
+
+21. Bestätigung:
+Generierten Plan bearbeiten bleibt erhalten.
+
+22. Bestätigung:
+Komplett manuell erstellen bleibt erhalten.
+
+23. Bestätigung:
+Diagnostik/Defizite bestimmen weiterhin Haupt- und Nebenschwerpunkte.
+Equipment beeinflusst nur die konkrete Übungsauswahl.
+
+24. Regressionstest:
+gleiche Tests + unterschiedliches Equipment
+→ Haupt-/Nebenschwerpunkte identisch?
+
+25. Alterslogik weiterhin intakt?
+- _ALTERS_ERSATZ
+- Olympic Gate
+
+26. Wochenplanung weiterhin intakt?
+- Standardmodus
+- Vereinsbelastungsmodus
+- gewaehlte_athletik_anzahl
+- gewaehlte_athletik_tage
+
+27. Datenbankänderung?
+Erwartung: NEIN
+
+28. Geänderte Dateien erneut bestätigen.
+
+29. py_compile Ergebnis.
+
+30. Block-B Ergebnis.
+
+31. Falls neue Equipmenttests existieren:
+bitte alle Ergebnisse auflisten.
+
+Danach STOPPEN.
+Keine neuen Features oder Folgeaufgaben starten.
