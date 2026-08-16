@@ -12,3 +12,13 @@ gatherUsageStats = false
 
 [runner]
 fastReruns = true
+
+[theme]
+# Dark-Theme als Streamlit-Basis — verhindert, dass iOS Safari beim Initialisieren
+# kurz den Browser-Default (weiß) zeigt, bevor APP_CSS über st.markdown injiziert wird.
+# Streamlit setzt diese Farben als CSS-Variablen noch vor dem ersten JS-Render.
+base = "dark"
+backgroundColor = "#0d1117"
+secondaryBackgroundColor = "#161b22"
+textColor = "#e6edf3"
+primaryColor = "#1f6feb"

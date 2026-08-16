@@ -35,6 +35,18 @@ PLOTLY_LAYOUT = dict(
 # ─── CSS ──────────────────────────────────────────────────────────────────────
 APP_CSS = """
 <style>
+/* ── Frühe Hintergrundfarbe: verhindert weißen/hellen Frame auf iOS Safari ── */
+/* iOS Safari zeigt den Browser-Default (#fff) bis Streamlit seinen CSS rendert. */
+/* color-scheme: dark verhindert, dass Safari Auto-Inversionen oder weiße Frames */
+/* zwischen Repaint-Zyklen einblendet.                                           */
+html {
+    background-color: #0d1117 !important;
+    color-scheme: dark;
+}
+body {
+    background-color: #0d1117 !important;
+}
+
 /* ── Base ── */
 html, body, [class*="css"] {
     font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;

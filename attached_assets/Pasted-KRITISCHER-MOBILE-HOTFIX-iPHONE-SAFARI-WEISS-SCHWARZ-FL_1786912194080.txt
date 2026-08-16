@@ -1,0 +1,324 @@
+KRITISCHER MOBILE-HOTFIX – iPHONE / SAFARI WEISS-SCHWARZ-FLACKERN
+
+PROBLEM:
+
+APH funktioniert aktuell in:
+
+- Desktop-Browser ✅
+- Android-Browser ✅
+
+Auf iPhone / Safari:
+
+- aphsystem.de öffnen
+- Bildschirm blinkt/flackert zwischen weiß und schwarz
+- eigentliche App ist praktisch nicht benutzbar / nicht sichtbar
+
+ZIEL:
+
+Ursache des iOS-Safari-Flackerns finden und minimal beheben.
+
+WICHTIG:
+Keine große Navigation neu bauen.
+Keine Sessionlogik wieder entfernen.
+Keine Android-/Desktop-Funktion beschädigen.
+
+==================================================
+1. ZUERST ROOT CAUSE ANALYSIEREN
+==================================================
+
+Prüfe insbesondere:
+
+- mobile.py
+- theme.py
+- app.py
+- inject_mobile_sidebar_opener()
+- detect_screen_width()
+- _inject_screen_width_detect()
+- components.html()
+- window.parent.document
+- ResizeObserver
+- MutationObserver
+- resize-Listener
+- orientationchange
+- viewport width/height detection
+- st.rerun()
+- session_state["_screen_width"]
+- CSS @media max-width
+- position: fixed
+- backdrop-filter
+- filter
+- transform
+- 100vh / 100dvh
+- Safari color-scheme / background
+- Streamlit Header / Sidebar
+- Mobile-Menübutton
+
+Prüfe ausdrücklich auf:
+
+JS → session_state ändern
+→ st.rerun()
+→ JS neu laden
+→ session_state erneut ändern
+→ weiterer rerun
+
+oder:
+
+Safari-Adressleiste verändert viewport
+→ resize
+→ width detection
+→ rerun
+→ Safari rendert erneut
+→ Endlosschleife / Flackern
+
+==================================================
+2. SCREEN-WIDTH-DETECTION BESONDERS PRÜFEN
+==================================================
+
+iOS Safari verändert beim Scrollen und beim Ein-/Ausblenden der Browserleisten
+regelmäßig die Viewport-Geometrie.
+
+Die App darf deshalb NICHT bei jeder minimalen Viewport-Änderung einen
+Streamlit-Rerun auslösen.
+
+Falls aktuelle Logik bei resize/orientationchange sofort neu schreibt:
+
+→ nur dann aktualisieren, wenn sich die relevante Breitenklasse wirklich ändert.
+
+Beispiel Klassen:
+
+mobile <= 768
+desktop > 768
+
+390 px → 393 px darf KEINEN Rerun erzeugen.
+
+Nur:
+
+mobile → desktop
+oder
+desktop → mobile
+
+darf ggf. State ändern.
+
+Debounce verwenden.
+
+==================================================
+3. KEINE ENDLOSSCHLEIFE
+==================================================
+
+Prüfe alle st.rerun()-Stellen im Mobile-/Session-Startup.
+
+Auf iPhone muss gelten:
+
+Seite laden
+→ maximal notwendige Initial-Reruns
+→ stabiler Zustand
+
+Kein:
+
+render
+→ width detect
+→ rerun
+→ width detect
+→ rerun
+→ ...
+
+==================================================
+4. MOBILE-MENÜBUTTON PRÜFEN
+==================================================
+
+Der selbst injizierte Button:
+
+#aph-menu-btn
+
+wird über window.parent.document.body eingefügt.
+
+Prüfe auf iOS:
+
+- wird er mehrfach eingefügt?
+- wird Style mehrfach eingefügt?
+- erzeugt er Layout-Reflow?
+- liegt er über gesamter Seite?
+- pointer-events korrekt?
+- iframe/parent DOM Zugriff stabil?
+- touchend + click erzeugen Doppelaktion?
+
+WICHTIG:
+
+Aktuell gibt es touchend UND click.
+
+Auf iOS kann ein Tap beide Events auslösen.
+
+Sicherstellen, dass ein einzelner Tap wirklich nur EIN Toggle erzeugt.
+
+Bestehenden 400-ms-Debounce prüfen, ob er auch touchend → click zuverlässig
+abfängt.
+
+==================================================
+5. CSS / WHITE-BLACK-FLICKER
+==================================================
+
+theme.py auf iOS-kritische Regeln prüfen:
+
+- html/body background
+- stApp background
+- stHeader
+- stSidebar
+- transitions
+- animation
+- backdrop-filter
+- filter
+- transform
+- opacity
+- visibility
+- position fixed
+- z-index
+
+Kein globales:
+
+transition: all
+
+auf großen Containern.
+
+Keine Animation des kompletten stApp/body Hintergrunds.
+
+Falls Dark-Theme:
+html, body, [data-testid="stAppViewContainer"], .stApp
+müssen stabil denselben Hintergrund besitzen,
+damit Safari beim Repaint keinen weißen Frame zeigt.
+
+==================================================
+6. SAFARI VIEWPORT
+==================================================
+
+Prüfe Nutzung von:
+
+100vh
+
+Auf iPhone bevorzugt falls erforderlich:
+
+100dvh
+
+oder sichere min-height-Variante.
+
+Aber nur ändern, wenn tatsächlich betroffen.
+
+Keine pauschale CSS-Umschreibung.
+
+==================================================
+7. STREAMLIT THEME
+==================================================
+
+Prüfe .streamlit/config.toml und theme.py.
+
+iOS Safari darf beim Laden nicht zwischen:
+
+weißem Browser-Default
+und
+APH Dark Theme
+
+ständig wechseln.
+
+Wenn nötig:
+stabile frühe Hintergrundfarbe setzen.
+
+Aber kein JS-Flackerschutz per wiederholtem DOM-Polling.
+
+==================================================
+8. SESSION-FIX ERHALTEN
+==================================================
+
+Der gerade implementierte Session-Fix muss bestehen bleiben:
+
+- session_aktivitaet_aktualisieren()
+- DB-Touch alle 5 Minuten
+- ath_sid Restore
+- _COOKIE_MAX_WAIT = 8
+- 60-Minuten Idle
+- 24h Max Lifetime
+
+Nicht rückgängig machen.
+
+Nur prüfen, ob Cookie-Wait auf Safari einen Rerun-Loop erzeugt.
+
+==================================================
+9. TESTS
+==================================================
+
+Mindestens:
+
+A)
+iPhone Safari 375/390/393/430 px
+→ kein weiß/schwarz-Flackern
+
+B)
+Seite 30 Sekunden offen lassen
+→ stabil
+
+C)
+Safari Adressleiste ein-/ausblenden
+→ kein Rerun-Loop
+
+D)
+Scrollen
+→ kein Flackern
+
+E)
+Orientation Portrait → Landscape → Portrait
+→ stabil
+
+F)
+Menü 20× öffnen/schließen
+→ stabil
+
+G)
+App-Wechsel
+→ zurück zu Safari
+→ kein Flackern
+→ Session bleibt erhalten
+
+H)
+Display aus/an
+→ kein Flackern
+→ Session bleibt erhalten
+
+I)
+Android Chrome
+→ unverändert funktionsfähig
+
+J)
+Desktop
+→ unverändert
+
+K)
+py_compile
+
+L)
+Block-B 35/35
+
+M)
+Session-Test 30/30
+
+==================================================
+10. DEBUG-NACHWEIS
+==================================================
+
+Im Abschlussbericht exakt nennen:
+
+1. Ursache des iPhone-Flackerns
+2. ob ein Rerun-Loop vorhanden war
+3. ob Resize/Viewport beteiligt war
+4. ob touchend + click beteiligt war
+5. ob CSS-Repaint beteiligt war
+6. welche Dateien geändert wurden
+7. wie viele Reruns beim initialen Laden jetzt stattfinden
+8. Android-Test
+9. iPhone-Safari-Test
+10. Desktop-Test
+11. Session-Test
+12. Block-B
+
+Keine DB-Migration.
+
+Danach STOPPEN.
+
+NICHT DEPLOYEN.
