@@ -88,6 +88,7 @@ from database import (
     spieler_null_zuweisen, spieler_ohne_verein_zaehlen,
     zuweisung_log_laden,
     benachrichtigungen_laden, benachrichtigungen_alle_gelesen,
+    _pw_verify,
 )
 from auth import login, hash_password
 from modules.benutzerverwaltung import page_benutzerverwaltung
@@ -8688,7 +8689,7 @@ def page_einstellungen():
             _u_db = benutzer_by_id(_u["id"])
             if not _pw_alt:
                 st.error("❌ Bitte das aktuelle Passwort eingeben.")
-            elif _u_db is None or _u_db.get("passwort_hash") != hash_password(_pw_alt):
+            elif _u_db is None or not _pw_verify(_pw_alt, _u_db.get("passwort_hash") or ""):
                 st.error("❌ Das aktuelle Passwort ist falsch.")
             elif len(_pw_neu1) < 4:
                 st.error("❌ Das neue Passwort muss mindestens 4 Zeichen haben.")
