@@ -2298,7 +2298,10 @@ def page_dashboard():
                 _sp = d["spiro"]
                 _vo2 = _sp.get("vo2_peak") or _sp.get("vo2_max") or _sp.get("geschaetzte_vo2max")
                 if _vo2:
-                    _alter_p  = berechne_alter(d["p"].get("geburtsdatum"))
+                    # Alter am Testdatum — nicht heutiges Alter (Spec §3)
+                    _alter_p  = (alter_am_datum(d["p"].get("geburtsdatum", ""),
+                                               _sp.get("datum", ""))
+                                 or berechne_alter(d["p"].get("geburtsdatum")))
                     _gesch_p  = d["p"].get("geschlecht", "Männlich")
                     _stufe, _ = _v2bw_dash(float(_vo2), _alter_p, _gesch_p)
                     if _stufe in ("Verbesserungsbedarf", "Kritisch"):
@@ -10227,7 +10230,10 @@ def page_diagnostik_overview() -> None:
         vo2 = spiro.get("vo2_peak") or spiro.get("vo2_max") or spiro.get("geschaetzte_vo2max")
         schw = spiro.get("schwelle_geschwindigkeit")
         if vo2:
-            stufe, _ = _v2bw(float(vo2), _alter_ov, _geschl_ov)
+            # Alter am Testdatum verwenden — nicht heutiges Alter (Spec §3)
+            _sp_alter = (alter_am_datum(sp_ov.get("geburtsdatum", "") if sp_ov else "",
+                                        spiro.get("datum", "")) or _alter_ov)
+            stufe, _ = _v2bw(float(vo2), _sp_alter, _geschl_ov)
             return f"{stufe} — VO₂peak {float(vo2):.1f} ml·kg⁻¹·min⁻¹"
         elif schw:
             v = float(schw)
@@ -10339,7 +10345,9 @@ def page_diagnostik_overview() -> None:
             "rating": (
                 __import__("kraft").beurteilung_relative_kraft(
                     kraft_d.get("relative_kraft_direkt") or kraft_d.get("relative_kraft_geschaetzt"),
-                    alter=_alter_ov, geschlecht=_geschl_ov
+                    alter=(alter_am_datum(sp_ov.get("geburtsdatum", "") if sp_ov else "",
+                                         kraft_d.get("datum", "")) or _alter_ov),
+                    geschlecht=_geschl_ov
                 )[0]
                 if kraft_d and (kraft_d.get("relative_kraft_direkt") or kraft_d.get("relative_kraft_geschaetzt"))
                 else (
