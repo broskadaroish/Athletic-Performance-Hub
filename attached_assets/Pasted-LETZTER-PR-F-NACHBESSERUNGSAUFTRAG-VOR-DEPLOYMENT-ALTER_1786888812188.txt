@@ -1,0 +1,254 @@
+LETZTER PRÜF-/NACHBESSERUNGSAUFTRAG VOR DEPLOYMENT
+ALTERSSYSTEM + DEFIZITKETTE
+
+Die neue Trennung aus:
+- Fußballklasse
+- chronologischem Alter
+- Testreferenz
+
+ist grundsätzlich korrekt.
+
+Bitte KEINE neue Architektur bauen.
+
+==================================================
+1. TRAININGSPLAN-UI BEGRIFFLICH SAUBER TRENNEN
+==================================================
+
+Aktuell kann ein Spieler z.B. sein:
+
+Alter: 9 Jahre
+Fußballklasse: U11
+Testreferenz: U10
+interne Plangruppe: U8
+
+Das ist technisch möglich, aber die UI darf die interne Plangruppe nicht
+einfach als „Altersgruppe U8“ bezeichnen.
+
+Bitte alle Stellen prüfen, an denen _alter_zu_plangruppe() angezeigt wird.
+
+Statt:
+
+„Altersgruppe: U8“
+
+besser:
+
+„Trainingsstufe: U8/U9“
+oder
+„Trainingsgruppe: 8–9 Jahre“
+
+WICHTIG:
+Fußballklasse bleibt separat:
+„Fußballklasse: U11“
+
+Testreferenz separat:
+„Testreferenz: U10 (Alter 9–10)“
+
+Interne Belastungs-/Plangruppe separat:
+„Trainingsstufe: U8/U9“
+
+Keine Logikänderung nötig, nur klare Bezeichnung.
+
+==================================================
+2. ALLE TESTMODULE END-TO-END PRÜFEN
+==================================================
+
+Bitte jetzt ausdrücklich ALLE vorhandenen Module prüfen:
+
+- Anthropometrie
+- FMS
+- Y-Balance
+- Sprint
+- Sprung
+- Agilität
+- Ausdauer / Yo-Yo
+- Kraft
+- Spiro / Stufentest
+
+Für jedes Modul nachweisen:
+
+Messwert
+→ gültige Daten
+→ richtige Alters-/Normreferenz
+→ Bewertung
+→ Defizit
+→ Quelle
+→ Haupt-/Nebenschwerpunkt
+→ schwerpunkt_sammeln()
+→ defizit_score()
+→ Trainingsbereich
+
+==================================================
+3. Y-BALANCE
+==================================================
+
+Prüfen:
+
+Auffällige Asymmetrie
+→ korrekter funktioneller Schwerpunkt
+
+Unauffällig
+→ kein künstliches Defizit
+
+Norm-/Bewertungslogik darf nicht von Fußballklasse abhängen.
+
+==================================================
+4. AUSDAUER
+==================================================
+
+Prüfen:
+
+Yo-Yo / VO2 / intermittierende Ausdauer
+
+Auffälliger Test
+→ Aerobe Kapazität / intermittierende Ausdauer korrekt im Trainingsplan
+
+Unauffälliger Test
+→ kein künstliches Defizit
+
+Altersreferenz korrekt.
+
+==================================================
+5. ANTHROPOMETRIE
+==================================================
+
+Prüfen:
+
+Anthropometrische Bewertung darf nur dann Trainingsrelevanz erzeugen,
+wenn die bestehende APH-Logik dies fachlich vorsieht.
+
+Keine falsche Defiziterzeugung nur wegen fehlender Referenz.
+
+==================================================
+6. SPIRO / STUFENTEST
+==================================================
+
+Prüfen:
+
+VO2peak / Schwelle / Stufentest
+→ vorhandene Bewertung
+→ korrekter Ausdauer-Schwerpunkt
+
+Keine Daten
+→ NO_DATA
+
+Keine falsche Normübernahme aus Fußballklasse.
+
+==================================================
+7. KONKRETER 2016-TEST
+==================================================
+
+Geburtsdatum:
+26.08.2016
+
+Datum:
+16.08.2026
+
+Erwartung:
+
+Alter:
+9 Jahre
+
+Jahrgang:
+2016
+
+Fußballklasse:
+U11
+
+Saison:
+2026/27
+
+Testreferenz:
+U10 / Alter 9–10, soweit für den jeweiligen Test tatsächlich gültig
+
+Trainingsstufe:
+U8/U9 bzw. 8–9 Jahre
+
+NICHT irgendwo missverständlich:
+„Altersgruppe U8“
+
+==================================================
+8. DEFIZIT-KONSISTENZTEST
+==================================================
+
+Für jeden Test:
+
+Wenn UI sagt:
+„Normbereich“ / „Unauffällig“
+→ Trainingsplan darf daraus KEIN Defizit erzeugen.
+
+Wenn UI sagt:
+„Verbesserungsbedarf“ / relevante Auffälligkeit
+→ Defizit muss im Trainingsplan ankommen.
+
+Wenn keine gültige Referenz existiert:
+→ Messwert anzeigen
+→ kein künstliches Defizit.
+
+==================================================
+9. PRIORISIERUNG
+==================================================
+
+Bei mehreren Auffälligkeiten prüfen:
+
+- wichtigste 2–3 = Hauptschwerpunkte
+- weitere = Nebenschwerpunkte
+- gleiche Quelle nicht versehentlich doppelt zählen
+- Sprint und Agilität bleiben getrennte Trainingsbereiche
+- Ausdauerarten korrekt zusammengeführt
+- FMS/Y-Balance nicht doppelt künstlich aufblasen
+
+==================================================
+10. BESTEHENDE FUNKTIONEN NICHT ÄNDERN, WENN KORREKT
+==================================================
+
+Nur echte Fehler korrigieren.
+
+Nicht verändern:
+- Equipment
+- Wochenplanung
+- PDF-Logik außer Begriff „Altersgruppe“, falls dort missverständlich
+- Stripe
+- Trainer-Beitritt
+- Upload
+- Session
+- Passwort
+- Kundennummern
+
+Keine DB-Migration.
+
+==================================================
+11. TESTS
+==================================================
+
+py_compile aller geänderten Dateien
+
+Block-B:
+35/35 PASS
+
+Zusätzlicher End-to-End-Test:
+alle 9 Testmodule
+
+==================================================
+12. ABSCHLUSSBERICHT
+==================================================
+
+Bitte berichten:
+
+1. welche UI-Bezeichnungen geändert wurden
+2. konkretes Beispiel Spieler 2016
+3. Ergebnis Anthropometrie
+4. Ergebnis FMS
+5. Ergebnis Y-Balance
+6. Ergebnis Sprint
+7. Ergebnis Sprung
+8. Ergebnis Agilität
+9. Ergebnis Ausdauer
+10. Ergebnis Kraft
+11. Ergebnis Spiro/Stufentest
+12. Haupt-/Nebenschwerpunkt-Logik
+13. py_compile
+14. Block-B
+15. DB-Änderung ja/nein
+
+Danach STOPPEN.
+Noch nicht deployen.

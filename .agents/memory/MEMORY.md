@@ -29,3 +29,4 @@
 - [Block B2-B8 Hardening](block-b2-b8-hardening.md) — atomare Kundennummern (UNIQUE partial index + single-conn), fail-closed Limits (spieler hat kein aktiv-Feld), Downgrade-Schutz in _detail_c_lizenz, Stripe-Block E, Audit-Log für Vertrag+Rechnungsadresse, Stripe-Check vor Kundenlöschung; Testsuite tools/test_block_b.py (35 PASS)
 - [Trainer Mandant Datenquellen](trainer-mandant-datenquellen.md) — vereine ist führend für Vertrag/Lizenz/Stripe; benutzer.kundennummer ist die sichtbare Kundennummer; SQLite-UNION braucht expliziten AS-Alias für ORDER BY
 - [Saison-Alterssystem](saison-alterssystem.md) — drei Ebenen: Fußballklasse (saison.py), chronol. Alter, Normgruppe; JG2016 Alter=9 → FK=U11 / Norm=U10 / Plan=U8
+- [Alter am Testtag](alter-am-testtag.md) — alter_am_datum(geb,testdatum) in database.py; Testbefund=Testtag-Alter, Belastungssteuerung=heute, FK=saison; Sprint/Sprung/Agil/Kraft/Ausdauer tab_neu nutzen _td-Variable

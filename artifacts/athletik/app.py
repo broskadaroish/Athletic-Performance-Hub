@@ -52,7 +52,7 @@ from database import (
     init_db,
     spieler_speichern, spieler_laden, spieler_by_id, spieler_loeschen, spieler_aktualisieren,
     spieler_trainer_zuweisen,
-    berechne_alter, altersklasse_vorschlag,
+    berechne_alter, alter_am_datum, altersklasse_vorschlag,
     verletzung_speichern, verletzungen_laden, verletzung_loeschen,
     anthropometrie_speichern, anthropometrie_letzter, anthropometrie_history, anthropometrie_loeschen_letzten,
     fms_speichern, fms_letzter, fms_history, fms_history_full,
@@ -4327,7 +4327,7 @@ def page_trainingsplan():
         st.markdown(
             f'<div style="background:#161b22;border:2px solid {_pg_clr};border-radius:8px;'
             f'padding:10px 16px;margin-bottom:12px">'
-            f'<span style="font-size:13px;color:{_pg_clr};font-weight:700">🎯 Altersgruppe: {_tp_pg}</span>'
+            f'<span style="font-size:13px;color:{_pg_clr};font-weight:700">🎯 Trainingsstufe: {_tp_pg}</span>'
             f'<span style="color:#8b949e;font-size:12px;margin-left:10px">— {_tp_cfg["label"]}</span><br>'
             f'<small style="color:#8b949e">Quelle: Faigenbaum & Myer (2010) · Lloyd et al. (2014) · NSCA Youth RT Position Statement</small>'
             f'</div>',
@@ -4784,7 +4784,7 @@ def page_trainingsplan():
         st.markdown(
             f'<div style="background:#161b22;border:2px solid {_tv_pg_clr};border-radius:8px;'
             f'padding:10px 16px;margin-bottom:12px;display:flex;align-items:center;gap:12px">'
-            f'<span style="font-size:13px;color:{_tv_pg_clr};font-weight:700">🎯 Altersgruppe: {_tv_pg}</span>'
+            f'<span style="font-size:13px;color:{_tv_pg_clr};font-weight:700">🎯 Trainingsstufe: {_tv_pg}</span>'
             f'<span style="color:#8b949e;font-size:12px">— {_tv_cfg["label"]}</span>'
             f'</div>',
             unsafe_allow_html=True,
@@ -4827,7 +4827,7 @@ def page_trainingsplan():
                         mime      = "application/pdf",
                         key       = "tp_pdf_download",
                     )
-                    _save_ok(f"Trainingsplan-PDF erstellt — {len(_tv_pdf_bytes) // 1024} KB · Altersgruppe: {_tv_pg}")
+                    _save_ok(f"Trainingsplan-PDF erstellt — {len(_tv_pdf_bytes) // 1024} KB · Trainingsstufe: {_tv_pg}")
                 except Exception as _tv_exc:
                     _save_err(f"PDF konnte nicht erstellt werden: {_tv_exc}")
 
@@ -6212,6 +6212,10 @@ def page_sprint():
 
     with tab_neu:
         datum = st.date_input("Testdatum", value=date.today(), key="sprint_datum")
+        # Alter am gewählten Testdatum — nicht heutiges Alter (Spec §3)
+        alter_sprint_td = alter_am_datum(
+            sp.get("geburtsdatum", "") if sp else "", datum.strftime("%d.%m.%Y")
+        ) or alter_sprint
         if datum > date.today():
             st.warning("⚠️ Testdatum liegt in der Zukunft — bitte prüfen.")
         st.markdown("#### Zeiten eingeben (Sekunden) — Versuch 1 / 2 / 3")
@@ -6228,7 +6232,7 @@ def page_sprint():
         from sprint import (beschleunigungsindex, bewertung_sprint, bewertung_farbe,
                             SprintErgebnis as _SE)
         res = _SE(beste_5m=b5, beste_10m=b10, beste_20m=b20, beste_30m=b30,
-                  geschlecht=geschl, niveau=niveau, alter=alter_sprint)
+                  geschlecht=geschl, niveau=niveau, alter=alter_sprint_td)
 
         if any([b5, b10, b20, b30, b40]):
             st.markdown("---")
@@ -6238,7 +6242,7 @@ def page_sprint():
             if b30: m3.metric("30 m", f"{b30:.2f} s", res.bewertung_30m)
             if b40: m4.metric("40 m", f"{b40:.2f} s")
             if res.beschl_index: m5.metric("Beschl.-Index", f"{res.beschl_index:.3f}")
-            st.caption(f"📊 {_tcap(alter_sprint, sp.get('geburtsdatum', '') if sp else '')}")
+            st.caption(f"📊 {_tcap(alter_sprint_td, sp.get('geburtsdatum', '') if sp else '')}")
 
             if res.defizite:
                 st.markdown("**🔴 Identifizierte Defizite:**")
@@ -6328,6 +6332,12 @@ def page_sprint():
                     l6.metric("Beschl.-Index", f"{lt['beschl_index']:.3f}")
                 if lt.get("bewertung_10m"):
                     st.caption(f"Bewertung 10 m: **{lt['bewertung_10m']}** | Datum: {lt.get('datum','—')}")
+                # Testreferenz basierend auf Alter AM TESTTAG (Spec §6)
+                _lt_alter_td = alter_am_datum(
+                    sp.get("geburtsdatum","") if sp else "", lt.get("datum","")
+                ) if sp and lt.get("datum") else alter_sprint
+                if _lt_alter_td is not None:
+                    st.caption(f"📊 Testreferenz am Testtag: {_tcap(_lt_alter_td, sp.get('geburtsdatum','') if sp else '')}")
 
         # ── Verlaufschart ────────────────────────────────────────────────────
         fig = go.Figure()
@@ -6524,6 +6534,10 @@ def page_sprung():
 
     with tab_neu:
         datum = st.date_input("Testdatum", value=date.today(), key="sprung_datum")
+        # Alter am gewählten Testdatum — nicht heutiges Alter (Spec §3)
+        alter_sprung_td = alter_am_datum(
+            sp.get("geburtsdatum", "") if sp else "", datum.strftime("%d.%m.%Y")
+        ) or alter_sprung
         if datum > date.today():
             st.warning("⚠️ Testdatum liegt in der Zukunft — bitte prüfen.")
         st.markdown("#### Sprünge — je 3 Versuche | Bestwert = max(V1, V2, V3)")
@@ -6544,7 +6558,7 @@ def page_sprung():
         from sprung import SprungErgebnis as _SpE
         res = _SpE(cmj_beid=b_cmj_beid, cmj_rechts=b_cmj_r, cmj_links=b_cmj_l,
                    squat_jump=b_squat, drop_jump_hoehe=b_dj_h, drop_jump_kz=b_dj_kz,
-                   standweit=b_swj, geschlecht=geschl, niveau=niveau, alter=alter_sprung)
+                   standweit=b_swj, geschlecht=geschl, niveau=niveau, alter=alter_sprung_td)
 
         if any([b_cmj_beid, b_cmj_r, b_cmj_l, b_squat, b_dj_h, b_swj]):
             st.markdown("---")
@@ -6555,7 +6569,7 @@ def page_sprung():
             if res.cmj_asymmetrie:
                 color_txt = "⚠️ auffällig" if res.cmj_asymmetrie > 10 else "✅ ok"
                 m4.metric("Asymmetrie", f"{res.cmj_asymmetrie:.1f} %", color_txt)
-            st.caption(f"📊 {_tcap(alter_sprung, sp.get('geburtsdatum', '') if sp else '')}")
+            st.caption(f"📊 {_tcap(alter_sprung_td, sp.get('geburtsdatum', '') if sp else '')}")
             if res.defizite:
                 st.markdown("**🔴 Identifizierte Defizite:**")
                 for d in res.defizite: st.markdown(f"- {d}")
@@ -6763,6 +6777,10 @@ def page_agilitaet():
 
     with tab_neu:
         datum = st.date_input("Testdatum", value=date.today(), key="agil_datum")
+        # Alter am gewählten Testdatum — nicht heutiges Alter (Spec §3)
+        alter_agil_td = alter_am_datum(
+            sp.get("geburtsdatum", "") if sp else "", datum.strftime("%d.%m.%Y")
+        ) or alter_agil
         if datum > date.today():
             st.warning("⚠️ Testdatum liegt in der Zukunft — bitte prüfen.")
 
@@ -6824,7 +6842,7 @@ def page_agilitaet():
         from agilitaet import AgilitaetErgebnis as _AE
         res = _AE(t505_r=t505_r, t505_l=t505_l, t5_10_5=t5_10_5,
                   t_test=t_test, illinois=illinois,
-                  geschlecht=geschl, niveau=niveau, alter=alter_agil)
+                  geschlecht=geschl, niveau=niveau, alter=alter_agil_td)
 
         alle_werte = [t505_r, t505_l, t5_10_5, t_test, illinois,
                       modified_t_test, pro_agility, arrowhead_r, arrowhead_l, zigzag, balsom_t]
@@ -6836,7 +6854,7 @@ def page_agilitaet():
             if t505_l:   m2.metric("505 links",  f"{t505_l:.2f} s")
             if t_test:   m3.metric("T-Test",     f"{t_test:.2f} s",   res.bew_t_test)
             if illinois: m4.metric("Illinois",   f"{illinois:.2f} s", res.bew_illinois)
-            st.caption(f"📊 {_tcap(alter_agil, sp.get('geburtsdatum', '') if sp else '')}")
+            st.caption(f"📊 {_tcap(alter_agil_td, sp.get('geburtsdatum', '') if sp else '')}")
             if res.asym_505:
                 color = "#f85149" if res.asym_505 > 10 else "#3fb950"
                 sign  = "⚠️ auffällig" if res.asym_505 > 10 else "✅ symmetrisch"
@@ -7829,9 +7847,13 @@ def page_ausdauer():
     with tab_neu:
         c1, c2 = st.columns(2)
         datum       = c1.date_input("Testdatum", value=date.today(), key="aus_datum")
+        # Alter am gewählten Testdatum für Altersgruppen-Default (Spec §3)
+        _alter_aus_td = alter_am_datum(
+            sp.get("geburtsdatum", "") if sp else "", datum.strftime("%d.%m.%Y")
+        ) or alter
         test_typ    = c1.selectbox("Test-Level", ["IR1", "IR2"], key="aus_typ")
         altersgruppe = c2.selectbox("Altersgruppe", ALTERSGRUPPEN_YO,
-                                     index=ALTERSGRUPPEN_YO.index(alter_zu_gruppe(alter or 20)),
+                                     index=ALTERSGRUPPEN_YO.index(alter_zu_gruppe(_alter_aus_td or 20)),
                                      key="aus_ag")
 
         st.markdown("#### Testergebnis")
@@ -8025,6 +8047,10 @@ def page_kraft():
 
     with tab_neu:
         datum = st.date_input("Testdatum", value=date.today(), key="kraft_datum")
+        # Alter am gewählten Testdatum — nicht heutiges Alter (Spec §3)
+        alter_td = alter_am_datum(
+            sp.get("geburtsdatum", "") if sp else "", datum.strftime("%d.%m.%Y")
+        ) or alter
         if datum > date.today():
             st.warning("⚠️ Testdatum liegt in der Zukunft — bitte prüfen.")
 
@@ -8110,7 +8136,7 @@ def page_kraft():
             rel = kraft_res.relative_kraft_direkt or kraft_res.relative_kraft_geschaetzt
             if rel:
                 m3.metric("Relative Kraft", f"{rel:.2f} ×KGW")
-                _stufe_rk, _empf_rk = _bwrk(rel, alter=alter, geschlecht=geschl)
+                _stufe_rk, _empf_rk = _bwrk(rel, alter=alter_td, geschlecht=geschl)
                 _clr_rk = {"Sehr gut": "#3fb950", "Gut": "#3fb950",
                            "Durchschnittlich": "#d29922",
                            "Unterdurchschnittlich": "#f85149", "Kritisch": "#f85149"}.get(_stufe_rk, "#8b949e")
@@ -8120,7 +8146,7 @@ def page_kraft():
                     f'<span style="color:{_clr_rk};font-weight:700">Bankdrücken Rel. Kraft: {_stufe_rk}</span>'
                     f'<span style="color:#8b949e;font-size:12px;margin-left:12px">{rel:.2f} ×KGW</span><br>'
                     f'<small style="color:#8b949e">{_empf_rk}</small>'
-                    f'<br><small style="color:#8b949e;font-size:11px">📊 {_tcap(alter, sp.get("geburtsdatum","") if sp else "")}</small></div>',
+                    f'<br><small style="color:#8b949e;font-size:11px">📊 {_tcap(alter_td, sp.get("geburtsdatum","") if sp else "")}</small></div>',
                     unsafe_allow_html=True,
                 )
 

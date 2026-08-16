@@ -1,0 +1,604 @@
+LETZTER MASTER-PRÜF-/NACHBESSERUNGSAUFTRAG VOR DEPLOYMENT
+ALTERSSYSTEM + DEFIZITKETTE + ALTER AM TESTTAG
+
+Die neue Trennung aus:
+- Fußballklasse
+- chronologischem Alter
+- Testreferenz
+
+ist grundsätzlich korrekt.
+
+Bitte KEINE neue Architektur bauen.
+Nur bestehende Logik prüfen und echte Fehler minimal korrigieren.
+
+==================================================
+1. TRAININGSPLAN-UI BEGRIFFLICH SAUBER TRENNEN
+==================================================
+
+Aktuell kann ein Spieler z.B. sein:
+
+Alter: 9 Jahre
+Fußballklasse: U11
+Testreferenz: U10
+interne Plangruppe: U8
+
+Das ist technisch möglich, aber die UI darf die interne Plangruppe nicht
+einfach als „Altersgruppe U8“ bezeichnen.
+
+Bitte alle Stellen prüfen, an denen _alter_zu_plangruppe() angezeigt wird.
+
+Statt:
+
+„Altersgruppe: U8“
+
+besser:
+
+„Trainingsstufe: U8/U9“
+oder
+„Trainingsgruppe: 8–9 Jahre“
+
+WICHTIG:
+Fußballklasse bleibt separat:
+„Fußballklasse: U11“
+
+Testreferenz separat:
+„Testreferenz: U10 (Alter 9–10)“
+
+Interne Belastungs-/Plangruppe separat:
+„Trainingsstufe: U8/U9“
+
+Keine Logikänderung nötig, nur klare Bezeichnung.
+
+==================================================
+2. ALLE TESTMODULE END-TO-END PRÜFEN
+==================================================
+
+Bitte ausdrücklich ALLE vorhandenen Module prüfen:
+
+- Anthropometrie
+- FMS
+- Y-Balance
+- Sprint
+- Sprung
+- Agilität
+- Ausdauer / Yo-Yo
+- Kraft
+- Spiro / Stufentest
+
+Für jedes Modul nachweisen:
+
+Messwert
+→ gültige Daten
+→ richtige Alters-/Normreferenz
+→ Bewertung
+→ Defizit
+→ Quelle
+→ Haupt-/Nebenschwerpunkt
+→ schwerpunkt_sammeln()
+→ defizit_score()
+→ Trainingsbereich
+
+==================================================
+3. ALTER AM TESTTAG FESTSCHREIBEN
+==================================================
+
+Sehr wichtig:
+
+Bei allen leistungsdiagnostischen Tests muss die Normbewertung anhand des
+chronologischen Alters AM TESTDATUM erfolgen.
+
+Nicht anhand des heutigen Alters.
+
+Beispiel:
+
+Geburtsdatum:
+26.08.2016
+
+Testdatum:
+20.08.2026
+
+Alter am Testtag:
+9 Jahre
+
+→ Testreferenz entsprechend Alter 9
+
+Am 26.08.2026 hat der Spieler Geburtstag und wird 10.
+
+Der bereits am 20.08.2026 gespeicherte Test darf danach NICHT automatisch mit
+Alter 10 neu bewertet werden.
+
+Ein neuer Test nach dem Geburtstag verwendet dann Alter 10.
+
+Prüfen für:
+
+- Sprint
+- Sprung
+- Agilität
+- Ausdauer
+- Kraft
+- Anthropometrie
+- FMS / Y-Balance, soweit Altersnormen verwendet werden
+- Spiro / Stufentest
+
+==================================================
+4. BESTEHENDE TESTS NICHT RÜCKWIRKEND VERÄNDERN
+==================================================
+
+Bestehende Testbefunde und gespeicherte Bewertungen dürfen nicht durch einen
+späteren Geburtstag stillschweigend ihre Bedeutung ändern.
+
+Wenn Bewertungen aktuell beim Laden dynamisch mit dem HEUTIGEN Alter neu
+berechnet werden:
+
+→ auf Alter am Testdatum umstellen.
+
+Wenn ein Test seine Bewertung bereits gespeichert hat:
+
+→ vorhandene gespeicherte Bewertung weiterverwenden, sofern fachlich korrekt.
+
+Keine Massenmigration alter Tests.
+
+Keine rückwirkende Neuberechnung aller bestehenden Datensätze.
+
+==================================================
+5. ALTER AM TESTTAG ZENTRAL BERECHNEN
+==================================================
+
+Bitte keine parallelen neuen Altersfunktionen in jedem Modul bauen.
+
+Bestehende zentrale Altersberechnung wiederverwenden oder minimal erweitern.
+
+Ziel:
+
+alter_am_datum(geburtsdatum, testdatum)
+
+bzw. bestehende Funktion so verwenden, dass:
+
+Geburtsdatum + konkretes Testdatum
+→ exaktes chronologisches Alter am Testtag.
+
+Datumsformate robust behandeln:
+
+- DD.MM.YYYY
+- YYYY-MM-DD
+- bestehende APH-Testdatumsformate
+- Datumswerte mit Zusatz wie Uhrzeit nur dort, wo bereits vorhanden
+
+Keine stille falsche Fallback-Berechnung auf „heute“.
+
+==================================================
+6. HISTORISCHE TESTREFERENZ IM UI
+==================================================
+
+Wenn ein alter Test angezeigt wird, soll die Referenz zu DIESEM Test passen.
+
+Beispiel:
+
+Test am 20.08.2026
+Alter am Testtag: 9
+
+Heute:
+27.08.2026
+Alter aktuell: 10
+
+Anzeige des alten Tests darf nicht sagen:
+„Testreferenz Alter 10“
+
+sondern:
+„Testreferenz am Testtag: U10 / Alter 9–10“
+oder sinngemäß korrekt.
+
+Fußballklasse kann heute weiterhin separat U11 sein.
+
+==================================================
+7. Y-BALANCE
+==================================================
+
+Prüfen:
+
+Auffällige Asymmetrie
+→ korrekter funktioneller Schwerpunkt
+
+Unauffällig
+→ kein künstliches Defizit
+
+Norm-/Bewertungslogik darf nicht von Fußballklasse abhängen.
+
+Falls Altersnorm verwendet wird:
+Alter am Testtag verwenden.
+
+==================================================
+8. AUSDAUER
+==================================================
+
+Prüfen:
+
+Yo-Yo / VO2 / intermittierende Ausdauer
+
+Auffälliger Test
+→ Aerobe Kapazität / intermittierende Ausdauer korrekt im Trainingsplan
+
+Unauffälliger Test
+→ kein künstliches Defizit
+
+Altersreferenz:
+Alter am Testtag.
+
+==================================================
+9. ANTHROPOMETRIE
+==================================================
+
+Prüfen:
+
+Anthropometrische Bewertung darf nur dann Trainingsrelevanz erzeugen,
+wenn die bestehende APH-Logik dies fachlich vorsieht.
+
+Keine falsche Defiziterzeugung nur wegen fehlender Referenz.
+
+Falls BMI/Körperfett altersabhängig bewertet wird:
+Alter am Messdatum verwenden.
+
+==================================================
+10. SPIRO / STUFENTEST
+==================================================
+
+Prüfen:
+
+VO2peak / Schwelle / Stufentest
+→ vorhandene Bewertung
+→ korrekter Ausdauer-Schwerpunkt
+
+Keine Daten
+→ NO_DATA
+
+Keine falsche Normübernahme aus Fußballklasse.
+
+Falls Altersnorm vorhanden:
+Alter am Testtag verwenden.
+
+==================================================
+11. SPRINT
+==================================================
+
+Prüfen:
+
+- 5 m
+- 10 m
+- 20 m
+- 30 m
+- 40 m
+
+Sprintbewertung immer mit Alter am Sprint-Testdatum.
+
+Nicht mit aktuellem Alter.
+
+Beispiel:
+
+Geburtsdatum 26.08.2016
+Sprinttest 20.08.2026
+→ Alter 9
+
+Sprinttest 30.08.2026
+→ Alter 10
+
+Beide Tests dürfen unterschiedliche Testreferenzen besitzen,
+ohne dass der ältere Test rückwirkend verändert wird.
+
+==================================================
+12. SPRUNG
+==================================================
+
+CMJ / DJ / RSI / Standweitsprung usw.
+
+Bewertung mit Alter am Testdatum.
+
+Wenn keine passende Norm:
+Messwert anzeigen
+→ kein künstliches Defizit.
+
+==================================================
+13. AGILITÄT
+==================================================
+
+505 / COD / Reaktion
+
+Bewertung mit Alter am Testdatum.
+
+Auffällig:
+→ Agilität / Richtungswechsel
+
+Unauffällig:
+→ kein Defizit.
+
+==================================================
+14. KRAFT
+==================================================
+
+Relative Kraft / Rumpfkraft etc.
+
+Normbezug auf Alter am Testdatum.
+
+Fußballklasse nicht als Normgruppe verwenden.
+
+==================================================
+15. FMS
+==================================================
+
+FMS-Score / funktionelle Defizite weiterhin nach bestehender Logik.
+
+Falls FMS keine altersabhängige Norm nutzt:
+keine künstliche Alterslogik hinzufügen.
+
+Nur dort Alter am Testdatum einsetzen, wo tatsächlich erforderlich.
+
+==================================================
+16. KONKRETER 2016-TEST
+==================================================
+
+Geburtsdatum:
+26.08.2016
+
+Datum heute:
+16.08.2026
+
+Erwartung:
+
+Alter:
+9 Jahre
+
+Jahrgang:
+2016
+
+Fußballklasse:
+U11
+
+Saison:
+2026/27
+
+Testreferenz:
+U10 / Alter 9–10, soweit für den jeweiligen Test gültig
+
+Trainingsstufe:
+U8/U9 bzw. 8–9 Jahre
+
+NICHT irgendwo missverständlich:
+„Altersgruppe U8“
+
+==================================================
+17. GEBURTSTAGS-GRENZTEST
+==================================================
+
+Geburtsdatum:
+26.08.2016
+
+TEST A:
+20.08.2026
+→ Alter am Testtag = 9
+
+TEST B:
+26.08.2026
+→ Alter am Testtag = 10
+
+TEST C:
+27.08.2026
+→ Alter am Testtag = 10
+
+Erwartung:
+
+Test A bleibt dauerhaft mit Referenz Alter 9 bewertet.
+
+Test B/C verwenden Referenz Alter 10.
+
+Wenn heute später geladen:
+Test A darf NICHT neu mit Alter 10 berechnet werden.
+
+==================================================
+18. DEFIZIT-KONSISTENZTEST
+==================================================
+
+Für jeden Test:
+
+Wenn UI sagt:
+„Normbereich“ / „Unauffällig“
+→ Trainingsplan darf daraus KEIN Defizit erzeugen.
+
+Wenn UI sagt:
+„Verbesserungsbedarf“ / relevante Auffälligkeit
+→ Defizit muss im Trainingsplan ankommen.
+
+Wenn keine gültige Referenz existiert:
+→ Messwert anzeigen
+→ kein künstliches Defizit.
+
+Dabei immer die Bewertung vom Testzeitpunkt verwenden.
+
+==================================================
+19. HAUPT-/NEBENSCHWERPUNKTE
+==================================================
+
+Bestehende Logik weiterverwenden:
+
+- wichtigste 2–3 Defizite = Hauptschwerpunkte
+- weitere Auffälligkeiten = Nebenschwerpunkte
+
+Prüfen:
+
+- gleiche Quelle nicht versehentlich doppelt zählen
+- Sprint und Agilität getrennte Bereiche
+- Ausdauerarten sinnvoll zusammengeführt
+- FMS/Y-Balance nicht künstlich doppelt gewichten
+- Geburtstag darf bestehende Prioritäten alter Tests nicht rückwirkend verändern
+
+==================================================
+20. TRAININGSPLAN
+==================================================
+
+Trainingsplan soll die aktuellsten gültigen Testbefunde verwenden.
+
+Wichtig:
+
+Ein gespeichertes Defizit aus einem Test bleibt fachlich auf der Referenz des
+Testtages basiert.
+
+Beim aktuellen Trainingsplan darf die aktuelle Belastungssteuerung trotzdem
+das HEUTIGE chronologische Alter verwenden.
+
+Also klare Trennung:
+
+TESTBEFUND
+→ Alter am Testdatum
+
+AKTUELLE BELASTUNGSSTEUERUNG
+→ aktuelles chronologisches Alter
+
+FUSSBALLKLASSE
+→ Saison + Jahrgang
+
+Diese drei Dinge nicht vermischen.
+
+==================================================
+21. PDF / REPORTS
+==================================================
+
+Prüfen, ob Testberichte/PDFs eine Alters-/Normreferenz anzeigen.
+
+Falls ja:
+
+bei historischen Tests:
+→ Alter am Testdatum anzeigen.
+
+Bei Trainingsplan:
+→ aktuelles Alter bei Planerstellung
+→ Fußballklasse separat
+→ Trainingsstufe separat
+
+Keine rückwirkend falschen Altersangaben.
+
+==================================================
+22. BESTEHENDE FUNKTIONEN NICHT ÄNDERN, WENN KORREKT
+==================================================
+
+Nur echte Fehler korrigieren.
+
+Nicht verändern:
+
+- Equipment
+- Wochenplanung
+- Trainer-Beitrittscode
+- Upload
+- Stripe
+- Session
+- Passwort
+- Kundennummern
+- Benutzerverwaltung
+
+Keine unnötige DB-Migration.
+
+==================================================
+23. TESTMATRIX
+==================================================
+
+Jahrgänge / Alter:
+
+6
+7
+8
+9
+10
+11
+12
+14
+16
+18
+Senior
+
+Für jedes Alter prüfen:
+
+- Fußballklasse
+- chronologisches Alter
+- Testreferenz
+- Trainingsstufe
+- Belastungssteuerung
+
+Zusätzlich Geburtstag-Grenztests.
+
+==================================================
+24. END-TO-END TEST ALLE 9 MODULE
+==================================================
+
+Für jedes Modul:
+
+Anthropometrie
+FMS
+Y-Balance
+Sprint
+Sprung
+Agilität
+Ausdauer
+Kraft
+Spiro/Stufentest
+
+jeweils prüfen:
+
+Messwert
+→ Alter am Testtag
+→ Normreferenz
+→ Bewertung
+→ Defizit
+→ Quelle
+→ Haupt-/Nebenschwerpunkt
+→ Trainingsbereich
+
+==================================================
+25. TECHNISCHE TESTS
+==================================================
+
+py_compile aller geänderten Python-Dateien.
+
+Block-B:
+35/35 PASS.
+
+Zusätzliche Tests:
+
+- Saisonwechsel
+- Fußballklasse
+- Normgruppe
+- Alter am Testtag
+- Geburtstag-Grenzfall
+- Defizit-Mapping
+- Trainingsplan-Mapping
+- historische Tests ändern sich nach Geburtstag nicht
+
+==================================================
+26. ABSCHLUSSBERICHT
+==================================================
+
+Bitte berichten:
+
+1. welche UI-Bezeichnungen geändert wurden
+2. konkrete Trennung Fußballklasse / Testreferenz / Trainingsstufe
+3. wie Alter am Testtag berechnet wird
+4. ob bestehende Tests vorher dynamisch mit heutigem Alter neu bewertet wurden
+5. wie historische Tests jetzt stabil bleiben
+6. konkreter Geburtstagstest 20.08 / 26.08 / 27.08
+7. Ergebnis Anthropometrie
+8. Ergebnis FMS
+9. Ergebnis Y-Balance
+10. Ergebnis Sprint
+11. Ergebnis Sprung
+12. Ergebnis Agilität
+13. Ergebnis Ausdauer
+14. Ergebnis Kraft
+15. Ergebnis Spiro/Stufentest
+16. Haupt-/Nebenschwerpunkt-Logik
+17. Trainingsplan: Testalter vs. aktuelles Belastungsalter
+18. PDF/Report-Verhalten
+19. geänderte Dateien
+20. DB-Änderung ja/nein
+21. py_compile
+22. Block-B
+23. zusätzliche Tests
+
+Danach STOPPEN.
+
+Noch nicht deployen.

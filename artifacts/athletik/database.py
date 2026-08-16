@@ -1032,6 +1032,36 @@ def berechne_alter(geburtsdatum_str: str) -> int | None:
     return None
 
 
+def alter_am_datum(geburtsdatum_str: str, testdatum_str: str) -> int | None:
+    """Chronologisches Alter an einem bestimmten Testdatum (nicht heute).
+
+    Robuste Behandlung beider Datumsformate (DD.MM.YYYY / YYYY-MM-DD) sowie
+    Uhrzeitsuffixe wie ' (14:30)' die beim Duplikat-Handling angehängt werden.
+    Gibt None zurück bei leerem Wert, ungültigem Format oder Datum in der Zukunft.
+    """
+    if not geburtsdatum_str or not testdatum_str:
+        return None
+    # Uhrzeitsuffix " (HH:MM)" oder ISO-Zeitanteil " HH:MM:SS" abschneiden
+    _td = testdatum_str.split(" ")[0].strip()
+    geb: date | None = None
+    for geb_fmt in ("%d.%m.%Y", "%Y-%m-%d"):
+        try:
+            geb = datetime.strptime(geburtsdatum_str, geb_fmt).date(); break
+        except ValueError:
+            continue
+    if geb is None:
+        return None
+    td: date | None = None
+    for td_fmt in ("%d.%m.%Y", "%Y-%m-%d"):
+        try:
+            td = datetime.strptime(_td, td_fmt).date(); break
+        except ValueError:
+            continue
+    if td is None or geb > td:
+        return None
+    return td.year - geb.year - ((td.month, td.day) < (geb.month, geb.day))
+
+
 def altersklasse_vorschlag(geburtsdatum_str: str) -> str:
     """Schlägt die passende Altersklasse anhand des Alters vor."""
     alter = berechne_alter(geburtsdatum_str)
