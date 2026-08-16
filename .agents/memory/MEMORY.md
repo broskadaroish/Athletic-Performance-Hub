@@ -18,6 +18,7 @@
 - [Mobile nav final architecture](mobile-nav-final.md) — st.button ⬡IDX triggers + inline onclick JS; NO declare_component, NO href nav; onerror JS fixes Chrome auto-translate
 - [SCHRITT 8 Dashboard Trainer](schritt8-dashboard.md) — _dash_trainer komplett ersetzt; neue Helper-Funktionen; Hilfsfunktionen vor _dash_trainer in saas_dashboard.py
 - [Mobile nav session race condition](mobile-nav-session.md) — CookieController braucht 1 Extra-Rerun; loading-Platzhalter statt sofortigem Login-Gate verhindert Session-Verlust
+- [Session DB-Touch](session-db-touch.md) — session_validieren aktualisiert letzte_aktivitaet nur im Login-Gate; throttled session_aktivitaet_aktualisieren() nötig für aktive WS-Sessions
 - [SCHRITT 9 Datensicherheit](schritt9-datensicherheit.md) — spieler_mandant_pruefen(), backup_status_laden(), db_backup_erstellen() in database.py; daily backup in lizenz_scheduler.py; Datensicherheit-Dashboard im Superadmin Export-Expander
 - [SCHRITT 10 Rechtliche Seiten](schritt10-legal.md) — modules/legal_page.py; Sidebar-Buttons entfernt (StreamlitAPIException); nav_section NIE direkt schreiben nach Widget-Erstellung; _nav_goto Pattern nutzen
 - [Mobile nav screen-width detection](mobile-nav-screenwidth.md) — _inject_screen_width_detect() schreibt ?_sw= via location.replace; handle_mobile_nav_params liest es; render_mobile_nav hat Python-Guard _sw>768; einmalig-Reload ist akzeptabel (Cookie-Auth überlebt)

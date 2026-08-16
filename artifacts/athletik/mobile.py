@@ -228,17 +228,48 @@ def inject_mobile_sidebar_opener() -> None:
       btn.setAttribute('aria-label', 'Navigation öffnen');
       btn.setAttribute('title', 'Navigation öffnen');
       btn.textContent = '\\u2630';   /* ☰ */
+      btn._aphLastClick = 0;
 
-      btn.addEventListener('click', function(e) {
-        e.preventDefault();
-        /* Query fresh each click — Streamlit replaces DOM nodes on reruns. */
-        var target = (
+      /* findSidebarToggle — queries fresh each call because Streamlit's
+         React tree replaces DOM nodes on reruns.
+         Selector chain covers Streamlit 1.30–1.60+. */
+      function findSidebarToggle() {
+        return (
           doc.querySelector('[data-testid="stSidebarCollapseButton"] button') ||
           doc.querySelector('[data-testid="stSidebarHeader"] button')         ||
-          doc.querySelector('section[data-testid="stSidebar"] button')
+          doc.querySelector('section[data-testid="stSidebar"] button')        ||
+          doc.querySelector('button[aria-label*="sidebar"]')                  ||
+          doc.querySelector('button[aria-label*="Sidebar"]')
         );
-        if (target) target.click();
-      });
+      }
+
+      /* tryClick — retries up to `attempts` times with 200ms intervals.
+         Needed when Streamlit is mid-rerun and sidebar button is not yet
+         in the DOM. */
+      function tryClick(attempts) {
+        var target = findSidebarToggle();
+        if (target) {
+          target.click();
+        } else if (attempts > 0) {
+          setTimeout(function() { tryClick(attempts - 1); }, 200);
+        }
+      }
+
+      /* Shared handler — attached once, reused across Streamlit reruns.
+         Debounce: 400ms prevents double-trigger on rapid tap (mobile).
+         Last-click time stored on the element (survives IIFE re-runs). */
+      function handleOpen(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        var now = Date.now();
+        if (now - (btn._aphLastClick || 0) < 400) return;
+        btn._aphLastClick = now;
+        tryClick(3);  /* retry up to 3×200ms = 600ms if DOM not ready */
+      }
+
+      btn.addEventListener('click',    handleOpen, { passive: false });
+      /* touchend: eliminates ~300ms tap-to-click delay on older iOS/Android */
+      btn.addEventListener('touchend', handleOpen, { passive: false });
 
       doc.body.appendChild(btn);
     }

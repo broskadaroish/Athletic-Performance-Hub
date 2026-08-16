@@ -5154,6 +5154,26 @@ def session_token_aktiv(token: str) -> bool:
         return False  # Fail-closed: DB-Fehler → Zugriff verweigern
 
 
+def session_aktivitaet_aktualisieren(token: str) -> None:
+    """Aktualisiert letzte_aktivitaet für eine aktive Session.
+
+    Wird throttled (alle 5 Minuten) bei authentifizierten Reruns aufgerufen,
+    damit der idle_sek-Timer korrekt läuft — auch wenn kein Browser-Reload
+    stattfindet und session_validieren() daher nie aufgerufen wird.
+
+    Fail-open: Bei DB-Fehler passiert nichts (kein Logout).
+    """
+    import datetime as _dt
+    try:
+        with get_conn() as conn:
+            conn.execute(
+                "UPDATE sessions SET letzte_aktivitaet=? WHERE token=? AND aktiv=1",
+                (_dt.datetime.utcnow().isoformat(), token),
+            )
+    except Exception:
+        pass  # Fail-open: nur Aktivitätsupdate, kein Security-relevantes Fail
+
+
 def session_beenden(token: str) -> None:
     """Markiert Session als inaktiv (Logout)."""
     try:

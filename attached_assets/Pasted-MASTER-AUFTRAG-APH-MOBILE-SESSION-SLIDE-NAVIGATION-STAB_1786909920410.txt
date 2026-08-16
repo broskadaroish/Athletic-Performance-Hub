@@ -1,0 +1,307 @@
+MASTER-AUFTRAG – APH MOBILE SESSION + SLIDE-NAVIGATION STABILISIEREN
+
+WICHTIG:
+Noch nicht blind umbauen.
+Zuerst die bestehende Session-, Cookie-, Login- und Mobile-Navigation vollständig analysieren.
+Danach nur die tatsächlich gefundenen Ursachen korrigieren.
+
+==================================================
+TEIL A – MOBILE LOGIN / SESSION-PERSISTENZ
+==================================================
+
+AKTUELLES FEHLVERHALTEN:
+
+Auf dem Smartphone bin ich in APH eingeloggt.
+
+Wenn ich:
+- das Handy-Display kurz ausschalte,
+- den Browser kurz in den Hintergrund schicke,
+- zu einer anderen App wechsle
+- und anschließend zu APH zurückkehre,
+
+muss ich mich teilweise erneut anmelden.
+
+Das darf bei einer gültigen Login-Session NICHT passieren.
+
+ZIEL:
+
+Ein Benutzer soll angemeldet bleiben, solange seine serverseitige
+APH-Session gültig ist.
+
+Ein kurzer:
+- Display-Lock
+- Browser-Wechsel
+- App-Wechsel
+- Tab-Wechsel
+- Streamlit-Reconnect
+- Netzwerkunterbruch
+
+darf nicht automatisch zum Logout führen.
+
+--------------------------------------------------
+A1 – BESTAND ZUERST ANALYSIEREN
+--------------------------------------------------
+
+Prüfe vollständig:
+
+- auth.py
+- app.py
+- database.py
+- Session-Tabelle
+- ath_sid Cookie
+- Cookie-Erstellung
+- Cookie-Lesen
+- Cookie-Löschen
+- Session-Wiederherstellung
+- Session-State
+- Idle-Timeout
+- maximale Session-Lebensdauer
+- Streamlit reconnect/rerun Verhalten
+- Logout-Logik
+- Passwortänderung / Session-Invalidierung
+- Account-Deaktivierung
+
+Dokumentiere zuerst die genaue Ursache.
+
+NICHT einfach Timeout-Werte erhöhen, wenn das Problem in der
+Session-Wiederherstellung liegt.
+
+--------------------------------------------------
+A2 – SESSION MUSS SERVERSEITIG WIEDERHERSTELLBAR SEIN
+--------------------------------------------------
+
+Wenn Streamlit seinen st.session_state verliert oder eine neue
+WebSocket-/Streamlit-Session erstellt:
+
+1. ath_sid Cookie lesen
+2. Session-ID serverseitig validieren
+3. Benutzer aus der Session laden
+4. Benutzerstatus prüfen
+5. st.session_state wiederherstellen
+6. Benutzer bleibt eingeloggt
+
+Ein leerer neuer st.session_state allein darf NICHT bedeuten:
+→ Benutzer ausloggen.
+
+--------------------------------------------------
+A3 – COOKIE PRÜFEN
+--------------------------------------------------
+
+Prüfe insbesondere:
+
+- Ablaufzeit / Max-Age
+- Path=/
+- Secure bei HTTPS
+- SameSite
+- Domain
+- Cookie wird nicht unnötig überschrieben
+- Cookie wird bei normalem Rerun nicht gelöscht
+- Cookie wird bei Streamlit-Reconnect wieder gelesen
+
+Produktiv läuft APH über:
+
+https://aphsystem.de
+
+Cookie muss dort zuverlässig funktionieren.
+
+--------------------------------------------------
+A4 – SICHERHEIT NICHT ABSCHWÄCHEN
+--------------------------------------------------
+
+Folgende Fälle müssen weiterhin ausloggen bzw. Zugriff verhindern:
+
+- Benutzer klickt Logout
+- Session serverseitig abgelaufen
+- Konto deaktiviert
+- Passwort geändert und bestehende Sessions sollen invalidiert werden
+- Session-ID ungültig/manipuliert
+
+KEIN permanenter unsicherer Login.
+
+Bestehenden Brute-Force-Schutz nicht verändern.
+
+==================================================
+TEIL B – SLIDE-NAVIGATION MOBILE STABILISIEREN
+==================================================
+
+AKTUELLES FEHLVERHALTEN:
+
+Das mobile Slide-Menü hängt gelegentlich.
+
+Beispiele:
+
+- Menü reagiert nicht
+- Menü öffnet/schließt nicht sauber
+- Navigation reagiert erst nach erneutem Klick
+- nach Browser-/App-Wechsel kann das Menü hängen
+- nach Streamlit-Rerun kann der Zustand inkonsistent sein
+
+ZIEL:
+
+Slide-Navigation muss auf Android/iPhone und Desktop zuverlässig
+funktionieren.
+
+--------------------------------------------------
+B1 – URSACHE ANALYSIEREN
+--------------------------------------------------
+
+Prüfe:
+
+- mobile.py
+- app.py
+- Slide-Navigation
+- JavaScript
+- CSS
+- Streamlit Components / HTML
+- session_state Navigation
+- _nav_goto
+- nav_section
+- Subnavigation
+- rerun
+- Event Listener
+- DOM IDs
+- doppelte Listener
+- Overlay / z-index
+- pointer-events
+- Menü-Zustand nach rerun
+
+--------------------------------------------------
+B2 – KEINE DOPPELTEN EVENT LISTENER
+--------------------------------------------------
+
+Prüfen, ob durch Streamlit-Reruns JavaScript-Listener mehrfach
+registriert werden.
+
+Falls ja:
+→ idempotente Initialisierung einbauen.
+
+Ein Rerun darf nicht immer weitere click/touch Listener hinzufügen.
+
+--------------------------------------------------
+B3 – MENÜZUSTAND
+--------------------------------------------------
+
+Der Zustand muss eindeutig sein:
+
+OPEN
+oder
+CLOSED
+
+Nach Navigation:
+→ Menü automatisch schließen.
+
+Nach Rerun:
+→ definierter Zustand.
+
+Nach Browser-Resume:
+→ Menü weiterhin bedienbar.
+
+Kein unsichtbares Overlay darf die Seite blockieren.
+
+--------------------------------------------------
+B4 – TOUCH / MOBILE
+--------------------------------------------------
+
+Prüfen:
+
+- touchstart/click Konflikte
+- doppelte Auslösung
+- pointer-events
+- Overlay
+- Scroll-Lock
+- body overflow
+- z-index
+- Hamburger-Button
+
+Nach Schließen des Menüs muss die normale Seite wieder vollständig
+scroll- und anklickbar sein.
+
+==================================================
+TEIL C – REGRESSIONSSCHUTZ
+==================================================
+
+NICHT verändern:
+
+- Datenbankstruktur, sofern nicht zwingend erforderlich
+- Spieler
+- Tests
+- Testnormen
+- Alterslogik
+- Saisonlogik
+- Trainingsplan
+- Equipment
+- Defizitlogik
+- Stripe
+- Kundennummern
+- Benutzerrollen
+- Passwort-Hashing
+- Trainer-Beitrittscode
+- E-Mail-Verifikation
+
+Die zuletzt korrigierte U-Logik muss vollständig erhalten bleiben.
+
+==================================================
+TEIL D – TESTS
+==================================================
+
+Mindestens folgende Fälle prüfen:
+
+SESSION:
+
+1. Login
+2. normaler Streamlit-Rerun → weiterhin eingeloggt
+3. neuer leerer st.session_state + gültiges ath_sid
+   → Session wird wiederhergestellt
+4. ungültiges ath_sid → Login erforderlich
+5. abgelaufene Session → Login erforderlich
+6. deaktivierter Benutzer → kein Zugriff
+7. Logout → Cookie/Session ungültig
+8. Passwortänderung → bestehende Session wie vorgesehen invalidiert
+
+MOBILE NAV:
+
+9. Menü 20× öffnen/schließen
+10. mehrere Seiten nacheinander öffnen
+11. Unterseiten öffnen
+12. Zurück-Button verwenden
+13. Streamlit-Rerun
+14. Browser verliert Fokus und bekommt ihn zurück
+15. Menü danach weiterhin bedienbar
+16. kein Overlay blockiert die Seite
+17. Seite weiterhin scrollbar
+
+BESTEHENDE TESTS:
+
+- test_ulogik.py
+- test_saison.py
+- test_alter_testtag.py
+- test_block_b.py
+- py_compile aller geänderten Python-Dateien
+
+==================================================
+ABSCHLUSSBERICHT
+==================================================
+
+Danach exakt berichten:
+
+1. Ursache des mobilen Logouts
+2. Ursache des hängenden Slide-Menüs
+3. geänderte Dateien
+4. wie ath_sid jetzt wiederhergestellt wird
+5. Cookie-Konfiguration
+6. Idle-Timeout
+7. maximale Session-Lebensdauer
+8. Verhalten bei Display-Lock
+9. Verhalten bei Browser-/App-Wechsel
+10. Verhalten bei echtem Logout
+11. Verhalten bei Passwortänderung
+12. Änderung an Slide-Navigation
+13. Schutz gegen doppelte Event Listener
+14. alle neuen Tests + Ergebnisse
+15. bestehende Regressionstests + Ergebnisse
+16. DB-Änderungen ja/nein
+
+Danach STOPPEN.
+
+NICHT DEPLOYEN.
+NICHT eigenständig weitere Funktionen umbauen.

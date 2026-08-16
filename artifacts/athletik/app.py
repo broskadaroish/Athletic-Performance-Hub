@@ -332,7 +332,8 @@ if "user" not in st.session_state:
     # Die URL-Parameter (?checkout=success etc.) bleiben im Browser erhalten und
     # werden nach erfolgreichem Restore im eingeloggten Bereich korrekt verarbeitet.
     # Kein Token in URL — ausschließlich Cookie-basierte Authentifizierung.
-    _COOKIE_MAX_WAIT = 4  # Maximale Wartezyklen bevor Login-Seite angezeigt wird
+    _COOKIE_MAX_WAIT = 8  # Maximale Wartezyklen bevor Login-Seite angezeigt wird
+    # 8 × 0.35s = 2.8s: genug für langsame mobile Verbindungen bei Browser-Resume
 
     if _cookie_ctrl and not _qp_verify and not _qp_reset:
         try:
@@ -1460,6 +1461,30 @@ if _rerun_token:
 # ─── Session-Timeout: inaktive Sitzungen automatisch abmelden ────────────────
 from session_timeout import check_session_timeout, touch_session
 check_session_timeout()
+
+# ─── Throttled DB-Touch: letzte_aktivitaet alle 5 Minuten aktualisieren ──────
+#
+# WARUM: session_validieren() — die einzige Funktion, die letzte_aktivitaet
+# aktualisiert — wird nur im Login-Gate aufgerufen (wenn "user" nicht im
+# session_state ist). Bei aktiver WebSocket-Session läuft per-Rerun nur
+# session_token_aktiv(), das letzte_aktivitaet NICHT aktualisiert.
+#
+# FOLGE OHNE FIX: Ein Nutzer, der >60 Minuten ohne Browser-Reload arbeitet,
+# hat eine DB-Session mit idle-abgelaufener letzte_aktivitaet. Beim nächsten
+# Reconnect (Display-Lock, App-Wechsel) → session_validieren() findet
+# idle_sek überschritten → None → Login-Formular, obwohl Nutzer aktiv war.
+#
+# FIX: Throttled DB-Touch alle 5 Minuten bei authentifizierten Reruns.
+# Nur wenn _session_token bekannt ist und letzte DB-Berührung > 5 Minuten zurückliegt.
+_DB_TOUCH_INTERVAL_SEC = 300  # 5 Minuten
+if _rerun_token:
+    import time as _time_mod
+    _last_db_touch = st.session_state.get("_last_db_touch_ts", 0.0)
+    _now_ts = _time_mod.time()
+    if (_now_ts - _last_db_touch) > _DB_TOUCH_INTERVAL_SEC:
+        from database import session_aktivitaet_aktualisieren as _saa
+        _saa(_rerun_token)
+        st.session_state["_last_db_touch_ts"] = _now_ts
 
 # ─── Lizenz-Gate: Abgelaufene oder gesperrte Lizenzen blockieren ─────────────
 from license import enforce_license_gate
