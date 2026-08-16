@@ -1,0 +1,613 @@
+# SUPERADMIN – LIZENZVERWALTUNG KOMPLETT ÜBERSICHTLICHER GESTALTEN
+
+Die bestehende Lizenzverwaltung soll optisch und strukturell deutlich verbessert werden.
+
+WICHTIG:
+Diese komplette Seite ist **ausschließlich für den Superadmin** bestimmt.
+
+Trainer, Vereine, Spieler oder andere Rollen dürfen:
+
+* die Lizenzverwaltung nicht in der Navigation sehen
+* die Seite nicht direkt aufrufen können
+* keine Daten dieser Seite laden können
+* keine Lizenzaktionen ausführen können
+
+Bestehende Rollen-/Rechteprüfung unbedingt beibehalten und zusätzlich prüfen, dass die Seite serverseitig/innerhalb der App-Logik wirklich nur für `superadmin` gerendert wird.
+
+Keine bestehende Lizenz-, Stripe-, Datenbank- oder Zahlungslogik verändern, sofern dies für die reine UI-Überarbeitung nicht notwendig ist.
+
+---
+
+# 1. DESIGNZIEL
+
+Die neue Lizenzverwaltung soll sich optisch an der beigefügten Designreferenz orientieren:
+
+* modernes Dark-Theme
+* klare Karten
+* kompakte Filter
+* übersichtliche Status-Badges
+* Desktop als Tabelle
+* Mobile als Kartenansicht
+* keine überladenen Expander
+* keine unübersichtliche Aneinanderreihung langer Texte
+
+Das Design darf an die bestehende APH-Oberfläche angepasst werden.
+
+Nicht das gesamte APH-Theme neu bauen.
+
+---
+
+# 2. KOPFBEREICH
+
+Oben:
+
+## Lizenzverwaltung
+
+Untertitel:
+
+**Übersicht und Verwaltung aller Lizenzen**
+
+Rechts bzw. sinnvoll positioniert:
+
+**+ Lizenz zuweisen**
+
+Dieser Button ist ausschließlich für den Superadmin sichtbar.
+
+Beim Klick soll die bereits vorhandene Funktion zum manuellen Zuweisen einer Lizenz verwendet werden.
+
+Keine neue Lizenzlogik erfinden, wenn bereits eine bestehende Funktion vorhanden ist.
+
+---
+
+# 3. KENNZAHLEN OBEN
+
+Direkt unter dem Titel vier kompakte Statistik-Karten:
+
+### Gesamt
+
+Gesamtzahl aller nicht endgültig gelöschten Lizenzdatensätze
+
+### Aktiv
+
+Aktive Lizenzen
+
+### Läuft bald ab
+
+Lizenzen, die innerhalb der nächsten 30 Tage ablaufen
+
+### Abgelaufen
+
+Abgelaufene Lizenzen
+
+Wenn es bereits zusätzlich archivierte Lizenzen gibt, diese nicht in „Abgelaufen“ hineinmischen.
+
+Jede Kennzahl soll farblich klar erkennbar sein:
+
+* Gesamt = neutral/blau
+* Aktiv = grün
+* Läuft bald ab = orange
+* Abgelaufen = rot
+
+Auf Mobile dürfen die Karten in 2×2 oder untereinander angeordnet werden.
+
+---
+
+# 4. TABS
+
+Unter den Kennzahlen Tabs:
+
+* Alle Lizenzen
+* Vereinslizenzen
+* Trainerlizenzen
+* Archiv
+
+Diese Tabs sollen nur filtern.
+
+Keine neue Datenstruktur anlegen.
+
+Bestehende Lizenzdaten und Felder weiterverwenden.
+
+---
+
+# 5. FILTERBEREICH
+
+Kompakte Filterleiste:
+
+* Suche
+* Lizenztyp
+* Status
+* Filter zurücksetzen
+
+## Suche
+
+Suchen können nach:
+
+* Name
+* Vereinsname
+* Trainername
+* E-Mail
+* Paketname
+
+## Lizenztyp
+
+Beispiele:
+
+* Alle
+* Verein Basic
+* Verein Pro
+* Einzeltrainer Basic
+* Einzeltrainer Pro
+
+Bitte die tatsächlich im System vorhandenen Paketnamen verwenden.
+
+## Status
+
+* Alle
+* Aktiv
+* Läuft bald ab
+* Abgelaufen
+* Archiviert
+* ggf. Deaktiviert, wenn dieser Status technisch bereits existiert
+
+Keine neuen Statuswerte erfinden.
+
+---
+
+# 6. DESKTOP – TABELLENANSICHT
+
+Auf Desktop eine saubere Tabelle bzw. tabellenähnliche Darstellung.
+
+Spalten:
+
+### Kunde
+
+* Vereinsname oder Trainername
+* darunter ggf. E-Mail klein/dezent
+
+### Paket
+
+* z. B. Verein Pro
+* Trainer Basic
+
+### Typ
+
+* Verein
+* Trainer
+
+### Status
+
+Farbiges Badge:
+
+* 🟢 Aktiv
+* 🟠 Läuft bald ab
+* 🔴 Abgelaufen
+* ⚪ Archiviert
+* ggf. Deaktiviert
+
+### Laufzeit
+
+* Startdatum
+* Enddatum
+* oder verbleibende Tage, falls vorhanden
+
+### Nächste Zahlung
+
+Nur wenn diese Information bereits aus Stripe oder der Datenbank vorhanden ist.
+
+Keine Zahlungstermine erfinden.
+
+Wenn nicht vorhanden:
+
+`—`
+
+### Aktionen
+
+Kompakte Buttons bzw. Icons:
+
+* Details
+* Bearbeiten
+* Mehr
+
+Keine riesigen Aktionsbereiche direkt in jeder Tabellenzeile anzeigen.
+
+---
+
+# 7. MOBILE – KEINE BREITE TABELLE
+
+Auf Smartphones keine horizontale Desktop-Tabelle erzwingen.
+
+Jede Lizenz als eigene kompakte Karte darstellen.
+
+Beispiel:
+
+**Avan Daroish**
+`Einzeltrainer Basic`
+🟢 **Aktiv**
+
+**28 Tage verbleibend**
+
+Ablauf: `xx.xx.xxxx`
+
+Buttons:
+
+**Details** | **Bearbeiten** | **⋮**
+
+Nächste Karte:
+
+**Zahra Daroish**
+`Einzeltrainer Basic`
+🟠 **Läuft bald ab**
+
+**27 Tage verbleibend**
+
+Ablauf: `xx.xx.xxxx`
+
+---
+
+# 8. DETAILS NICHT DIREKT ALLE ANZEIGEN
+
+Die aktuelle Lizenzverwaltung wirkt unübersichtlich, weil zu viele Informationen gleichzeitig sichtbar sind.
+
+Deshalb:
+
+In der Hauptübersicht nur die wichtigsten Informationen anzeigen.
+
+Alle weiteren Informationen erst nach Klick auf:
+
+**Details**
+
+Dort dürfen bestehende Daten angezeigt werden, z. B.:
+
+* Kundenname
+* E-Mail
+* Rolle
+* Verein / Trainer
+* Paket
+* Startdatum
+* Enddatum
+* verbleibende Tage
+* Stripe Customer ID
+* Subscription ID
+* Zahlungsstatus
+* ggf. Nutzeranzahl
+* ggf. Spielerlimit
+* technische Lizenzinformationen
+
+Nur Daten anzeigen, die bereits vorhanden sind.
+
+Keine Werte erfinden.
+
+---
+
+# 9. AKTIONEN
+
+Im Bereich `⋮` oder „Mehr“ die bereits vorhandenen Verwaltungsfunktionen bündeln.
+
+Falls technisch bereits vorhanden:
+
+* Lizenz verlängern
+* Paket ändern
+* aktivieren
+* deaktivieren
+* archivieren
+* wiederherstellen
+
+WICHTIG:
+
+Keine bestehenden Funktionen entfernen.
+
+Keine neue Geschäftslogik bauen.
+
+Nur vorhandene Funktionen übersichtlicher gruppieren.
+
+Bei kritischen Aktionen wie:
+
+* deaktivieren
+* archivieren
+* löschen
+
+bestehende Sicherheits-/Bestätigungsmechanismen beibehalten.
+
+Falls aktuell keine Bestätigung existiert, nicht ungefragt eine neue Löschlogik einführen.
+
+---
+
+# 10. „+ LIZENZ ZUWEISEN“
+
+Dieser Button bleibt ausdrücklich erhalten.
+
+Nur Superadmin.
+
+Beim Klick:
+
+Bestehende manuelle Lizenzzuweisung öffnen.
+
+Falls die bestehende Funktion folgende Angaben verwendet, diese beibehalten:
+
+* Kunde auswählen
+* Lizenzpaket
+* Startdatum
+* Enddatum / Laufzeit
+* Aktivstatus
+
+Keine Felder entfernen, die für die bestehende Logik benötigt werden.
+
+---
+
+# 11. STRIPE WEBHOOK-FEHLER
+
+Der aktuell unten sichtbare Bereich:
+
+**Stripe Webhook-Fehler**
+
+soll die normale Lizenzübersicht nicht unnötig belasten.
+
+Bitte prüfen, wie dieser Bereich aktuell funktioniert.
+
+Wenn keine Fehler vorhanden sind:
+
+* Bereich standardmäßig nicht anzeigen
+
+Wenn Fehler vorhanden sind:
+
+oben oder unter den Kennzahlen eine kompakte Warnung anzeigen:
+
+**⚠️ Stripe-Zahlungs-/Webhook-Problem erkannt**
+
+mit einem Button:
+
+**Details anzeigen**
+
+Die eigentlichen technischen Fehlermeldungen erst nach Klick darstellen.
+
+Bestehende Fehlerlogik nicht löschen.
+
+Keine Stripe-Logik verändern.
+
+---
+
+# 12. STATUS „LÄUFT BALD AB“
+
+Bitte zentral und einheitlich verwenden:
+
+`Läuft bald ab` = Enddatum liegt innerhalb der nächsten 30 Tage.
+
+Nur wenn die bestehende Systemlogik bereits einen anderen Zeitraum verwendet, zuerst prüfen und im Abschlussbericht nennen.
+
+Nicht mehrere unterschiedliche Schwellenwerte an verschiedenen Stellen verwenden.
+
+---
+
+# 13. VERBLEIBENDE TAGE
+
+Wenn bereits ein gültiges Enddatum vorhanden ist, darf angezeigt werden:
+
+**28 Tage verbleibend**
+
+Bitte zentral aus dem vorhandenen Enddatum berechnen.
+
+Negative Tage nicht anzeigen.
+
+Wenn abgelaufen:
+
+**Abgelaufen**
+
+Wenn archiviert:
+
+**Archiviert**
+
+---
+
+# 14. ARCHIV
+
+Archivierte Lizenzen sollen nicht zwischen den aktiven Lizenzen stehen.
+
+Sie gehören in den Tab:
+
+**Archiv**
+
+Dort weiterhin sichtbar und verwaltbar, sofern die bestehende Logik das erlaubt.
+
+Aktive Standardansicht soll Archivierte ausblenden.
+
+---
+
+# 15. SORTIERUNG
+
+Standardmäßig:
+
+1. Läuft bald ab
+2. Aktiv
+3. Abgelaufen
+
+Innerhalb des Status möglichst nach Enddatum sortieren.
+
+Optional, wenn leicht mit bestehender Struktur möglich:
+
+* Name
+* Paket
+* Ablaufdatum
+
+Keine unnötig komplexe Sortierlogik hinzufügen.
+
+---
+
+# 16. SUPERADMIN-SICHERHEIT
+
+Ganz wichtig:
+
+Vor dem Rendern der Lizenzverwaltung prüfen:
+
+* aktueller Benutzer ist eingeloggt
+* Rolle ist `superadmin`
+
+Wenn nicht:
+
+* Seite nicht rendern
+* keine Lizenzdaten laden
+* keine Lizenzabfragen ausführen
+* keine Lizenzaktionen verfügbar machen
+
+Nicht nur Navigation verstecken.
+
+Die Rollenprüfung muss auch direkt in der Seitenlogik greifen.
+
+Bestehende funktionierende Authentifizierung nicht umbauen.
+
+---
+
+# 17. NICHT VERÄNDERN
+
+Nicht verändern:
+
+* Stripe API-Logik
+* Webhook-Verarbeitung
+* Checkout
+* Zahlungsberechnung
+* Abopreise
+* Paketlimits
+* Registrierungslogik
+* Login
+* Sessions
+* Cookies
+* E-Mail-Verifikation
+* Kundenkonten
+* Trainerkonten
+* Vereinskonten
+* Spieler
+* Datenbankstruktur
+* bestehende Lizenz-IDs
+* bestehende Stripe IDs
+* Laufzeiten
+* automatische Lizenzverlängerungen
+* produktive Zahlungsdaten
+
+Keine Datenbankmigration durchführen, sofern nicht zwingend erforderlich.
+
+Für reine UI-Anpassung sollte keine Migration nötig sein.
+
+---
+
+# 18. RESPONSIVE DESIGN
+
+## Desktop
+
+Orientierung an der beigefügten Designreferenz:
+
+* Statistik-Karten
+* Tabs
+* Filter
+* Tabelle
+* kompakte Aktionen
+
+## Tablet
+
+* Kennzahlen ggf. 2×2
+* Tabelle nur wenn lesbar
+* sonst Kartenansicht
+
+## Smartphone
+
+* Kartenansicht
+* keine horizontale Tabelle
+* keine abgeschnittenen Buttons
+* Suche über volle Breite
+* Filter sauber untereinander
+* Aktionen leicht antippbar
+* bestehende mobile Slide-Navigation nicht verändern
+
+---
+
+# 19. APH DESIGN
+
+Farben und Stil sollen zum aktuellen APH-Design passen.
+
+Keine exakte Kopie fremder Logos oder Marken.
+
+Verwende bestehende APH-Farben und Theme-Werte, soweit vorhanden.
+
+Statusfarben:
+
+* Grün = aktiv
+* Orange = läuft bald ab
+* Rot = abgelaufen
+* Grau = archiviert
+
+---
+
+# 20. TESTS NACH DER ÄNDERUNG
+
+Bitte testen:
+
+### Superadmin
+
+* Lizenzverwaltung sichtbar
+* Kennzahlen korrekt
+* Suche
+* Filter
+* Tabs
+* Vereinslizenzen
+* Trainerlizenzen
+* Archiv
+* Details
+* Bearbeiten
+* Lizenz zuweisen
+* bestehende Aktionen
+
+### Trainer
+
+* Lizenzverwaltung nicht sichtbar
+* direkter Zugriff nicht möglich
+
+### Verein
+
+* Lizenzverwaltung nicht sichtbar
+* direkter Zugriff nicht möglich
+
+### Spieler
+
+* Lizenzverwaltung nicht sichtbar
+* direkter Zugriff nicht möglich
+
+### Mobile
+
+* Kartenansicht
+* kein Overflow
+* Buttons funktionieren
+* keine kaputten Expander
+
+### Desktop
+
+* Tabelle gut lesbar
+* keine Layoutfehler
+
+---
+
+# 21. ABSCHLUSSBERICHT
+
+Nach Durchführung bitte exakt berichten:
+
+1. Welche Dateien wurden geändert?
+2. Wo wird geprüft, dass nur Superadmin Zugriff hat?
+3. Wurde die bestehende Lizenzlogik verändert?
+4. Wurde die Datenbankstruktur verändert?
+5. Wie werden Gesamt / Aktiv / Läuft bald ab / Abgelaufen berechnet?
+6. Wie funktioniert der 30-Tage-Status?
+7. Wie werden Vereine und Trainer getrennt gefiltert?
+8. Wie sieht Desktop aus?
+9. Wie sieht Mobile aus?
+10. Ist die Mobile-Ansicht eine Kartenansicht?
+11. Funktioniert `+ Lizenz zuweisen` weiterhin?
+12. Welche bestehenden Aktionen wurden übernommen?
+13. Wie wurde Stripe Webhook-Fehler dargestellt?
+14. Sind archivierte Lizenzen aus der Standardansicht entfernt?
+15. Welche Tests wurden ausgeführt?
+16. Ergebnis der Tests?
+17. Wurde mit Trainer-/Vereinsrolle geprüft, dass kein Zugriff möglich ist?
+18. Sind neue Fehler oder Warnungen entstanden?
+
+Ziel:
+
+Eine übersichtliche, moderne und schnelle **Superadmin-Lizenzverwaltung**, die auf Desktop wie ein professionelles Admin-Dashboard wirkt und auf Mobile einfach bedienbar bleibt.
+
+Bestehende Geschäfts-, Zahlungs- und Lizenzlogik unbedingt erhalten.

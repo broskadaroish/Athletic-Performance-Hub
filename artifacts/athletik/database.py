@@ -3273,6 +3273,30 @@ def rechnungen_laden(verein_id: int) -> list[dict]:
         ).fetchall())
 
 
+def alle_trainer_lizenz() -> list[dict]:
+    """Gibt alle Benutzer zurück, die eine eigene Trainer-Lizenz besitzen (Einzeltrainer).
+
+    Standalone-Trainer sind Benutzer mit einer eigenen Kundennummer — sie haben
+    eine direkte Lizenz über trainer_lizenz_setzen() erhalten und sind nicht als
+    Vereinsmitglied einer Vereinslizenz zugeordnet.
+    """
+    with get_conn() as conn:
+        rows = conn.execute("""
+            SELECT b.id, b.vorname, b.nachname, b.email, b.kundennummer,
+                   b.lizenztyp, b.lizenz_status, b.lizenz_bis, b.testphase_bis,
+                   b.aktiv, b.rolle, b.verein_id,
+                   b.vertragsbeginn, b.vertragsende,
+                   b.kuendigungsstatus, b.gekuendigt_zum,
+                   b.kuendigung_eingegangen
+            FROM benutzer b
+            WHERE b.kundennummer IS NOT NULL
+              AND b.lizenztyp IS NOT NULL
+              AND b.lizenztyp != ''
+            ORDER BY b.nachname, b.vorname
+        """).fetchall()
+    return [dict(r) for r in rows]
+
+
 def alle_vereine_lizenz() -> list[dict]:
     """Alle Vereine mit Lizenzdaten für den Superadmin-Überblick."""
     with get_conn() as conn:

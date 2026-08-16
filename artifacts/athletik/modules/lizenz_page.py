@@ -13,10 +13,12 @@ import streamlit as st
 from database import (
     lizenz_info_laden,
     lizenz_setzen,
+    trainer_lizenz_setzen,
     verein_sperren as db_verein_sperren,
     testphase_verlaengern,
     rechnungen_laden,
     alle_vereine_lizenz,
+    alle_trainer_lizenz,
     stripe_ids_setzen,
     verein_kapazitaet_laden,
     webhook_fehler_laden,
@@ -577,243 +579,637 @@ def page_lizenz_vereinsadmin() -> None:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# Superadmin-Lizenz-Dashboard
+# Superadmin-Lizenz-Dashboard  —  Helpers
+# ══════════════════════════════════════════════════════════════════════════════
+
+_SA_STATUS_ORDER: dict[str, int] = {
+    "bald_abgelaufen": 0,
+    "aktiv":           1,
+    "testphase":       2,
+    "abgelaufen":      3,
+    "gesperrt":        4,
+    "archiviert":      5,
+}
+
+# (Hintergrundfarbe, Textfarbe, Label)
+_SA_BADGE_DEF: dict[str, tuple[str, str, str]] = {
+    "aktiv":           (_C["green"]  + "22", _C["green"],  "🟢 Aktiv"),
+    "testphase":       (_C["blue"]   + "22", _C["blue"],   "🔵 Testphase"),
+    "bald_abgelaufen": (_C["orange"] + "22", _C["orange"], "🟠 Läuft bald ab"),
+    "abgelaufen":      (_C["red"]    + "22", _C["red"],    "🔴 Abgelaufen"),
+    "gesperrt":        (_C["red"]    + "22", _C["red"],    "🔴 Gesperrt"),
+    "archiviert":      ("#6e768122",         "#6e7681",    "⚪ Archiviert"),
+}
+
+_SA_STATUS_ALLE = ["trial", "active", "expired", "suspended", "cancelled", "beendet"]
+_30_TAGE = 30  # einheitlicher Schwellenwert für „läuft bald ab"
+
+
+def _sa_badge_html(display_status: str) -> str:
+    bg, color, label = _SA_BADGE_DEF.get(display_status, ("#6e768122", "#6e7681", display_status))
+    return (
+        f'<span style="display:inline-block;padding:2px 10px;border-radius:12px;'
+        f'background:{bg};color:{color};font-size:11px;font-weight:700;'
+        f'border:1px solid {color}55;white-space:nowrap">{label}</span>'
+    )
+
+
+def _sa_display_status(row: dict) -> str:
+    """Berechnet den normierten Anzeige-Status aus rohem lizenz_status + lizenz_bis."""
+    s = (row.get("lizenz_status") or "").lower()
+    if s in ("cancelled", "beendet"):
+        return "archiviert"
+    if s == "expired":
+        return "abgelaufen"
+    if s == "suspended":
+        return "gesperrt"
+    bis_str = row.get("lizenz_bis") or ""
+    if s in ("active", "trial") and bis_str:
+        try:
+            bis_dt = datetime.date.fromisoformat(str(bis_str)[:10])
+            if (bis_dt - datetime.date.today()).days <= _30_TAGE:
+                return "bald_abgelaufen"
+        except Exception:
+            pass
+    return "testphase" if s == "trial" else "aktiv"
+
+
+def _sa_tage_verbleibend(row: dict) -> int | None:
+    bis = row.get("lizenz_bis")
+    if not bis:
+        return None
+    try:
+        return max(0, (datetime.date.fromisoformat(str(bis)[:10]) - datetime.date.today()).days)
+    except Exception:
+        return None
+
+
+def _sa_tage_label(row: dict) -> str:
+    ds = row.get("_display_status", "")
+    if ds == "archiviert":
+        return "Archiviert"
+    if ds in ("abgelaufen", "gesperrt"):
+        return "Abgelaufen"
+    t = row.get("_tage")
+    if t is None:
+        return "—"
+    if t == 0:
+        return "Heute"
+    return f"{t} Tage"
+
+
+def _sa_sort_key(row: dict) -> tuple:
+    ds = row.get("_display_status", "aktiv")
+    bis = row.get("lizenz_bis") or "9999-12-31"
+    return (_SA_STATUS_ORDER.get(ds, 9), str(bis))
+
+
+def _sa_ablauf_fmt(row: dict) -> str:
+    bis = row.get("lizenz_bis")
+    if not bis:
+        return "—"
+    try:
+        return datetime.date.fromisoformat(str(bis)[:10]).strftime("%d.%m.%Y")
+    except Exception:
+        return str(bis)[:10]
+
+
+def _sa_normalize(vereine_raw: list[dict], trainer_raw: list[dict]) -> list[dict]:
+    """Konvertiert Vereine + Trainer in eine einheitliche Datenstruktur."""
+    result: list[dict] = []
+    for v in vereine_raw:
+        info = get_lizenz_info(v)
+        ablauf = info.get("ablauf_datum")
+        result.append({
+            "_typ":           "verein",
+            "_id":            v["id"],
+            "_name":          v.get("name") or "—",
+            "email":          v.get("email") or "—",
+            "kundennummer":   v.get("kundennummer") or "",
+            "_paket_key":     info["lizenz_typ"],
+            "_paket_label":   LIZENZ_TYPEN.get(info["lizenz_typ"], {}).get("label", info["lizenz_typ"]),
+            "lizenz_status":  info["lizenz_status"],
+            "lizenz_bis":     ablauf.isoformat() if ablauf else None,
+            "gesperrt":       bool(info.get("gesperrt")),
+            "zahlungsstatus": (v.get("zahlungsstatus") or ""),
+            "stripe_customer_id":       v.get("stripe_customer_id") or "",
+            "stripe_subscription_id":   v.get("stripe_subscription_id") or "",
+            "letzte_zahlung_fehlgeschlagen": v.get("letzte_zahlung_fehlgeschlagen") or "",
+            "cancel_at_period_end":     bool(v.get("cancel_at_period_end")),
+            "kuendigungsstatus":        v.get("kuendigungsstatus") or "",
+            "gekuendigt_zum":           v.get("gekuendigt_zum") or "",
+            "kuendigung_eingegangen":   v.get("kuendigung_eingegangen") or "",
+            "_raw_verein": v,
+            "_raw_info":   info,
+            "_raw_trainer": None,
+        })
+    for t in trainer_raw:
+        typ_key = t.get("lizenztyp") or "TRAINER_BASIC"
+        result.append({
+            "_typ":           "trainer",
+            "_id":            t["id"],
+            "_name":          f"{t.get('vorname', '')} {t.get('nachname', '')}".strip() or "—",
+            "email":          t.get("email") or "—",
+            "kundennummer":   t.get("kundennummer") or "",
+            "_paket_key":     typ_key,
+            "_paket_label":   LIZENZ_TYPEN.get(typ_key, {}).get("label", typ_key),
+            "lizenz_status":  t.get("lizenz_status") or "",
+            "lizenz_bis":     t.get("lizenz_bis") or None,
+            "gesperrt":       False,
+            "zahlungsstatus": "",
+            "stripe_customer_id":       "",
+            "stripe_subscription_id":   "",
+            "letzte_zahlung_fehlgeschlagen": "",
+            "cancel_at_period_end":     False,
+            "kuendigungsstatus":        t.get("kuendigungsstatus") or "",
+            "gekuendigt_zum":           t.get("gekuendigt_zum") or "",
+            "kuendigung_eingegangen":   t.get("kuendigung_eingegangen") or "",
+            "_raw_verein":  None,
+            "_raw_info":    None,
+            "_raw_trainer": t,
+        })
+    for row in result:
+        row["_display_status"] = _sa_display_status(row)
+        row["_tage"]           = _sa_tage_verbleibend(row)
+    return result
+
+
+# ── Dialog: Lizenz-Details ────────────────────────────────────────────────────
+
+@st.dialog("Lizenz-Details", width="large")
+def _sa_detail_dialog(row: dict) -> None:
+    """Zeigt alle verfügbaren Lizenz-Details in einem Modal."""
+    typ_icon = "🏟" if row["_typ"] == "verein" else "👤"
+    st.markdown(
+        f'<div style="margin-bottom:12px">'
+        f'<div style="font-size:18px;font-weight:700;color:{_C["text"]}">'
+        f'{typ_icon} {row["_name"]}</div>'
+        f'<div style="font-size:13px;color:{_C["muted"]}">{row["email"]}</div>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
+    st.markdown(_sa_badge_html(row["_display_status"]), unsafe_allow_html=True)
+    st.markdown("")
+
+    dc1, dc2 = st.columns(2)
+    with dc1:
+        st.markdown(f"**Kundentyp:** {'Verein' if row['_typ'] == 'verein' else 'Einzeltrainer'}")
+        st.markdown(f"**Paket:** {row['_paket_label']}")
+        st.markdown(f"**Kundennummer:** {row['kundennummer'] or '—'}")
+        st.markdown(f"**Ablauf:** {_sa_ablauf_fmt(row)}")
+        st.markdown(f"**Verbleibend:** {_sa_tage_label(row)}")
+        if row["gesperrt"]:
+            st.markdown(f"**Sperrung:** 🔴 Gesperrt")
+    with dc2:
+        if row.get("zahlungsstatus"):
+            st.markdown(f"**Zahlungsstatus:** {row['zahlungsstatus']}")
+        if row.get("stripe_customer_id"):
+            st.markdown(f"**Stripe Customer:** `{row['stripe_customer_id']}`")
+        if row.get("stripe_subscription_id"):
+            st.markdown(f"**Stripe Subscription:** `{row['stripe_subscription_id']}`")
+        if row.get("cancel_at_period_end"):
+            st.markdown(f"**Kündigung aktiv:** ✅ Ja (cancel_at_period_end)")
+        if row.get("kuendigungsstatus") and row["kuendigungsstatus"] not in ("aktiv", ""):
+            st.markdown(f"**Kündigungsstatus:** {row['kuendigungsstatus']}")
+        if row.get("gekuendigt_zum"):
+            st.markdown(f"**Vertragsende:** {str(row['gekuendigt_zum'])[:10]}")
+        if row.get("kuendigung_eingegangen"):
+            st.markdown(f"**Kündigung eingegangen:** {str(row['kuendigung_eingegangen'])[:10]}")
+        if row.get("letzte_zahlung_fehlgeschlagen"):
+            st.markdown(
+                f'**Letzter Zahlungsfehlschlag:** '
+                f'<span style="color:{_C["red"]}">'
+                f'{str(row["letzte_zahlung_fehlgeschlagen"])[:16].replace("T", " ")}</span>',
+                unsafe_allow_html=True,
+            )
+
+    # Rechnungen (nur Vereine)
+    if row["_typ"] == "verein" and row.get("_raw_verein"):
+        rechnungen = rechnungen_laden(row["_id"])
+        if rechnungen:
+            st.markdown("---")
+            st.markdown(f"**Rechnungen** ({len(rechnungen)} Einträge)")
+            import pandas as pd
+            df_r = pd.DataFrame(rechnungen)
+            df_r = df_r.rename(columns={
+                "rechnungsnummer": "Nr.", "datum": "Datum",
+                "betrag_eur": "Betrag (€)", "lizenz_typ": "Paket",
+                "status": "Status", "lizenz_von": "Von", "lizenz_bis": "Bis",
+            })
+            anzeige = [c for c in ["Nr.", "Datum", "Betrag (€)", "Paket", "Status", "Von", "Bis"] if c in df_r.columns]
+            st.dataframe(df_r[anzeige], use_container_width=True, hide_index=True)
+
+
+# ── Dialog: Lizenz bearbeiten ────────────────────────────────────────────────
+
+@st.dialog("Lizenz bearbeiten", width="large")
+def _sa_edit_dialog(row: dict) -> None:
+    """Formular zum Bearbeiten einer Lizenz — Verein oder Trainer."""
+    st.markdown(
+        f'<div style="font-size:16px;font-weight:700;color:{_C["text"]};margin-bottom:4px">'
+        f'{"🏟" if row["_typ"] == "verein" else "👤"} {row["_name"]}</div>',
+        unsafe_allow_html=True,
+    )
+    st.markdown(_sa_badge_html(row["_display_status"]), unsafe_allow_html=True)
+    st.markdown("")
+
+    typ_keys  = list(LIZENZ_TYPEN.keys())
+    cur_typ   = row["_paket_key"] if row["_paket_key"] in typ_keys else typ_keys[0]
+    cur_status = row["lizenz_status"] if row["lizenz_status"] in _SA_STATUS_ALLE else _SA_STATUS_ALLE[0]
+    try:
+        cur_bis = datetime.date.fromisoformat(str(row["lizenz_bis"])[:10]) if row.get("lizenz_bis") else datetime.date.today() + datetime.timedelta(days=30)
+    except Exception:
+        cur_bis = datetime.date.today() + datetime.timedelta(days=30)
+
+    ec1, ec2 = st.columns(2)
+    with ec1:
+        neuer_typ = st.selectbox(
+            "Lizenztyp",
+            typ_keys,
+            index=typ_keys.index(cur_typ),
+            format_func=lambda k: LIZENZ_TYPEN[k]["label"],
+            key="edit_dlg_typ",
+        )
+        neuer_status = st.selectbox(
+            "Status",
+            _SA_STATUS_ALLE,
+            index=_SA_STATUS_ALLE.index(cur_status),
+            key="edit_dlg_status",
+        )
+    with ec2:
+        ablauf_input = st.date_input("Lizenz bis", value=cur_bis, key="edit_dlg_ablauf")
+        extra_tage   = st.number_input(
+            "Testphase (+Tage)",
+            min_value=0, max_value=365, value=0,
+            key="edit_dlg_extra",
+            help="Fügt diese Tage zur aktuellen Testphase hinzu",
+        )
+
+    # Sperren/Entsperren (nur Vereine)
+    if row["_typ"] == "verein":
+        st.markdown("")
+        gesperrt_label = "🔓 Entsperren" if row["gesperrt"] else "🚫 Sperren"
+        if st.button(gesperrt_label, key="edit_dlg_sperren"):
+            db_verein_sperren(row["_id"], not row["gesperrt"])
+            invalidate_lizenz_cache(row["_id"])
+            st.success("✅ Sperrung aktualisiert.")
+            st.rerun()
+
+    st.markdown("")
+    sc1, sc2 = st.columns(2)
+    with sc1:
+        if st.button("💾 Speichern", type="primary", use_container_width=True, key="edit_dlg_save"):
+            if row["_typ"] == "verein":
+                lizenz_setzen(
+                    verein_id=row["_id"],
+                    lizenz_typ=neuer_typ,
+                    lizenz_status=neuer_status,
+                    lizenz_bis=ablauf_input.isoformat(),
+                )
+                if extra_tage > 0:
+                    testphase_verlaengern(row["_id"], extra_tage)
+                invalidate_lizenz_cache(row["_id"])
+            else:
+                trainer_lizenz_setzen(
+                    benutzer_id=row["_id"],
+                    lizenz_typ=neuer_typ,
+                    lizenz_status=neuer_status,
+                    lizenz_bis=ablauf_input.isoformat(),
+                )
+                if extra_tage > 0:
+                    testphase_verlaengern(row["_id"], extra_tage)
+            st.success(f"✅ Lizenz für **{row['_name']}** gespeichert.")
+            st.rerun()
+    with sc2:
+        if st.button("Abbrechen", use_container_width=True, key="edit_dlg_cancel"):
+            st.rerun()
+
+
+# ── Dialog: Lizenz zuweisen ──────────────────────────────────────────────────
+
+@st.dialog("+ Lizenz zuweisen", width="large")
+def _sa_zuweisen_dialog(vereine_raw: list[dict], trainer_raw: list[dict]) -> None:
+    """Manuelles Zuweisen einer Lizenz an einen bestehenden Kunden."""
+    st.markdown("Wähle einen bestehenden Kunden und lege das Lizenzpaket fest.")
+
+    # Auswahl: Verein oder Trainer
+    kunden_typ = st.radio("Kundentyp", ["Verein", "Einzeltrainer"], horizontal=True, key="zuw_ktyp")
+
+    if kunden_typ == "Verein":
+        verein_opts = {v.get("name", f"ID {v['id']}"): v["id"] for v in vereine_raw}
+        if not verein_opts:
+            st.info("Keine Vereine vorhanden.")
+            return
+        verein_name = st.selectbox("Verein auswählen", list(verein_opts.keys()), key="zuw_verein")
+        zuw_id = verein_opts[verein_name]
+    else:
+        trainer_opts = {
+            f"{t.get('vorname', '')} {t.get('nachname', '')}".strip() + f" ({t.get('email', '')})"
+            if t.get("email") else f"{t.get('vorname', '')} {t.get('nachname', '')}".strip(): t["id"]
+            for t in trainer_raw
+        }
+        if not trainer_opts:
+            st.info("Keine Einzeltrainer vorhanden.")
+            return
+        trainer_name = st.selectbox("Trainer auswählen", list(trainer_opts.keys()), key="zuw_trainer")
+        zuw_id = trainer_opts[trainer_name]
+
+    st.markdown("")
+    zc1, zc2 = st.columns(2)
+    with zc1:
+        typ_keys = list(LIZENZ_TYPEN.keys())
+        zuw_typ = st.selectbox(
+            "Lizenzpaket",
+            typ_keys,
+            format_func=lambda k: LIZENZ_TYPEN[k]["label"],
+            key="zuw_typ",
+        )
+        zuw_status = st.selectbox("Status", _SA_STATUS_ALLE, index=1, key="zuw_status")
+    with zc2:
+        zuw_start  = st.date_input("Startdatum", value=datetime.date.today(), key="zuw_start")
+        zuw_bis    = st.date_input(
+            "Enddatum",
+            value=datetime.date.today() + datetime.timedelta(days=365),
+            key="zuw_bis",
+        )
+
+    st.markdown("")
+    zbc1, zbc2 = st.columns(2)
+    with zbc1:
+        if st.button("✅ Lizenz zuweisen", type="primary", use_container_width=True, key="zuw_save"):
+            if kunden_typ == "Verein":
+                lizenz_setzen(
+                    verein_id=zuw_id,
+                    lizenz_typ=zuw_typ,
+                    lizenz_status=zuw_status,
+                    lizenz_bis=zuw_bis.isoformat(),
+                )
+                invalidate_lizenz_cache(zuw_id)
+            else:
+                trainer_lizenz_setzen(
+                    benutzer_id=zuw_id,
+                    lizenz_typ=zuw_typ,
+                    lizenz_status=zuw_status,
+                    lizenz_bis=zuw_bis.isoformat(),
+                )
+            st.success("✅ Lizenz erfolgreich zugewiesen.")
+            st.rerun()
+    with zbc2:
+        if st.button("Abbrechen", use_container_width=True, key="zuw_cancel"):
+            st.rerun()
+
+
+# ── Tab-Renderer ─────────────────────────────────────────────────────────────
+
+def _sa_render_tab(
+    rows: list[dict],
+    tab_key: str,
+    vereine_raw: list[dict],
+) -> None:
+    """Rendert Filter + Tabelle/Karten für einen einzelnen Tab."""
+
+    # ── Filterleiste ──
+    fc1, fc2, fc3, fc4 = st.columns([3, 2, 2, 1])
+    with fc1:
+        suche = st.text_input(
+            "Suche",
+            placeholder="Name, E-Mail, Paket …",
+            key=f"lv_s_{tab_key}",
+            label_visibility="collapsed",
+        )
+    with fc2:
+        paket_opts = ["Alle"] + sorted({r["_paket_label"] for r in rows})
+        paket_filter = st.selectbox("Lizenztyp", paket_opts, key=f"lv_p_{tab_key}", label_visibility="collapsed")
+    with fc3:
+        if tab_key == "archiv":
+            status_opts = ["Alle", "Archiviert"]
+        else:
+            status_opts = ["Alle", "Aktiv", "Testphase", "Läuft bald ab", "Abgelaufen", "Gesperrt"]
+        status_filter = st.selectbox("Status", status_opts, key=f"lv_st_{tab_key}", label_visibility="collapsed")
+    with fc4:
+        if st.button("↺", key=f"lv_r_{tab_key}", help="Filter zurücksetzen"):
+            for k in [f"lv_s_{tab_key}", f"lv_p_{tab_key}", f"lv_st_{tab_key}"]:
+                st.session_state.pop(k, None)
+            st.rerun()
+
+    # ── Filterlogik ──
+    _STATUS_LABEL_MAP = {
+        "Aktiv":          "aktiv",
+        "Testphase":      "testphase",
+        "Läuft bald ab":  "bald_abgelaufen",
+        "Abgelaufen":     "abgelaufen",
+        "Gesperrt":       "gesperrt",
+        "Archiviert":     "archiviert",
+    }
+    gefiltert = rows
+    if suche:
+        _s = suche.lower()
+        gefiltert = [r for r in gefiltert if
+                     _s in (r["_name"] or "").lower()
+                     or _s in (r["email"] or "").lower()
+                     or _s in (r["_paket_label"] or "").lower()
+                     or _s in (r["kundennummer"] or "").lower()]
+    if paket_filter != "Alle":
+        gefiltert = [r for r in gefiltert if r["_paket_label"] == paket_filter]
+    if status_filter != "Alle":
+        ziel_ds = _STATUS_LABEL_MAP.get(status_filter, "")
+        gefiltert = [r for r in gefiltert if r["_display_status"] == ziel_ds]
+
+    gefiltert = sorted(gefiltert, key=_sa_sort_key)
+
+    if not gefiltert:
+        st.info("Keine Lizenzen gefunden.")
+        return
+
+    # ── Tabellenheader (Desktop) ──
+    st.markdown(
+        f'<div style="display:grid;grid-template-columns:2fr 1.5fr 1fr 1.5fr 1.3fr 1.5fr;'
+        f'gap:0 8px;padding:6px 12px 6px 4px;'
+        f'border-bottom:1px solid {_C["border"]};'
+        f'font-size:11px;font-weight:700;color:{_C["muted"]};text-transform:uppercase;'
+        f'letter-spacing:.04em">'
+        f'<span>Kunde</span><span>Paket</span><span>Typ</span>'
+        f'<span>Status</span><span>Verbleibend</span><span>Aktionen</span>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
+
+    # ── Zeilen ──
+    for i, row in enumerate(gefiltert):
+        _sa_render_row(row, i, tab_key)
+
+
+def _sa_render_row(row: dict, idx: int, tab_key: str) -> None:
+    """Rendert eine einzelne Lizenz-Zeile (Desktop-Tabelle + Mobile-Karte)."""
+    uid = f"{row['_typ']}_{row['_id']}_{tab_key}_{idx}"
+
+    # Zahlung-Warnung
+    _zahlung_warn = row.get("zahlungsstatus") == "fehlgeschlagen"
+    _zahlung_badge_html = (
+        f' <span style="padding:1px 6px;border-radius:8px;background:{_C["red"]}22;'
+        f'color:{_C["red"]};font-size:10px;border:1px solid {_C["red"]}44">⚠ Zahlung</span>'
+    ) if _zahlung_warn else ""
+
+    with st.container(border=True):
+        # ── Mobile-freundliche Karten-Übersicht ──────────────────────────────
+        # Kompakter Header (Karte)
+        st.markdown(
+            f'<div style="display:flex;gap:8px;align-items:flex-start;flex-wrap:wrap;margin-bottom:4px">'
+            f'<div style="flex:1;min-width:120px">'
+            f'<div style="font-weight:700;font-size:13px;color:{_C["text"]}">'
+            f'{"🏟" if row["_typ"] == "verein" else "👤"} {row["_name"]}{_zahlung_badge_html}</div>'
+            f'<div style="font-size:11px;color:{_C["muted"]};margin-top:1px">{row["email"]}</div>'
+            f'</div>'
+            f'<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">'
+            f'<code style="font-size:11px;padding:1px 6px;background:{_C["surf"]};'
+            f'border:1px solid {_C["border"]};border-radius:4px">{row["_paket_label"]}</code>'
+            f'{_sa_badge_html(row["_display_status"])}'
+            f'<span style="font-size:12px;color:{_C["muted"]}">{_sa_tage_label(row)}'
+            f'{(" · Ablauf: " + _sa_ablauf_fmt(row)) if row.get("lizenz_bis") else ""}</span>'
+            f'</div>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+
+        # ── Aktionsleiste ────────────────────────────────────────────────────
+        ac1, ac2, ac3 = st.columns([1, 1, 1])
+        with ac1:
+            if st.button("Details", key=f"det_{uid}", use_container_width=True):
+                _sa_detail_dialog(row)
+        with ac2:
+            if st.button("Bearbeiten", key=f"edit_{uid}", use_container_width=True):
+                _sa_edit_dialog(row)
+        with ac3:
+            with st.popover("⋮ Mehr", use_container_width=True):
+                # Sperren/Entsperren (nur Vereine)
+                if row["_typ"] == "verein":
+                    sperr_label = "🔓 Entsperren" if row["gesperrt"] else "🚫 Sperren"
+                    if st.button(sperr_label, key=f"sperr_{uid}", use_container_width=True):
+                        db_verein_sperren(row["_id"], not row["gesperrt"])
+                        invalidate_lizenz_cache(row["_id"])
+                        st.rerun()
+                # Testphase verlängern
+                tp_tage = st.number_input(
+                    "Testphase (+Tage)",
+                    min_value=1, max_value=365, value=14,
+                    key=f"tp_n_{uid}",
+                )
+                if st.button(f"⏱ Testphase +{tp_tage}d", key=f"tp_{uid}", use_container_width=True):
+                    testphase_verlaengern(row["_id"], tp_tage)
+                    if row["_typ"] == "verein":
+                        invalidate_lizenz_cache(row["_id"])
+                    st.success(f"Testphase um {tp_tage} Tage verlängert.")
+                    st.rerun()
+                # Kündigungs-Info (nur wenn relevant)
+                if row.get("kuendigungsstatus") and row["kuendigungsstatus"] not in ("aktiv", ""):
+                    st.markdown(
+                        f'<div style="font-size:11px;color:{_C["orange"]};margin-top:6px">'
+                        f'🔔 Kündigung: {row["kuendigungsstatus"]}</div>',
+                        unsafe_allow_html=True,
+                    )
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Superadmin-Lizenz-Dashboard  —  Hauptfunktion
 # ══════════════════════════════════════════════════════════════════════════════
 
 def page_lizenz_superadmin() -> None:
-    """Lizenz-Verwaltung für Superadmin — alle Vereine im Überblick."""
+    """Lizenz-Verwaltung für Superadmin — übersichtliches Dashboard aller Lizenzen."""
     from session_timeout import touch_session
     touch_session()
 
-    st.markdown(
-        '<h2 style="color:#e6edf3;font-size:22px;font-weight:700;margin-bottom:4px">Lizenz-Verwaltung</h2>',
-        unsafe_allow_html=True,
-    )
+    # ── Superadmin-Sicherheitsprüfung  (serverseitige Guard) ─────────────────
+    _u = st.session_state.get("user", {})
+    if (_u.get("rolle") or "").lower() != "superadmin":
+        st.error("⛔ Kein Zugriff. Diese Seite ist ausschließlich für Superadmins.")
+        st.stop()
+        return
 
-    vereine = alle_vereine_lizenz()
+    # ── Daten laden ──────────────────────────────────────────────────────────
+    vereine_raw = alle_vereine_lizenz()
+    trainer_raw = alle_trainer_lizenz()
+    alle        = _sa_normalize(vereine_raw, trainer_raw)
 
-    # ── KPI-Kacheln oben ──────────────────────────────────────────────────────
-    total      = len(vereine)
-    aktiv_n    = sum(1 for v in vereine if v.get("lizenz_status") == "active")
-    trial_n    = sum(1 for v in vereine if v.get("lizenz_status") == "trial")
-    expired_n  = sum(1 for v in vereine if v.get("lizenz_status") in ("expired", "suspended"))
+    # ── Stripe Webhook-Warnung (nur wenn Fehler vorhanden) ───────────────────
+    fehler_liste = webhook_fehler_laden(limit=50)
+    if fehler_liste:
+        sig_f    = [f for f in fehler_liste if "Signaturprüfung"      in (f.get("fehlergrund") or "")]
+        price_f  = [f for f in fehler_liste if "Price-ID"             in (f.get("fehlergrund") or "")]
+        zahlung_f= [f for f in fehler_liste if "Zahlung fehlgeschlagen" in (f.get("fehlergrund") or "")]
+        sonstige = [f for f in fehler_liste
+                    if f not in sig_f and f not in price_f and f not in zahlung_f]
+        with st.expander(
+            f"⚠️ Stripe-Zahlungs-/Webhook-Problem erkannt ({len(fehler_liste)} Einträge)",
+            expanded=False,
+        ):
+            wc1, wc2, wc3, wc4 = st.columns(4)
+            with wc1: _kpi("Signaturprüfung",    str(len(sig_f)),     _C["red"]    if sig_f     else _C["muted"])
+            with wc2: _kpi("Unbekannte Price-ID", str(len(price_f)),  _C["orange"] if price_f   else _C["muted"])
+            with wc3: _kpi("Zahlung fehlgeschl.", str(len(zahlung_f)),_C["orange"] if zahlung_f else _C["muted"])
+            with wc4: _kpi("Sonstige",            str(len(sonstige)), _C["red"]    if sonstige  else _C["muted"])
+            st.markdown("")
+            import pandas as pd
+            df_f = pd.DataFrame(fehler_liste).rename(columns={
+                "id": "ID", "event_id": "Event-ID", "event_type": "Event-Typ",
+                "fehlergrund": "Fehlergrund", "zeitstempel": "Zeitstempel",
+            })
+            anzeige_cols = [c for c in ["Zeitstempel", "Event-Typ", "Fehlergrund", "Event-ID"] if c in df_f.columns]
+            st.dataframe(df_f[anzeige_cols], use_container_width=True, hide_index=True)
+            st.markdown("")
+            if st.button("🗑 Alle Webhook-Fehler löschen", key="webhook_fehler_loeschen_btn",
+                         help="Löscht alle gespeicherten Webhook-Fehler aus der Datenbank."):
+                anzahl = webhook_fehler_loeschen()
+                st.success(f"✅ {anzahl} Webhook-Fehler gelöscht.")
+                st.rerun()
 
-    c1, c2, c3, c4 = st.columns(4)
-    with c1: _kpi("Gesamt",     str(total),    _C["blue"])
-    with c2: _kpi("Aktiv",      str(aktiv_n),  _C["green"])
-    with c3: _kpi("Testphase",  str(trial_n),  _C["orange"])
-    with c4: _kpi("Abgelaufen", str(expired_n),_C["red"])
+    # ── Header ───────────────────────────────────────────────────────────────
+    hc1, hc2 = st.columns([5, 1])
+    with hc1:
+        st.markdown(
+            f'<h2 style="color:{_C["text"]};font-size:22px;font-weight:700;margin-bottom:2px">'
+            f'Lizenzverwaltung</h2>'
+            f'<p style="color:{_C["muted"]};font-size:13px;margin:0">Übersicht und Verwaltung aller Lizenzen</p>',
+            unsafe_allow_html=True,
+        )
+    with hc2:
+        if st.button("+ Lizenz zuweisen", type="primary", key="lv_zuweisen_btn",
+                     use_container_width=True):
+            _sa_zuweisen_dialog(vereine_raw, trainer_raw)
 
     st.markdown("")
 
-    # ── Filter ────────────────────────────────────────────────────────────────
-    col_f1, col_f2 = st.columns([1, 3])
-    with col_f1:
-        filter_status = st.selectbox(
-            "Status filtern",
-            ["Alle", "trial", "active", "expired", "suspended", "cancelled", "beendet"],
-            key="lizenz_sa_filter",
-        )
-    with col_f2:
-        suche = st.text_input("Verein suchen", placeholder="Vereinsname...", key="lizenz_sa_suche")
+    # ── KPI-Kacheln ──────────────────────────────────────────────────────────
+    nicht_archiv = [r for r in alle if r["_display_status"] != "archiviert"]
+    gesamt_n     = len(nicht_archiv)
+    aktiv_n      = sum(1 for r in nicht_archiv if r["_display_status"] in ("aktiv", "testphase"))
+    bald_n       = sum(1 for r in nicht_archiv if r["_display_status"] == "bald_abgelaufen")
+    abg_n        = sum(1 for r in nicht_archiv if r["_display_status"] in ("abgelaufen", "gesperrt"))
 
-    # ── Vereine-Tabelle mit Aktionen ──────────────────────────────────────────
-    for v in vereine:
-        info = get_lizenz_info(v)
+    kc1, kc2, kc3, kc4 = st.columns(4)
+    with kc1: _kpi("Gesamt",          str(gesamt_n), _C["blue"])
+    with kc2: _kpi("Aktiv",           str(aktiv_n),  _C["green"])
+    with kc3: _kpi("Läuft bald ab",   str(bald_n),   _C["orange"])
+    with kc4: _kpi("Abgelaufen",      str(abg_n),    _C["red"])
 
-        # Filtern
-        if filter_status != "Alle" and info["lizenz_status"] != filter_status:
-            continue
-        if suche and suche.lower() not in (v.get("name") or "").lower():
-            continue
+    st.markdown("")
 
-        tage    = info.get("tage_verbleibend")
-        ablauf  = info.get("ablauf_datum")
-        badge   = _status_badge(info["lizenz_status"])
-        typ_def = LIZENZ_TYPEN.get(info["lizenz_typ"]) or LIZENZ_TYPEN.get("TRAINER_BASIC") or next(iter(LIZENZ_TYPEN.values()))
+    # ── Datensätze aufteilen ─────────────────────────────────────────────────
+    archiviert      = [r for r in alle if r["_display_status"] == "archiviert"]
+    nicht_archiviert = [r for r in alle if r["_display_status"] != "archiviert"]
 
-        with st.expander(
-            f"{v.get('name', '—')}  |  {typ_def['label']}  |  "
-            f"{'Abgelaufen' if info['lizenz_status'] in ('expired', 'suspended', 'beendet') else (str(tage) + ' Tage' if tage is not None else '—')}",
-            expanded=False,
-        ):
-            r1c1, r1c2 = st.columns([2, 2])
+    # ── Tabs ─────────────────────────────────────────────────────────────────
+    tab1, tab2, tab3, tab4 = st.tabs([
+        f"🗂 Alle Lizenzen ({len(nicht_archiviert)})",
+        f"🏟 Vereinslizenzen ({sum(1 for r in nicht_archiviert if r['_typ'] == 'verein')})",
+        f"👤 Trainerlizenzen ({sum(1 for r in nicht_archiviert if r['_typ'] == 'trainer')})",
+        f"📦 Archiv ({len(archiviert)})",
+    ])
 
-            with r1c1:
-                _zahlung_st = info.get("zahlungsstatus") or v.get("zahlungsstatus") or "—"
-                _lzf = v.get("letzte_zahlung_fehlgeschlagen") or ""
-                _zahlung_fehlgeschlagen = _zahlung_st == "fehlgeschlagen"
-                _zahlung_badge = (
-                    f'<span style="display:inline-block;margin-left:8px;padding:1px 8px;'
-                    f'border-radius:10px;background:{_C["red"]}22;color:{_C["red"]};'
-                    f'font-size:11px;font-weight:700;border:1px solid {_C["red"]}44">'
-                    f'⚠ Zahlung fehlgeschlagen</span>'
-                ) if _zahlung_fehlgeschlagen else ""
-                _lzf_hint = (
-                    f' · Letzter Fehlschlag: <span style="color:{_C["red"]}">'
-                    f'{_lzf[:16].replace("T", " ")}</span>'
-                ) if _zahlung_fehlgeschlagen and _lzf else ""
-                st.markdown(
-                    f"{badge}{_zahlung_badge} "
-                    f'<span style="color:{_C["muted"]};font-size:12px">'
-                    f"Ablauf: {ablauf.strftime('%d.%m.%Y') if ablauf else '—'} · "
-                    f"Zahlung: {_zahlung_st}{_lzf_hint}</span>",
-                    unsafe_allow_html=True,
-                )
-
-            with r1c2:
-                gesperrt_label = "🔓 Entsperren" if info["gesperrt"] else "🚫 Sperren"
-                if st.button(gesperrt_label, key=f"sperren_{v['id']}"):
-                    db_verein_sperren(v["id"], not info["gesperrt"])
-                    invalidate_lizenz_cache(v["id"])
-                    st.rerun()
-
-            st.markdown("")
-
-            # ── Lizenz bearbeiten ──────────────────────────────────────────
-            ed_c1, ed_c2, ed_c3, ed_c4 = st.columns(4)
-            with ed_c1:
-                neuer_typ = st.selectbox(
-                    "Lizenztyp",
-                    list(LIZENZ_TYPEN.keys()),
-                    index=list(LIZENZ_TYPEN.keys()).index(info["lizenz_typ"]),
-                    key=f"typ_{v['id']}",
-                )
-            with ed_c2:
-                _sa_statuses = ["trial", "active", "expired", "suspended", "cancelled", "beendet"]
-                neuer_status = st.selectbox(
-                    "Status",
-                    _sa_statuses,
-                    index=_sa_statuses.index(info["lizenz_status"])
-                          if info["lizenz_status"] in _sa_statuses else 0,
-                    key=f"status_{v['id']}",
-                )
-            with ed_c3:
-                ablauf_input = st.date_input(
-                    "Lizenz bis",
-                    value=ablauf or datetime.date.today() + datetime.timedelta(days=30),
-                    key=f"ablauf_{v['id']}",
-                )
-            with ed_c4:
-                extra_tage = st.number_input(
-                    "Testphase (+Tage)",
-                    min_value=0, max_value=365, value=0,
-                    key=f"extra_{v['id']}",
-                    help="Fügt diese Tage zur bestehenden Testphase hinzu",
-                )
-
-            btn_c1, btn_c2 = st.columns(2)
-            with btn_c1:
-                if st.button("💾 Lizenz speichern", key=f"save_{v['id']}", type="primary",
-                             use_container_width=True):
-                    lizenz_setzen(
-                        verein_id=v["id"],
-                        lizenz_typ=neuer_typ,
-                        lizenz_status=neuer_status,
-                        lizenz_bis=ablauf_input.isoformat(),
-                    )
-                    if extra_tage > 0:
-                        testphase_verlaengern(v["id"], extra_tage)
-                    invalidate_lizenz_cache(v["id"])
-                    st.success(f"✅ Lizenz für **{v['name']}** aktualisiert.")
-                    st.rerun()
-            with btn_c2:
-                if extra_tage > 0:
-                    if st.button(f"⏱ Testphase +{extra_tage}d", key=f"tp_{v['id']}",
-                                 use_container_width=True):
-                        testphase_verlaengern(v["id"], extra_tage)
-                        invalidate_lizenz_cache(v["id"])
-                        st.success(f"Testphase um {extra_tage} Tage verlängert.")
-                        st.rerun()
-
-            # ── Stripe-Kündigungsfelder ────────────────────────────────────
-            _cap_val = v.get("cancel_at_period_end")
-            _kuend_st = v.get("kuendigungsstatus") or "—"
-            _gek_zum  = v.get("gekuendigt_zum") or "—"
-            _kuend_ein = v.get("kuendigung_eingegangen") or "—"
-            if _cap_val or _kuend_st not in ("aktiv", "—", None):
-                st.markdown(
-                    f'<div style="background:{_C["surf"]};border:1px solid {_C["border"]};'
-                    f'border-radius:6px;padding:10px 14px;margin-top:10px">'
-                    f'<div style="font-size:11px;font-weight:700;color:{_C["orange"]};margin-bottom:6px">🔔 Kündigung</div>'
-                    f'<div style="font-size:11px;color:{_C["muted"]}">Status: '
-                    f'<span style="color:{_C["text"]}">{_kuend_st}</span></div>'
-                    f'<div style="font-size:11px;color:{_C["muted"]}">cancel_at_period_end: '
-                    f'<span style="color:{_C["text"]}">{"✅ Ja" if _cap_val else "Nein"}</span></div>'
-                    f'<div style="font-size:11px;color:{_C["muted"]}">Vertragsende: '
-                    f'<span style="color:{_C["text"]}">{_gek_zum}</span></div>'
-                    f'<div style="font-size:11px;color:{_C["muted"]}">Kündigung eingegangen: '
-                    f'<span style="color:{_C["text"]}">{_kuend_ein[:10] if _kuend_ein != "—" else "—"}</span></div>'
-                    f'</div>',
-                    unsafe_allow_html=True,
-                )
-
-            # ── Rechnungen ─────────────────────────────────────────────────
-            rechnungen = rechnungen_laden(v["id"])
-            if rechnungen:
-                st.markdown(
-                    f'<div style="font-size:11px;color:{_C["muted"]};margin-top:8px">'
-                    f'{len(rechnungen)} Rechnung(en) vorhanden</div>',
-                    unsafe_allow_html=True,
-                )
-
-    # ── Webhook-Fehler-Log ────────────────────────────────────────────────────
-    st.markdown("---")
-    st.markdown(
-        f'<h3 style="color:{_C["orange"]};font-size:16px;font-weight:700;margin-bottom:8px">'
-        f'⚠ Stripe Webhook-Fehler</h3>',
-        unsafe_allow_html=True,
-    )
-
-    fehler_liste = webhook_fehler_laden(limit=50)
-
-    if not fehler_liste:
-        st.markdown(
-            f'<div style="color:{_C["green"]};font-size:13px">✅ Keine fehlerhaften Webhook-Events vorhanden.</div>',
-            unsafe_allow_html=True,
-        )
-    else:
-        # Aufschlüsselung nach Fehlertyp
-        sig_fehler   = [f for f in fehler_liste if "Signaturprüfung" in f.get("fehlergrund", "")]
-        price_fehler = [f for f in fehler_liste if "Price-ID" in f.get("fehlergrund", "")]
-        zahlung_fehler = [f for f in fehler_liste if "Zahlung fehlgeschlagen" in f.get("fehlergrund", "")]
-        sonstige     = [f for f in fehler_liste
-                        if f not in sig_fehler and f not in price_fehler and f not in zahlung_fehler]
-
-        kf1, kf2, kf3, kf4 = st.columns(4)
-        with kf1:
-            _kpi("Signaturprüfung", str(len(sig_fehler)), _C["red"] if sig_fehler else _C["muted"])
-        with kf2:
-            _kpi("Unbekannte Price-ID", str(len(price_fehler)), _C["orange"] if price_fehler else _C["muted"])
-        with kf3:
-            _kpi("Zahlung fehlgeschlagen", str(len(zahlung_fehler)), _C["orange"] if zahlung_fehler else _C["muted"])
-        with kf4:
-            _kpi("Sonstige Fehler", str(len(sonstige)), _C["red"] if sonstige else _C["muted"])
-
-        st.markdown("")
-
-        import pandas as pd
-        df_fehler = pd.DataFrame(fehler_liste)
-        df_fehler = df_fehler.rename(columns={
-            "id":          "ID",
-            "event_id":    "Event-ID",
-            "event_type":  "Event-Typ",
-            "fehlergrund": "Fehlergrund",
-            "zeitstempel": "Zeitstempel",
-        })
-        anzeige_cols = [c for c in ["Zeitstempel", "Event-Typ", "Fehlergrund", "Event-ID"] if c in df_fehler.columns]
-        st.dataframe(
-            df_fehler[anzeige_cols],
-            use_container_width=True,
-            hide_index=True,
-        )
-
-        st.markdown("")
-        if st.button(
-            "🗑 Alle Webhook-Fehler löschen",
-            key="webhook_fehler_loeschen_btn",
-            help="Löscht alle gespeicherten Webhook-Fehler aus der Datenbank.",
-        ):
-            anzahl = webhook_fehler_loeschen()
-            st.success(f"✅ {anzahl} Webhook-Fehler gelöscht.")
-            st.rerun()
+    with tab1:
+        _sa_render_tab(nicht_archiviert, "alle", vereine_raw)
+    with tab2:
+        _sa_render_tab([r for r in nicht_archiviert if r["_typ"] == "verein"], "verein", vereine_raw)
+    with tab3:
+        _sa_render_tab([r for r in nicht_archiviert if r["_typ"] == "trainer"], "trainer", vereine_raw)
+    with tab4:
+        _sa_render_tab(archiviert, "archiv", vereine_raw)
