@@ -316,26 +316,22 @@ if _legal_show_key in ("impressum", "datenschutz", "agb"):
 # ist die Breite bereits bekannt wenn der Nutzer sich anmeldet → kein Reload nach Login.
 detect_screen_width()
 
-# ─── ?_sw= VOR dem Login-Gate konsumieren (iOS-Safari-Fix) ───────────────────
+# ─── ?_sw= Legacy-Kompatibilität (wird von _inject_screen_width_detect konsumiert) ──
 #
-# KRITISCHER BUG ohne diesen Block:
-#   _inject_screen_width_detect() feuert window.parent.location.replace(?_sw=390).
-#   iOS Safari bricht dabei die WebSocket-Verbindung ab — neue Streamlit-Session,
-#   leerer session_state. handle_mobile_nav_params() (die bisher einzige Stelle
-#   die ?_sw= konsumiert) läuft erst im authentifizierten Bereich (> Zeile 11000).
-#   Resultat: _screen_width nie gesetzt → detect_screen_width() feuert wieder →
-#   location.replace() → erneuter Reload → Endlosschleife → Weiß/Schwarz-Flackern.
+# _inject_screen_width_detect() liest und löscht ?_sw= bereits als erste Aktion
+# (Step 2 in seinem Docstring).  Dieser Block hier dient nur noch als Fallback,
+# falls der Param durch eine externe Quelle gesetzt wurde und detect_screen_width()
+# ihn noch nicht konsumiert hat.  Im Normalfall ist _sw_early leer.
 #
-# FIX: Lese und lösche ?_sw= direkt hier — vor dem Login-Gate — sodass der Loop
-# nach exakt EINEM Browser-Reload abbricht. Auf Android/Desktop ändert das
-# nichts, weil dort die WebSocket-Session erhalten bleibt und handle_mobile_nav_params()
-# ?_sw= im authentifizierten Bereich konsumiert hatte.
+# KEIN location.replace() mehr: _inject_screen_width_detect() verwendet seit dem
+# letzten Hotfix ausschließlich history.replaceState() (kein Browser-Reload) +
+# st.rerun() (Streamlit-interner WebSocket-Rerun, kein Seitenaufruf).
 _sw_early = st.query_params.get("_sw", "")
-if _sw_early:
+if _sw_early and "_screen_width" not in st.session_state:
     try:
         st.session_state["_screen_width"] = int(_sw_early)
     except (ValueError, TypeError):
-        st.session_state["_screen_width"] = 1024
+        st.session_state["_screen_width"] = 768
     try:
         del st.query_params["_sw"]
     except Exception:

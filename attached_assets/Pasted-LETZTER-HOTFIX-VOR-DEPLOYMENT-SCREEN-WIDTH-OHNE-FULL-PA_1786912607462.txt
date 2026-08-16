@@ -1,0 +1,161 @@
+LETZTER HOTFIX VOR DEPLOYMENT – SCREEN WIDTH OHNE FULL PAGE RELOAD
+
+Der iPhone-Safari-Endlosloop ist behoben.
+
+Bitte jetzt noch die Ursache technisch sauber entfernen:
+
+Aktuell verwendet _inject_screen_width_detect() weiterhin:
+
+window.parent.location.replace(...?_sw=...)
+
+Das erzeugt einen vollständigen Browser-Reload.
+
+ZIEL:
+Die Bildschirmbreite darf KEINEN Full-Page-Reload mehr auslösen.
+
+==================================================
+1. KEIN location.replace()
+==================================================
+
+Entferne die Verwendung von:
+
+window.parent.location.replace()
+
+für die Screen-Width-Erkennung vollständig.
+
+Auch kein:
+- location.reload()
+- window.location
+- history.go()
+
+==================================================
+2. SCREEN WIDTH NUR CLIENTSEITIG / STREAMLIT-INTERN
+==================================================
+
+Die Breite soll nur einmal ermittelt werden und dann im bestehenden
+Streamlit-State verfügbar sein.
+
+Wenn ein components.html()-Mechanismus verwendet wird:
+
+→ Wert an Streamlit zurückgeben
+→ session_state setzen
+→ maximal st.rerun()
+
+Aber KEIN neuer Browser-Load.
+
+==================================================
+3. FALLBACK
+==================================================
+
+Falls die Breite beim ersten Render noch unbekannt ist:
+
+Default darf sicher "mobile/unknown" sein.
+
+Die App darf trotzdem laden.
+
+Keine Login-Blockade nur wegen fehlender _screen_width.
+
+==================================================
+4. ORIENTATION / RESIZE
+==================================================
+
+Kein permanenter Resize-Listener nötig.
+
+Falls Orientation-Wechsel unterstützt wird:
+
+nur bei Wechsel zwischen:
+<=768
+und
+>768
+
+State aktualisieren.
+
+390px → 393px
+→ kein Rerun.
+
+==================================================
+5. ?_sw LEGACY
+==================================================
+
+Bestehendes ?_sw= Query-Handling darf zur Rückwärtskompatibilität noch
+temporär gelesen werden, aber es darf nicht mehr neu erzeugt werden.
+
+Optional Query-Parameter nach erfolgreichem Lesen sauber entfernen,
+ohne Reload.
+
+==================================================
+6. DARK BACKGROUND BEIBEHALTEN
+==================================================
+
+Die bereits ergänzten Regeln behalten:
+
+html/body background-color #0d1117
+color-scheme: dark
+Streamlit [theme]
+
+Nicht zurückbauen.
+
+==================================================
+7. SESSION-FIX BEIBEHALTEN
+==================================================
+
+Nicht verändern:
+
+- ath_sid
+- Cookie-Wait
+- DB-Touch
+- Idle 60 min
+- Max 24h
+- Session-Restore
+- Passwort-Invalidierung
+
+==================================================
+8. MOBILE SIDEBAR BEIBEHALTEN
+==================================================
+
+Debounce + Retry-Logik erhalten.
+
+Keine neue Navigation bauen.
+
+==================================================
+9. TESTS
+==================================================
+
+iPhone Safari:
+- erster Aufruf
+- KEIN Full-Page-Reload durch Screen-Width-Erkennung
+- kein weiß/schwarz-Flackern
+- Login sichtbar
+- Menü funktioniert
+
+Android:
+- unverändert
+
+Desktop:
+- unverändert
+
+Zusätzlich:
+- kein "location.replace" mehr in mobile.py
+- kein "location.reload" für Screen-Width
+- py_compile
+- test_session 30/30
+- Block-B 35/35
+
+==================================================
+10. ABSCHLUSSBERICHT
+==================================================
+
+Berichten:
+
+1. wie Screen-Width jetzt übertragen wird
+2. ob Full-Page-Reload vollständig entfernt wurde
+3. Verhalten bei unbekannter Breite
+4. Verhalten Portrait/Landscape
+5. iPhone Safari
+6. Android
+7. Desktop
+8. Session-Test
+9. Block-B
+
+Danach STOPPEN.
+NICHT DEPLOYEN.

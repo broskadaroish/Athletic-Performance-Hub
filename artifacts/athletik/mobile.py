@@ -140,29 +140,80 @@ def detect_screen_width() -> None:
     """
     Public wrapper around _inject_screen_width_detect().
     Call this as early as possible — even on the login page — so the
-    screen-width JS fires before the user logs in.  This prevents the
-    post-login location.replace() reload that would otherwise wipe
-    session_state and force a double-rerun after authentication.
+    screen-width detection JS fires before the user logs in.  This ensures
+    _screen_width is already set when the authenticated section runs,
+    avoiding any extra Streamlit rerun after authentication.
     """
     _inject_screen_width_detect()
 
 
 def _inject_screen_width_detect() -> None:
     """
-    Inject a JS snippet (once per session) that detects window.innerWidth and
-    writes it to the ?_sw= query param, triggering a page reload.
+    Detect the viewport width once per session WITHOUT a browser page reload.
 
-    On the reload handle_mobile_nav_params() reads ?_sw=, stores the value in
-    st.session_state["_screen_width"], and clears the param.
-    After that render_mobile_nav() uses the cached value as a Python-level guard
-    so the widget is never instantiated on desktop (> 768 px).
+    Mechanism
+    ─────────
+    1. Guard: if _screen_width is already in session_state → return immediately.
 
-    The one-time reload is harmless: authentication uses cookie-based persistence
-    and survives a browser location.replace().
+    2. Consume ?_sw= if present (set by a previous Streamlit rerun):
+       - Read the value, write _screen_width to session_state, delete the param.
+       - Return — no JS needed.
+
+    3. If JS detection has failed twice in a row → default to 768 px (mobile-safe)
+       so the app still loads instead of looping forever.
+
+    4. First-time detection:
+       - Inject a JS snippet that reads window.parent.innerWidth and writes the
+         result to the URL via window.parent.history.replaceState() — this updates
+         the URL in-place WITHOUT any browser page reload, HTTP request, or new
+         WebSocket connection.
+       - Wait 0.4 s (server-side) for the browser to execute the injected JS.
+       - Call st.rerun() — a Streamlit-internal WebSocket-based rerun, NOT a
+         browser reload.  session_state is fully preserved.
+       - On that second render cycle, step 2 above finds ?_sw= in query_params,
+         reads it, and the detection is complete.
+
+    Safari note
+    ───────────
+    history.replaceState() mutates only the URL bar — no navigation event,
+    no reload, no new WebSocket connection.  session_state is fully preserved
+    across the st.rerun() that follows.
     """
-    if "_screen_width" in st.session_state:
-        return  # already detected — no further injection needed
     import streamlit.components.v1 as components
+    import time
+
+    # ── 1. Already detected ────────────────────────────────────────────────────
+    if "_screen_width" in st.session_state:
+        return
+
+    # ── 2. Consume ?_sw= written by JS in the previous Streamlit rerun ────────
+    sw_val = st.query_params.get("_sw", "")
+    if sw_val:
+        try:
+            st.session_state["_screen_width"] = int(sw_val)
+        except (ValueError, TypeError):
+            st.session_state["_screen_width"] = 768
+        try:
+            del st.query_params["_sw"]
+        except Exception:
+            pass
+        st.session_state.pop("_sw_detect_attempts", None)  # reset counter
+        return
+
+    # ── 3. Fallback after repeated JS failures ─────────────────────────────────
+    _attempts = st.session_state.get("_sw_detect_attempts", 0)
+    if _attempts >= 2:
+        # JS never set ?_sw= — device quirk or very slow JS execution.
+        # Default to mobile-safe width so the app continues loading.
+        st.session_state["_screen_width"] = 768
+        st.session_state.pop("_sw_detect_attempts", None)
+        return
+
+    st.session_state["_sw_detect_attempts"] = _attempts + 1
+
+    # ── 4. Inject detection JS ─────────────────────────────────────────────────
+    # history.replaceState() updates the URL without any page reload or new
+    # WebSocket connection — Safari-safe.
     components.html(
         "<script>"
         "try {"
@@ -170,13 +221,18 @@ def _inject_screen_width_detect() -> None:
         "  if (w > 0) {"
         "    var u = new URL(window.parent.location.href);"
         "    u.searchParams.set('_sw', String(w));"
-        "    window.parent.location.replace(u.toString());"
+        "    window.parent.history.replaceState(null, '', u.toString());"
         "  }"
         "} catch(e) {}"
         "</script>",
         height=0,
         scrolling=False,
     )
+
+    # Wait for the browser to execute the JS, then trigger a Streamlit-internal
+    # rerun (WebSocket message — NOT a browser page reload).
+    time.sleep(0.4)
+    st.rerun()
 
 
 # ── Mobile sidebar open button ────────────────────────────────────────────────
