@@ -397,7 +397,8 @@ def _trainer_edit_form(b: dict, admin_user: dict, admin_rolle: str, vereine: lis
                 if not _ok:
                     st.error(f"❌ {_err}")
                 else:
-                    benutzer_foto_speichern(vid, _raw)
+                    from utils.file_magic import optimize_image as _opt_img
+                    benutzer_foto_speichern(vid, _opt_img(_raw))
                     st.success("✅ Foto gespeichert.")
                     st.rerun()
             if b.get("foto_blob"):
@@ -492,6 +493,8 @@ def page_mein_profil():
             if not _ok:
                 st.error(f"❌ {_err}")
             else:
+                from utils.file_magic import optimize_image as _opt_img
+                _raw = _opt_img(_raw)
                 benutzer_foto_speichern(uid, _raw)
                 # Sofort im session_state aktualisieren
                 st.session_state["user"]["foto_blob"] = _raw

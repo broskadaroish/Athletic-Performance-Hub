@@ -1011,262 +1011,407 @@ if "user" not in st.session_state:
 
             # ── Trainer registrieren ──────────────────────────────────────────
             with _trainer_tab:
-                from license import LIZENZ_TYPEN as _REG_TLT
-                _TRAINER_PAKETE = ["TRAINER_BASIC", "TRAINER_PRO"]
-
-                # ── 1 · Paket wählen ──────────────────────────────────────────
-                st.markdown(
-                    '<div style="margin:8px 0 10px;padding:0 0 6px;border-bottom:1px solid #21262d">'
-                    '<span style="color:#e6edf3;font-size:14px;font-weight:700">1 · Paket wählen</span>'
-                    '</div>',
-                    unsafe_allow_html=True,
+                # ── Registrierungsmodus wählen ────────────────────────────────────────
+                _trainer_modus = st.radio(
+                    "Wie möchtest du APH nutzen?",
+                    ["eigenstaendig", "beitreten"],
+                    format_func=lambda x: (
+                        "🎯 Als eigener Trainer registrieren"
+                        if x == "eigenstaendig"
+                        else "🤝 Einem Verein beitreten"
+                    ),
+                    key="trainer_modus",
+                    horizontal=True,
                 )
-                st.markdown(
-                    '<div style="background:#0f2417;border:1px solid #2ea043;'
-                    'border-radius:8px;padding:10px 14px;margin-bottom:12px;'
-                    'font-size:13px;color:#3fb950;font-weight:600">'
-                    '🎁 30 Tage kostenlos testen'
-                    '<span style="color:#8b949e;font-weight:400;font-size:12px">'
-                    ' — Heute keine Zahlung fällig</span>'
-                    '</div>',
-                    unsafe_allow_html=True,
-                )
+                st.divider()
 
-                # Paket-Karten mit Auswahlzustand
-                _cur_t_paket = st.session_state.get("reg_t_paket", _TRAINER_PAKETE[0])
-                _ttc1, _ttc2 = st.columns(2)
-                for _tpk, _tpc in zip(_TRAINER_PAKETE, [_ttc1, _ttc2]):
-                    _ttd = _REG_TLT[_tpk]
-                    _tms = "unbegrenzt" if _ttd["max_spieler"] is None else f"max. {_ttd['max_spieler']}"
-                    _t_is_sel = (_tpk == _cur_t_paket)
-                    _t_sel_border = "#f85149" if _t_is_sel else "#30363d"
-                    _t_sel_bg     = "#1c1112" if _t_is_sel else "#161b22"
-                    _t_sel_badge  = (
-                        '<div style="display:inline-block;background:#f85149;color:#fff;'
-                        'font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;'
-                        'margin-bottom:4px">✓ Ausgewählt</div><br>' if _t_is_sel else ""
+                # ── Option B: Einem Verein beitreten ─────────────────────────────────
+                if _trainer_modus == "beitreten":
+                    st.markdown(
+                        '<div style="background:#0d1e2d;border:1px solid #1f6feb;'                        'border-radius:8px;padding:10px 14px;margin-bottom:12px;'                        'font-size:13px;color:#58a6ff;font-weight:600">'                        '🤝 Mit Beitrittscode einem bestehenden Verein beitreten</div>',
+                        unsafe_allow_html=True,
                     )
-                    _tpc.markdown(
-                        f'<div style="background:{_t_sel_bg};border:2px solid {_t_sel_border};'
-                        f'border-radius:10px;padding:12px 14px;font-size:12px;line-height:1.8">'
-                        f'{_t_sel_badge}'
-                        f'<strong style="color:#e6edf3;font-size:13px">{_ttd["label"]}</strong><br>'
-                        f'<span style="color:#3fb950;font-weight:600">{_ttd["preis_monat"]:.2f}\u202f€/Mo</span>'
-                        f'<span style="color:#8b949e;font-size:11px">\u2002·\u2002{_ttd["preis_jahr"]:.0f}\u202f€/Jahr</span><br>'
-                        f'<span style="color:#8b949e;font-size:11px">👤 {_ttd["max_trainer"]} Trainer'
-                        f'\u2002·\u2002{_tms} Spieler</span>'
-                        f'</div>',
+                    st.caption(
+                        "Den Beitrittscode erhältst du von deinem Vereinsadmin. "
+                        "Nach der Registrierung muss dein Konto freigegeben werden."
+                    )
+                    st.markdown("---")
+                    _bj_code = st.text_input(
+                        "Trainer-Beitrittscode *",
+                        key="bj_code",
+                        placeholder="z. B. ABC123",
+                        help="Den Code erhältst du von deinem Vereinsadmin.",
+                    )
+                    _bj_c1, _bj_c2 = st.columns(2)
+                    _bj_vorname  = _bj_c1.text_input("Vorname *",    key="bj_vorname")
+                    _bj_nachname = _bj_c2.text_input("Nachname *",   key="bj_nachname")
+                    _bj_email    = st.text_input(
+                        "E-Mail-Adresse *", key="bj_email",
+                        placeholder="trainer@verein.de",
+                    )
+                    _bj_uname    = st.text_input(
+                        "Benutzername *", key="bj_benutzername",
+                        placeholder="mein_benutzername",
+                    )
+                    _bj_p1, _bj_p2 = st.columns(2)
+                    _bj_pw1 = _bj_p1.text_input("Passwort *", key="bj_pw1", type="password")
+                    _bj_pw2 = _bj_p2.text_input("Passwort bestätigen *", key="bj_pw2", type="password")
+                    st.markdown(
+                        '<div style="background:#161b22;border:1px solid #30363d;'                        'border-radius:8px;padding:12px 14px;margin:8px 0 12px">',
+                        unsafe_allow_html=True,
+                    )
+                    _bj_ds_c1, _bj_ds_c2 = st.columns([6, 1])
+                    _bj_datenschutz = _bj_ds_c1.checkbox(
+                        "Ich habe die Datenschutzerklärung gelesen und akzeptiere sie.",
+                        key="bj_datenschutz",
+                    )
+                    if _bj_ds_c2.button("📖 Lesen", key="bj_open_ds"):
+                        st.session_state["_legal_show"] = "datenschutz"
+                        st.rerun()
+                    _bj_agb_c1, _bj_agb_c2 = st.columns([6, 1])
+                    _bj_agb = _bj_agb_c1.checkbox(
+                        "Ich habe die AGB / Nutzungsbedingungen gelesen und akzeptiere sie.",
+                        key="bj_agb",
+                    )
+                    if _bj_agb_c2.button("📖 Lesen", key="bj_open_agb"):
+                        st.session_state["_legal_show"] = "agb"
+                        st.rerun()
+                    st.markdown("</div>", unsafe_allow_html=True)
+                    if st.button("🤝 Verein beitreten", type="primary",
+                                 use_container_width=True, key="bj_submit_btn"):
+                        _bj_errs = []
+                        if not _bj_code.strip():
+                            _bj_errs.append("Beitrittscode fehlt.")
+                        if not _bj_vorname.strip() or not _bj_nachname.strip():
+                            _bj_errs.append("Vor- und Nachname fehlen.")
+                        if not _bj_email.strip() or "@" not in _bj_email:
+                            _bj_errs.append("Bitte gültige E-Mail-Adresse eingeben.")
+                        if not _bj_uname.strip():
+                            _bj_errs.append("Benutzername fehlt.")
+                        if len(_bj_pw1) < 6:
+                            _bj_errs.append("Passwort muss mindestens 6 Zeichen haben.")
+                        elif _bj_pw1 != _bj_pw2:
+                            _bj_errs.append("Passwörter stimmen nicht überein.")
+                        if not _bj_datenschutz or not _bj_agb:
+                            _bj_errs.append(
+                                "Bitte akzeptiere die Datenschutzerklärung und die AGB."
+                            )
+                        if _bj_errs:
+                            for _be in _bj_errs:
+                                st.error(_be)
+                        else:
+                            try:
+                                from database import (
+                                    verein_by_registriercode as _vbrc,
+                                    trainer_verein_beitreten as _tvb,
+                                    email_token_erzeugen as _ete_bj,
+                                )
+                                _bj_verein = _vbrc(_bj_code.strip())
+                                if _bj_verein is None:
+                                    st.error("❌ Der Beitrittscode ist ungültig.")
+                                else:
+                                    _bj_bid = _tvb(
+                                        _bj_verein["id"],
+                                        _bj_vorname.strip(),
+                                        _bj_nachname.strip(),
+                                        _bj_email.strip(),
+                                        _bj_pw1,
+                                        benutzername=_bj_uname.strip(),
+                                    )
+                                    zustimmung_registrierung_speichern(
+                                        _bj_bid, PRIVACY_POLICY_VERSION, TERMS_VERSION
+                                    )
+                                    _bj_email_ok = False
+                                    try:
+                                        _bj_tok = _ete_bj(_bj_bid)
+                                        from email_service import (
+                                            send_verification_email as _sve_bj,
+                                        )
+                                        _sve_bj(
+                                            _bj_email.strip(),
+                                            _bj_vorname.strip(),
+                                            _bj_tok,
+                                            _app_base_url(),
+                                        )
+                                        _bj_email_ok = True
+                                    except Exception as _bj_smtp_e:
+                                        import logging as _log_bj
+                                        _log_bj.getLogger("athletik.email").error(
+                                            "Beitritt-Reg: Verifizierungs-E-Mail "
+                                            "fehlgeschlagen (%s).",
+                                            type(_bj_smtp_e).__name__,
+                                        )
+                                    st.success(
+                                        f"✅ Registrierung bei "
+                                        f"**{_bj_verein['name']}** erfolgreich! "
+                                        "Dein Konto wird vom Vereinsadmin freigeschaltet."
+                                        + (" Bitte bestätige deine E-Mail-Adresse."
+                                           if _bj_email_ok else "")
+                                    )
+                            except ValueError as _bj_ve:
+                                st.error(f"❌ {_bj_ve}")
+                            except Exception as _bj_ex:
+                                st.error(f"Fehler bei der Registrierung: {_bj_ex}")
+
+                # ── Option A: Eigener Trainer (bestehender Flow) ──────────────────────
+                if _trainer_modus == "eigenstaendig":
+
+                    from license import LIZENZ_TYPEN as _REG_TLT
+                    _TRAINER_PAKETE = ["TRAINER_BASIC", "TRAINER_PRO"]
+
+                    # ── 1 · Paket wählen ──────────────────────────────────────────
+                    st.markdown(
+                        '<div style="margin:8px 0 10px;padding:0 0 6px;border-bottom:1px solid #21262d">'
+                        '<span style="color:#e6edf3;font-size:14px;font-weight:700">1 · Paket wählen</span>'
+                        '</div>',
+                        unsafe_allow_html=True,
+                    )
+                    st.markdown(
+                        '<div style="background:#0f2417;border:1px solid #2ea043;'
+                        'border-radius:8px;padding:10px 14px;margin-bottom:12px;'
+                        'font-size:13px;color:#3fb950;font-weight:600">'
+                        '🎁 30 Tage kostenlos testen'
+                        '<span style="color:#8b949e;font-weight:400;font-size:12px">'
+                        ' — Heute keine Zahlung fällig</span>'
+                        '</div>',
                         unsafe_allow_html=True,
                     )
 
-                _t_paket = st.radio(
-                    "Paket",
-                    _TRAINER_PAKETE,
-                    format_func=lambda k: _REG_TLT[k]["label"],
-                    key="reg_t_paket",
-                    horizontal=True,
-                    label_visibility="collapsed",
-                )
-                _t_tsel = _REG_TLT[_t_paket]
-                _t_intervall = st.radio(
-                    "Abrechnungsintervall *",
-                    ["monat", "jahr"],
-                    format_func=lambda x, _td=_t_tsel: (
-                        f"Monatlich — {_td['preis_monat']:.2f}\u202f€/Monat"
-                        if x == "monat"
-                        else f"Jährlich — {_td['preis_jahr']:.0f}\u202f€/Jahr"
-                             f"  ✓ günstiger als 12 Monatszahlungen"
-                    ),
-                    key="reg_t_intervall",
-                )
-
-                # ── 2 · Zugangsdaten ──────────────────────────────────────────
-                st.markdown(
-                    '<div style="margin:14px 0 10px;padding:0 0 6px;border-bottom:1px solid #21262d">'
-                    '<span style="color:#e6edf3;font-size:14px;font-weight:700">2 · Zugangsdaten</span>'
-                    '</div>',
-                    unsafe_allow_html=True,
-                )
-                _tt1, _tt2 = st.columns(2)
-                _t_vorname  = _tt1.text_input("Vorname *",      key="trainer_vorname")
-                _t_nachname = _tt2.text_input("Nachname *",     key="trainer_nachname")
-                _t_email    = st.text_input("E-Mail-Adresse *", key="trainer_email",
-                                            placeholder="trainer@verein.de")
-                _t_uname    = st.text_input("Benutzername *",   key="trainer_benutzername",
-                                            placeholder="mein_benutzername")
-                _tp1, _tp2 = st.columns(2)
-                _t_pw1 = _tp1.text_input("Passwort *",          key="trainer_pw1", type="password")
-                _t_pw2 = _tp2.text_input("Passwort bestätigen *", key="trainer_pw2", type="password")
-
-                # ── 3 · Rechnungsdaten ────────────────────────────────────────
-                st.markdown(
-                    '<div style="margin:14px 0 10px;padding:0 0 6px;border-bottom:1px solid #21262d">'
-                    '<span style="color:#e6edf3;font-size:14px;font-weight:700">3 · Rechnungsdaten</span>'
-                    '</div>',
-                    unsafe_allow_html=True,
-                )
-                with st.expander("📄 Rechnungsadresse (Pflichtangabe)", expanded=True):
-                    _tb1, _tb2 = st.columns(2)
-                    _t_ra_firma    = _tb1.text_input("Firma/Verein (optional)",  key="tr_ra_firma")
-                    _t_ra_tel      = _tb2.text_input("Telefon (optional)",       key="tr_ra_tel")
-                    _tb3, _tb4 = st.columns(2)
-                    _t_ra_vorname  = _tb3.text_input("Vorname *",                key="tr_ra_vorname")
-                    _t_ra_nachname = _tb4.text_input("Nachname *",               key="tr_ra_nachname")
-                    _tb5, _tb6 = st.columns([3, 1])
-                    _t_ra_strasse  = _tb5.text_input("Straße *",                 key="tr_ra_strasse")
-                    _t_ra_hnr      = _tb6.text_input("Nr. *",                    key="tr_ra_hnr")
-                    _tb7, _tb8 = st.columns([1, 2])
-                    _t_ra_plz      = _tb7.text_input("PLZ *",                    key="tr_ra_plz")
-                    _t_ra_ort      = _tb8.text_input("Ort *",                    key="tr_ra_ort")
-                    _tb9, _tb10 = st.columns(2)
-                    _t_ra_land     = _tb9.text_input("Land *",                   key="tr_ra_land",
-                                                     value="Deutschland")
-                    _t_ra_remail   = _tb10.text_input("Rechnungs-E-Mail *",      key="tr_ra_remail",
-                                                      placeholder="rechnung@trainer.de")
-                    _t_ra_ustid    = st.text_input("Umsatzsteuer-ID (optional)", key="tr_ra_ustid")
-
-                # ── 4 · Rechtliches ───────────────────────────────────────────
-                st.markdown(
-                    '<div style="margin:14px 0 10px;padding:0 0 6px;border-bottom:1px solid #21262d">'
-                    '<span style="color:#e6edf3;font-size:14px;font-weight:700">4 · Rechtliches</span>'
-                    '</div>',
-                    unsafe_allow_html=True,
-                )
-                st.markdown(
-                    '<div style="background:#161b22;border:1px solid #30363d;'
-                    'border-radius:8px;padding:12px 14px;margin:4px 0 12px">',
-                    unsafe_allow_html=True,
-                )
-                _tds_c1, _tds_c2 = st.columns([6, 1])
-                _t_datenschutz = _tds_c1.checkbox(
-                    "Ich habe die Datenschutzerklärung gelesen und akzeptiere sie.",
-                    key="reg_t_datenschutz",
-                )
-                if _tds_c2.button("📖 Lesen", key="reg_t_open_ds",
-                                  help="Datenschutzerklärung öffnen"):
-                    st.session_state["_legal_show"] = "datenschutz"
-                    st.rerun()
-                _tagb_c1, _tagb_c2 = st.columns([6, 1])
-                _t_agb = _tagb_c1.checkbox(
-                    "Ich habe die AGB / Nutzungsbedingungen gelesen und akzeptiere sie.",
-                    key="reg_t_agb",
-                )
-                if _tagb_c2.button("📖 Lesen", key="reg_t_open_agb",
-                                   help="AGB / Nutzungsbedingungen öffnen"):
-                    st.session_state["_legal_show"] = "agb"
-                    st.rerun()
-                st.markdown("</div>", unsafe_allow_html=True)
-
-                st.caption("Heute keine Zahlung. Anschließend gemäß gewähltem Tarif.")
-                if st.button("🚀 30 TAGE KOSTENLOS STARTEN", type="primary",
-                             use_container_width=True, key="trainer_reg_btn"):
-                    _terr = []
-                    if not _t_datenschutz or not _t_agb:
-                        _terr.append(
-                            "Bitte akzeptiere die Datenschutzerklärung und die "
-                            "AGB / Nutzungsbedingungen, um die Registrierung abzuschließen."
+                    # Paket-Karten mit Auswahlzustand
+                    _cur_t_paket = st.session_state.get("reg_t_paket", _TRAINER_PAKETE[0])
+                    _ttc1, _ttc2 = st.columns(2)
+                    for _tpk, _tpc in zip(_TRAINER_PAKETE, [_ttc1, _ttc2]):
+                        _ttd = _REG_TLT[_tpk]
+                        _tms = "unbegrenzt" if _ttd["max_spieler"] is None else f"max. {_ttd['max_spieler']}"
+                        _t_is_sel = (_tpk == _cur_t_paket)
+                        _t_sel_border = "#f85149" if _t_is_sel else "#30363d"
+                        _t_sel_bg     = "#1c1112" if _t_is_sel else "#161b22"
+                        _t_sel_badge  = (
+                            '<div style="display:inline-block;background:#f85149;color:#fff;'
+                            'font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;'
+                            'margin-bottom:4px">✓ Ausgewählt</div><br>' if _t_is_sel else ""
                         )
-                    if not _t_vorname.strip() or not _t_nachname.strip():
-                        _terr.append("Vor- und Nachname fehlen.")
-                    if not _t_email.strip() or "@" not in _t_email:
-                        _terr.append("Bitte gültige E-Mail-Adresse eingeben.")
-                    if not _t_uname.strip():             _terr.append("Benutzername fehlt.")
-                    if len(_t_pw1) < 6:                  _terr.append("Passwort mind. 6 Zeichen.")
-                    elif _t_pw1 != _t_pw2:               _terr.append("Passwörter stimmen nicht überein.")
-                    if not _t_ra_vorname.strip() or not _t_ra_nachname.strip():
-                        _terr.append("Rechnungsadresse: Vor-/Nachname fehlen.")
-                    if not _t_ra_strasse.strip() or not _t_ra_hnr.strip():
-                        _terr.append("Rechnungsadresse: Straße und Hausnummer fehlen.")
-                    if not _t_ra_plz.strip() or not _t_ra_ort.strip():
-                        _terr.append("Rechnungsadresse: PLZ und Ort fehlen.")
-                    if not _t_ra_land.strip():           _terr.append("Rechnungsadresse: Land fehlt.")
-                    if not _t_ra_remail.strip() or "@" not in _t_ra_remail:
-                        _terr.append("Rechnungsadresse: Rechnungs-E-Mail fehlt oder ungültig.")
-                    if _t_paket not in _TRAINER_PAKETE:
-                        _terr.append(f"Ungültiges Paket: {_t_paket!r}.")
-                    if _t_intervall not in ("monat", "jahr"):
-                        _terr.append("Ungültiges Abrechnungsintervall.")
-                    if _terr:
-                        for _e in _terr: st.error(_e)
-                    else:
-                        try:
-                            from database import trainer_registrieren, rechnungsadresse_speichern as _ras
-                            _tbid = trainer_registrieren(
-                                _t_vorname.strip(), _t_nachname.strip(),
-                                _t_email.strip(), _t_pw1,
-                                benutzername=_t_uname.strip(),
-                                lizenztyp=_t_paket,
-                                abo_intervall=_t_intervall,
+                        _tpc.markdown(
+                            f'<div style="background:{_t_sel_bg};border:2px solid {_t_sel_border};'
+                            f'border-radius:10px;padding:12px 14px;font-size:12px;line-height:1.8">'
+                            f'{_t_sel_badge}'
+                            f'<strong style="color:#e6edf3;font-size:13px">{_ttd["label"]}</strong><br>'
+                            f'<span style="color:#3fb950;font-weight:600">{_ttd["preis_monat"]:.2f}\u202f€/Mo</span>'
+                            f'<span style="color:#8b949e;font-size:11px">\u2002·\u2002{_ttd["preis_jahr"]:.0f}\u202f€/Jahr</span><br>'
+                            f'<span style="color:#8b949e;font-size:11px">👤 {_ttd["max_trainer"]} Trainer'
+                            f'\u2002·\u2002{_tms} Spieler</span>'
+                            f'</div>',
+                            unsafe_allow_html=True,
+                        )
+
+                    _t_paket = st.radio(
+                        "Paket",
+                        _TRAINER_PAKETE,
+                        format_func=lambda k: _REG_TLT[k]["label"],
+                        key="reg_t_paket",
+                        horizontal=True,
+                        label_visibility="collapsed",
+                    )
+                    _t_tsel = _REG_TLT[_t_paket]
+                    _t_intervall = st.radio(
+                        "Abrechnungsintervall *",
+                        ["monat", "jahr"],
+                        format_func=lambda x, _td=_t_tsel: (
+                            f"Monatlich — {_td['preis_monat']:.2f}\u202f€/Monat"
+                            if x == "monat"
+                            else f"Jährlich — {_td['preis_jahr']:.0f}\u202f€/Jahr"
+                                 f"  ✓ günstiger als 12 Monatszahlungen"
+                        ),
+                        key="reg_t_intervall",
+                    )
+
+                    # ── 2 · Zugangsdaten ──────────────────────────────────────────
+                    st.markdown(
+                        '<div style="margin:14px 0 10px;padding:0 0 6px;border-bottom:1px solid #21262d">'
+                        '<span style="color:#e6edf3;font-size:14px;font-weight:700">2 · Zugangsdaten</span>'
+                        '</div>',
+                        unsafe_allow_html=True,
+                    )
+                    _tt1, _tt2 = st.columns(2)
+                    _t_vorname  = _tt1.text_input("Vorname *",      key="trainer_vorname")
+                    _t_nachname = _tt2.text_input("Nachname *",     key="trainer_nachname")
+                    _t_email    = st.text_input("E-Mail-Adresse *", key="trainer_email",
+                                                placeholder="trainer@verein.de")
+                    _t_uname    = st.text_input("Benutzername *",   key="trainer_benutzername",
+                                                placeholder="mein_benutzername")
+                    _tp1, _tp2 = st.columns(2)
+                    _t_pw1 = _tp1.text_input("Passwort *",          key="trainer_pw1", type="password")
+                    _t_pw2 = _tp2.text_input("Passwort bestätigen *", key="trainer_pw2", type="password")
+
+                    # ── 3 · Rechnungsdaten ────────────────────────────────────────
+                    st.markdown(
+                        '<div style="margin:14px 0 10px;padding:0 0 6px;border-bottom:1px solid #21262d">'
+                        '<span style="color:#e6edf3;font-size:14px;font-weight:700">3 · Rechnungsdaten</span>'
+                        '</div>',
+                        unsafe_allow_html=True,
+                    )
+                    with st.expander("📄 Rechnungsadresse (Pflichtangabe)", expanded=True):
+                        _tb1, _tb2 = st.columns(2)
+                        _t_ra_firma    = _tb1.text_input("Firma/Verein (optional)",  key="tr_ra_firma")
+                        _t_ra_tel      = _tb2.text_input("Telefon (optional)",       key="tr_ra_tel")
+                        _tb3, _tb4 = st.columns(2)
+                        _t_ra_vorname  = _tb3.text_input("Vorname *",                key="tr_ra_vorname")
+                        _t_ra_nachname = _tb4.text_input("Nachname *",               key="tr_ra_nachname")
+                        _tb5, _tb6 = st.columns([3, 1])
+                        _t_ra_strasse  = _tb5.text_input("Straße *",                 key="tr_ra_strasse")
+                        _t_ra_hnr      = _tb6.text_input("Nr. *",                    key="tr_ra_hnr")
+                        _tb7, _tb8 = st.columns([1, 2])
+                        _t_ra_plz      = _tb7.text_input("PLZ *",                    key="tr_ra_plz")
+                        _t_ra_ort      = _tb8.text_input("Ort *",                    key="tr_ra_ort")
+                        _tb9, _tb10 = st.columns(2)
+                        _t_ra_land     = _tb9.text_input("Land *",                   key="tr_ra_land",
+                                                         value="Deutschland")
+                        _t_ra_remail   = _tb10.text_input("Rechnungs-E-Mail *",      key="tr_ra_remail",
+                                                          placeholder="rechnung@trainer.de")
+                        _t_ra_ustid    = st.text_input("Umsatzsteuer-ID (optional)", key="tr_ra_ustid")
+
+                    # ── 4 · Rechtliches ───────────────────────────────────────────
+                    st.markdown(
+                        '<div style="margin:14px 0 10px;padding:0 0 6px;border-bottom:1px solid #21262d">'
+                        '<span style="color:#e6edf3;font-size:14px;font-weight:700">4 · Rechtliches</span>'
+                        '</div>',
+                        unsafe_allow_html=True,
+                    )
+                    st.markdown(
+                        '<div style="background:#161b22;border:1px solid #30363d;'
+                        'border-radius:8px;padding:12px 14px;margin:4px 0 12px">',
+                        unsafe_allow_html=True,
+                    )
+                    _tds_c1, _tds_c2 = st.columns([6, 1])
+                    _t_datenschutz = _tds_c1.checkbox(
+                        "Ich habe die Datenschutzerklärung gelesen und akzeptiere sie.",
+                        key="reg_t_datenschutz",
+                    )
+                    if _tds_c2.button("📖 Lesen", key="reg_t_open_ds",
+                                      help="Datenschutzerklärung öffnen"):
+                        st.session_state["_legal_show"] = "datenschutz"
+                        st.rerun()
+                    _tagb_c1, _tagb_c2 = st.columns([6, 1])
+                    _t_agb = _tagb_c1.checkbox(
+                        "Ich habe die AGB / Nutzungsbedingungen gelesen und akzeptiere sie.",
+                        key="reg_t_agb",
+                    )
+                    if _tagb_c2.button("📖 Lesen", key="reg_t_open_agb",
+                                       help="AGB / Nutzungsbedingungen öffnen"):
+                        st.session_state["_legal_show"] = "agb"
+                        st.rerun()
+                    st.markdown("</div>", unsafe_allow_html=True)
+
+                    st.caption("Heute keine Zahlung. Anschließend gemäß gewähltem Tarif.")
+                    if st.button("🚀 30 TAGE KOSTENLOS STARTEN", type="primary",
+                                 use_container_width=True, key="trainer_reg_btn"):
+                        _terr = []
+                        if not _t_datenschutz or not _t_agb:
+                            _terr.append(
+                                "Bitte akzeptiere die Datenschutzerklärung und die "
+                                "AGB / Nutzungsbedingungen, um die Registrierung abzuschließen."
                             )
-                            _ras(_tbid,
-                                 firma=_t_ra_firma.strip() or None,
-                                 vorname=_t_ra_vorname.strip(),
-                                 nachname=_t_ra_nachname.strip(),
-                                 strasse=_t_ra_strasse.strip(),
-                                 hausnummer=_t_ra_hnr.strip(),
-                                 plz=_t_ra_plz.strip(),
-                                 ort=_t_ra_ort.strip(),
-                                 land=_t_ra_land.strip(),
-                                 rechnung_email=_t_ra_remail.strip(),
-                                 telefon=_t_ra_tel.strip() or None,
-                                 ust_id=_t_ra_ustid.strip() or None)
-                            zustimmung_registrierung_speichern(
-                                _tbid, PRIVACY_POLICY_VERSION, TERMS_VERSION
-                            )
-                            from database import email_token_erzeugen as _ete
-                            _tvtoken = _ete(_tbid)
-                            _treg_email_ok = False
+                        if not _t_vorname.strip() or not _t_nachname.strip():
+                            _terr.append("Vor- und Nachname fehlen.")
+                        if not _t_email.strip() or "@" not in _t_email:
+                            _terr.append("Bitte gültige E-Mail-Adresse eingeben.")
+                        if not _t_uname.strip():             _terr.append("Benutzername fehlt.")
+                        if len(_t_pw1) < 6:                  _terr.append("Passwort mind. 6 Zeichen.")
+                        elif _t_pw1 != _t_pw2:               _terr.append("Passwörter stimmen nicht überein.")
+                        if not _t_ra_vorname.strip() or not _t_ra_nachname.strip():
+                            _terr.append("Rechnungsadresse: Vor-/Nachname fehlen.")
+                        if not _t_ra_strasse.strip() or not _t_ra_hnr.strip():
+                            _terr.append("Rechnungsadresse: Straße und Hausnummer fehlen.")
+                        if not _t_ra_plz.strip() or not _t_ra_ort.strip():
+                            _terr.append("Rechnungsadresse: PLZ und Ort fehlen.")
+                        if not _t_ra_land.strip():           _terr.append("Rechnungsadresse: Land fehlt.")
+                        if not _t_ra_remail.strip() or "@" not in _t_ra_remail:
+                            _terr.append("Rechnungsadresse: Rechnungs-E-Mail fehlt oder ungültig.")
+                        if _t_paket not in _TRAINER_PAKETE:
+                            _terr.append(f"Ungültiges Paket: {_t_paket!r}.")
+                        if _t_intervall not in ("monat", "jahr"):
+                            _terr.append("Ungültiges Abrechnungsintervall.")
+                        if _terr:
+                            for _e in _terr: st.error(_e)
+                        else:
                             try:
-                                from email_service import send_verification_email as _sve
-                                _sve(_t_email.strip(), _t_vorname.strip(),
-                                     _tvtoken, _app_base_url())
-                                _treg_email_ok = True
-                            except Exception as _tsmtp_err:
-                                import logging as _log_treg
-                                _log_treg.getLogger("athletik.email").error(
-                                    "Trainer-Reg: Bestätigungs-E-Mail konnte nicht gesendet werden "
-                                    "(%s). SMTP-Passwort wird nicht geloggt.",
-                                    type(_tsmtp_err).__name__,
+                                from database import trainer_registrieren, rechnungsadresse_speichern as _ras
+                                _tbid = trainer_registrieren(
+                                    _t_vorname.strip(), _t_nachname.strip(),
+                                    _t_email.strip(), _t_pw1,
+                                    benutzername=_t_uname.strip(),
+                                    lizenztyp=_t_paket,
+                                    abo_intervall=_t_intervall,
                                 )
-                                st.session_state["_reg_pending_bid"]   = _tbid
-                                st.session_state["_reg_pending_email"] = _t_email.strip()
-                            if _treg_email_ok:
-                                st.success(
-                                    "✅ Registrierung erfolgreich! "
-                                    "Bitte bestätige deine E-Mail-Adresse — "
-                                    "wir haben dir eine Bestätigungs-E-Mail gesendet. "
-                                    "Danach schaltet ein Administrator dein Konto frei."
+                                _ras(_tbid,
+                                     firma=_t_ra_firma.strip() or None,
+                                     vorname=_t_ra_vorname.strip(),
+                                     nachname=_t_ra_nachname.strip(),
+                                     strasse=_t_ra_strasse.strip(),
+                                     hausnummer=_t_ra_hnr.strip(),
+                                     plz=_t_ra_plz.strip(),
+                                     ort=_t_ra_ort.strip(),
+                                     land=_t_ra_land.strip(),
+                                     rechnung_email=_t_ra_remail.strip(),
+                                     telefon=_t_ra_tel.strip() or None,
+                                     ust_id=_t_ra_ustid.strip() or None)
+                                zustimmung_registrierung_speichern(
+                                    _tbid, PRIVACY_POLICY_VERSION, TERMS_VERSION
                                 )
-                            else:
-                                st.warning(
-                                    "✅ Dein Konto wurde erstellt, aber die Bestätigungs-E-Mail "
-                                    "konnte momentan nicht versendet werden. "
-                                    "Bitte versuche, die Bestätigungs-E-Mail erneut anzufordern."
-                                )
-                                if st.button("📧 Bestätigungs-E-Mail erneut senden",
-                                             key="reg_resend_trainer_btn"):
-                                    _rpbt = st.session_state.get("_reg_pending_bid")
-                                    _rpet = st.session_state.get("_reg_pending_email","")
-                                    if _rpbt:
-                                        from database import (
-                                            email_token_erzeugen as _ete3,
-                                            email_token_resend_erlaubt as _etra3,
-                                            benutzer_by_id as _bbi3,
-                                        )
-                                        if _etra3(_rpbt):
-                                            _nt3 = _ete3(_rpbt)
-                                            _bu3 = _bbi3(_rpbt) or {}
-                                            try:
-                                                from email_service import send_verification_email as _sve3
-                                                _sve3(_rpet, _bu3.get("vorname","Benutzer"),
-                                                      _nt3, _app_base_url())
-                                                st.success("✅ Bestätigungs-E-Mail gesendet.")
-                                            except Exception as _e3:
-                                                st.warning(f"E-Mail konnte nicht gesendet werden: {type(_e3).__name__}")
-                        except ValueError as _ve:
-                            st.error(str(_ve))
-                        except Exception as _ex:
-                            st.error(f"Fehler bei der Registrierung: {_ex}")
+                                from database import email_token_erzeugen as _ete
+                                _tvtoken = _ete(_tbid)
+                                _treg_email_ok = False
+                                try:
+                                    from email_service import send_verification_email as _sve
+                                    _sve(_t_email.strip(), _t_vorname.strip(),
+                                         _tvtoken, _app_base_url())
+                                    _treg_email_ok = True
+                                except Exception as _tsmtp_err:
+                                    import logging as _log_treg
+                                    _log_treg.getLogger("athletik.email").error(
+                                        "Trainer-Reg: Bestätigungs-E-Mail konnte nicht gesendet werden "
+                                        "(%s). SMTP-Passwort wird nicht geloggt.",
+                                        type(_tsmtp_err).__name__,
+                                    )
+                                    st.session_state["_reg_pending_bid"]   = _tbid
+                                    st.session_state["_reg_pending_email"] = _t_email.strip()
+                                if _treg_email_ok:
+                                    st.success(
+                                        "✅ Registrierung erfolgreich! "
+                                        "Bitte bestätige deine E-Mail-Adresse — "
+                                        "wir haben dir eine Bestätigungs-E-Mail gesendet. "
+                                        "Danach schaltet ein Administrator dein Konto frei."
+                                    )
+                                else:
+                                    st.warning(
+                                        "✅ Dein Konto wurde erstellt, aber die Bestätigungs-E-Mail "
+                                        "konnte momentan nicht versendet werden. "
+                                        "Bitte versuche, die Bestätigungs-E-Mail erneut anzufordern."
+                                    )
+                                    if st.button("📧 Bestätigungs-E-Mail erneut senden",
+                                                 key="reg_resend_trainer_btn"):
+                                        _rpbt = st.session_state.get("_reg_pending_bid")
+                                        _rpet = st.session_state.get("_reg_pending_email","")
+                                        if _rpbt:
+                                            from database import (
+                                                email_token_erzeugen as _ete3,
+                                                email_token_resend_erlaubt as _etra3,
+                                                benutzer_by_id as _bbi3,
+                                            )
+                                            if _etra3(_rpbt):
+                                                _nt3 = _ete3(_rpbt)
+                                                _bu3 = _bbi3(_rpbt) or {}
+                                                try:
+                                                    from email_service import send_verification_email as _sve3
+                                                    _sve3(_rpet, _bu3.get("vorname","Benutzer"),
+                                                          _nt3, _app_base_url())
+                                                    st.success("✅ Bestätigungs-E-Mail gesendet.")
+                                                except Exception as _e3:
+                                                    st.warning(f"E-Mail konnte nicht gesendet werden: {type(_e3).__name__}")
+                            except ValueError as _ve:
+                                st.error(str(_ve))
+                            except Exception as _ex:
+                                st.error(f"Fehler bei der Registrierung: {_ex}")
 
     # ── Rechtliche Links (ohne Anmeldung erreichbar) ──────────────────────────
     st.markdown(
@@ -8458,7 +8603,7 @@ def page_einstellungen():
         _col_logo, _col_logo_btn = st.columns([3, 1])
         with _col_logo:
             _neue_logo_datei = st.file_uploader(
-                "Logo hochladen (PNG, JPG — max. 2 MB)",
+                "Logo hochladen (PNG, JPG — max. 10 MB)",
                 type=["png", "jpg", "jpeg"],
                 key="cfg_logo_upload",
                 label_visibility="collapsed",
@@ -8478,7 +8623,8 @@ def page_einstellungen():
                 st.error(f"❌ {_err}")
                 _log.warning("Abgelehnter Logo-Upload: %s", _err)
             else:
-                logo_speichern(_logo_raw)
+                from utils.file_magic import optimize_image as _opt_img_logo
+                logo_speichern(_opt_img_logo(_logo_raw))
                 _save_ok("Vereinslogo gespeichert.")
                 st.rerun()
         if _gespeichertes_logo:
@@ -9140,13 +9286,13 @@ def page_export_pdf():
         )
         if _logo_override is not None:
             _raw_override = _logo_override.getvalue()
-            from utils.file_magic import validate_image as _vi
+            from utils.file_magic import validate_image as _vi, optimize_image as _opt_img_ov
             _ok_ov, _err_ov = _vi(_raw_override, max_mb=config.MAX_LOGO_MB)
             if not _ok_ov:
                 st.error(f"❌ {_err_ov}")
                 _logo_bytes = None
             else:
-                _logo_bytes = _raw_override
+                _logo_bytes = _opt_img_ov(_raw_override)
 
         st.markdown("---")
 

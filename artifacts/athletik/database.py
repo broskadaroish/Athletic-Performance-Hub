@@ -3451,6 +3451,116 @@ def registrier_code_regenerieren(verein_id: int) -> str:
     return neuer_code
 
 
+def verein_by_registriercode(code: str) -> dict | None:
+    """Sucht einen Verein anhand des Beitrittscodes (case-insensitiv, getrimmt).
+
+    Gibt None zurück wenn kein passender, aktiver, nicht-gesperrter Verein
+    gefunden wird oder der Code leer ist.
+    Technische Mandanten (Einzeltrainer-Vereine) werden nicht zurückgegeben.
+    """
+    if not code or not code.strip():
+        return None
+    code_norm = code.strip().upper()
+    with get_conn() as conn:
+        row = conn.execute(
+            """SELECT id, name, aktiv, gesperrt, max_trainer, lizenz_status
+               FROM vereine
+               WHERE UPPER(registrier_code) = ?
+                 AND aktiv = 1
+                 AND (gesperrt IS NULL OR gesperrt = 0)
+                 AND (ist_technischer_mandant IS NULL OR ist_technischer_mandant = 0)""",
+            (code_norm,),
+        ).fetchone()
+        if not row:
+            return None
+        return {
+            "id":            row[0],
+            "name":          row[1],
+            "aktiv":         row[2],
+            "gesperrt":      row[3],
+            "max_trainer":   row[4],
+            "lizenz_status": row[5],
+        }
+
+
+def trainer_verein_beitreten(
+    verein_id: int,
+    vorname: str,
+    nachname: str,
+    email: str,
+    passwort: str,
+    *,
+    benutzername: str | None = None,
+) -> int:
+    """Legt einen Trainer in einem bestehenden Verein an (Beitrittscode-Flow).
+
+    - Kein neuer technischer Mandant
+    - Kein Stripe-Checkout
+    - aktiv=0 → muss vom Vereinsadmin freigeschaltet werden
+    - Prüft max_trainer-Limit des Vereins (aktive Trainer)
+    - Bestehende E-Mail-/Benutzername-Eindeutigkeitsprüfung bleibt erhalten
+    """
+    import sqlite3 as _sqlite3
+    email_norm = normalize_email(email)
+
+    with get_conn() as conn:
+        # Frische Vereinsdaten holen
+        v = conn.execute(
+            "SELECT id, name, aktiv, gesperrt, max_trainer FROM vereine WHERE id=?",
+            (verein_id,),
+        ).fetchone()
+        if not v or not v[2] or v[3]:
+            raise ValueError("Der Verein ist nicht aktiv oder gesperrt.")
+
+        max_trainer = v[4]
+        if max_trainer is not None:
+            aktive = conn.execute(
+                """SELECT COUNT(*) FROM benutzer
+                   WHERE verein_id = ? AND rolle = 'Trainer' AND aktiv = 1""",
+                (verein_id,),
+            ).fetchone()[0]
+            if aktive >= max_trainer:
+                raise ValueError(
+                    "Das Trainerlimit des Vereins ist erreicht. "
+                    "Bitte kontaktiere deinen Vereinsadmin."
+                )
+
+        # E-Mail-Duplikat prüfen
+        if conn.execute(
+            "SELECT id FROM benutzer WHERE LOWER(email) = ?", (email_norm,)
+        ).fetchone():
+            raise ValueError("Diese E-Mail-Adresse ist bereits registriert.")
+
+        # Benutzername-Duplikat prüfen
+        if benutzername and conn.execute(
+            "SELECT id FROM benutzer WHERE LOWER(benutzername) = LOWER(?)",
+            (benutzername,),
+        ).fetchone():
+            raise ValueError(f"Der Benutzername '{benutzername}' ist bereits vergeben.")
+
+        try:
+            cur = conn.execute(
+                """INSERT INTO benutzer
+                       (verein_id, vorname, nachname, email, passwort_hash,
+                        rolle, aktiv, benutzername, email_verifiziert)
+                   VALUES (?, ?, ?, ?, ?, 'Trainer', 0, ?, 0)""",
+                (verein_id, vorname, nachname, email_norm,
+                 _pw_hash(passwort), benutzername),
+            )
+            return cur.lastrowid
+        except _sqlite3.IntegrityError as e:
+            msg = str(e)
+            if "UNIQUE" in msg and "email" in msg:
+                raise ValueError(
+                    f"Die E-Mail-Adresse '{email_norm}' ist bereits vergeben."
+                ) from e
+            if "UNIQUE" in msg and "benutzername" in msg:
+                raise ValueError(
+                    f"Der Benutzername '{benutzername}' ist bereits vergeben."
+                ) from e
+            raise
+
+
 def normalize_email(email: str) -> str:
     """E-Mail-Normalisierung: nur Kleinschreibung.
     Keine Punkte entfernen, keine +Zusätze entfernen, keine Provider-Änderungen.

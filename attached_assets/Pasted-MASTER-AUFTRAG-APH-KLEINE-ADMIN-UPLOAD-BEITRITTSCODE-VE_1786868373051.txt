@@ -1,0 +1,533 @@
+MASTER-AUFTRAG – APH KLEINE ADMIN-/UPLOAD-/BEITRITTSCODE-VERBESSERUNGEN
+
+ZIEL:
+Drei bestehende Punkte sauber korrigieren/ergänzen:
+
+1. Navigationspunkt „E-Mail Versandtest“ entfernen
+2. Profilfoto- und Vereinslogo-Upload reparieren/robuster machen
+3. Trainer-Beitrittscode wirklich mit der Trainerregistrierung verbinden
+
+WICHTIG:
+Keine großflächigen Refactorings.
+Keine Änderungen an Stripe, Trainingsplan, Diagnostik, Session, Kundennummern,
+Verträgen oder anderen nicht betroffenen Bereichen.
+
+============================================================
+TEIL A – „E-MAIL VERSANDTEST“ AUS NAVIGATION ENTFERNEN
+============================================================
+
+Aktuell erscheint unter der Navigation beim Benutzer/Superadmin ein Punkt
+„E-Mail Versandtest“.
+
+Dieser Navigationspunkt soll vollständig entfernt werden.
+
+Anforderungen:
+
+- nicht mehr auf Desktop
+- nicht mehr auf Mobile
+- nicht mehr für Superadmin
+- keine verwaiste Routing-Option
+
+WICHTIG:
+Nur die sichtbare Testseite / Navigation entfernen.
+
+NICHT verändern:
+- Registrierungs-E-Mails
+- E-Mail-Verifikation
+- Passwort-Reset
+- Benutzername-Reminder
+- SMTP
+- noreply@aphsystem.de
+- support@aphsystem.de
+- produktive Mail-Funktionen
+
+Wenn die Testfunktion ausschließlich intern ist:
+UI/Routing sauber entfernen.
+Gemeinsam genutzte E-Mail-Hilfsfunktionen nicht löschen.
+
+============================================================
+TEIL B – PROFILFOTO / VEREINSLOGO UPLOAD
+============================================================
+
+AKTUELLER FEHLER:
+
+In der UI steht sinngemäß:
+max. 10 MB
+
+Ein Bild mit ca. 5,4 MB lässt sich aber nicht hochladen.
+Sehr kleine Bilder funktionieren.
+
+Das betrifft:
+- Profilfoto
+- Vereinslogo
+
+ZIEL:
+Die tatsächliche Upload-Kette prüfen und Ursache beheben.
+
+============================================================
+B1. ZUERST URSACHE PRÜFEN
+============================================================
+
+Prüfe:
+
+- st.file_uploader
+- maxUploadSize
+- .streamlit/config.toml
+- eigene Python-Dateigrößenprüfung
+- PIL/Image-Verarbeitung
+- Bildformatprüfung
+- Speicherung als BLOB
+- DB-Feld
+- Nginx client_max_body_size
+- Docker/Proxy
+- Streamlit-Limits
+
+WICHTIG:
+Nicht einfach nur den Text „10 MB“ ändern.
+
+Feststellen, wo die echte Grenze liegt.
+
+============================================================
+B2. GEWÜNSCHTES VERHALTEN
+============================================================
+
+Dateien bis 10 MB sollen grundsätzlich akzeptiert werden,
+wenn sie ein unterstütztes Bildformat besitzen.
+
+Unterstützte Formate:
+bestehende Formate beibehalten, z.B.
+- JPG/JPEG
+- PNG
+- ggf. WEBP, falls bisher unterstützt
+
+Wenn ein großes Handyfoto geladen wird:
+
+Bild nach dem Upload sinnvoll optimieren.
+
+Empfehlung:
+- EXIF-Ausrichtung berücksichtigen
+- Maximalabmessung sinnvoll begrenzen, z.B. ca. 1600–2000 px längste Kante
+- JPEG/PNG sinnvoll komprimieren
+- Profilfoto/Logo nicht unnötig in Originalauflösung speichern
+
+WICHTIG:
+Keine sichtbare schlechte Qualität erzeugen.
+
+Ziel:
+schnellere Ladezeiten + kleinere DB-/Speicherlast.
+
+============================================================
+B3. PROFILFOTO UND LOGO GETRENNT PRÜFEN
+============================================================
+
+Profilfoto:
+- Upload bis 10 MB
+- Vorschau
+- Speichern
+- Reload
+- Bild weiterhin sichtbar
+
+Vereinslogo:
+- Upload bis 10 MB
+- Vorschau
+- Speichern
+- Reload
+- Logo weiterhin sichtbar
+
+Bestehende Benutzer-/Vereinszuordnung nicht verändern.
+
+============================================================
+B4. FEHLERMELDUNGEN
+============================================================
+
+Bei zu großer Datei:
+klare Meldung:
+
+„Die Datei ist größer als 10 MB.“
+
+Bei ungültigem Bild:
+„Das Bild konnte nicht verarbeitet werden.“
+
+Keine technischen Stacktraces im UI.
+
+============================================================
+TEIL C – TRAINER-BEITRITTSCODE
+============================================================
+
+AKTUELLER BESTAND:
+
+Es existieren:
+
+registrier_code_laden(verein_id)
+registrier_code_regenerieren(verein_id)
+
+Der Vereinsadmin/Superadmin sieht unter Einstellungen:
+
+„Trainer-Beitrittscode“
+
+und kann einen neuen Code generieren.
+
+Problem:
+Nach aktuellem Bestand ist nicht ersichtlich, dass dieser Code in der
+Trainerregistrierung tatsächlich abgefragt und validiert wird.
+
+ZIEL:
+Den vorhandenen Trainer-Beitrittscode funktional mit der
+Trainerregistrierung verbinden.
+
+============================================================
+C1. TRAINERREGISTRIERUNG BESTAND PRÜFEN
+============================================================
+
+Prüfe zuerst exakt:
+
+- Trainer-Registrierung
+- wie aktuell technischer Mandant / Trainerkonto erstellt wird
+- wann verein_id gesetzt wird
+- wie Rolle gespeichert wird
+- wie Freischaltung funktioniert
+- wie Lizenz/Trial bei selbständigem Trainer funktioniert
+
+WICHTIG:
+Bestehende normale Trainerregistrierung NICHT kaputtmachen.
+
+Es muss zwischen zwei Fällen unterschieden werden können:
+
+A) selbständiger Trainer / eigener Trainerkunde
+B) Trainer tritt einem bestehenden Verein bei
+
+============================================================
+C2. TRAINERREGISTRIERUNG – AUSWAHL ERGÄNZEN
+============================================================
+
+Im Tab „Trainer registrieren“ eine klare Auswahl:
+
+Wie möchtest du APH nutzen?
+
+Option A:
+„Als eigener Trainer registrieren“
+
+→ bestehender Ablauf bleibt unverändert.
+
+Option B:
+„Einem Verein beitreten“
+
+→ zusätzlich Feld:
+
+Trainer-Beitrittscode
+
+Hinweis:
+„Den Beitrittscode erhältst du von deinem Verein.“
+
+============================================================
+C3. CODE VALIDIEREN
+============================================================
+
+Bei „Einem Verein beitreten“:
+
+Code normalisieren:
+- trim
+- case-insensitiv bzw. passend zur aktuellen Großschreibung
+
+Dann prüfen:
+
+SELECT id, name, aktiv, gesperrt ...
+FROM vereine
+WHERE registrier_code = ?
+
+Nur gültigen, aktiven Verein akzeptieren.
+
+Wenn Code ungültig:
+„Der Beitrittscode ist ungültig.“
+
+Wenn Verein deaktiviert/gesperrt:
+keine Registrierung zu diesem Verein ermöglichen.
+
+Keine Informationen über andere Vereine unnötig preisgeben.
+
+============================================================
+C4. TRAINER DEM VEREIN ZUORDNEN
+============================================================
+
+Bei gültigem Code:
+
+Trainerkonto erstellen mit:
+
+- verein_id = gefundener Verein
+- rolle = Trainer
+- normale Personendaten
+- E-Mail/Benutzername
+- Passwort-Hash
+- Zustimmung AGB/Datenschutz wie bisher
+
+WICHTIG:
+Keinen neuen technischen Mandanten für diesen Trainer erzeugen.
+
+Der Trainer gehört direkt zum bestehenden Verein.
+
+============================================================
+C5. FREISCHALTUNG
+============================================================
+
+Bestehende Freischaltungslogik verwenden.
+
+Aktueller UI-Text sagt:
+
+„Nach der Registrierung musst du das Konto unter Benutzerverwaltung freischalten.“
+
+Daher:
+
+Trainer nach Beitritt zunächst so anlegen, dass der Vereinsadmin ihn in
+Benutzerverwaltung prüfen/freischalten kann.
+
+Keine automatische Freischaltung, wenn das bisherige System das nicht vorsieht.
+
+============================================================
+C6. LIZENZLOGIK BEI VEREINSTRAINER
+============================================================
+
+Ganz wichtig:
+
+Trainer, der einem Verein per Beitrittscode beitritt,
+bekommt KEIN eigenes kostenpflichtiges Trainer-Abo.
+
+Er nutzt die Vereinslizenz im Rahmen:
+- max_trainer
+- max_spieler
+- bestehender Vereinslimits
+
+Prüfen:
+Vor Registrierung ggf. max_trainer-Limit des Vereins berücksichtigen.
+
+Wenn Limit erreicht:
+klare Meldung:
+„Das Trainerlimit des Vereins ist erreicht.“
+
+Keine Stripe-Session für diesen Beitrittsfall erzeugen.
+
+============================================================
+C7. BESTEHENDER „EIGENER TRAINER“-FLOW
+============================================================
+
+Der normale Trainer-Kundenflow bleibt unverändert:
+
+- eigener technischer Mandant
+- eigenes Trainer-Abo
+- Stripe
+- Trial
+- Vertrag
+- Kundennummer
+
+Nur die neue Option „Einem Verein beitreten“ nutzt den Beitrittscode.
+
+============================================================
+C8. CODE NEU GENERIEREN
+============================================================
+
+Bestehendes Verhalten beibehalten:
+
+„Neu generieren“
+→ neuer Code ersetzt alten.
+
+Erwartung:
+
+- alter Code funktioniert für neue Trainer nicht mehr
+- neuer Code funktioniert
+- bereits zugeordnete Trainer bleiben beim Verein
+- keine bestehenden Benutzer werden verändert
+
+============================================================
+C9. SICHERHEIT
+============================================================
+
+Prüfen:
+
+- eindeutiger Code
+- ausreichend zufällig
+- keine SQL-Injection
+- kein Vereinswechsel bestehender Accounts durch fremden Code
+- bestehende E-Mail-Duplikatprüfung bleibt erhalten
+- bestehende Benutzername-Duplikatprüfung bleibt erhalten
+- AGB/Datenschutz bleiben Pflicht
+
+============================================================
+TESTS TEIL A
+============================================================
+
+A1)
+Superadmin:
+„E-Mail Versandtest“ nicht mehr sichtbar
+
+A2)
+Desktop:
+nicht sichtbar
+
+A3)
+Mobile:
+nicht sichtbar
+
+A4)
+Registrierungsmail weiterhin funktionsfähig
+
+A5)
+Passwort-Reset-Mail unverändert
+
+============================================================
+TESTS TEIL B
+============================================================
+
+B1)
+Profilfoto 500 KB → PASS
+
+B2)
+Profilfoto ca. 5–6 MB → PASS
+
+B3)
+Profilfoto knapp unter 10 MB → PASS
+
+B4)
+Profilfoto >10 MB → verständliche Fehlermeldung
+
+B5)
+Vereinslogo ca. 5–6 MB → PASS
+
+B6)
+Vereinslogo knapp unter 10 MB → PASS
+
+B7)
+Reload:
+Profilfoto und Logo bleiben sichtbar
+
+B8)
+ungültige Datei → sauberer Fehler
+
+============================================================
+TESTS TEIL C
+============================================================
+
+C1)
+Eigener Trainer registrieren
+→ bisheriger Flow unverändert
+
+C2)
+Trainer wählt „Einem Verein beitreten“
+
+C3)
+gültiger Code
+→ verein_id korrekt
+
+C4)
+Rolle = Trainer
+
+C5)
+kein technischer Mandant erstellt
+
+C6)
+kein Stripe-Checkout für Vereinsbeitritt
+
+C7)
+Trainer zunächst gemäß bestehender Freischaltungslogik wartend
+
+C8)
+Vereinsadmin sieht Trainer in Benutzerverwaltung
+
+C9)
+ungültiger Code → Registrierung abgelehnt
+
+C10)
+alter Code nach Regenerierung → abgelehnt
+
+C11)
+neuer Code → akzeptiert
+
+C12)
+bereits registrierte Trainer bleiben nach Codewechsel unverändert
+
+C13)
+Trainerlimit erreicht → Registrierung sauber blockiert
+
+============================================================
+TECHNISCHE SCHUTZREGELN
+============================================================
+
+NICHT ändern:
+
+- Trainingsplan
+- Diagnostik
+- Equipment-Bibliothek
+- Wochenplanung
+- PDF
+- Session-Restore
+- Passwort-Hotfix
+- Kundennummernlogik
+- bestehende Verträge
+- bestehende Stripe-Webhooks
+
+database.py darf nur geändert werden, wenn für die Beitrittscode-Abfrage eine
+saubere vorhandene Funktion ergänzt werden muss.
+
+Keine unnötige DB-Migration.
+
+============================================================
+TECHNISCHE TESTS
+============================================================
+
+py_compile aller geänderten Python-Dateien.
+
+Block-B:
+35/35 PASS.
+
+Zusätzliche Tests für Beitrittscode und Upload durchführen.
+
+============================================================
+ABSCHLUSSBERICHT
+============================================================
+
+Bitte berichten:
+
+1. Wo „E-Mail Versandtest“ entfernt wurde
+
+2. Bestätigung:
+produktive Mail-Funktionen unverändert
+
+3. Ursache des 5,4-MB-Uploadfehlers
+
+4. Welche Upload-Grenze tatsächlich wirksam war
+
+5. Wie Profilfoto jetzt verarbeitet wird
+
+6. Wie Vereinslogo jetzt verarbeitet wird
+
+7. Ob Bilder komprimiert/verkleinert werden
+
+8. Welche maximale Dateigröße jetzt tatsächlich funktioniert
+
+9. Wie Trainerregistrierung vorher funktionierte
+
+10. Wie „Einem Verein beitreten“ jetzt funktioniert
+
+11. Wo Code validiert wird
+
+12. Wie verein_id gesetzt wird
+
+13. Wie verhindert wird, dass ein technischer Mandant erzeugt wird
+
+14. Wie Stripe beim Vereinsbeitritt übersprungen wird
+
+15. Wie Freischaltung funktioniert
+
+16. Wie Trainerlimit geprüft wird
+
+17. Verhalten bei Code-Regenerierung
+
+18. Geänderte Dateien
+
+19. DB-Änderung ja/nein
+
+20. py_compile
+
+21. Block-B
+
+Danach STOPPEN.
+
+Keine weiteren Features umsetzen.

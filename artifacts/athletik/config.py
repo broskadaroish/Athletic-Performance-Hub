@@ -21,8 +21,8 @@ SQLITE_PATH = os.environ.get(
 
 # ── Upload-Limits ─────────────────────────────────────────────────────────────
 MAX_UPLOAD_MB    = int(os.environ.get("MAX_UPLOAD_MB",    "10"))
-MAX_LOGO_MB      = int(os.environ.get("MAX_LOGO_MB",       "2"))
-MAX_SPIELERBILD_MB = int(os.environ.get("MAX_SPIELERBILD_MB", "5"))
+MAX_LOGO_MB      = int(os.environ.get("MAX_LOGO_MB",       "10"))
+MAX_SPIELERBILD_MB = int(os.environ.get("MAX_SPIELERBILD_MB", "10"))
 MAX_DOC_MB       = int(os.environ.get("MAX_DOC_MB",       "10"))
 
 # ── Upload-Verzeichnisse ──────────────────────────────────────────────────────

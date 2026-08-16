@@ -288,32 +288,3 @@ def page_benutzerverwaltung():
             except ValueError as e:
                 st.error(str(e))
 
-    # ── Superadmin: E-Mail-Versand testen ─────────────────────────────────────
-    if rolle == "Superadmin":
-        st.divider()
-        st.subheader("📧 E-Mail-Versand testen")
-        st.markdown(
-            '<p style="color:#8b949e;font-size:12px">'
-            "Sendet eine Testmail, um zu prüfen ob SMTP_PASSWORD korrekt konfiguriert ist.</p>",
-            unsafe_allow_html=True,
-        )
-        _test_to = st.text_input("Ziel-E-Mail-Adresse", key="testmail_to",
-                                 placeholder="empfaenger@example.com")
-        if st.button("✉️ Testmail senden", key="testmail_btn"):
-            if not _test_to.strip() or "@" not in _test_to:
-                st.error("Bitte eine gültige E-Mail-Adresse eingeben.")
-            else:
-                try:
-                    from email_service import send_test_mail as _stm
-                    _stm(_test_to.strip())
-                    st.success("✅ E-Mail erfolgreich versendet.")
-                except RuntimeError as _re:
-                    # SMTP_PASSWORD fehlt — zeige Hinweis ohne sensible Details
-                    st.warning(str(_re))
-                except Exception as _ex:
-                    # SMTP-Fehler — keine sensiblen Details anzeigen
-                    _ex_msg = str(_ex)
-                    if "password" in _ex_msg.lower() or "auth" in _ex_msg.lower():
-                        st.error("❌ SMTP-Authentifizierung fehlgeschlagen. Bitte SMTP_PASSWORD prüfen.")
-                    else:
-                        st.error(f"❌ E-Mail konnte nicht gesendet werden. Verbindungsfehler.")

@@ -60,15 +60,47 @@ def validate_image(file_bytes: bytes, max_mb: int = 5) -> tuple[bool, str]:
     if not file_bytes:
         return False, "Leere Datei."
     if len(file_bytes) > max_mb * 1024 * 1024:
-        return False, f"Datei zu groß (max. {max_mb} MB erlaubt)."
+        return False, f"Die Datei ist größer als {max_mb} MB."
     mime = detect_mime(file_bytes)
     if mime not in ALLOWED_IMAGE_TYPES:
-        detected = mime or "unbekannt"
-        return False, (
-            f"Ungültiges Dateiformat (erkannt: {detected}). "
-            "Erlaubt: JPEG, PNG, GIF, WebP."
-        )
+        return False, "Das Bild konnte nicht verarbeitet werden."
     return True, ""
+
+
+def optimize_image(
+    file_bytes: bytes,
+    max_dim: int = 1800,
+    jpeg_quality: int = 82,
+) -> bytes:
+    """Optimiert ein Bild für die Speicherung.
+
+    - Berücksichtigt EXIF-Ausrichtung (Handyfotos)
+    - Skaliert auf max. max_dim px (längste Kante) herunter
+    - Gibt JPEG-komprimierte Bytes zurück (kleinere Dateigröße)
+
+    Gibt die Originalbytes zurück wenn PIL nicht verfügbar oder ein Fehler auftritt.
+    """
+    try:
+        from PIL import Image, ImageOps  # type: ignore
+        import io as _io
+        img = Image.open(_io.BytesIO(file_bytes))
+        # EXIF-Rotation berücksichtigen
+        img = ImageOps.exif_transpose(img)
+        # Auf RGB konvertieren (PNG mit Alpha → JPEG-kompatibel)
+        if img.mode not in ("RGB", "L"):
+            img = img.convert("RGB")
+        # Skalieren wenn nötig
+        w, h = img.size
+        longest = max(w, h)
+        if longest > max_dim:
+            scale = max_dim / longest
+            img = img.resize((int(w * scale), int(h * scale)), Image.LANCZOS)
+        buf = _io.BytesIO()
+        img.save(buf, format="JPEG", quality=jpeg_quality, optimize=True)
+        return buf.getvalue()
+    except Exception:
+        # Fallback: Originalbytes behalten
+        return file_bytes
 
 
 def validate_pdf(file_bytes: bytes, max_mb: int = 20) -> tuple[bool, str]:
