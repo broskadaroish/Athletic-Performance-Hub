@@ -112,6 +112,78 @@ _NORMEN: dict[str, dict[str, tuple | None]] = {
 
 _NORMEN_ALTERSGRUPPE: dict[str, dict[str, dict[str, tuple | None]]] = {
 
+    # ── U7 (Bambini, ≤ 7 Jahre) ───────────────────────────────────────────────
+    # Keine validierten Feldtest-Normen für 6–7-Jährige in der Sportwissenschaft.
+    # Alle Felder → None: Badge wird ausgeblendet (kein falsches „Auffällig").
+    "U7": {
+        "sprint": {
+            "sprint_5m":  None,
+            "sprint_10m": None,
+            "sprint_20m": None,
+            "sprint_30m": None,
+        },
+        "jump": {
+            "cmj_beid":   None,
+            "cmj_r":      None,
+            "cmj_l":      None,
+            "squat_jump": None,
+            "dj_hoehe":   None,
+            "dj_kontakt": None,
+            "standweit":  None,
+        },
+        "agility": {
+            "t505_r":   None,
+            "t505_l":   None,
+            "t5_10_5":  None,
+            "t_test":   None,
+            "illinois": None,
+        },
+        "yoyo": {
+            "distanz": None,
+            "hf_max":  None,
+            "rpe":     None,
+        },
+        "anthropometrie": {
+            "koerperfett": ("bereich", 10.0, 26.0, 5.0, 32.0),
+        },
+    },
+
+    # ── U8 (F-Jugend, 8–9 Jahre) ──────────────────────────────────────────────
+    # Sprint: Quelle Rumpf 2016, DFB Junioren-Diagnostik (Leistungssport / Breitensport).
+    # Alle anderen Felder ohne belastbare U8-Norm → None (kein Badge statt falschem Wert).
+    "U8": {
+        "sprint": {
+            "sprint_5m":  None,                              # keine U8-Norm vorhanden
+            "sprint_10m": ("niedriger_besser", 2.55, 2.80),  # Leistungssport / Breitensport
+            "sprint_20m": None,                              # keine U8-Norm vorhanden
+            "sprint_30m": ("niedriger_besser", 7.20, 8.00),  # Leistungssport / Breitensport
+        },
+        "jump": {
+            "cmj_beid":   ("höher_besser",  13.0,  8.0),     # konservative U8-Schätzung JSCR
+            "cmj_r":      None,
+            "cmj_l":      None,
+            "squat_jump": None,
+            "dj_hoehe":   None,
+            "dj_kontakt": None,
+            "standweit":  ("höher_besser", 105.0, 80.0),     # DFB Junioren-Diagnostik
+        },
+        "agility": {
+            "t505_r":   None,
+            "t505_l":   None,
+            "t5_10_5":  None,
+            "t_test":   None,
+            "illinois": None,
+        },
+        "yoyo": {
+            "distanz": None,
+            "hf_max":  None,
+            "rpe":     None,
+        },
+        "anthropometrie": {
+            "koerperfett": ("bereich", 10.0, 26.0, 5.0, 32.0),
+        },
+    },
+
     "U10": {
         "sprint": {
             "sprint_5m":  ("niedriger_besser", 1.35, 1.55),
@@ -303,19 +375,27 @@ def alter_zu_altersgruppe(alter: float | None) -> str:
     """Mappt ein Dezimalter auf die Altersgruppen-Bezeichnung.
 
     Returns:
-        "U10" | "U12" | "U14" | "U16" | "U18" | "Senior"
+        "U7" | "U8" | "U10" | "U12" | "U14" | "U16" | "U18" | "Senior"
+
+    U7 (≤ 7 J.) und U8 (8–9 J.) haben eigene Einträge in _NORMEN_ALTERSGRUPPE:
+    U7 → alle None (keine validierten Feldtest-Normen → kein Badge).
+    U8 → Sprint 10m/30m vorhanden; fehlende Distanzen → None.
     """
     if not alter:
         return "Senior"
+    if alter < 8:
+        return "U7"
     if alter < 10:
-        return "U10"
+        return "U8"
     if alter < 12:
-        return "U12"
+        return "U10"
     if alter < 14:
-        return "U14"
+        return "U12"
     if alter < 16:
-        return "U16"
+        return "U14"
     if alter < 18:
+        return "U16"
+    if alter < 21:
         return "U18"
     return "Senior"
 

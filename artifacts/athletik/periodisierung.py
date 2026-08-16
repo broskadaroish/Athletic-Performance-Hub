@@ -419,10 +419,24 @@ _AUSFUEHRUNG_FALLBACK: dict[str, str] = {
 # ─────────────────────────────────────────────────────────────────────────────
 
 def _alter_zu_plangruppe(alter: float | None) -> str:
+    """Ordnet ein Alter der Trainingsplangruppe zu.
+
+    Mapping (Single Source of Truth: app.py ALTERSKLASSEN):
+        ≤ 7  → U7   (Bambini)
+        8–9  → U8   (F-Jugend)
+        10–11→ U10  (E-Jugend)
+        12–14→ U14
+        15–18→ U18
+        19–35→ Senior
+        36–50→ Ü40
+        51+  → Ü55
+    """
     if not alter or alter <= 0:
         return "Senior"
     a = int(alter)
-    if a <= 10: return "U10"
+    if a <= 7:  return "U7"
+    if a <= 9:  return "U8"
+    if a <= 11: return "U10"
     if a <= 14: return "U14"
     if a <= 18: return "U18"
     if a <= 35: return "Senior"
@@ -431,13 +445,31 @@ def _alter_zu_plangruppe(alter: float | None) -> str:
 
 
 _PLANGRUPPEN_CONFIG: dict[str, dict] = {
+    # ── U7: Bambini — Bewegungserfahrung & spielerische Koordination ────────────
+    "U7": {
+        "max_pool_key":    "stabilisation",
+        "pause_offset":    60,
+        "ausfuehr_prefix": "Spielerisch / Körpergefühl entdecken — kein Tempo-Ziel · ",
+        "max_saetze":      2,
+        "haeuf_cap":       "2×",
+        "label":           "U7 — Bewegungserfahrung & Koordination",
+    },
+    # ── U8: F-Jugend — Koordination & Bewegungskompetenz ───────────────────────
+    "U8": {
+        "max_pool_key":    "stabilisation",
+        "pause_offset":    50,
+        "ausfuehr_prefix": "Technisch / Körpergefühl entwickeln — kein Tempo-Ziel · ",
+        "max_saetze":      2,
+        "haeuf_cap":       "2×",
+        "label":           "U8/U9 — Koordination & Bewegungskompetenz",
+    },
     "U10": {
         "max_pool_key":    "stabilisation",
         "pause_offset":    45,
         "ausfuehr_prefix": "Technisch / Körpergefühl entwickeln — kein Tempo-Ziel · ",
         "max_saetze":      2,
         "haeuf_cap":       "2×",
-        "label":           "U10 — Koordination & Bewegungsbildung",
+        "label":           "U10/U11 — Koordination & Bewegungsbildung",
     },
     "U14": {
         "max_pool_key":    "kraft",

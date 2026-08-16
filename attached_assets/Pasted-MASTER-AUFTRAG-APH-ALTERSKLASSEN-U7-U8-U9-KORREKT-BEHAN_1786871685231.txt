@@ -1,0 +1,331 @@
+MASTER-AUFTRAG – APH ALTERSKLASSEN U7/U8/U9 KORREKT BEHANDELN
+
+WICHTIG:
+Nicht blind U10 in U8 umbenennen.
+Zuerst bestehende Alters-, Norm- und Periodisierungslogik analysieren.
+Bestehende Datenbankdaten nicht löschen oder migrieren.
+Keine bestehenden Funktionen für ältere Altersgruppen beschädigen.
+
+AKTUELLER FEHLER:
+
+Beispielspieler:
+Geburtsdatum: 27.03.2019
+Alter aktuell: 7 Jahre
+gespeicherte Altersklasse: U7 (Bambini)
+
+APH zeigt jedoch:
+
+Sprint:
+"Auffällig (U10)"
+
+Trainingsplan:
+"Altersgruppe: U10"
+
+Das ist fachlich und logisch falsch.
+
+Bekannte Ursachen:
+
+age_norms.py:
+alter_zu_normgruppe()
+enthält derzeit sinngemäß:
+
+if a <= 10:
+    return "U10"
+
+periodisierung.py:
+_alter_zu_plangruppe()
+enthält derzeit:
+
+if a <= 10:
+    return "U10"
+
+Dadurch werden Kinder unter 10 Jahren künstlich U10 zugeordnet.
+
+
+==================================================
+1. ZUERST BESTANDSAUFNAHME
+==================================================
+
+Prüfe vollständig:
+
+- age_norms.py
+- field_eval.py
+- sprint.py
+- analytics.py
+- periodisierung.py
+- app.py
+
+Prüfe insbesondere:
+
+- alter_zu_normgruppe()
+- alter_zu_altersgruppe()
+- _alter_zu_plangruppe()
+- SPRINT_NORMEN
+- Sprint 5m / 10m / 20m / 30m / 40m
+- Sprung
+- Agilität
+- Ausdauer
+- Kraft
+- Anthropometrie
+- Trainingsplan
+- Trainingsphilosophie
+
+Dokumentiere zuerst intern, welche Altersgruppen tatsächlich unterstützt werden.
+
+
+==================================================
+2. NORMGRUPPE UND TRAININGSGRUPPE TRENNEN
+==================================================
+
+APH muss unterscheiden zwischen:
+
+A) tatsächlicher Alters-/Trainingsgruppe
+B) vorhandener wissenschaftlicher Normgruppe
+
+Ein 7-jähriger Spieler darf NICHT als U10 bezeichnet werden,
+nur weil die jüngste vorhandene Normtabelle U10 ist.
+
+
+==================================================
+3. TRAININGSPLAN
+==================================================
+
+Die Trainingsplanung muss für jüngere Kinder eine eigene Gruppe erhalten.
+
+Mindestens:
+
+Alter <= 7:
+    U7
+
+Alter 8–9:
+    U8/U9
+
+Alter 10–11:
+    U10/U11
+
+Danach bestehende Logik sinnvoll fortführen.
+
+WICHTIG:
+Prüfe die bestehende APH-Altersklassensystematik in app.py und verwende möglichst diese bestehende Systematik als Single Source of Truth.
+
+Die vorhandene Spieler-Altersklasse lautet bereits:
+
+U7 (Bambini)
+U8/U9 (F-Jugend)
+U10/U11 (E-Jugend)
+
+Keine unnötige zweite Altersklassensystematik erzeugen.
+
+
+==================================================
+4. TRAININGSINHALTE U7 / U8-U9
+==================================================
+
+Für U7 und U8/U9 keine Erwachsenen- oder ältere Jugendlogik übernehmen.
+
+Die vorhandene U10-Trainingslogik darf als technische Grundlage analysiert werden,
+aber jüngere Gruppen müssen altersgerecht behandelt werden.
+
+Schwerpunkte insbesondere:
+
+U7:
+- Bewegungserfahrung
+- Koordination
+- spielerische Schnelligkeit
+- Reaktion
+- Gleichgewicht
+- grundlegende Stabilität
+- Körpergewicht
+- sehr geringe strukturelle Belastung
+
+U8/U9:
+- Koordination
+- Bewegungskompetenz
+- spielerische Schnelligkeit
+- Reaktion
+- Agilität
+- Gleichgewicht
+- Rumpfstabilität
+- grundlegende Sprung-/Landetechnik
+- Körpergewicht / leichte Widerstände altersgerecht
+
+Keine künstliche Leistungsorientierung nur aufgrund einer U10-Zuordnung.
+
+
+==================================================
+5. SPRINT-NORMIERUNG
+==================================================
+
+Besonders kritisch.
+
+Aktuell wird ein 7-Jähriger offenbar mit U10-Normen bewertet.
+
+Das darf nicht passieren.
+
+Prüfe zuerst, ob age_norms.py echte U8-Normen enthält.
+
+Die Liste _GRUPPEN enthält laut Bestand bereits:
+
+["U8", "U10", "U12", ...]
+
+Prüfe deshalb, warum alter_zu_normgruppe() einen 7-Jährigen trotzdem U10 zuordnet.
+
+Falls für U8 vollständige Sprint-Normen vorhanden sind:
+
+Alter <= 8 muss die U8-Norm verwenden.
+
+Falls für eine Distanz KEINE belastbare Norm für die Altersgruppe existiert:
+
+NICHT automatisch U10 verwenden.
+
+Stattdessen:
+
+"Keine altersgerechte Referenz"
+
+oder vergleichbare neutrale Anzeige.
+
+Kein:
+- Auffällig
+- Kritisch
+- Verbesserungsbedarf
+
+allein aufgrund einer Norm einer älteren Altersgruppe.
+
+
+==================================================
+6. KEINE FALSCHEN DEFIZITE
+==================================================
+
+Wenn keine altersgerechte Norm existiert, darf daraus kein Defizit entstehen.
+
+Beispiel:
+
+7 Jahre
+30 m = 7,30 s
+
+Wenn keine gültige U7/U8-30m-Norm vorhanden ist:
+
+→ Messwert speichern
+→ Messwert anzeigen
+→ aber keine U10-Bewertung
+→ kein Sprintdefizit aufgrund U10
+→ Trainingsplan nicht aufgrund einer falschen U10-Norm verändern
+
+
+==================================================
+7. UI
+==================================================
+
+Für den Beispielspieler muss nach dem Fix gelten:
+
+Stammdaten:
+7 Jahre
+U7 (Bambini)
+
+Trainingsplan:
+Altersgruppe U7
+
+NICHT:
+U10
+
+Sprint:
+
+Wenn gültige U8/U7-Norm vorhanden:
+Bewertung anhand dieser Norm und korrekte Normgruppe anzeigen.
+
+Wenn keine Norm vorhanden:
+Messwert anzeigen +
+"Keine altersgerechte Referenz"
+
+NICHT:
+"Auffällig (U10)"
+
+
+==================================================
+8. BESTEHENDE SPIELERDATEN
+==================================================
+
+Keine Datenbankmigration.
+
+Geburtsdatum bleibt maßgeblich für das tatsächliche Alter.
+
+Bestehende gespeicherte Altersklasse nicht ungefragt überschreiben.
+
+Keine Sprinttests löschen oder neu berechnen/speichern.
+
+
+==================================================
+9. REGRESSIONSTESTS
+==================================================
+
+Mindestens testen:
+
+Alter 6
+Alter 7
+Alter 8
+Alter 9
+Alter 10
+Alter 11
+Alter 12
+Alter 14
+Alter 16
+Alter 18
+Senior
+
+Für jedes Alter prüfen:
+
+- tatsächliche Altersgruppe
+- Normgruppe
+- Sprintbewertung
+- Trainingsplangruppe
+- Trainingsphilosophie
+- Intensitätssteuerung
+
+
+Spezialtest:
+
+Geburtsdatum 27.03.2019
+Alter 7
+
+Sprint:
+5m = 4.34
+30m = 7.30
+
+Erwartung:
+
+- niemals Anzeige "U10"
+- Trainingsplan = U7
+- keine U10-Sprintnorm
+- keine falsche Sprint-Auffälligkeit durch U10
+- Messwerte bleiben vollständig erhalten
+
+
+==================================================
+10. WICHTIG – KEINE GROSSFLÄCHIGE UMSCHREIBUNG
+==================================================
+
+Minimal-invasive Änderung.
+
+Keine neue parallele Norm-Engine.
+Keine neue zweite Altersberechnung.
+Bestehende zentrale Funktionen wiederverwenden bzw. sinnvoll korrigieren.
+
+Andere Altersgruppen dürfen nicht beschädigt werden.
+
+
+==================================================
+11. ABSCHLUSSBERICHT
+==================================================
+
+Danach exakt berichten:
+
+1. Ursache
+2. Welche Funktionen geändert wurden
+3. Mapping Alter → tatsächliche Altersgruppe
+4. Mapping Alter → Normgruppe
+5. Verhalten wenn keine Norm existiert
+6. Verhalten Trainingsplan U7/U8-U9
+7. Testergebnisse
+8. py_compile
+9. bestehende Regressionstests
+10. Bestätigung: keine DB-Daten verändert

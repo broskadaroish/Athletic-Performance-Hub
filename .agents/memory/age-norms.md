@@ -17,8 +17,22 @@ Single source of truth for all norm tables. Key exports:
 - `kraft_bewertung_alter(rel_kraft, alter, geschlecht)` → (stufe, empfehlung)
 - `yb_schwellenwert(alter, geschlecht)` → float (composite % threshold)
 
-## Age group mapping
+## Age group mapping (drei Systeme)
+
+**alter_zu_normgruppe() — age_norms.py (Normen):**
 U8 (≤8), U10 (9-10), U12 (11-12), U14 (13-14), U16 (15-16), U18 (17-18), U21 (19-21), Senioren (22-35), Ü35 (36-50), Ü50 (51+)
+
+**alter_zu_altersgruppe() — field_eval.py (Badge-Label):**
+U7 (<8), U8 (8-9), U10 (10-11), U12 (12-13), U14 (14-15), U16 (16-17), U18 (18-20), Senior (21+)
+U7 → alle Norm-Felder None (kein Badge statt falschem „Auffällig")
+U8 → sprint_10m/sprint_30m vorhanden; restliche Felder None
+
+**_alter_zu_plangruppe() — periodisierung.py (Trainingsplan):**
+U7 (≤7), U8 (8-9), U10 (10-11), U14 (12-14), U18 (15-18), Senior (19-35), Ü40 (36-50), Ü55 (51+)
+
+**Why:** Ein 7-Jähriger darf nicht U10 heißen; field_eval und periodisierung hatten beide `a<=10→U10` was U7/U8/U9 fälschlich als U10 behandelte. age_norms.py war korrekt (≤8→U8).
+
+**Invariante:** Kein Alter ≤ 9 darf irgendwo "U10" als Label/Plangruppe sehen.
 
 ## How to apply in app.py
 For each test page, compute `alter_xxx = berechne_alter(sp.get("geburtsdatum", ""))` and pass `alter=alter_xxx` to the dataclass constructor. The `altersgruppe` (for norm_badge etc.) is computed separately with `alter_zu_altersgruppe()`.

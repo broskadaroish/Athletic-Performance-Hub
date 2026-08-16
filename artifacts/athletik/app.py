@@ -4298,6 +4298,7 @@ def page_trainingsplan():
         _tp_pg    = _alter_zu_plangruppe(_tp_alter)
         _tp_cfg   = _PLANGRUPPEN_CONFIG[_tp_pg]
         _pg_farben = {
+            "U7": "#3fb950", "U8": "#3fb950",
             "U10": "#3fb950", "U14": "#3fb950", "U18": "#d29922",
             "Senior": "#58a6ff", "Ü40": "#d29922", "Ü55": "#f85149",
         }
@@ -4754,6 +4755,7 @@ def page_trainingsplan():
         _tv_pg      = _alter_zu_plangruppe(_tv_alter)
         _tv_cfg     = _PLANGRUPPEN_CONFIG[_tv_pg]
         _tv_pg_farben = {
+            "U7": "#3fb950", "U8": "#3fb950",
             "U10": "#3fb950", "U14": "#3fb950", "U18": "#d29922",
             "Senior": "#58a6ff", "Ü40": "#d29922", "Ü55": "#f85149",
         }
@@ -5255,6 +5257,7 @@ def page_periodisierung():
     _pz_pg    = _alter_zu_plangruppe(_pz_alter)
     _pz_cfg   = _PLANGRUPPEN_CONFIG[_pz_pg]
     _pg_farben2 = {
+        "U7": "#3fb950", "U8": "#3fb950",
         "U10": "#3fb950", "U14": "#3fb950", "U18": "#d29922",
         "Senior": "#58a6ff", "Ü40": "#d29922", "Ü55": "#f85149",
     }
