@@ -2985,9 +2985,58 @@ def _duplikat_check(key_pfx: str, datum_str: str, hist: list) -> str:
 
 
 # ──────────────────────────────────────────────────────────────────────────────
+# GLOBALER ZURÜCK-BUTTON — zentrale Helper-Funktion (§7 des Auftrags)
+# ──────────────────────────────────────────────────────────────────────────────
+
+def _back_button(
+    label: str,
+    target_section: str,
+    target_sub_diagnostik: str = "",
+    target_sub_spieler: str = "",
+    key: str = "back_btn",
+) -> None:
+    """Rendert ← Zurück-Button mit APH-internem Routing.
+    Kein Browser-history.back(). Setzt Session-State-Pending-Keys + rerun().
+    Spielerauswahl / Testdaten bleiben erhalten.
+    """
+    # Mobile-freundliche Darstellung via CSS
+    st.markdown(
+        '<style>'
+        '.aph-back button {'
+        '  background:transparent!important;'
+        '  border:1px solid #30363d!important;'
+        '  color:#8b949e!important;'
+        '  font-size:13px!important;'
+        '  padding:6px 16px!important;'
+        '  border-radius:6px!important;'
+        '  margin-bottom:10px!important;'
+        '  min-height:38px!important;'
+        '  cursor:pointer!important;'
+        '}'
+        '.aph-back button:hover {'
+        '  border-color:#58a6ff!important;'
+        '  color:#58a6ff!important;'
+        '}'
+        '</style>',
+        unsafe_allow_html=True,
+    )
+    with st.container():
+        st.markdown('<div class="aph-back">', unsafe_allow_html=True)
+        if st.button(label, key=key):
+            st.session_state["_nav_goto"] = target_section
+            if target_sub_diagnostik:
+                st.session_state["_nav_sub_diagnostik_goto"] = target_sub_diagnostik
+            if target_sub_spieler:
+                st.session_state["_nav_sub_spieler_goto"] = target_sub_spieler
+            st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
+
+
+# ──────────────────────────────────────────────────────────────────────────────
 
 def page_fms():
     st.markdown("# 📝 FMS — Functional Movement Screen")
+    _back_button("← Zurück zu Tests", "🔬  Diagnostik", target_sub_diagnostik="🏠 Übersicht", key="back_fms")
     st.markdown("Sieben Bewegungsmuster werden bilateral getestet. Maximalpunktzahl: **21 Punkte**.")
 
     sicherheitshinweis_box()
@@ -3269,6 +3318,7 @@ def page_fms():
 
 def page_ybalance():
     st.markdown("# 📏 Y-Balance Test")
+    _back_button("← Zurück zu Tests", "🔬  Diagnostik", target_sub_diagnostik="🏠 Übersicht", key="back_yb")
     st.markdown("Composite Score = (A + PM + PL) / (3 × Beinlänge) × 100.  Schwellenwert: **≥ 89 %**.")
 
     sicherheitshinweis_box()
@@ -3511,6 +3561,8 @@ def page_ybalance():
 
 def page_spieler_profil():
     st.markdown("# 🏃 Spielerprofil & Diagnostik")
+    _back_button("← Zurück zur Spielerübersicht", "👤  Spieler",
+                 target_sub_spieler="👥 Verwaltung", key="back_profil")
 
     auswahl = _player_selector("profil")
     if not auswahl:
@@ -5770,6 +5822,7 @@ def page_fortschritt():
 
 def page_anthropometrie():
     st.markdown("# 📐 Anthropometrie")
+    _back_button("← Zurück zu Tests", "🔬  Diagnostik", target_sub_diagnostik="🏠 Übersicht", key="back_anthro")
     st.markdown("Körpermessungen, BMI und Wachstumsverlauf — Grundlage für belastungsgerechtes Training.")
 
     sicherheitshinweis_box()
@@ -6189,6 +6242,7 @@ def _sprint_muskulatur_info_ui() -> None:
 
 def page_sprint():
     st.markdown("# ⚡ Sprint-Diagnostik")
+    _back_button("← Zurück zu Tests", "🔬  Diagnostik", target_sub_diagnostik="🏠 Übersicht", key="back_sprint")
     st.markdown("Lineare Beschleunigung und Maximalgeschwindigkeit — 5 m bis 40 m, je 3 Versuche.")
 
     # ── Sicherheitshinweis & Testanleitung ────────────────────────────────────
@@ -6489,6 +6543,7 @@ def page_sprint():
 
 def page_sprung():
     st.markdown("# 🦘 Sprung-Diagnostik")
+    _back_button("← Zurück zu Tests", "🔬  Diagnostik", target_sub_diagnostik="🏠 Übersicht", key="back_sprung")
     st.markdown("Explosivkraft, Reaktivkraft und Seitenasymmetrie — CMJ, Squat Jump, Drop Jump, Standweitsprung.")
 
     sicherheitshinweis_box()
@@ -6728,6 +6783,7 @@ def _zeit_eingabe(label: str, key: str, col, letzter=None, letzter_key=None,
 
 def page_agilitaet():
     st.markdown("# 🔀 Agilität & Richtungswechsel")
+    _back_button("← Zurück zu Tests", "🔬  Diagnostik", target_sub_diagnostik="🏠 Übersicht", key="back_agil")
     st.markdown("505-Test, 5-10-5 Shuttle, T-Test, Illinois Agility Run — Richtungswechsel-Fähigkeit und Abbremsstärke.")
 
     sicherheitshinweis_box()
@@ -7799,6 +7855,7 @@ RPE_LABELS = {
 
 def page_ausdauer():
     st.markdown("# 🫁 Ausdauer-Diagnostik")
+    _back_button("← Zurück zu Tests", "🔬  Diagnostik", target_sub_diagnostik="🏠 Übersicht", key="back_aus")
 
     # ── Bereichsselektor ──────────────────────────────────────────────────────
     bereich = st.radio(
@@ -8025,6 +8082,7 @@ def page_ausdauer():
 
 def page_kraft():
     st.markdown("# 💪 Kraftdiagnostik")
+    _back_button("← Zurück zu Tests", "🔬  Diagnostik", target_sub_diagnostik="🏠 Übersicht", key="back_kraft")
     st.markdown(
         "Bankdrücken 1RM (direkt oder Epley-Schätzung) und Rumpfkraftausdauer — "
         "interne Orientierungswerte für die Trainingssteuerung. "

@@ -1,0 +1,351 @@
+MASTER-AUFTRAG – APH GLOBALE ZURÜCK-NAVIGATION FÜR UNTERSEITEN
+
+ZIEL:
+Auf fast allen Unterseiten fehlt aktuell eine einfache Zurück-Funktion.
+
+Beispiel:
+Trainer geht auf:
+Tests → Sprint
+
+führt den Test durch
+
+und kann danach nicht direkt zurück zur Testübersicht.
+
+Aktuell muss er:
+über die Hauptnavigation auf eine andere Seite wechseln
+und danach erneut „Tests“ öffnen.
+
+Das soll verbessert werden.
+
+==================================================
+1. GRUNDPRINZIP
+==================================================
+
+Unterseiten erhalten oben im Inhaltsbereich einen klaren Button:
+
+← Zurück
+
+Der Button führt NICHT einfach über Browser-History zurück.
+
+Stattdessen soll jede Unterseite eine definierte übergeordnete APH-Seite besitzen.
+
+Beispiele:
+
+Sprint
+→ Tests
+
+FMS
+→ Tests
+
+Y-Balance
+→ Tests
+
+Sprung
+→ Tests
+
+Agilität
+→ Tests
+
+Ausdauer
+→ Tests
+
+Kraftdiagnostik
+→ Tests
+
+Anthropometrie
+→ Tests
+
+Spiro/Stufentest
+→ Tests
+
+==================================================
+2. TESTSEITEN
+==================================================
+
+Alle diagnostischen Unterseiten prüfen:
+
+- Anthropometrie
+- FMS
+- Y-Balance
+- Sprint
+- Sprung
+- Agilität
+- Ausdauer
+- Kraft
+- Spiro/Stufentest
+
+Oben direkt unter bzw. neben dem Seitentitel:
+
+← Zurück zu Tests
+
+Nach Klick:
+→ Testübersicht
+
+Spielerauswahl und Daten dürfen dadurch nicht gelöscht werden.
+
+==================================================
+3. TRAINING
+==================================================
+
+Prüfen:
+
+- Trainingsplan
+- Periodisierung
+- Plan bearbeiten
+- Übung hinzufügen
+- weitere Trainings-Unterseiten
+
+Sinnvolle Parent-Navigation verwenden.
+
+Beispiel:
+
+Plan bearbeiten
+→ zurück zum Trainingsplan
+
+Trainingsplan-Unterseite
+→ zurück zu Training
+
+Nicht pauschal alles zur Startseite schicken.
+
+==================================================
+4. SPIELER
+==================================================
+
+Prüfen:
+
+- Spielerprofil
+- Spieler bearbeiten
+- einzelne Spieler-Unterseiten
+
+Beispiel:
+
+Spieler bearbeiten
+→ zurück zum Spielerprofil
+
+Spielerprofil
+→ zurück zur Spielerübersicht
+
+==================================================
+5. BENUTZER / ADMIN
+==================================================
+
+Prüfen:
+
+- Benutzerverwaltung Detail
+- Kundenverwaltung Detail
+- Verein Detail
+- Einstellungen-Unterseiten
+- sonstige Admin-Unterseiten
+
+Beispiel:
+
+Benutzer-Detail
+→ zurück zur Benutzerverwaltung
+
+Kunden-Detail
+→ zurück zur Kundenverwaltung
+
+==================================================
+6. INFO / RECHTLICHES
+==================================================
+
+Bestehende Zurück-Funktionen bei:
+
+- Impressum
+- Datenschutz
+- AGB
+- Info
+
+nicht verschlechtern.
+
+Wenn bereits eine saubere Zurück-Navigation existiert:
+weiterverwenden.
+
+==================================================
+7. EINHEITLICHE IMPLEMENTIERUNG
+==================================================
+
+Nicht auf 20 Seiten jeweils komplett unterschiedliche Zurück-Logik bauen.
+
+Wenn möglich eine zentrale Helper-Funktion verwenden, z.B.:
+
+render_back_button(
+    label="← Zurück zu Tests",
+    target="Tests"
+)
+
+oder bestehendes Routing-System sinnvoll erweitern.
+
+Keine zweite Navigation neben der bestehenden Hauptnavigation bauen.
+
+==================================================
+8. ROUTING
+==================================================
+
+Bestehende APH-Routing-/Session-State-Logik verwenden.
+
+Beim Klick:
+
+1. gewünschte Parent-Section setzen
+2. ggf. Unterseiten-State zurücksetzen
+3. st.rerun()
+
+Kein Browser-JavaScript-history.back(), wenn es nicht zwingend erforderlich ist.
+
+Streamlit-internes Routing bevorzugen.
+
+==================================================
+9. BUTTON-POSITION
+==================================================
+
+Zurück-Button gut sichtbar:
+
+oben auf der Seite,
+vor dem eigentlichen Formular/Testinhalt.
+
+Beispiel:
+
+← Zurück zu Tests
+
+⚡ Sprint-Diagnostik
+Lineare Beschleunigung ...
+
+Nicht erst ganz unten nach dem Test.
+
+==================================================
+10. MOBILE
+==================================================
+
+Muss auf Smartphone-Browser ebenfalls sauber funktionieren.
+
+Button:
+- große Tap-Fläche
+- kein horizontaler Overflow
+- nicht vom Mobile-Menübutton verdeckt
+- gleiche Funktion wie Desktop
+
+==================================================
+11. NACH SPEICHERN
+==================================================
+
+Nach erfolgreichem Speichern eines Tests:
+
+Trainer bleibt zunächst auf der Testseite.
+
+Dort:
+✅ Sprint-Test gespeichert!
+
+und oben bleibt:
+
+← Zurück zu Tests
+
+NICHT automatisch zurückspringen.
+
+Trainer entscheidet selbst, wann er zurückgeht.
+
+==================================================
+12. KEINE DATENVERLUSTE
+==================================================
+
+Zurück-Navigation darf NICHT:
+
+- Testdaten löschen
+- gespeicherte Ergebnisse verlieren
+- Spieler löschen
+- Sessions beenden
+- Login beeinflussen
+- Trainingsplan verändern
+
+Nur Navigation.
+
+==================================================
+13. KEINE ÄNDERUNG AN
+==================================================
+
+Nicht verändern:
+
+- Testauswertung
+- Normen
+- Alterslogik
+- Defizite
+- Trainingsplanlogik
+- Equipment
+- Wochenplanung
+- Trainer-Beitrittscode
+- Upload
+- Stripe
+- Login
+- Session
+- Passwort
+- Datenbank
+
+==================================================
+14. TESTS
+==================================================
+
+Mindestens testen:
+
+A)
+Tests → Sprint → Zurück
+→ Testübersicht
+
+B)
+Tests → FMS → Zurück
+→ Testübersicht
+
+C)
+Tests → Y-Balance → Zurück
+→ Testübersicht
+
+D)
+Sprinttest speichern → Zurück
+→ gespeicherter Test bleibt vorhanden
+
+E)
+Spielerprofil → Spieler bearbeiten → Zurück
+→ Spielerprofil
+
+F)
+Trainingsplan-Unterseite → Zurück
+→ passende Trainingsübersicht
+
+G)
+Desktop
+→ PASS
+
+H)
+Mobile Browser
+→ PASS
+
+I)
+mehrfach Öffnen/Zurück
+→ kein Routing-Loop
+
+J)
+py_compile
+→ PASS
+
+K)
+Block-B
+→ 35/35 PASS
+
+==================================================
+15. ABSCHLUSSBERICHT
+==================================================
+
+Danach berichten:
+
+1. welche Seiten einen Zurück-Button erhalten haben
+2. welche Parent-Seite jeweils verwendet wird
+3. ob eine zentrale Helper-Funktion verwendet wurde
+4. wie Routing technisch funktioniert
+5. Verhalten nach Test-Speichern
+6. Mobile-Test
+7. geänderte Dateien
+8. DB-Änderung
+9. py_compile
+10. Block-B
+
+Danach STOPPEN.
+
+Noch nicht deployen.
