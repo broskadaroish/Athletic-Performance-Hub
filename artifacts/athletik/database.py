@@ -4052,6 +4052,13 @@ def benutzer_loeschen(benutzer_id: int) -> tuple[bool, str]:
     """Löscht einen Benutzer — nur wenn keine Spieler zugeordnet sind.
 
     Guard (serverseitig): Der letzte aktive Superadmin kann nicht gelöscht werden.
+
+    Vor dem DELETE werden alle abhängigen Zeilen ohne ON DELETE CASCADE / SET NULL
+    manuell bereinigt, damit PRAGMA foreign_keys = ON keinen IntegrityError auslöst:
+      - sessions            → DELETE (benutzer_id NOT NULL, kein Cascade)
+      - rechnungsadressen   → DELETE (benutzer_id NOT NULL, kein Cascade)
+      - spieler_zuweisung_log.ausfuehrender_id → SET NULL
+      - audit_log.benutzer_id / superadmin_id  → SET NULL
     """
     with get_conn() as conn:
         # ── Guard: letzten aktiven Superadmin schützen ────────────────────────
@@ -4077,6 +4084,31 @@ def benutzer_loeschen(benutzer_id: int) -> tuple[bool, str]:
                 f"Trainer hat noch {spieler_n} Spieler. "
                 "Bitte zuerst alle Spieler einem anderen Trainer zuweisen."
             )
+
+        # ── Abhängige Zeilen ohne ON DELETE CASCADE/SET NULL bereinigen ───────
+        # Sessions löschen (benutzer_id NOT NULL, kein Cascade in Schema)
+        conn.execute("DELETE FROM sessions WHERE benutzer_id=?", (benutzer_id,))
+        # Rechnungsadresse löschen (benutzer_id NOT NULL, kein Cascade)
+        conn.execute(
+            "DELETE FROM rechnungsadressen WHERE benutzer_id=?", (benutzer_id,)
+        )
+        # Zuweisung-Log: ausfuehrender_id nullen (nullable, ältere Schema-Version ohne SET NULL)
+        conn.execute(
+            "UPDATE spieler_zuweisung_log SET ausfuehrender_id=NULL "
+            "WHERE ausfuehrender_id=?",
+            (benutzer_id,),
+        )
+        # Audit-Log: benutzer_id und superadmin_id nullen (nullable, kein SET NULL)
+        conn.execute(
+            "UPDATE audit_log SET benutzer_id=NULL WHERE benutzer_id=?",
+            (benutzer_id,),
+        )
+        conn.execute(
+            "UPDATE audit_log SET superadmin_id=NULL WHERE superadmin_id=?",
+            (benutzer_id,),
+        )
+        # ─────────────────────────────────────────────────────────────────────
+
         conn.execute("DELETE FROM benutzer WHERE id=?", (benutzer_id,))
         return True, ""
 
