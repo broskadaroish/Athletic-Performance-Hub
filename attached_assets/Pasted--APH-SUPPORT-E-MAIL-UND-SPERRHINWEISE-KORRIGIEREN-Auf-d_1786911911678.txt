@@ -1,0 +1,288 @@
+# APH – SUPPORT-E-MAIL UND SPERRHINWEISE KORRIGIEREN
+
+Auf der Seite **„Konto gesperrt“** wird aktuell noch die alte Support-Adresse:
+
+`support@brucefootball.de`
+
+angezeigt.
+
+Die offizielle Support-Adresse von APH lautet:
+
+`support@aphsystem.de`
+
+Bitte diese Änderung sauber und projektweit umsetzen.
+
+---
+
+## 1. ALTE SUPPORT-ADRESSE PROJEKTWEIT SUCHEN
+
+Bitte im gesamten Projekt nach folgenden Begriffen suchen:
+
+* `support@brucefootball.de`
+* `@brucefootball.de`
+* `brucefootball.de`
+
+Prüfen, an welchen Stellen diese alten Angaben noch verwendet werden.
+
+Besonders kontrollieren:
+
+* Konto gesperrt
+* Konto deaktiviert
+* Lizenz abgelaufen
+* Login
+* Registrierung
+* Passwort vergessen
+* E-Mail-Verifikation
+* Fehlermeldungen
+* Info-Seite
+* Impressum
+* Datenschutz
+* AGB
+* Support kontaktieren
+* Lizenzverwaltung
+* E-Mail-Templates
+* automatische Systemmeldungen
+
+---
+
+## 2. OFFIZIELLE SUPPORT-ADRESSE VERWENDEN
+
+Alle sichtbaren Support-/Kontaktangaben, die aktuell noch:
+
+`support@brucefootball.de`
+
+verwenden, auf:
+
+`support@aphsystem.de`
+
+ändern.
+
+WICHTIG:
+
+`noreply@aphsystem.de`
+
+NICHT ersetzen.
+
+Diese Adresse darf weiterhin für automatische System-E-Mails genutzt werden, wenn sie aktuell dafür vorgesehen ist.
+
+---
+
+## 3. SUPPORT-ADRESSE MÖGLICHST ZENTRAL VERWALTEN
+
+Bitte prüfen, ob im Projekt bereits eine zentrale Konstante oder Konfiguration für die Support-Adresse existiert.
+
+Falls ja:
+
+diese bestehende zentrale Stelle verwenden.
+
+Falls nein:
+
+eine zentrale Konstante verwenden, z. B.:
+
+`SUPPORT_EMAIL = "support@aphsystem.de"`
+
+Die Support-Adresse nicht unnötig an mehreren Stellen hart codieren.
+
+Keine parallelen Support-Konfigurationen anlegen.
+
+---
+
+# 4. SPERRHINWEIS FÜR VEREINSKONTEN
+
+Wenn ein gesperrtes/deaktiviertes Konto zu einem Verein gehört, soll die Seite anzeigen:
+
+## Konto gesperrt
+
+**Dein Vereinskonto wurde deaktiviert. Bitte kontaktiere den APH-Support:**
+
+`support@aphsystem.de`
+
+Die Support-Adresse soll anklickbar bleiben, falls dies aktuell bereits der Fall ist.
+
+---
+
+# 5. SPERRHINWEIS FÜR EINZELTRAINER
+
+Wenn ein gesperrtes/deaktiviertes Konto zu einem Einzeltrainer gehört, soll die Seite anzeigen:
+
+## Konto gesperrt
+
+**Dein Trainerkonto wurde deaktiviert. Bitte kontaktiere den APH-Support:**
+
+`support@aphsystem.de`
+
+---
+
+# 6. FALLBACK FÜR ANDERE ROLLEN
+
+Falls eine andere Rolle auf dieselbe Sperrseite gelangt, soll ein neutraler Text verwendet werden:
+
+## Konto gesperrt
+
+**Dein Konto wurde deaktiviert. Bitte kontaktiere den APH-Support:**
+
+`support@aphsystem.de`
+
+---
+
+# 7. ROLLENABHÄNGIG UND ZENTRAL UMSETZEN
+
+Bitte die Texte nicht an mehreren Stellen doppelt implementieren.
+
+Wenn möglich, die bestehende Rolleninformation verwenden und daraus den passenden Text bestimmen.
+
+Sinngemäße Logik:
+
+* Verein → `Dein Vereinskonto wurde deaktiviert.`
+* Einzeltrainer / Trainer → `Dein Trainerkonto wurde deaktiviert.`
+* sonst → `Dein Konto wurde deaktiviert.`
+
+Danach:
+
+`Bitte kontaktiere den APH-Support:`
+
+und:
+
+`support@aphsystem.de`
+
+verwenden.
+
+Keine neue Rollenlogik erfinden, wenn die Rollen bereits eindeutig im System vorhanden sind.
+
+---
+
+# 8. DESIGN DER SPERRSEITE BEIBEHALTEN
+
+Das bestehende visuelle Design der Sperrseite grundsätzlich beibehalten:
+
+* roter Rahmen
+* Sperr-Icon
+* Dark-Theme
+* zentrale Darstellung
+* gute Mobile-Darstellung
+
+Nur Text und Support-Adresse korrigieren.
+
+Keine komplette Neugestaltung der Seite.
+
+---
+
+# 9. MOBILE PRÜFEN
+
+Auf Smartphone prüfen:
+
+* Text passt sauber in die Karte
+* Support-E-Mail läuft nicht aus dem Container
+* Link ist gut antippbar
+* keine horizontale Scrollbar
+* Sperrkarte bleibt zentriert
+* Menübutton wird nicht überdeckt
+
+---
+
+# 10. DESKTOP PRÜFEN
+
+Auf Desktop prüfen:
+
+* Sperrkarte sauber zentriert
+* Vereins- und Trainertext korrekt
+* Support-Link korrekt
+* keine unnötigen Layoutänderungen
+
+---
+
+# 11. NICHT VERÄNDERN
+
+Bitte nicht verändern:
+
+* Login-Logik
+* Session-Logik
+* Cookies
+* Rollenlogik außerhalb der Textauswahl
+* Lizenzlogik
+* Lizenzstatus
+* Stripe
+* Webhooks
+* Datenbankstruktur
+* Registrierungslogik
+* Passwort-Reset
+* E-Mail-Versandlogik
+* SMTP-Konfiguration
+* `noreply@aphsystem.de`
+* Navigation
+* Mobile Navigation
+
+Es handelt sich ausschließlich um eine Korrektur der Support-Kontaktdaten und der rollenabhängigen Sperrtexte.
+
+---
+
+# 12. ABSCHLUSSPRÜFUNG DER ALTEN DOMAIN
+
+Nach Umsetzung erneut projektweit suchen nach:
+
+* `support@brucefootball.de`
+* `brucefootball.de`
+
+Ziel:
+
+`support@brucefootball.de` = **0 sichtbare/veraltete Vorkommen**
+
+`brucefootball.de` = **0 Vorkommen**, sofern technisch oder historisch nichts zwingend benötigt wird.
+
+Falls noch ein Vorkommen bestehen bleiben muss:
+
+nicht blind löschen, sondern im Abschlussbericht exakt nennen und begründen.
+
+---
+
+# 13. TESTS
+
+Nach Änderung:
+
+* Python-Syntax prüfen
+* relevante Imports prüfen
+* App starten
+* gesperrtes Vereinskonto testen
+* gesperrtes Trainerkonto testen
+* Fallback prüfen
+* Mobile prüfen
+* Desktop prüfen
+* vorhandene relevante Regressionstests ausführen
+
+---
+
+# 14. ABSCHLUSSBERICHT
+
+Bitte danach konkret berichten:
+
+1. Welche Dateien wurden geändert?
+2. Wo war `support@brucefootball.de` noch hinterlegt?
+3. Wie viele alte Vorkommen wurden gefunden?
+4. Wurde die Support-Adresse zentralisiert?
+5. Welche zentrale Konstante/Konfiguration wird jetzt verwendet?
+6. Wird beim Verein jetzt angezeigt:
+   `Dein Vereinskonto wurde deaktiviert.`?
+7. Wird beim Einzeltrainer jetzt angezeigt:
+   `Dein Trainerkonto wurde deaktiviert.`?
+8. Gibt es einen neutralen Fallback?
+9. Wird überall `support@aphsystem.de` verwendet?
+10. Wurde `noreply@aphsystem.de` unverändert gelassen?
+11. Gibt es noch Vorkommen von `brucefootball.de`?
+12. Mobile geprüft?
+13. Desktop geprüft?
+14. Welche Tests wurden ausgeführt?
+15. Ergebnis der Tests?
+16. Sind neue Fehler oder Warnungen aufgetreten?
+
+Ziel:
+
+APH soll bei gesperrten Konten überall professionell und einheitlich auftreten:
+
+**Verein:**
+`Dein Vereinskonto wurde deaktiviert. Bitte kontaktiere den APH-Support.`
+
+**Einzeltrainer:**
+`Dein Trainerkonto wurde deaktiviert. Bitte kontaktiere den APH-Support.`
+
+**Support:**
+`support@aphsystem.de`

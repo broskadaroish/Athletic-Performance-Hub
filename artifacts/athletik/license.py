@@ -26,6 +26,11 @@ from typing import TypedDict
 
 import streamlit as st
 
+# ─── Zentrale Support-Adresse ───────────────────────────────────────────────────
+# Einzige maßgebliche Stelle für die sichtbare Support-E-Mail in license.py.
+# Produktive Wert wird über die Umgebungsvariable SUPPORT_EMAIL konfiguriert.
+SUPPORT_EMAIL: str = os.environ.get("SUPPORT_EMAIL", "support@aphsystem.de")
+
 
 # ─── Lizenztypen-Definition ────────────────────────────────────────────────────
 
@@ -398,7 +403,7 @@ def enforce_license_gate() -> None:
         info = st.session_state[cache_key]
 
     if info["lizenz_status"] == "suspended":
-        _zeige_gesperrt_page()
+        _zeige_gesperrt_page(rolle=user.get("rolle"))
         st.stop()
 
     if info["lizenz_status"] in ("expired", "beendet"):
@@ -504,13 +509,27 @@ def _card(color: str, icon: str, titel: str, text: str) -> None:
     )
 
 
-def _zeige_gesperrt_page() -> None:
+def _zeige_gesperrt_page(rolle: str | None = None) -> None:
+    """Zeigt die Gesperrt-Karte mit rollenabhängigem Text.
+
+    - vereinsadmin / verein  → Vereinskonto
+    - trainer / einzeltrainer → Trainerkonto
+    - sonst                   → neutraler Fallback
+    """
+    _rolle = (rolle or "").lower()
+    if _rolle in ("vereinsadmin", "verein"):
+        konto_art = "Vereinskonto"
+    elif _rolle in ("trainer", "einzeltrainer"):
+        konto_art = "Trainerkonto"
+    else:
+        konto_art = "Konto"
+
     _card(
         "#f85149", "🚫",
         "Konto gesperrt",
-        "Dein Vereinskonto wurde deaktiviert. Bitte kontaktiere den Support: "
-        "<a href='mailto:support@brucefootball.de' style='color:#58a6ff'>"
-        "support@brucefootball.de</a>",
+        f"Dein {konto_art} wurde deaktiviert. Bitte kontaktiere den APH-Support: "
+        f"<a href='mailto:{SUPPORT_EMAIL}' style='color:#58a6ff;word-break:break-all'>"
+        f"{SUPPORT_EMAIL}</a>",
     )
 
 

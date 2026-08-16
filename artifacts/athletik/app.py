@@ -671,10 +671,17 @@ if "user" not in st.session_state:
                             )
                         elif isinstance(_user_obj, dict) and _user_obj.get("konto_deaktiviert"):
                             import os as _os_kd
-                            _support = _os_kd.environ.get("SUPPORT_EMAIL", "support@aphsystem.de")
+                            _support  = _os_kd.environ.get("SUPPORT_EMAIL", "support@aphsystem.de")
+                            _kd_rolle = (_user_obj.get("rolle") or "").lower()
+                            if _kd_rolle in ("vereinsadmin", "verein"):
+                                _kd_text = "Dein Vereinskonto wurde deaktiviert."
+                            elif _kd_rolle in ("trainer", "einzeltrainer"):
+                                _kd_text = "Dein Trainerkonto wurde deaktiviert."
+                            else:
+                                _kd_text = "Dein Konto wurde deaktiviert."
                             st.error(
-                                f"⛔ Dein Konto ist derzeit deaktiviert. "
-                                f"Bitte kontaktiere den Support unter **{_support}**."
+                                f"⛔ {_kd_text} "
+                                f"Bitte kontaktiere den APH-Support unter **{_support}**."
                             )
                         elif isinstance(_user_obj, dict) and _user_obj.get("email_nicht_verifiziert"):
                             _ev_bid   = _user_obj["benutzer_id"]
