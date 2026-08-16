@@ -2123,8 +2123,16 @@ def page_dashboard():
                 metrics = []
                 if d["fms"] and d["fms"].get("score"):
                     metrics.append(f"FMS {d['fms']['score']}/21")
-                if d["sprint"] and d["sprint"].get("beste_10m"):
-                    metrics.append(f"10m {d['sprint']['beste_10m']:.2f}s")
+                _spr_ov = d.get("sprint")
+                if _spr_ov:
+                    for _ovdist, _ovlbl in [
+                        ("beste_30m","30m"),("beste_20m","20m"),
+                        ("beste_10m","10m"),("beste_40m","40m"),("beste_5m","5m"),
+                    ]:
+                        _ovv = _spr_ov.get(_ovdist) or 0
+                        if _ovv > 0:
+                            metrics.append(f"{_ovlbl} {_ovv:.2f}s")
+                            break
                 if d["sprung"] and d["sprung"].get("cmj_beid"):
                     metrics.append(f"CMJ {d['sprung']['cmj_beid']:.0f}cm")
                 metrics_str = " · ".join(metrics) if metrics else "Noch keine Testdaten"
@@ -2431,7 +2439,14 @@ def page_dashboard():
                 "FMS Score":      fms["score"] if fms else None,
                 "Y-Balance Ø":    round((y["composite_rechts"] + y["composite_links"]) / 2, 1)
                                   if y else None,
-                "Sprint 10m (s)": sprint["beste_10m"] if sprint and sprint.get("beste_10m") else None,
+                "Sprint (s)": (
+                    next(
+                        (sprint.get(k) for k in (
+                            "beste_30m","beste_20m","beste_10m","beste_40m","beste_5m"
+                        ) if (sprint.get(k) or 0) > 0),
+                        None,
+                    ) if sprint else None
+                ),
                 "CMJ (cm)":       sprung["cmj_beid"] if sprung and sprung.get("cmj_beid") else None,
                 "VO₂max (Yo-Yo)": aus["vo2max"] if aus and aus.get("vo2max") else None,
                 "VO₂peak (Spiro)": (
@@ -10159,6 +10174,25 @@ def page_diagnostik_overview() -> None:
 
     anthro_metric, anthro_rating = _anthro_metric_rating()
 
+    # Sprint-Karte: beste verfügbare Distanz anzeigen (30m > 20m > 10m > 40m > 5m)
+    # 0-Werte = nicht gemessen, zählen nicht als Sprintdaten
+    _spr_metric = None
+    _spr_rating = None
+    if spr_d:
+        for _sdist, _slbl in [
+            ("beste_30m", "30 m"), ("beste_20m", "20 m"), ("beste_10m", "10 m"),
+            ("beste_40m", "40 m"), ("beste_5m",  " 5 m"),
+        ]:
+            _sv = spr_d.get(_sdist) or 0
+            if _sv > 0:
+                _spr_metric = f"{_slbl}: {_sv:.2f} s"
+                break
+        for _rk in ("bewertung_30m", "bewertung_10m"):
+            _rv = str(spr_d.get(_rk) or "")
+            if _rv and _rv != "—":
+                _spr_rating = _rv
+                break
+
     tiles = [
         {
             "icon": "📐", "name": "Anthropometrie",
@@ -10192,10 +10226,9 @@ def page_diagnostik_overview() -> None:
             "icon": "⚡", "name": "Sprint",
             "desc": "Lineare Schnelligkeit",
             "sub":  "⚡ Sprint",
-            "metric": (f"10 m: {spr_d['beste_10m']:.2f} s"
-                       if spr_d and spr_d.get("beste_10m") else None),
-            "rating": spr_d.get("bewertung_10m") if spr_d else None,
-            "date":   spr_d.get("datum")         if spr_d else None,
+            "metric": _spr_metric,
+            "rating": _spr_rating,
+            "date":   spr_d.get("datum") if spr_d else None,
         },
         {
             "icon": "🦘", "name": "Sprung",

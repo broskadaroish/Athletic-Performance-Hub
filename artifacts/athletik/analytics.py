@@ -500,14 +500,38 @@ def sprint_trainingsschwerpunkte_ermitteln(
     bew10       = str(sprint_row.get("bewertung_10m") or "")
     bew30       = str(sprint_row.get("bewertung_30m") or "")
     beschl_idx  = sprint_row.get("beschl_index") or 0
+    # "—" bedeutet "nicht gemessen" — für Logikprüfungen bereinigen
+    if bew10 == "—":
+        bew10 = ""
+    if bew30 == "—":
+        bew30 = ""
 
     # Auffälligkeiten aus validen Sprint-Daten ableiten
     sprint_beschl_auff = bew10 in ("Verbesserungsbedarf", "Mittel (Breitensport)")
     sprint_max_auff    = bew30 in ("Verbesserungsbedarf", "Mittel (Breitensport)")
-    sprint_auff        = sprint_beschl_auff or sprint_max_auff
+
+    # Fallback: gespeichertes Defizite-Feld auswerten —
+    # greift wenn z.B. nur 5m/20m/40m gemessen wurde und 10m/30m leer sind,
+    # aber beim Speichern bereits ein Defizit erkannt und eingetragen wurde.
+    _saved_def = str(sprint_row.get("defizite") or "").lower()
+    if _saved_def:
+        if not sprint_beschl_auff and any(
+            kw in _saved_def for kw in (
+                "linearbeschleunigung", "antrittsschnelligkeit", "beschleunigungsindex",
+            )
+        ):
+            sprint_beschl_auff = True
+        if not sprint_max_auff and any(
+            kw in _saved_def for kw in (
+                "maximalgeschwindigkeit", "schnelligkeit", "geschwindigkeit",
+            )
+        ):
+            sprint_max_auff = True
+
+    sprint_auff = sprint_beschl_auff or sprint_max_auff
 
     if not sprint_auff:
-        return []  # Gute Sprintwerte → keine künstlichen Schwerpunkte (TEST F)
+        return []  # Gute Sprintwerte → keine künstlichen Schwerpunkte (TEST F / TEST I)
 
     # FMS-Auffälligkeiten (§15)
     fms_hueft_auff = False
@@ -637,9 +661,12 @@ def schwerpunkt_sammeln(
         defizite = str(sprint_row.get("defizite") or "")
         if defizite:
             parts.append(defizite)
-        bew = str(sprint_row.get("bewertung_10m") or "")
-        if "Verbesserungsbedarf" in bew:
+        bew10 = str(sprint_row.get("bewertung_10m") or "")
+        bew30 = str(sprint_row.get("bewertung_30m") or "")
+        if "Verbesserungsbedarf" in bew10 or "Mittel (Breitensport)" in bew10:
             parts.append("sprint beschleunigung")
+        if "Verbesserungsbedarf" in bew30 or "Mittel (Breitensport)" in bew30:
+            parts.append("sprint schnelligkeit")
     if sprung_row:
         bew = str(sprung_row.get("bewertung_cmj") or "")
         if "Verbesserungsbedarf" in bew:

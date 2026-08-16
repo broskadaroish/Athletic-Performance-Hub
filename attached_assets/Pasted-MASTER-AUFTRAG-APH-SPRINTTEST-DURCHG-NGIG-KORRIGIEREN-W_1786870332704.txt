@@ -1,0 +1,354 @@
+MASTER-AUFTRAG APH – SPRINTTEST DURCHGÄNGIG KORRIGIEREN
+
+WICHTIG:
+Keine große Umstrukturierung.
+Keine DB-Daten löschen.
+Keine bestehenden Sprinttests verändern.
+Keine Änderungen an FMS, Y-Balance, Sprung, Agilität, Ausdauer oder Kraft, außer wenn eine gemeinsame Funktion zwingend angepasst werden muss.
+Bestehende Tests müssen weiter funktionieren.
+
+PROBLEM:
+
+Sprinttests werden korrekt in sprint_test gespeichert, aber anschließend teilweise als „keine Daten vorhanden“ behandelt bzw. nicht im Trainingsplan berücksichtigt.
+
+Ursache:
+Mehrere Stellen gehen faktisch davon aus, dass beste_10m vorhanden sein muss.
+
+APH erlaubt aber ausdrücklich Sprinttests über:
+5 m
+10 m
+20 m
+30 m
+40 m
+
+Nicht jede Distanz muss gemessen werden.
+
+Beispiel aus Produktion:
+beste_5m = 4.23
+beste_10m = 0
+beste_20m = 0
+beste_30m = 6.34
+beste_40m = 0
+
+Dieser Datensatz ist ein gültiger Sprinttest und darf NICHT als „keine Daten vorhanden“ erscheinen.
+
+==================================================
+1. ZENTRALE REGEL
+==================================================
+
+Ein Sprinttest gilt als vorhanden/gültig, sobald mindestens eine dieser Distanzen > 0 ist:
+
+beste_5m
+beste_10m
+beste_20m
+beste_30m
+beste_40m
+
+0, None oder fehlende Werte bedeuten nur:
+„diese Distanz wurde nicht gemessen“.
+
+Sie bedeuten NICHT:
+„kein Sprinttest vorhanden“.
+
+Diese Regel muss überall konsistent gelten:
+- Diagnostik-Übersicht
+- Sprint-Karte
+- Athletik-Analyse
+- Defiziterkennung
+- schwerpunkt_sammeln()
+- testdaten_uebersicht()
+- ist_unauffaellig()
+- athletik_sub_scores()
+- Trainingsplan
+- Periodisierung
+- Fortschritt/Verlauf
+- PDF soweit betroffen
+
+==================================================
+2. SPRINT-KARTE REPARIEREN
+==================================================
+
+Aktuell zeigt app.py sinngemäß nur:
+
+metric = 10m-Wert if beste_10m else None
+
+Das ist falsch.
+
+Die Karte soll die sinnvollste tatsächlich gemessene Distanz anzeigen.
+
+Priorität für die Hauptanzeige:
+30 m
+20 m
+10 m
+40 m
+5 m
+
+Beispiele:
+
+nur 30 m vorhanden:
+30 m: 6.34 s
+
+nur 20 m vorhanden:
+20 m: 3.45 s
+
+10 m + 30 m vorhanden:
+30 m: 4.85 s
+
+nur 5 m vorhanden:
+5 m: 1.20 s
+
+Die Karte darf „Noch keine Daten vorhanden“ nur anzeigen, wenn ALLE Sprintdistanzen leer/0 sind bzw. überhaupt kein Datensatz existiert.
+
+Das Datum des vorhandenen Sprinttests muss ebenfalls angezeigt werden.
+
+==================================================
+3. BEWERTUNG / DEFIZITERKENNUNG
+==================================================
+
+Prüfe sprint.py, analytics.py und age_norms.py.
+
+WICHTIG:
+Keine Normwerte erfinden.
+
+Bestehende validierte Normen für einzelne Distanzen weiterverwenden.
+
+Wenn für eine Distanz keine fachlich hinterlegte Norm existiert, darf aus dieser Distanz KEIN künstliches Defizit konstruiert werden.
+
+Aber:
+Der Sprinttest bleibt trotzdem „vorhanden“.
+
+Beispiel:
+30-m-Norm vorhanden → 30 m bewerten.
+10 m nicht gemessen → keine 10-m-Bewertung.
+Nicht:
+10 m = 0 → keine Sprintdaten.
+
+==================================================
+4. BESTEHENDE GESPEICHERTE DEFIZITE BERÜCKSICHTIGEN
+==================================================
+
+sprint_test besitzt bereits das Feld `defizite`.
+
+Beispiel aus Produktion:
+
+defizite = ["Maximalgeschwindigkeit (20–30 m)"]
+
+Prüfe, ob defizite_ermitteln() / schwerpunkt_sammeln() diese gespeicherten Sprintdefizite zuverlässig übernehmen.
+
+Ein gültiges Sprintdefizit wie:
+
+"Maximalgeschwindigkeit (20–30 m)"
+
+muss auf den Trainingsbereich
+
+"Schnelligkeit"
+
+gemappt werden.
+
+Bestehendes Mapping in periodisierung.py für:
+sprint
+schnelligkeit
+beschleunigung
+maximalgeschwindigkeit
+geschwindigkeit
+sprintschnelligkeit
+antrittsschnelligkeit
+
+weiterverwenden.
+
+NICHT parallel ein zweites Mapping-System bauen.
+
+==================================================
+5. sprint_trainingsschwerpunkte_ermitteln()
+==================================================
+
+Diese Funktion aktuell genau prüfen.
+
+Sie darf nicht allein deshalb [] zurückgeben, weil bewertung_10m leer ist.
+
+Vorhandene gültige 30-m-Bewertungen und vorhandene gespeicherte Sprintdefizite müssen berücksichtigt werden.
+
+NO_DATA darf nur gelten, wenn keine gültige Sprintdistanz vorhanden ist.
+
+Dabei weiterhin bestehende Sicherheitsregel beachten:
+Keine Muskeldiagnosen allein aus Sprintzeiten ableiten.
+Keine Aussagen wie „Psoas schwach“.
+
+==================================================
+6. TRAININGSPLAN
+==================================================
+
+Nach einem auffälligen Sprinttest muss in:
+
+Individueller Trainingsplan aus Diagnostikdaten
+
+ein Sprint-/Schnelligkeitsdefizit erscheinen, sofern die vorhandenen Daten nach bestehenden Normen tatsächlich auffällig sind.
+
+Beispiel:
+
+Quelle: Sprint
+Hauptschwerpunkt/Scherpunkt:
+Schnelligkeit
+oder fachlich konkreter vorhandener Begriff wie
+Maximalgeschwindigkeit
+
+Dieser Schwerpunkt muss anschließend in der bestehenden Periodisierung auf den Bereich "Schnelligkeit" gelangen.
+
+Agilität darf dafür NICHT notwendig sein.
+
+Testfall ausdrücklich:
+
+Sprint auffällig
+Agilität NICHT durchgeführt
+
+→ Sprint/Schnelligkeit muss trotzdem im Trainingsplan berücksichtigt werden.
+
+==================================================
+7. KEINE FALSCHEN DEFIZITE
+==================================================
+
+Sehr wichtig:
+
+Ein Sprinttest allein erzeugt nicht automatisch ein Defizit.
+
+Unterscheide:
+
+A)
+Sprintdaten vorhanden + Bewertung gut
+→ Sprinttest vorhanden
+→ kein Sprintdefizit
+
+B)
+Sprintdaten vorhanden + bestehende Norm zeigt Verbesserungsbedarf
+→ Sprintdefizit
+→ Trainingsplan berücksichtigt Schnelligkeit
+
+C)
+Sprintdaten vorhanden, aber für diese Distanz existiert keine Norm
+→ Sprinttest vorhanden
+→ kein erfundenes Defizit
+
+D)
+Keine Sprintdistanz gemessen
+→ NO_DATA
+
+==================================================
+8. 0.00 SEMANTIK
+==================================================
+
+Nicht gemessene Sprintdistanzen werden aktuell teilweise als 0 gespeichert.
+
+Daher überall sicherstellen:
+
+0
+0.0
+None
+
+bei einzelnen Distanzen = NICHT GEMESSEN.
+
+Niemals 0 Sekunden als reale Sprintleistung bewerten.
+
+Keine bestehende Datenbankmigration durchführen, wenn nicht zwingend erforderlich.
+
+==================================================
+9. BESTEHENDE PRODUKTIONSDATEN
+==================================================
+
+Bestehende Datensätze müssen sofort nach dem Fix korrekt funktionieren.
+
+Insbesondere Datensatz:
+
+spieler_id = 8
+beste_5m = 4.23
+beste_10m = 0
+beste_20m = 0
+beste_30m = 6.34
+beste_40m = 0
+defizite = ["Maximalgeschwindigkeit (20–30 m)"]
+
+Nach Fix prüfen:
+
+1. Sprint-Karte zeigt einen Sprintwert.
+2. Karte zeigt NICHT „Noch keine Daten vorhanden“.
+3. Datum wird angezeigt.
+4. Sprint wird als vorhandener Test erkannt.
+5. Gespeichertes Sprintdefizit wird von der Analyse erkannt.
+6. Trainingsplan berücksichtigt Schnelligkeit unabhängig von Agilität.
+
+==================================================
+10. REGRESSIONSTESTS
+==================================================
+
+Mindestens folgende Fälle testen:
+
+TEST A
+nur 5 m vorhanden
+→ Sprinttest vorhanden
+
+TEST B
+nur 10 m vorhanden
+→ Sprinttest vorhanden
+→ bestehende 10-m-Bewertung funktioniert
+
+TEST C
+nur 20 m vorhanden
+→ Sprinttest vorhanden
+
+TEST D
+nur 30 m vorhanden
+→ Sprinttest vorhanden
+→ bestehende 30-m-Bewertung funktioniert
+
+TEST E
+nur 40 m vorhanden
+→ Sprinttest vorhanden
+
+TEST F
+10 m + 30 m vorhanden
+→ beide Bewertungen soweit Norm vorhanden korrekt
+
+TEST G
+alle Distanzen 0
+→ NO_DATA
+
+TEST H
+Sprint auffällig, keine Agilitätsdaten
+→ Schnelligkeit erscheint im Trainingsplan
+
+TEST I
+Sprint gut, keine Agilitätsdaten
+→ kein künstliches Sprintdefizit
+
+TEST J
+gespeichertes defizite-Feld:
+["Maximalgeschwindigkeit (20–30 m)"]
+→ wird korrekt auf Schnelligkeit gemappt
+
+TEST K
+bestehender Produktionsdatensatz Spieler 8
+→ Sprint-Karte und Trainingsplan korrekt
+
+Zusätzlich:
+python -m py_compile für alle geänderten Python-Dateien
+bestehende Block-B Tests vollständig ausführen.
+
+==================================================
+11. ABSCHLUSSBERICHT
+==================================================
+
+Am Ende KEIN Deploy.
+
+Nur Bericht liefern:
+
+- genaue Ursache
+- welche Dateien geändert wurden
+- welche Funktionen geändert wurden
+- wie Sprint „vorhanden“ jetzt erkannt wird
+- wie einzelne Distanzen behandelt werden
+- wie Defizite zum Trainingsplan gelangen
+- Testergebnisse A–K
+- py_compile Ergebnis
+- Block-B Ergebnis
+- ausdrücklich bestätigen, dass keine DB-Daten gelöscht/verändert wurden
+
+Noch NICHT committen/deployen, bis ich den Bericht geprüft habe.
