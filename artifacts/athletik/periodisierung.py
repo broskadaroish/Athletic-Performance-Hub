@@ -421,10 +421,13 @@ _AUSFUEHRUNG_FALLBACK: dict[str, str] = {
 def _alter_zu_plangruppe(alter: float | None) -> str:
     """Ordnet ein Alter der Trainingsplangruppe zu.
 
-    Mapping (Single Source of Truth: app.py ALTERSKLASSEN):
-        ≤ 7  → U7   (Bambini)
-        8–9  → U8   (F-Jugend)
-        10–11→ U10  (E-Jugend)
+    U = unter: Alter 9 (unter 10) → U10-Trainingsgruppe.
+    Stimmt überein mit field_eval.alter_zu_altersgruppe() und age_norms.alter_zu_normgruppe().
+
+    Mapping:
+        ≤ 6  → U7   (Bambini)
+        7–8  → U8   (F-Jugend)
+        9–11 → U10  (E-Jugend)
         12–14→ U14
         15–18→ U18
         19–35→ Senior
@@ -434,9 +437,9 @@ def _alter_zu_plangruppe(alter: float | None) -> str:
     if not alter or alter <= 0:
         return "Senior"
     a = int(alter)
-    if a <= 7:  return "U7"
-    if a <= 9:  return "U8"
-    if a <= 11: return "U10"
+    if a <= 6:  return "U7"   # ≤ 6 J.  (war: a <= 7)
+    if a <= 8:  return "U8"   # 7–8 J.  (war: a <= 9)
+    if a <= 11: return "U10"  # 9–11 J. (unverändert; deckt jetzt auch 9-Jährige ab)
     if a <= 14: return "U14"
     if a <= 18: return "U18"
     if a <= 35: return "Senior"

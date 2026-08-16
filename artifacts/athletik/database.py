@@ -1063,17 +1063,29 @@ def alter_am_datum(geburtsdatum_str: str, testdatum_str: str) -> int | None:
 
 
 def altersklasse_vorschlag(geburtsdatum_str: str) -> str:
-    """Schlägt die passende Altersklasse anhand des Alters vor."""
-    alter = berechne_alter(geburtsdatum_str)
-    if alter is None:
-        return "Unbekannt"
-    if alter <= 7:   return "U7 (Bambini)"
-    if alter <= 9:   return "U8/U9 (F-Jugend)"
-    if alter <= 11:  return "U10/U11 (E-Jugend)"
-    if alter <= 13:  return "U12/U13 (D-Jugend)"
-    if alter <= 15:  return "U14/U15 (C-Jugend)"
-    if alter <= 17:  return "U16/U17 (B-Jugend)"
-    if alter <= 19:  return "U18/U19 (A-Jugend)"
+    """Schlägt die passende Altersklasse anhand der saisonalen Fußballklasse vor.
+
+    Verwendet fussballklasse_aus_datum() — NICHT das chronologische Alter.
+    Beispiel: JG2016, 16.08.2026 → FK U11 → 'U10/U11 (E-Jugend)'.
+    Die Altersklasse richtet sich nach der Jugendklasse der Fußballklasse:
+      U6/U7 → Bambini, U8/U9 → F-Jugend, U10/U11 → E-Jugend, usw.
+    """
+    import re as _re
+    from saison import fussballklasse_aus_datum
+    fk = fussballklasse_aus_datum(geburtsdatum_str)
+    if fk is None:
+        return "Senioren"
+    m = _re.match(r"^U(\d+)$", fk)
+    if not m:
+        return "Senioren"        # "Senioren" oder unbekannter Wert
+    u_nr = int(m.group(1))
+    if u_nr <= 7:   return "U7 (Bambini)"
+    if u_nr <= 9:   return "U8/U9 (F-Jugend)"
+    if u_nr <= 11:  return "U10/U11 (E-Jugend)"
+    if u_nr <= 13:  return "U12/U13 (D-Jugend)"
+    if u_nr <= 15:  return "U14/U15 (C-Jugend)"
+    if u_nr <= 17:  return "U16/U17 (B-Jugend)"
+    if u_nr <= 19:  return "U18/U19 (A-Jugend)"
     return "Senioren"
 
 

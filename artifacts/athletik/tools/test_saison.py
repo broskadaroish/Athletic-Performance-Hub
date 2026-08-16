@@ -161,8 +161,9 @@ print("\n══ §5 Drei-Ebenen-Trennung (Stichtag 16.08.2026) ══")
 # alter: chronologisch | normgruppe: Testnorm | plangruppe: Trainingsplan | fk: Fußballklasse
 DREI_EBENEN = [
     # (alter, erw_norm, erw_plan, jg, erw_fk)
-    (7,  "U8",  "U7",  2019, "U8"),
-    (9,  "U10", "U8",  2017, "U10"),
+    # U = unter: Alter 7 (unter 8) → U8, Alter 9 (unter 10) → U10
+    (7,  "U8",  "U8",  2019, "U8"),   # Plan war U7, jetzt U8 (Alter 7 = unter 8)
+    (9,  "U10", "U10", 2017, "U10"),  # Plan war U8, jetzt U10 (Alter 9 = unter 10)
     (11, "U12", "U10", 2015, "U12"),
     (13, "U14", "U14", 2013, "U14"),
 ]
@@ -180,10 +181,10 @@ _plan_2016 = _alter_zu_plangruppe(9.0)
 _fk_2016   = fussballklasse_berechnen(2016, STICHTAG, 1, 7)
 check("JG2016 Alter 9: Fußballklasse U11 ≠ Normgruppe U10",
       _fk_2016 != _norm_2016, True)
-check("JG2016 Alter 9: Fußballklasse U11 ≠ Plangruppe U8",
+check("JG2016 Alter 9: Fußballklasse U11 ≠ Plangruppe U10",
       _fk_2016 != _plan_2016, True)
-check("JG2016: Fußballklasse=U11, Normgruppe=U10, Plangruppe=U8 (alle drei verschieden)",
-      (_fk_2016, _norm_2016, _plan_2016) == ("U11", "U10", "U8"), True)
+check("JG2016: Fußballklasse=U11, Normgruppe=U10, Plangruppe=U10 (FK≠Norm/Plan; Norm=Plan per U-Logik korrekt)",
+      (_fk_2016, _norm_2016, _plan_2016) == ("U11", "U10", "U10"), True)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -222,9 +223,9 @@ res_schlecht = SprintErgebnis(beste_5m=None, beste_10m=3.50, beste_20m=None, bes
 check("Schwacher Sprint → Defizit (Beschleunigung/Maximalgesch.) erkannt",
       len(res_schlecht.defizite) > 0, True)
 
-# U7 (Alter < 8) → kein Sprint-Urteil
-bew_u7 = bewertung_sprint(4.0, "10m", "Leistungssport", "Männlich", 7.0)
-check("U7 (alter=7): Sprint-Bewertung = '—' (kein falsches Defizit)",
+# U7 (Alter < 7) → kein Sprint-Urteil (ab Alter 7 greift U8-Norm)
+bew_u7 = bewertung_sprint(4.0, "10m", "Leistungssport", "Männlich", 6.0)
+check("U7 (alter=6): Sprint-Bewertung = '—' (kein falsches Defizit)",
       bew_u7, "—")
 
 
@@ -233,14 +234,15 @@ check("U7 (alter=7): Sprint-Bewertung = '—' (kein falsches Defizit)",
 # ═══════════════════════════════════════════════════════════════════════════════
 print("\n══ §8 Trainingsplan-Plangruppen (altersgerecht, nicht Fußballklasse) ══")
 
-# JG2016: Alter 9, Fußballklasse U11 → Plangruppe U8 (nicht U11/Senior!)
+# JG2016: Alter 9, Fußballklasse U11 → Plangruppe U10 (nicht U11/U8/Senior!)
+# U = unter: Alter 9 (unter 10) → U10 (korrigiert von U8)
 plan_9 = _alter_zu_plangruppe(9.0)
-check("Alter 9 → Plangruppe U8 (altersgerecht, nicht U11)",
-      plan_9, "U8")
+check("Alter 9 → Plangruppe U10 (altersgerecht, U = unter: 9 Jahre = unter 10)",
+      plan_9, "U10")
 cfg_9 = _PLANGRUPPEN_CONFIG[plan_9]
-check("U8-Plan: max_saetze ≤ 2",
+check("U10-Plan: max_saetze ≤ 2",
       cfg_9["max_saetze"] <= 2, True)
-check("U8-Plan: haeuf_cap = '2×'",
+check("U10-Plan: haeuf_cap = '2×'",
       cfg_9["haeuf_cap"], "2×")
 
 # Fußballklasse U11 darf NICHT direkt als Plangruppe verwendet werden

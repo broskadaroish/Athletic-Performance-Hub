@@ -1,0 +1,587 @@
+FINALER MASTER-HOTFIX – APH ALTERSLOGIK VOLLSTÄNDIG KORRIGIEREN
+FUßBALLKLASSE + JUGENDKLASSE + TESTREFERENZ + TRAININGSSTUFE
+
+WICHTIG:
+Die Anwendung ist bereits produktiv deployed.
+Deshalb nur gezielte, nachvollziehbare Änderungen.
+Keine große Neuarchitektur.
+Keine bestehenden Testdaten löschen.
+Keine Spieler löschen.
+Keine Normwerte erfinden.
+Keine unnötige DB-Migration.
+
+==================================================
+1. VIER ALTERSEBENEN KLAR TRENNEN
+==================================================
+
+APH muss zukünftig vier Dinge sauber unterscheiden:
+
+A) Chronologisches Alter
+Beispiel:
+Geburtsdatum 26.08.2016
+am 16.08.2026 = 9 Jahre
+
+B) Fußballklasse
+aus Jahrgang + Saisonwechsel
+
+Bei Saisonwechsel 01.07.:
+
+JG 2016
+bis 30.06.2026 → U10
+ab 01.07.2026 → U11
+
+C) Jugendklasse
+aus Fußballklasse ableiten
+
+U6/U7 → Bambini
+U8/U9 → F-Jugend
+U10/U11 → E-Jugend
+U12/U13 → D-Jugend
+U14/U15 → C-Jugend
+U16/U17 → B-Jugend
+U18/U19 → A-Jugend
+
+D) Testreferenz / Trainingsstufe
+Diese dürfen NICHT blind aus der Fußballklasse abgeleitet werden.
+
+Testreferenz:
+nach tatsächlichem Alter am Testtag und vorhandener Norm.
+
+Trainingsstufe:
+altersgerechte Belastungs- und Übungssteuerung nach chronologischem Alter.
+
+==================================================
+2. KONKRETES BEISPIEL 2016
+==================================================
+
+Geburtsdatum:
+26.08.2016
+
+Datum:
+16.08.2026
+
+Muss sein:
+
+Chronologisches Alter:
+9 Jahre
+
+Fußballklasse:
+U11
+
+Jugendklasse:
+U10/U11 (E-Jugend)
+
+Testreferenz:
+altersbezogen, grundsätzlich U10 bei 9 Jahren,
+aber nur wenn die konkrete Normtabelle dies fachlich so definiert.
+
+Trainingsstufe:
+altersgerecht für 9 Jahre.
+
+NICHT mehr:
+U8 als Testreferenz
+NICHT mehr:
+U8/U9 (F-Jugend) als Jugendklasse
+
+==================================================
+3. SAISONLOGIK BEIBEHALTEN
+==================================================
+
+Bestehende Saisonlogik aus saison.py verwenden.
+
+Keine zweite Saisonberechnung bauen.
+
+Default Saisonwechsel:
+01.07.
+
+Beispiel JG2016:
+
+30.06.2026:
+Fußballklasse U10
+Jugendklasse U10/U11 (E-Jugend)
+
+01.07.2026:
+Fußballklasse U11
+Jugendklasse U10/U11 (E-Jugend)
+
+01.07.2027:
+Fußballklasse U12
+Jugendklasse U12/U13 (D-Jugend)
+
+==================================================
+4. ALTERSKLASSEN-VORSCHLAG KORRIGIEREN
+==================================================
+
+Aktuell im Spieler-anlegen-Formular:
+
+Geburtsdatum 26.08.2016
+Fußballklasse korrekt U11
+
+aber:
+„Altersklassen-Vorschlag: U8/U9 (F-Jugend)“
+
+Das ist falsch.
+
+Der Vorschlag muss künftig aus der saisonalen Fußballklasse kommen.
+
+Beispiel:
+
+Fußballklasse U11
+→ Altersklassen-Vorschlag:
+U10/U11 (E-Jugend)
+
+Prüfe:
+- altersklasse_vorschlag()
+- Spieler neu anlegen
+- Spieler bearbeiten
+- Spielerprofil
+- Sidebar
+- Filter
+- Dashboard
+- gespeicherte Altersklasse
+
+Bestehende gespeicherte Werte nicht ungefragt überschreiben.
+Vorschlag/dynamische Anzeige korrekt machen.
+
+==================================================
+5. ALTERSBEZOGENE U-LOGIK KORRIGIEREN
+==================================================
+
+Wenn U-Bezeichnungen altersbezogen verwendet werden, gilt:
+
+U = unter
+
+Daher:
+
+Alter 6 → U7
+Alter 7 → U8
+Alter 8 → U9
+Alter 9 → U10
+Alter 10 → U11
+Alter 11 → U12
+Alter 12 → U13
+Alter 13 → U14
+Alter 14 → U15
+Alter 15 → U16
+Alter 16 → U17
+Alter 17 → U18
+
+Bestehende Funktionen prüfen:
+
+- alter_zu_normgruppe()
+- alter_zu_altersgruppe()
+- field_eval
+- sprint.py
+- age_norms.py
+- periodisierung.py
+
+WICHTIG:
+Nicht einfach Labels umbenennen.
+
+Prüfen, welche Altersjahre die vorhandenen Normtabellen tatsächlich abbilden.
+
+==================================================
+6. TESTREFERENZEN KORREKT
+==================================================
+
+Tests dürfen niemals die saisonale Fußballklasse als Normgruppe verwenden.
+
+Beispiel:
+Spieler 9 Jahre / Fußballklasse U11
+
+Testreferenz:
+muss aus Alter am Testtag entstehen.
+
+Grundsätzlich:
+9 Jahre → altersbezogene Gruppe U10
+
+ABER:
+nur bestehende fachlich hinterlegte Normen verwenden.
+
+Falls eine Normtabelle intern „U8“ heißt, zuerst prüfen:
+repräsentiert sie wirklich Alter 7/8,
+oder wurde nur die Bezeichnung bisher falsch verwendet?
+
+Im Abschlussbericht exakt dokumentieren.
+
+==================================================
+7. ALTER AM TESTTAG BEIBEHALTEN
+==================================================
+
+Bestehende Funktion alter_am_datum() weiterverwenden.
+
+Historische Tests dürfen sich nach Geburtstag nicht verändern.
+
+Beispiel:
+
+Geb. 26.08.2016
+
+Test 20.08.2026:
+Alter 9
+→ Testreferenz entsprechend 9 Jahre
+
+Test 26.08.2026:
+Alter 10
+→ neue Testreferenz
+
+Alter Test bleibt stabil.
+
+==================================================
+8. ALLE TESTMODULE PRÜFEN
+==================================================
+
+End-to-End prüfen:
+
+- Anthropometrie
+- FMS
+- Y-Balance
+- Sprint
+- Sprung
+- Agilität
+- Ausdauer / Yo-Yo
+- Kraft
+- Spiro / Stufentest
+
+Für jedes Modul:
+
+Messwert
+→ Alter am Testtag
+→ vorhandene Norm
+→ Bewertung
+→ Defizit
+→ Quelle
+→ Haupt-/Nebenschwerpunkt
+→ schwerpunkt_sammeln()
+→ defizit_score()
+→ Trainingsbereich
+
+==================================================
+9. SPRINT SPEZIALPRÜFUNG
+==================================================
+
+Für Spieler 9 Jahre:
+
+10 m = 2.07 s
+30 m = 5.06 s
+
+Prüfen:
+
+- keine Anzeige U8
+- richtige Testreferenz für Alter 9
+- richtige Normwerte
+- Bewertung nur aus korrekter Norm
+- kein falsches Defizit
+- falls auffällig: Schnelligkeit im Trainingsplan
+- falls Normbereich: kein Schnelligkeitsdefizit
+
+==================================================
+10. TRAININGSPLAN ALTERSGERECHT
+==================================================
+
+Trainingsplan darf NICHT einfach die Fußballklasse U11 als Belastungsgruppe nehmen.
+
+Er muss trennen:
+
+Fußballklasse:
+U11
+
+Jugendklasse:
+U10/U11 E-Jugend
+
+Trainingsstufe:
+chronologisches Alter 9 Jahre
+
+Belastungssteuerung:
+nach tatsächlichem Alter.
+
+Prüfe:
+
+- RPE
+- Satz-Cap
+- Pausen
+- Häufigkeit
+- Intensität
+- Plyometrie
+- Kraftübungen
+- Olympic Gate
+- Equipment
+- Power-Übungen
+- Übungsersatz
+
+==================================================
+11. TRAININGSSTUFE RICHTIG BENENNEN
+==================================================
+
+Aktuell:
+„Trainingsstufe: U8“
+
+bei 9 Jahren ist missverständlich/falsch.
+
+Besser:
+
+„Trainingsstufe: 9 Jahre“
+oder
+„Trainingsstufe: U10 / 9 Jahre“
+
+oder
+„Trainingsstufe: 8–9 Jahre“
+
+Aber nur, wenn diese Gruppe fachlich wirklich so definiert ist.
+
+WICHTIG:
+Nicht wieder Fußballklasse und Belastungsstufe vermischen.
+
+==================================================
+12. JUGENDKLASSE IM TRAININGSPLAN
+==================================================
+
+Optional sinnvoll anzeigen:
+
+Fußballklasse: U11
+Jugendklasse: U10/U11 (E-Jugend)
+Trainingsstufe: 9 Jahre
+Testreferenz: U10 / Alter 9
+
+Damit versteht der Trainer die Unterschiede.
+
+==================================================
+13. BASIS-MODUS
+==================================================
+
+Ohne Diagnostikdaten:
+
+9-jähriger Spieler
+→ altersgerechter Basisplan
+→ Koordination
+→ Schnelligkeit
+→ Agilität
+→ Rumpf
+→ Hüfte
+→ keine ungeeigneten Erwachsenenübungen
+
+Plan darf nicht leer sein.
+
+==================================================
+14. DIAGNOSTIK-MODUS
+==================================================
+
+Mit Defiziten:
+
+Defizite bestimmen weiterhin die Ziele.
+
+Alter bestimmt:
+wie das Ziel trainiert wird.
+
+Beispiel:
+
+Sprintdefizit
+→ Schnelligkeit bleibt Ziel
+
+Aber:
+Übungen / Belastung altersgerecht für 9 Jahre.
+
+==================================================
+15. DEFIZIT-KONSISTENZ
+==================================================
+
+Wenn Test-UI sagt:
+Normbereich / unauffällig
+
+→ kein Defizit im Trainingsplan.
+
+Wenn Test-UI sagt:
+Verbesserungsbedarf / relevante Auffälligkeit
+
+→ Defizit muss im Trainingsplan ankommen.
+
+Wenn keine gültige Norm vorhanden:
+→ Messwert anzeigen
+→ keine künstliche Auffälligkeit
+→ kein künstliches Defizit.
+
+==================================================
+16. HAUPT-/NEBENSCHWERPUNKTE
+==================================================
+
+Bestehende Logik weiterverwenden:
+
+- wichtigste 2–3 = Hauptschwerpunkte
+- weitere = Nebenschwerpunkte
+
+Prüfen:
+
+- Sprint → Schnelligkeit
+- Agilität → Richtungswechsel/Agilität
+- Sprung → Explosivität
+- FMS Hüfte → Hüfte
+- FMS Knie → Knie
+- FMS Rumpf → Rumpf
+- Y-Balance → funktioneller Bereich
+- Ausdauer → aerobe/intermittierende Ausdauer
+- Kraft → Kraft/Rumpf
+
+Keine falschen Doppelzuordnungen.
+
+==================================================
+17. UI SPIELER NEU / BEARBEITEN
+==================================================
+
+Bei Geburtsdatum 26.08.2016 am 16.08.2026 anzeigen:
+
+Alter:
+9 Jahre
+
+Fußballklasse:
+U11
+
+Saison:
+2026/27
+
+Altersklassen-Vorschlag:
+U10/U11 (E-Jugend)
+
+NICHT:
+U8/U9 (F-Jugend)
+
+==================================================
+18. TESTMATRIX SAISON 2026/27
+==================================================
+
+JG2021 → U6
+JG2020 → U7
+JG2019 → U8
+JG2018 → U9
+JG2017 → U10
+JG2016 → U11
+JG2015 → U12
+JG2014 → U13
+JG2013 → U14
+
+Jugendklassen:
+
+U6/U7 → Bambini
+U8/U9 → F
+U10/U11 → E
+U12/U13 → D
+U14/U15 → C
+U16/U17 → B
+U18/U19 → A
+
+==================================================
+19. TESTMATRIX CHRONOLOGISCH
+==================================================
+
+Alter 6 → altersbezogene Gruppe U7
+Alter 7 → U8
+Alter 8 → U9
+Alter 9 → U10
+Alter 10 → U11
+Alter 11 → U12
+Alter 12 → U13
+Alter 17 → U18
+
+Normtabellen nur dann verwenden, wenn fachlich passend.
+
+==================================================
+20. GEBURTSTAG-GRENZTEST
+==================================================
+
+Geburtsdatum 26.08.2016
+
+20.08.2026:
+Alter 9
+Testreferenz nach Alter 9
+
+26.08.2026:
+Alter 10
+Testreferenz nach Alter 10
+
+Alter Test bleibt dauerhaft mit Alter 9 bewertet.
+
+Fußballklasse bleibt in beiden Fällen U11.
+
+==================================================
+21. PDF / REPORT
+==================================================
+
+Falls Altersinformationen ausgegeben werden:
+
+klar trennen:
+
+Alter bei Test
+Fußballklasse
+Jugendklasse
+Testreferenz
+Trainingsstufe
+
+Keine missverständliche einzelne „Altersgruppe“.
+
+==================================================
+22. KEINE ÄNDERUNG AN
+==================================================
+
+Nicht verändern:
+
+- Equipment
+- Wochenplanung
+- Trainer-Beitrittscode
+- Upload
+- Stripe
+- Login
+- Session
+- Passwort
+- Kundennummern
+- Benutzerverwaltung
+
+Keine unnötige DB-Migration.
+
+==================================================
+23. TESTS
+==================================================
+
+py_compile aller geänderten Dateien.
+
+Block-B:
+35/35 PASS.
+
+Zusätzlich:
+
+- test_saison
+- test_alter_testtag
+- neue Tests U-Logik
+- Jugendklasse
+- Fußballklasse
+- Testreferenz
+- Trainingsstufe
+- Defizit-Mapping
+- Trainingsplan-Mapping
+
+==================================================
+24. ABSCHLUSSBERICHT
+==================================================
+
+Bitte exakt berichten:
+
+1. warum der 9-Jährige bisher U8 bekam
+2. warum Jugendklasse U8/U9 vorgeschlagen wurde
+3. neue saisonale Fußballklasse
+4. neue Jugendklasse
+5. altersbezogene U-Zuordnung
+6. Normtabellen und tatsächliche Altersbereiche
+7. Testreferenzen
+8. Trainingsstufe
+9. Ergebnis Spieler Geb. 26.08.2016
+10. Sprint 10m/30m Ergebnis
+11. Defizit-Auswirkungen
+12. Trainingsplan-Auswirkungen
+13. Basis-Modus
+14. Diagnostik-Modus
+15. geänderte Dateien
+16. DB-Änderung ja/nein
+17. py_compile
+18. Block-B
+19. zusätzliche Tests
+
+DANACH STOPPEN.
+
+NOCH NICHT DEPLOYEN.

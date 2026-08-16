@@ -177,6 +177,39 @@ def fussballklasse_info(
     }
 
 
+def jugendklasse_aus_fussballklasse(fussballklasse: str | None) -> str:
+    """Leitet die Jugendklasse aus der saisonalen Fußballklasse ab.
+
+    Spec §1.C:
+      U6/U7   → 'U6/U7 (Bambini)'
+      U8/U9   → 'U8/U9 (F-Jugend)'
+      U10/U11 → 'U10/U11 (E-Jugend)'
+      U12/U13 → 'U12/U13 (D-Jugend)'
+      U14/U15 → 'U14/U15 (C-Jugend)'
+      U16/U17 → 'U16/U17 (B-Jugend)'
+      U18/U19 → 'U18/U19 (A-Jugend)'
+      U20+    → 'Senioren'
+    """
+    import re as _re
+    if not fussballklasse:
+        return "—"
+    if "Senior" in fussballklasse:
+        return "Senioren"
+    m = _re.match(r"^U(\d+)$", fussballklasse)
+    if not m:
+        return "—"
+    u = int(m.group(1))
+    if u <= 5:   return "U4/U5 (Minis)"
+    if u <= 7:   return "U6/U7 (Bambini)"
+    if u <= 9:   return "U8/U9 (F-Jugend)"
+    if u <= 11:  return "U10/U11 (E-Jugend)"
+    if u <= 13:  return "U12/U13 (D-Jugend)"
+    if u <= 15:  return "U14/U15 (C-Jugend)"
+    if u <= 17:  return "U16/U17 (B-Jugend)"
+    if u <= 19:  return "U18/U19 (A-Jugend)"
+    return "Senioren"
+
+
 def testreferenz_caption(
     alter: float | None,
     geburtsdatum_str: str = "",

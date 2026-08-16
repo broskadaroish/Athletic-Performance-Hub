@@ -175,7 +175,8 @@ from i18n import t, SPRACHEN, get_lang, set_lang
 from pdf_report import generate_report, generate_vergleich_pdf, generate_trainingsplan_pdf
 from saison import (fussballklasse_info as _fki, testreferenz_caption as _tcap,
                     saisonwechsel_laden as _sw_laden, saisonwechsel_speichern as _sw_speichern,
-                    saison_label as _saison_label)
+                    saison_label as _saison_label,
+                    jugendklasse_aus_fussballklasse as _jugendklasse)
 from pdf_anleitung import generate_anleitung_pdf, ALL_TEST_IDS, TEST_LABELS
 from export import kader_excel_bytes, spieler_excel_bytes
 from field_eval import alter_zu_altersgruppe, asymmetrie_badge_html, fms_asymmetrie_badge_html
@@ -2532,8 +2533,16 @@ def _render_inline_edit_form(sp: dict) -> None:
     _e_alter = berechne_alter(_e_geb)
     _e_ak_vs = altersklasse_vorschlag(_e_geb)
     if _e_alter:
-        _c1.markdown(f"<small style='color:#3fb950'>Alter: **{_e_alter} Jahre** — Vorschlag: {_e_ak_vs}</small>",
-                     unsafe_allow_html=True)
+        _e_fki   = _fki(_e_geb)
+        _e_fk    = _e_fki.get("fussballklasse") or "?"
+        _e_jk    = _jugendklasse(_e_fk)
+        _e_sl    = _e_fki.get("saison", "")
+        _c1.markdown(
+            f"<small style='color:#3fb950'>"
+            f"Alter: **{_e_alter} Jahre** · Fußballklasse: **{_e_fk}** (Saison {_e_sl})"
+            f"<br>Jugendklasse: **{_e_jk}** · Altersklassen-Vorschlag: {_e_ak_vs}</small>",
+            unsafe_allow_html=True,
+        )
     _aki  = ALTERSKLASSEN.index(sp.get("altersklasse")) \
             if sp.get("altersklasse") in ALTERSKLASSEN else 7
     _e_ak = _c2.selectbox("Altersklasse", ALTERSKLASSEN, index=_aki, key=f"il_ak_{_sid}")
@@ -2665,10 +2674,11 @@ def page_spieler():
             _fk_neu = _fki(geburtsdatum)
             _fk_txt = _fk_neu["fussballklasse"] or "?"
             _fk_sl  = _fk_neu["saison"]
+            _jk_txt = _jugendklasse(_fk_txt)
             _r3c1.markdown(
                 f"<small style='color:#3fb950'>"
                 f"Alter: **{alter} Jahre** · Fußballklasse: **{_fk_txt}** (Saison {_fk_sl})"
-                f"<br>Altersklassen-Vorschlag: {ak_vorschlag}</small>",
+                f"<br>Jugendklasse: **{_jk_txt}** · Altersklassen-Vorschlag: {ak_vorschlag}</small>",
                 unsafe_allow_html=True,
             )
         altersklasse = _r3c2.selectbox("Altersklasse", ALTERSKLASSEN,
@@ -4373,18 +4383,27 @@ def page_trainingsplan():
         _tp_alter = berechne_alter(auswahl.get("geburtsdatum"))
         _tp_pg    = _alter_zu_plangruppe(_tp_alter)
         _tp_cfg   = _PLANGRUPPEN_CONFIG[_tp_pg]
+        _tp_fki   = _fki(auswahl.get("geburtsdatum", ""))
+        _tp_fk    = _tp_fki.get("fussballklasse") or "—"
+        _tp_jk    = _jugendklasse(_tp_fk)
+        _tp_sl    = _tp_fki.get("saison", "")
         _pg_farben = {
             "U7": "#3fb950", "U8": "#3fb950",
             "U10": "#3fb950", "U14": "#3fb950", "U18": "#d29922",
             "Senior": "#58a6ff", "Ü40": "#d29922", "Ü55": "#f85149",
         }
         _pg_clr = _pg_farben.get(_tp_pg, "#8b949e")
+        _tp_alter_str = f" / {int(_tp_alter)} Jahre" if _tp_alter else ""
         st.markdown(
             f'<div style="background:#161b22;border:2px solid {_pg_clr};border-radius:8px;'
             f'padding:10px 16px;margin-bottom:12px">'
-            f'<span style="font-size:13px;color:{_pg_clr};font-weight:700">🎯 Trainingsstufe: {_tp_pg}</span>'
+            f'<span style="font-size:13px;color:{_pg_clr};font-weight:700">'
+            f'🎯 Trainingsstufe: {_tp_pg}{_tp_alter_str}</span>'
             f'<span style="color:#8b949e;font-size:12px;margin-left:10px">— {_tp_cfg["label"]}</span><br>'
-            f'<small style="color:#8b949e">Quelle: Faigenbaum & Myer (2010) · Lloyd et al. (2014) · NSCA Youth RT Position Statement</small>'
+            f'<small style="color:#8b949e">'
+            f'Fußballklasse: {_tp_fk} (Saison {_tp_sl}) · Jugendklasse: {_tp_jk} · '
+            f'Quelle: Faigenbaum & Myer (2010) · Lloyd et al. (2014) · NSCA Youth RT Position Statement'
+            f'</small>'
             f'</div>',
             unsafe_allow_html=True,
         )
@@ -4830,17 +4849,26 @@ def page_trainingsplan():
         _tv_alter   = berechne_alter(auswahl.get("geburtsdatum"))
         _tv_pg      = _alter_zu_plangruppe(_tv_alter)
         _tv_cfg     = _PLANGRUPPEN_CONFIG[_tv_pg]
+        _tv_fki     = _fki(auswahl.get("geburtsdatum", ""))
+        _tv_fk      = _tv_fki.get("fussballklasse") or "—"
+        _tv_jk      = _jugendklasse(_tv_fk)
+        _tv_sl      = _tv_fki.get("saison", "")
         _tv_pg_farben = {
             "U7": "#3fb950", "U8": "#3fb950",
             "U10": "#3fb950", "U14": "#3fb950", "U18": "#d29922",
             "Senior": "#58a6ff", "Ü40": "#d29922", "Ü55": "#f85149",
         }
-        _tv_pg_clr = _tv_pg_farben.get(_tv_pg, "#8b949e")
+        _tv_pg_clr  = _tv_pg_farben.get(_tv_pg, "#8b949e")
+        _tv_alt_str = f" / {int(_tv_alter)} Jahre" if _tv_alter else ""
         st.markdown(
             f'<div style="background:#161b22;border:2px solid {_tv_pg_clr};border-radius:8px;'
-            f'padding:10px 16px;margin-bottom:12px;display:flex;align-items:center;gap:12px">'
-            f'<span style="font-size:13px;color:{_tv_pg_clr};font-weight:700">🎯 Trainingsstufe: {_tv_pg}</span>'
-            f'<span style="color:#8b949e;font-size:12px">— {_tv_cfg["label"]}</span>'
+            f'padding:10px 16px;margin-bottom:12px">'
+            f'<span style="font-size:13px;color:{_tv_pg_clr};font-weight:700">'
+            f'🎯 Trainingsstufe: {_tv_pg}{_tv_alt_str}</span>'
+            f'<span style="color:#8b949e;font-size:12px;margin-left:10px">— {_tv_cfg["label"]}</span><br>'
+            f'<small style="color:#8b949e">'
+            f'Fußballklasse: {_tv_fk} (Saison {_tv_sl}) · Jugendklasse: {_tv_jk}'
+            f'</small>'
             f'</div>',
             unsafe_allow_html=True,
         )

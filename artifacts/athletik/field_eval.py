@@ -148,8 +148,9 @@ _NORMEN_ALTERSGRUPPE: dict[str, dict[str, dict[str, tuple | None]]] = {
         },
     },
 
-    # ── U8 (F-Jugend, 8–9 Jahre) ──────────────────────────────────────────────
+    # ── U8 (F-Jugend, 7–8 Jahre) ──────────────────────────────────────────────
     # Sprint: Quelle Rumpf 2016, DFB Junioren-Diagnostik (Leistungssport / Breitensport).
+    # Altersbereich 7–8 J. (U = unter: alter < 9 → U8). Kein Badge für ältere Spieler.
     # Alle anderen Felder ohne belastbare U8-Norm → None (kein Badge statt falschem Wert).
     "U8": {
         "sprint": {
@@ -374,29 +375,25 @@ _HTML_COLORS: dict[str, tuple[str, str]] = {
 def alter_zu_altersgruppe(alter: float | None) -> str:
     """Mappt ein Dezimalter auf die Altersgruppen-Bezeichnung.
 
+    U = unter: Alter 9 (unter 10) → U10, Alter 7 (unter 8) → U8.
+    Stimmt überein mit age_norms.alter_zu_normgruppe().
+
     Returns:
         "U7" | "U8" | "U10" | "U12" | "U14" | "U16" | "U18" | "Senior"
 
-    U7 (≤ 7 J.) und U8 (8–9 J.) haben eigene Einträge in _NORMEN_ALTERSGRUPPE:
-    U7 → alle None (keine validierten Feldtest-Normen → kein Badge).
-    U8 → Sprint 10m/30m vorhanden; fehlende Distanzen → None.
+    U7 (< 7 J.): alle None — keine validierten Feldtest-Normen für ≤ 6-Jährige.
+    U8 (7–8 J.): Sprint 10m/30m vorhanden; fehlende Distanzen → None.
+    U10 (9–10 J.): vollständige Normen vorhanden.
     """
     if not alter:
         return "Senior"
-    if alter < 8:
-        return "U7"
-    if alter < 10:
-        return "U8"
-    if alter < 12:
-        return "U10"
-    if alter < 14:
-        return "U12"
-    if alter < 16:
-        return "U14"
-    if alter < 18:
-        return "U16"
-    if alter < 21:
-        return "U18"
+    if alter < 7:   return "U7"   # ≤ 6 J.  (war: < 8)
+    if alter < 9:   return "U8"   # 7–8 J.  (war: < 10)
+    if alter < 11:  return "U10"  # 9–10 J. (war: < 12)
+    if alter < 13:  return "U12"  # 11–12 J. (war: < 14)
+    if alter < 15:  return "U14"  # 13–14 J. (war: < 16)
+    if alter < 17:  return "U16"  # 15–16 J. (war: < 18)
+    if alter < 21:  return "U18"  # 17–20 J.
     return "Senior"
 
 

@@ -30,3 +30,4 @@
 - [Trainer Mandant Datenquellen](trainer-mandant-datenquellen.md) — vereine ist führend für Vertrag/Lizenz/Stripe; benutzer.kundennummer ist die sichtbare Kundennummer; SQLite-UNION braucht expliziten AS-Alias für ORDER BY
 - [Saison-Alterssystem](saison-alterssystem.md) — drei Ebenen: Fußballklasse (saison.py), chronol. Alter, Normgruppe; JG2016 Alter=9 → FK=U11 / Norm=U10 / Plan=U8
 - [Alter am Testtag](alter-am-testtag.md) — alter_am_datum(geb,testdatum) in database.py; Testbefund=Testtag-Alter, Belastungssteuerung=heute, FK=saison; Sprint/Sprung/Agil/Kraft/Ausdauer tab_neu nutzen _td-Variable
+- [U-Logik Alterskorrektur](u-logik-alterskorrektur.md) — U=unter: Alter 9 → U10 (nicht U8); field_eval + periodisierung grenzwerte -1 verschoben; altersklasse_vorschlag() saisonal via FK; jugendklasse_aus_fussballklasse() in saison.py
