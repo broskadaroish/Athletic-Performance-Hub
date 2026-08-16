@@ -28,3 +28,4 @@
 - [Block B1 Superadmin-Guards](block-b1-guards.md) — letzter-SA-Schutz in benutzer_loeschen()+benutzer_aktivieren(); Mandantenprüfung+Rolleneskalation in benutzer_aktualisieren(); caller_rolle/caller_verein_id Pattern
 - [Block B2-B8 Hardening](block-b2-b8-hardening.md) — atomare Kundennummern (UNIQUE partial index + single-conn), fail-closed Limits (spieler hat kein aktiv-Feld), Downgrade-Schutz in _detail_c_lizenz, Stripe-Block E, Audit-Log für Vertrag+Rechnungsadresse, Stripe-Check vor Kundenlöschung; Testsuite tools/test_block_b.py (35 PASS)
 - [Trainer Mandant Datenquellen](trainer-mandant-datenquellen.md) — vereine ist führend für Vertrag/Lizenz/Stripe; benutzer.kundennummer ist die sichtbare Kundennummer; SQLite-UNION braucht expliziten AS-Alias für ORDER BY
+- [Saison-Alterssystem](saison-alterssystem.md) — drei Ebenen: Fußballklasse (saison.py), chronol. Alter, Normgruppe; JG2016 Alter=9 → FK=U11 / Norm=U10 / Plan=U8

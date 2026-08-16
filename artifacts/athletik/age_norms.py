@@ -37,10 +37,32 @@ def alter_zu_normgruppe(alter: float | None) -> str:
     return "Ü50"
 
 
+# Altersbereich-Labels je Normgruppe (für UI-Captions)
+_ALTER_RANGE: dict[str, str] = {
+    "U8":       "7–8",
+    "U10":      "9–10",
+    "U12":      "11–12",
+    "U14":      "13–14",
+    "U16":      "15–16",
+    "U18":      "17–18",
+    "U21":      "19–21",
+    "Senioren": "22–35",
+    "Ü35":      "36–50",
+    "Ü50":      "50+",
+}
+
+
 def normgruppe_label(alter: float | None) -> str:
-    """Kurzbezeichnung für UI-Anzeige, z. B. 'Referenz: U14 (Fußball)'."""
+    """Testreferenz-Label für UI — benennt klar Normgruppe und Altersbereich.
+
+    Zeigt: 'Testreferenz: U10 (Alter 9–10)' statt 'Referenz: U10 (Fußball)'
+    → trennt Testreferenz von der jahrgangsbasierten Fußballklasse.
+    """
     g = alter_zu_normgruppe(alter)
-    return f"Referenz: {g} (Fußball, Sportwissenschaft)"
+    r = _ALTER_RANGE.get(g, "")
+    if r:
+        return f"Testreferenz: {g} (Alter {r})"
+    return f"Testreferenz: {g}"
 
 
 # ─── Sprint ─────────────────────────────────────────────────────────────────

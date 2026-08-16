@@ -173,6 +173,9 @@ from database import philosophie_speichern as _philosophie_speichern
 from database import philosophie_laden    as _philosophie_laden
 from i18n import t, SPRACHEN, get_lang, set_lang
 from pdf_report import generate_report, generate_vergleich_pdf, generate_trainingsplan_pdf
+from saison import (fussballklasse_info as _fki, testreferenz_caption as _tcap,
+                    saisonwechsel_laden as _sw_laden, saisonwechsel_speichern as _sw_speichern,
+                    saison_label as _saison_label)
 from pdf_anleitung import generate_anleitung_pdf, ALL_TEST_IDS, TEST_LABELS
 from export import kader_excel_bytes, spieler_excel_bytes
 from field_eval import alter_zu_altersgruppe, asymmetrie_badge_html, fms_asymmetrie_badge_html
@@ -2656,8 +2659,15 @@ def page_spieler():
         ak_vorschlag = altersklasse_vorschlag(geburtsdatum)
         _r3c1, _r3c2 = st.columns(2)
         if alter:
-            _r3c1.markdown(f"<small style='color:#3fb950'>Alter: **{alter} Jahre** — Vorschlag: {ak_vorschlag}</small>",
-                           unsafe_allow_html=True)
+            _fk_neu = _fki(geburtsdatum)
+            _fk_txt = _fk_neu["fussballklasse"] or "?"
+            _fk_sl  = _fk_neu["saison"]
+            _r3c1.markdown(
+                f"<small style='color:#3fb950'>"
+                f"Alter: **{alter} Jahre** · Fußballklasse: **{_fk_txt}** (Saison {_fk_sl})"
+                f"<br>Altersklassen-Vorschlag: {ak_vorschlag}</small>",
+                unsafe_allow_html=True,
+            )
         altersklasse = _r3c2.selectbox("Altersklasse", ALTERSKLASSEN,
                                        index=ALTERSKLASSEN.index(ak_vorschlag) if ak_vorschlag in ALTERSKLASSEN else 7,
                                        key="neu_ak")
@@ -3081,8 +3091,7 @@ def page_fms():
             m1.metric("Gesamtscore", f"{result.score} / 21")
             m2.metric("Bewertung", result.bewertung)
             m3.metric("Risikostufe", result.risiko_level.capitalize())
-            from age_norms import normgruppe_label as _ngl
-            st.caption(f"📊 {_ngl(_fms_alter)}")
+            st.caption(f"📊 {_tcap(_fms_alter, _fms_sp.get('geburtsdatum', '') if _fms_sp else '')}")
             # ── Kurze Beurteilung ──────────────────────────────────────
             from fms import fms_bewertung_kurz as _fms_bkurz
             _fms_bw_clr = {"Ausgezeichnet": "#3fb950", "Gut": "#3fb950",
@@ -3538,7 +3547,19 @@ def page_spieler_profil():
             f"🦵 Spielbein: {auswahl.get('spielbein') or '—'}"
         )
         st.markdown(f"<small style='color:#8b949e'>{info_zeile}</small>", unsafe_allow_html=True)
-        ak = auswahl.get("altersklasse") or "—"
+        # ── Fußballklasse (dynamisch berechnet — jahrgangsbasiert) ─────────────
+        _fk_info = _fki(auswahl.get("geburtsdatum", ""))
+        _fk_str  = _fk_info["fussballklasse"] or "—"
+        _jg_str  = str(_fk_info["jahrgang"]) if _fk_info["jahrgang"] else "—"
+        _sl_str  = _fk_info["saison"]
+        _tref_str = f"Testreferenz: {__import__('age_norms').alter_zu_normgruppe(alter)}" if alter else "—"
+        st.markdown(
+            f"<small style='color:#58a6ff'>"
+            f"⚽ Fußballklasse: <b>{_fk_str}</b>  ·  "
+            f"Jahrgang: {_jg_str}  ·  Saison: {_sl_str}  ·  {_tref_str}"
+            f"</small>",
+            unsafe_allow_html=True,
+        )
         niv = auswahl.get("leistungsniveau") or "—"
         status = auswahl.get("trainingsstatus") or "Volltraining"
         status_color = (
@@ -3547,7 +3568,7 @@ def page_spieler_profil():
             else "#3fb950"
         )
         st.markdown(
-            f"<small style='color:#8b949e'>{ak}  ·  {niv}  ·  "
+            f"<small style='color:#8b949e'>{niv}  ·  "
             f"<span style='color:{status_color};font-weight:600'>{status}</span></small>",
             unsafe_allow_html=True,
         )
@@ -6217,8 +6238,7 @@ def page_sprint():
             if b30: m3.metric("30 m", f"{b30:.2f} s", res.bewertung_30m)
             if b40: m4.metric("40 m", f"{b40:.2f} s")
             if res.beschl_index: m5.metric("Beschl.-Index", f"{res.beschl_index:.3f}")
-            from age_norms import normgruppe_label as _ngl
-            st.caption(f"📊 {_ngl(alter_sprint)}")
+            st.caption(f"📊 {_tcap(alter_sprint, sp.get('geburtsdatum', '') if sp else '')}")
 
             if res.defizite:
                 st.markdown("**🔴 Identifizierte Defizite:**")
@@ -6535,8 +6555,7 @@ def page_sprung():
             if res.cmj_asymmetrie:
                 color_txt = "⚠️ auffällig" if res.cmj_asymmetrie > 10 else "✅ ok"
                 m4.metric("Asymmetrie", f"{res.cmj_asymmetrie:.1f} %", color_txt)
-            from age_norms import normgruppe_label as _ngl
-            st.caption(f"📊 {_ngl(alter_sprung)}")
+            st.caption(f"📊 {_tcap(alter_sprung, sp.get('geburtsdatum', '') if sp else '')}")
             if res.defizite:
                 st.markdown("**🔴 Identifizierte Defizite:**")
                 for d in res.defizite: st.markdown(f"- {d}")
@@ -6817,8 +6836,7 @@ def page_agilitaet():
             if t505_l:   m2.metric("505 links",  f"{t505_l:.2f} s")
             if t_test:   m3.metric("T-Test",     f"{t_test:.2f} s",   res.bew_t_test)
             if illinois: m4.metric("Illinois",   f"{illinois:.2f} s", res.bew_illinois)
-            from age_norms import normgruppe_label as _ngl
-            st.caption(f"📊 {_ngl(alter_agil)}")
+            st.caption(f"📊 {_tcap(alter_agil, sp.get('geburtsdatum', '') if sp else '')}")
             if res.asym_505:
                 color = "#f85149" if res.asym_505 > 10 else "#3fb950"
                 sign  = "⚠️ auffällig" if res.asym_505 > 10 else "✅ symmetrisch"
@@ -8096,14 +8114,13 @@ def page_kraft():
                 _clr_rk = {"Sehr gut": "#3fb950", "Gut": "#3fb950",
                            "Durchschnittlich": "#d29922",
                            "Unterdurchschnittlich": "#f85149", "Kritisch": "#f85149"}.get(_stufe_rk, "#8b949e")
-                from age_norms import normgruppe_label as _ngl
                 st.markdown(
                     f'<div style="background:#161b22;border:1px solid {_clr_rk};border-radius:8px;'
                     f'padding:10px 14px;margin:6px 0">'
                     f'<span style="color:{_clr_rk};font-weight:700">Bankdrücken Rel. Kraft: {_stufe_rk}</span>'
                     f'<span style="color:#8b949e;font-size:12px;margin-left:12px">{rel:.2f} ×KGW</span><br>'
                     f'<small style="color:#8b949e">{_empf_rk}</small>'
-                    f'<br><small style="color:#8b949e;font-size:11px">📊 {_ngl(alter)}</small></div>',
+                    f'<br><small style="color:#8b949e;font-size:11px">📊 {_tcap(alter, sp.get("geburtsdatum","") if sp else "")}</small></div>',
                     unsafe_allow_html=True,
                 )
 
@@ -8610,6 +8627,30 @@ def page_einstellungen():
             # cfg_saison wird automatisch via Widget-Key gesetzt — kein manuelles Setzen
             st.session_state["cfg_vereinsname"] = vereinsname
             st.toast("✅ Einstellungen gespeichert (Session).", icon=None)
+
+        # ── Saisonwechsel ──────────────────────────────────────────────────────
+        st.markdown("---")
+        st.markdown("### ⚽ Saisonwechsel")
+        st.caption(
+            "Das Datum des Saisonwechsels bestimmt die automatisch berechnete "
+            "Fußball-Altersklasse (z. B. U11) — keine jährliche manuelle Pflege nötig. "
+            "Standard: 1. Juli."
+        )
+        _sw_t, _sw_m = _sw_laden()
+        _swc1, _swc2, _swc3 = st.columns([1, 1, 2])
+        _sw_tag_neu   = _swc1.number_input("Tag",   min_value=1, max_value=31,
+                                           value=int(_sw_t), step=1, key="sw_tag_inp")
+        _sw_monat_neu = _swc2.number_input("Monat", min_value=1, max_value=12,
+                                           value=int(_sw_m), step=1, key="sw_monat_inp")
+        _swc3.markdown(
+            f"<br><small style='color:#58a6ff'>Aktuelle Saison: "
+            f"<b>{_saison_label(int(_sw_tag_neu), int(_sw_monat_neu))}</b></small>",
+            unsafe_allow_html=True,
+        )
+        if st.button("💾 Saisonwechsel speichern", key="sw_save"):
+            _sw_speichern(int(_sw_tag_neu), int(_sw_monat_neu))
+            st.toast("✅ Saisonwechsel gespeichert.", icon=None)
+            st.rerun()
 
         st.markdown("---")
         st.markdown("### 🏷️ Vereinslogo")
