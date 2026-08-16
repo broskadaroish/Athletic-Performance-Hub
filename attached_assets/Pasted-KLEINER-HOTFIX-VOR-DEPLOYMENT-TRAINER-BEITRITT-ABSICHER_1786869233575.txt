@@ -1,0 +1,173 @@
+KLEINER HOTFIX VOR DEPLOYMENT – TRAINER-BEITRITT ABSICHERN
+
+Die Umsetzung des Master-Auftrags ist grundsätzlich fertig.
+
+Bitte nur den neuen Flow „Einem Verein beitreten“ prüfen und ggf. gezielt
+korrigieren.
+
+Keine anderen Funktionen verändern.
+
+============================================================
+1. E-MAIL-VERIFIKATION NACH VEREINSBEITRITT
+============================================================
+
+Ein Trainer wird aktuell beim Vereinsbeitritt mit:
+
+aktiv = 0
+email_verifiziert = 0
+
+angelegt.
+
+Prüfe zwingend:
+
+Wird unmittelbar nach erfolgreicher Registrierung tatsächlich die bestehende
+Verifizierungs-E-Mail verschickt?
+
+Es muss derselbe bestehende Verifikationsmechanismus verwendet werden wie bei
+normaler Registrierung:
+
+- bestehendes E-Mail-Token
+- bestehende Token-Gültigkeit
+- bestehende send_verification_email()-Logik
+- keine zweite Verifikationslogik bauen
+
+Gewünschter Ablauf:
+
+1. Trainer registriert sich mit gültigem Vereinscode
+2. Konto wird dem Verein zugeordnet
+3. Verifizierungs-E-Mail wird gesendet
+4. Trainer bestätigt E-Mail
+5. Konto wartet weiterhin auf Freischaltung durch Vereinsadmin
+6. Vereinsadmin schaltet Trainer frei
+7. danach Login möglich
+
+Falls die Verifizierungs-E-Mail aktuell bereits gesendet wird:
+nur nachweisen, nichts ändern.
+
+============================================================
+2. TRAINERLIMIT KORREKT ABSICHERN
+============================================================
+
+Aktuell laut Abschlussbericht:
+
+COUNT(Trainer WHERE aktiv=1) >= max_trainer
+
+Prüfe, ob dadurch beliebig viele noch nicht freigeschaltete Trainer erzeugt
+werden können.
+
+Beispiel:
+
+Verein max_trainer = 2
+
+bereits aktiv:
+1 Trainer
+
+5 weitere registrieren sich mit demselben Beitrittscode.
+
+Wenn nur aktiv=1 gezählt wird, könnten alle 5 als Pending angelegt werden.
+
+Das soll verhindert werden.
+
+Empfehlung:
+
+Beim Beitritt alle relevanten Trainerplätze zählen, die bereits diesem Verein
+zugeordnet sind und nicht endgültig gelöscht/deaktiviert/abgelehnt wurden.
+
+Mindestens:
+aktive + wartende neu registrierte Trainer berücksichtigen.
+
+Die genaue Statuslogik an das bestehende Benutzersystem anpassen.
+
+Zusätzlich:
+Beim späteren Freischalten in der Benutzerverwaltung erneut serverseitig
+prüfen, ob max_trainer nicht überschritten wird.
+
+Damit kein Race-/Parallelregistrierungsproblem zu einer Überschreitung führt.
+
+============================================================
+3. BEITRITTSCODE EINDEUTIGKEIT
+============================================================
+
+Prüfe registrier_code_regenerieren().
+
+Der Code wird aktuell zufällig erzeugt.
+
+Sicherstellen, dass ein neu erzeugter Code nicht bereits bei einem anderen
+echten Verein verwendet wird.
+
+Falls keine Eindeutigkeitsprüfung vorhanden:
+bei Kollision erneut generieren.
+
+Keine DB-Migration notwendig.
+
+============================================================
+4. KEINE ÄNDERUNG AM EIGENEN TRAINER-FLOW
+============================================================
+
+„Als eigener Trainer registrieren“ bleibt vollständig unverändert:
+
+- technischer Mandant
+- Trial
+- Stripe
+- Rechnungsadresse
+- Vertrag
+- Kundennummer
+
+Nur „Einem Verein beitreten“ prüfen.
+
+============================================================
+5. TESTS
+============================================================
+
+A)
+Vereinsbeitritt + gültiger Code
+→ Benutzer wird angelegt
+
+B)
+Verifizierungs-E-Mail wird ausgelöst
+
+C)
+E-Mail-Link bestätigt Konto
+
+D)
+nach E-Mail-Verifizierung:
+noch nicht freigeschaltet → Login entsprechend bisherigem Status nicht möglich
+
+E)
+Vereinsadmin schaltet frei
+→ Login funktioniert
+
+F)
+max_trainer = 2
+1 aktiver + 1 wartender Trainer
+→ weiterer Beitritt wird blockiert
+
+G)
+Freischaltung darf max_trainer nicht überschreiten
+
+H)
+neuer Beitrittscode ist eindeutig
+
+I)
+alter Code nach Regenerierung ungültig
+
+J)
+bestehende Trainer bleiben unverändert
+
+K)
+py_compile PASS
+
+L)
+Block-B 35/35 PASS
+
+Danach Abschlussbericht und STOPPEN.
+
+Nicht verändern:
+Upload
+Navigation
+Trainingsplan
+Stripe
+Session
+Login-Grundlogik
+Verträge
+Diagnostik.

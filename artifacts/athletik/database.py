@@ -3441,14 +3441,27 @@ def registrier_code_laden(verein_id: int) -> str | None:
 
 
 def registrier_code_regenerieren(verein_id: int) -> str:
-    """Generiert einen neuen Beitrittscode (ungültig macht den alten)."""
+    """Generiert einen neuen, global eindeutigen Beitrittscode.
+
+    Prüft vor dem Speichern, ob der Code bereits bei einem anderen Verein
+    verwendet wird. Bei Kollision wird ein neuer Code generiert (max. 10 Versuche).
+    """
     import secrets as _secrets
-    neuer_code = _secrets.token_urlsafe(6).upper()
-    with get_conn() as conn:
-        conn.execute(
-            "UPDATE vereine SET registrier_code=? WHERE id=?", (neuer_code, verein_id)
-        )
-    return neuer_code
+    for _ in range(10):
+        neuer_code = _secrets.token_urlsafe(6).upper()
+        with get_conn() as conn:
+            belegt = conn.execute(
+                "SELECT id FROM vereine WHERE UPPER(registrier_code)=? AND id!=?",
+                (neuer_code, verein_id),
+            ).fetchone()
+            if belegt:
+                continue  # Kollision → nochmal versuchen
+            conn.execute(
+                "UPDATE vereine SET registrier_code=? WHERE id=?", (neuer_code, verein_id)
+            )
+            return neuer_code
+    # Extrem unwahrscheinlich: nach 10 Versuchen keinen freien Code gefunden
+    raise RuntimeError("Konnte keinen eindeutigen Beitrittscode generieren.")
 
 
 def verein_by_registriercode(code: str) -> dict | None:
@@ -3514,12 +3527,14 @@ def trainer_verein_beitreten(
 
         max_trainer = v[4]
         if max_trainer is not None:
-            aktive = conn.execute(
+            # Aktive UND wartende (aktiv=0) Trainer zählen — verhindert,
+            # dass beliebig viele Pending-Accounts angelegt werden.
+            alle_trainer = conn.execute(
                 """SELECT COUNT(*) FROM benutzer
-                   WHERE verein_id = ? AND rolle = 'Trainer' AND aktiv = 1""",
+                   WHERE verein_id = ? AND rolle = 'Trainer'""",
                 (verein_id,),
             ).fetchone()[0]
-            if aktive >= max_trainer:
+            if alle_trainer >= max_trainer:
                 raise ValueError(
                     "Das Trainerlimit des Vereins ist erreicht. "
                     "Bitte kontaktiere deinen Vereinsadmin."
@@ -3644,24 +3659,46 @@ def benutzer_aktualisieren(
 def benutzer_aktivieren(benutzer_id: int, aktiv: int) -> None:
     """Aktiviert oder deaktiviert einen Benutzer.
 
-    Guard (serverseitig): Den letzten aktiven Superadmin nicht deaktivierbar.
-    Wirft ValueError wenn der Guard greift.
+    Guards (serverseitig):
+    - Den letzten aktiven Superadmin nicht deaktivierbar.
+    - Trainer-Freischaltung prüft das max_trainer-Limit des Vereins, damit
+      auch bei parallelen Pending-Registrierungen das Limit eingehalten wird.
+    Wirft ValueError wenn ein Guard greift.
     """
     with get_conn() as conn:
+        ziel = conn.execute(
+            "SELECT rolle, verein_id FROM benutzer WHERE id=?", (benutzer_id,)
+        ).fetchone()
+
         # ── Guard: letzten aktiven Superadmin schützen ────────────────────────
-        if aktiv == 0:
-            ziel = conn.execute(
-                "SELECT rolle FROM benutzer WHERE id=?", (benutzer_id,)
+        if aktiv == 0 and ziel and ziel[0] == "Superadmin":
+            n_aktive_sa = conn.execute(
+                "SELECT COUNT(*) FROM benutzer WHERE rolle='Superadmin' AND aktiv=1"
+            ).fetchone()[0]
+            if n_aktive_sa <= 1:
+                raise ValueError(
+                    "Der letzte aktive Superadmin kann nicht deaktiviert werden. "
+                    "Bitte zuerst einen weiteren Superadmin anlegen."
+                )
+
+        # ── Guard: max_trainer-Limit bei Trainer-Freischaltung ────────────────
+        if aktiv == 1 and ziel and ziel[0] == "Trainer":
+            verein_id = ziel[1]
+            verein = conn.execute(
+                "SELECT max_trainer FROM vereine WHERE id=?", (verein_id,)
             ).fetchone()
-            if ziel and ziel[0] == "Superadmin":
-                n_aktive_sa = conn.execute(
-                    "SELECT COUNT(*) FROM benutzer WHERE rolle='Superadmin' AND aktiv=1"
+            if verein and verein[0] is not None:
+                aktive_trainer = conn.execute(
+                    """SELECT COUNT(*) FROM benutzer
+                       WHERE verein_id=? AND rolle='Trainer' AND aktiv=1""",
+                    (verein_id,),
                 ).fetchone()[0]
-                if n_aktive_sa <= 1:
+                if aktive_trainer >= verein[0]:
                     raise ValueError(
-                        "Der letzte aktive Superadmin kann nicht deaktiviert werden. "
-                        "Bitte zuerst einen weiteren Superadmin anlegen."
+                        "Das Trainerlimit des Vereins ist erreicht. "
+                        "Es können keine weiteren Trainer freigeschaltet werden."
                     )
+
         # ─────────────────────────────────────────────────────────────────────
         conn.execute(
             "UPDATE benutzer SET aktiv=? WHERE id=?", (aktiv, benutzer_id)
