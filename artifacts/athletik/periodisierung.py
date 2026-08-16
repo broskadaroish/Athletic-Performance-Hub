@@ -1122,7 +1122,8 @@ def belastungsnormative_berechnen(
     rpe = {"stabilisation": 5, "kraft": 7, "power": 8}.get(pool_key, 6)
     rpe += {"Vorbereitung": 1, "Saison": -1, "Nachsaison": -2}.get(saison_phase, 0)
     rpe += -1 if is_deload else 0
-    rpe += -1 if pg in ("U10", "Ü55") else 0
+    # U7/U8/U10 und Ü55 erhalten eine zusätzliche RPE-Reduktion (Altersschutz)
+    rpe += -1 if pg in ("U7", "U8", "U10", "Ü55") else 0
     rpe = max(4, min(10, rpe))
 
     # ② Belastungsintensität (% 1RM / Maximalleistung)
@@ -1130,7 +1131,8 @@ def belastungsnormative_berechnen(
     lo, hi = _int.get(pool_key, (60, 75))
     if is_deload:
         lo, hi = max(40, lo - 15), max(55, hi - 15)
-    if pg == "U10":
+    # U7/U8/U10: Intensität weiter reduziert (Körpergewicht/technisch, kein Maximalkraft-Ziel)
+    if pg in ("U7", "U8", "U10"):
         lo, hi = max(40, lo - 10), max(55, hi - 10)
     intensitaet = f"{lo}–{hi} % max. Leistung"
 
@@ -1309,9 +1311,18 @@ def _pause_und_ausfuehrung(bereich: str, pool_key: str,
 
 
 def _ersatz_uebung(uebung: str, plangruppe: str) -> tuple | None | str:
+    """Gibt die altersgerechte Ersatzübung zurück oder 'ok' (Übung beibehalten).
+
+    Schutzprinzip U7/U8 (Spec §3 Altersschutz):
+    Wenn kein eigener U7/U8-Ersatz vorhanden ist, greift der U10-Ersatz als Mindestschutz.
+    So sind U7/U8 mindestens genauso streng geschützt wie U10 — nie weniger.
+    """
     ersatz = _ALTERS_ERSATZ.get(uebung, {})
     if plangruppe in ersatz:
         return ersatz[plangruppe]
+    # Fallback für U7/U8: U10-Ersatz verwenden (≥ U10-Schutz garantiert)
+    if plangruppe in ("U7", "U8") and "U10" in ersatz:
+        return ersatz["U10"]
     return "ok"
 
 
@@ -1402,6 +1413,10 @@ def verletzung_aktive_bereiche(verletzungen: list) -> set[str]:
 # Basis-Modus: ausgewogene Schwerpunkte je Altersgruppe wenn keine Diagnosedaten vorliegen
 # KEINE Defizite — diese Bereiche sind altersgerechte Trainingsschwerpunkte, keine Diagnosen
 _BASIS_MODUS_BEREICHE: dict[str, dict[str, int]] = {
+    # U7: Bewegungserfahrung & spielerische Koordination — keine Explosivität
+    "U7":    {"Agilität": 2, "Schnelligkeit": 2, "Rumpf": 2},
+    # U8: Koordination & Bewegungskompetenz — keine Plyometrie/Explosivität
+    "U8":    {"Agilität": 2, "Schnelligkeit": 2, "Rumpf": 1, "Hüfte": 1},
     "U10":   {"Schnelligkeit": 2, "Agilität": 2, "Explosivität": 1, "Rumpf": 1, "Hüfte": 1},
     "U14":   {"Schnelligkeit": 2, "Agilität": 2, "Explosivität": 2, "Rumpf": 1, "Knie": 1},
     "U18":   {"Schnelligkeit": 2, "Explosivität": 2, "Agilität": 2, "Rumpf": 1, "Hüfte": 1},

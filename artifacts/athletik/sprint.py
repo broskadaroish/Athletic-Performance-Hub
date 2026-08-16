@@ -50,7 +50,15 @@ def bewertung_sprint(beste_zeit: float, distanz: str,
                      niveau: str = "Leistungssport",
                      geschlecht: str = "Männlich",
                      alter: float | None = None) -> str:
-    """Altersbasierte Textbewertung zur Sprintzeit."""
+    """Altersbasierte Textbewertung zur Sprintzeit.
+
+    Spec U7/U8: Wissenschaftliche Sprint-Normen gelten erst ab U8 (Rumpf 2016).
+    Für Alter < 8 (U7) wird daher bewusst keine Bewertung ausgegeben ("—"),
+    damit kein falsches Defizit aus U8-Normen entsteht.
+    Der Messwert selbst wird unabhängig davon gespeichert und angezeigt.
+    """
+    if alter is not None and alter < 8:
+        return "—"   # Keine altersgerechte Norm für U7 vorhanden
     gruppe = _A2NG(alter)
     tab = _AN_SPRINT.get(geschlecht, _AN_SPRINT["Männlich"])
     dist_tab = tab.get(distanz)

@@ -1,0 +1,239 @@
+LETZTER PRÜFAUFTRAG VOR DEPLOYMENT – U7/U8 DURCHGÄNGIG ABSICHERN
+
+Die neue Altersgruppen-Erweiterung ist grundsätzlich richtig.
+
+Bitte jetzt KEINE neue Architektur bauen, sondern nur folgende
+Konsistenzpunkte prüfen und falls nötig minimal korrigieren.
+
+==================================================
+1. age_norms.py TATSÄCHLICH VERIFIZIEREN
+==================================================
+
+Bitte den aktuellen Code von:
+
+age_norms.alter_zu_normgruppe()
+
+anzeigen/prüfen.
+
+Erwartung:
+
+Alter 7  → U8-Normgruppe
+Alter 8  → U8-Normgruppe
+Alter 9  → U10-Normgruppe
+Alter 10 → U10-Normgruppe
+
+WICHTIG:
+Im vorherigen Produktionsstand existierte sinngemäß:
+if a <= 10: return "U10"
+
+Falls das noch irgendwo aktiv ist, korrigieren.
+
+Danach zusätzlich sprint.SprintErgebnis direkt testen:
+
+Alter 7
+Alter 8
+Alter 9
+Alter 10
+
+Nicht nur field_eval-Badge testen.
+
+Es muss ausgeschlossen sein, dass die UI U7 zeigt,
+SprintErgebnis intern aber U10-Normen benutzt.
+
+==================================================
+2. U7 OHNE REFERENZNORM
+==================================================
+
+Klare Trennung:
+
+Tatsächliche Trainingsgruppe:
+7 Jahre → U7
+
+Normgruppe:
+kann technisch U8 sein, ABER:
+
+Wenn die wissenschaftliche Norm ausdrücklich erst ab U8 gilt,
+darf sie NICHT für einen 7-Jährigen zur Leistungsbewertung benutzt werden.
+
+Dann für Alter < 8:
+
+- Messwert speichern
+- Messwert anzeigen
+- keine Normbewertung
+- kein "Auffällig"
+- kein Defizit aus dieser Norm
+
+Bitte prüfen, ob sprint.py selbst dies ebenfalls respektiert,
+nicht nur field_eval.py.
+
+==================================================
+3. _ALTERS_ERSATZ PRÜFEN
+==================================================
+
+Sehr wichtig:
+
+Die bestehende altersgerechte Ersatzlogik in periodisierung.py
+hatte bisher überwiegend/komplett Einträge für "U10".
+
+Jetzt liefert _alter_zu_plangruppe():
+
+7 → U7
+8/9 → U8
+
+Prüfen:
+
+Greift _ALTERS_ERSATZ für U7 und U8 weiterhin?
+
+Falls dort nur:
+"U10": (...)
+
+existiert, dürfen U7/U8 NICHT durch das neue Mapping
+aus der Schutzlogik herausfallen.
+
+Lösung möglichst minimal:
+
+U7 und U8 müssen mindestens genauso streng geschützt sein wie U10,
+ggf. mit noch leichteren Varianten.
+
+Keine anspruchsvolle Übung darf nur deshalb durchkommen,
+weil kein _ALTERS_ERSATZ["U7"] oder ["U8"] vorhanden ist.
+
+==================================================
+4. BASIS-MODUS PRÜFEN
+==================================================
+
+Prüfe _BASIS_MODUS_BEREICHE bzw. entsprechende Basis-Konfiguration.
+
+Bisher existierte dort u.a.:
+
+"U10": {...}
+
+Jetzt müssen auch:
+
+U7
+U8
+
+funktionieren.
+
+Test:
+
+7-jähriger Spieler
+KEINE Testdaten
+
+→ Basis-Modus
+→ sinnvoller altersgerechter Plan
+→ nicht leer
+→ kein Crash
+
+8-jähriger Spieler
+KEINE Testdaten
+
+→ ebenfalls sinnvoller Basis-Plan.
+
+==================================================
+5. DIAGNOSTIK-MODUS PRÜFEN
+==================================================
+
+7-jähriger Spieler mit echten diagnostischen Defiziten:
+
+→ Defizite dürfen weiterhin fachlich berücksichtigt werden
+→ aber Übungsauswahl und Belastung müssen U7-gerecht bleiben.
+
+U7 bedeutet nicht:
+Diagnostik ignorieren.
+
+Es bedeutet:
+diagnostisches Trainingsziel altersgerecht umsetzen.
+
+==================================================
+6. BELASTUNGSSTEUERUNG
+==================================================
+
+Prüfen:
+
+- Satz-Cap
+- RPE
+- Pause
+- Intensität
+- Olympic Gate
+- Equipment
+- Power-/Kraftübungen
+- Plyometrie
+
+für U7 und U8.
+
+U7/U8 dürfen nicht in einen generischen Default fallen,
+der für ältere Athleten gedacht ist.
+
+==================================================
+7. TESTMATRIX
+==================================================
+
+Alter 7:
+- Plangruppe U7
+- keine ungeeignete Norm
+- Basisplan funktioniert
+- Diagnostikplan funktioniert
+- Altersersatz funktioniert
+- max. Sätze/Belastung U7-gerecht
+
+Alter 8:
+- Plangruppe U8
+- U8-Norm nur dort wo gültig
+- Basisplan funktioniert
+- Diagnostikplan funktioniert
+- Altersersatz funktioniert
+
+Alter 9:
+- Plangruppe U8
+- korrekte Normgruppe
+- Plan funktioniert
+
+Alter 10/11:
+- U10 wie vorgesehen
+
+Zusätzlich Regression:
+U12/U14/U16/U18/Senior unverändert.
+
+==================================================
+8. KONKRETER PRODUKTIONSTEST
+==================================================
+
+Spieler:
+Geburtsdatum 27.03.2019
+Alter 7
+
+Sprint:
+5 m = 4.34
+30 m = 7.30
+
+Erwartung:
+
+- tatsächliche Gruppe U7
+- Trainingsplan U7
+- keine U10-Anzeige
+- keine U10-Norm
+- keine U8-Norm anwenden, falls Referenz erst ab Alter 8 gilt
+- kein falsches Sprintdefizit
+- Basis-/Diagnostikplan erzeugbar
+- altersgerechte Übungen
+
+==================================================
+9. ABSCHLUSSBERICHT
+==================================================
+
+Bitte exakt berichten:
+
+1. tatsächlicher aktueller Code von alter_zu_normgruppe()
+2. SprintErgebnis-Normierung Alter 7/8/9/10
+3. ob _ALTERS_ERSATZ U7/U8 vorher unterstützt hat
+4. wie U7/U8 jetzt abgesichert sind
+5. Basis-Modus U7/U8
+6. Diagnostik-Modus U7/U8
+7. Belastungssteuerung
+8. Testmatrix
+9. py_compile
+10. Block-B
+
+Keine DB-Änderung.
+Danach STOPPEN.

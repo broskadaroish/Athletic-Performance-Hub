@@ -34,6 +34,18 @@ U7 (≤7), U8 (8-9), U10 (10-11), U14 (12-14), U18 (15-18), Senior (19-35), Ü40
 
 **Invariante:** Kein Alter ≤ 9 darf irgendwo "U10" als Label/Plangruppe sehen.
 
+## Weitere Absicherungen (Prüfauftrag)
+
+**sprint.py:bewertung_sprint()**: Guard `if alter < 8: return "—"` — U7 bekommt keine Sprint-Bewertung (U8-Norm gilt erst ab 8).
+
+**periodisierung.py:belastungsnormative_berechnen()**: RPE-Reduktion und Intensitäts-Reduktion gelten jetzt für `("U7","U8","U10","Ü55")` statt nur `"U10"`.
+
+**_BASIS_MODUS_BEREICHE**: U7 `{Agilität:2, Schnelligkeit:2, Rumpf:2}` (kein Explosivität), U8 `{Agilität:2, Schnelligkeit:2, Rumpf:1, Hüfte:1}`.
+
+**_ersatz_uebung()**: U7/U8 fallen auf U10-Ersatz zurück wenn kein eigener Eintrag — mindestens gleicher Schutz wie U10.
+
+**_olympic_geeignet()**: Bereits korrekt — nur Senior/U18 dürfen Olympic Lifting.
+
 ## How to apply in app.py
 For each test page, compute `alter_xxx = berechne_alter(sp.get("geburtsdatum", ""))` and pass `alter=alter_xxx` to the dataclass constructor. The `altersgruppe` (for norm_badge etc.) is computed separately with `alter_zu_altersgruppe()`.
 
