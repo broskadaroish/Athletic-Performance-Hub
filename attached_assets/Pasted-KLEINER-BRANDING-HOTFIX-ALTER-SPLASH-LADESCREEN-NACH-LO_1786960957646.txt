@@ -1,0 +1,167 @@
+KLEINER BRANDING-HOTFIX – ALTER SPLASH-/LADESCREEN NACH LOGIN
+
+PROBLEM:
+
+Die Login-Seite verwendet bereits korrekt das neue APH-Branding.
+
+Nach erfolgreichem Login erscheint beim Laden jedoch noch kurz ein alter
+Splash-/Startscreen mit dem alten Logo „Athletik Diagnostik“.
+
+Das wirkt inkonsistent.
+
+ZIEL:
+
+Den bestehenden Splash-/Ladescreen NICHT komplett entfernen,
+sondern auf das aktuelle APH-Branding umstellen.
+
+==================================================
+1. ALTEN SPLASH FINDEN
+==================================================
+
+Suche in:
+
+- app.py
+- theme.py
+- mobile.py
+- assets/
+- ggf. weiteren Modulen
+
+nach:
+
+- altem Athletik-Diagnostik-Logo
+- Splash
+- Loading
+- Startscreen
+- „Startet automatisch“
+- „Athletic Performance Hub“
+- „Version 1.0.0“
+
+Exakt herausfinden, welche Funktion diesen Screen nach Login rendert.
+
+==================================================
+2. NEUES LOGO VERWENDEN
+==================================================
+
+Der Splash soll dasselbe neue APH-Logo verwenden wie die Login-Seite.
+
+Vorhandenes Asset verwenden:
+
+artifacts/athletik/assets/aph_logo.png
+
+Kein zweites Logo duplizieren.
+
+Altes Athletik-Diagnostik-Bild vollständig aus diesem Splash entfernen.
+
+==================================================
+3. BRANDING VEREINHEITLICHEN
+==================================================
+
+Splash-Aufbau:
+
+APH-Logo
+
+ATHLETIC PERFORMANCE HUB
+
+TEST · ANALYSE · TRAINING
+
+Version 1.0.0
+
+Darunter dezent:
+
+„APH wird geladen …“
+
+Kein alter Text:
+„Athletik Diagnostik“
+
+Keine Mischung aus altem und neuem Branding.
+
+==================================================
+4. OPTIK
+==================================================
+
+Dark Theme beibehalten.
+
+Logo:
+- sauber zentriert
+- nicht zu groß
+- keine weiße Bildkante, falls transparentes Asset verfügbar
+- responsive auf Desktop und Mobile
+
+Titel:
+- gleicher Stil wie Login-Seite
+- moderne Großbuchstaben
+
+Claim:
+TEST · ANALYSE · TRAINING
+in APH-Akzentfarbe
+
+Loader/Text:
+dezent, nicht dominant
+
+==================================================
+5. KEINE LOGIN-LOGIK ÄNDERN
+==================================================
+
+Nicht verändern:
+
+- Login
+- Session
+- ath_sid
+- Cookie
+- Mobile-Session-Fix
+- Screen-Width-Fix
+- Sidebar
+- Datenbank
+- Rechte/Rollen
+
+Nur Splash-/Loading-Branding.
+
+==================================================
+6. FALLS SPLASH UNNÖTIG LANG IST
+==================================================
+
+Prüfe, wie lange der Splash sichtbar bleibt.
+
+Nicht künstlich verlängern.
+
+Wenn aktuell z.B. time.sleep() nur fürs Branding verwendet wird:
+unnötige Wartezeit reduzieren oder entfernen.
+
+Aber bestehende technische Initialisierung nicht beschädigen.
+
+==================================================
+7. TESTS
+==================================================
+
+Desktop:
+Login → Splash → App
+→ neues APH-Logo
+
+Android:
+→ neues APH-Logo
+
+iPhone Safari:
+→ neues APH-Logo
+→ kein Weiß/Schwarz-Flackern
+→ kein zusätzlicher Full-Page-Reload
+
+py_compile
+Block-B
+
+==================================================
+8. ABSCHLUSSBERICHT
+==================================================
+
+Danach berichten:
+
+1. wo der alte Splash definiert war
+2. welches alte Asset verwendet wurde
+3. welches neue Asset jetzt verwendet wird
+4. ob Wartezeit verändert wurde
+5. geänderte Dateien
+6. Desktop/Mobile Verhalten
+7. py_compile
+8. Block-B
+
+Danach STOPPEN.
+Noch nicht deployen.

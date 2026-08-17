@@ -1561,26 +1561,30 @@ if not _zweck_bestaetigt():
 if "splash_done" not in st.session_state:
     st.session_state["splash_done"] = True
     import time as _time
+    _APH_LOGO_PATH = os.path.join(os.path.dirname(__file__), "assets", "aph_logo.png")
     _sc1, _sc2, _sc3 = st.columns([1, 2, 1])
     with _sc2:
-        if os.path.exists(_APP_ICON_PATH):
+        # Logo — aph_logo.png (neues APH-Branding)
+        if os.path.exists(_APH_LOGO_PATH):
             _ic1, _ic2, _ic3 = st.columns([1, 2, 1])
-            _ic2.image(_APP_ICON_PATH, width=120)
+            _ic2.image(_APH_LOGO_PATH, width=110)
         st.markdown(
-            f'<div style="text-align:center;padding:20px 0 24px">'
-            f'<div style="font-size:80px;line-height:1">{"" if os.path.exists(_APP_ICON_PATH) else "⚽"}</div>'
-            f'<h1 style="color:#e6edf3;font-size:26px;font-weight:800;'
-            f'letter-spacing:1px;margin:20px 0 6px;line-height:1.3">'
+            f'<div style="text-align:center;padding:12px 0 20px">'
+            f'<div style="font-size:72px;line-height:1">'
+            f'{"" if os.path.exists(_APH_LOGO_PATH) else "⚽"}</div>'
+            f'<h1 style="color:#e6edf3;font-size:22px;font-weight:800;'
+            f'letter-spacing:3px;text-transform:uppercase;margin:16px 0 6px;line-height:1.3">'
             f'Athletic Performance Hub</h1>'
-            f'<div style="color:#58a6ff;font-size:13px;font-weight:600;'
-            f'letter-spacing:2px;margin-bottom:12px">VERSION {APP_VERSION}</div>'
-            f'<div style="color:#8b949e;font-size:11px">{APP_COPYRIGHT}</div>'
-            f'<div style="color:#30363d;font-size:11px;margin-top:40px">'
-            f'Startet automatisch …</div>'
+            f'<div style="color:#58a6ff;font-size:11px;font-weight:700;'
+            f'letter-spacing:3px;margin-bottom:14px">TEST · ANALYSE · TRAINING</div>'
+            f'<div style="color:#8b949e;font-size:11px;margin-bottom:4px">'
+            f'Version {APP_VERSION}</div>'
+            f'<div style="color:#30363d;font-size:11px;margin-top:32px">'
+            f'APH wird geladen …</div>'
             f'</div>',
             unsafe_allow_html=True,
         )
-    _time.sleep(2.5)
+    _time.sleep(1.2)
     st.rerun()
 
 # ─── Stripe Checkout: Query-Params + Neu-Registrierungs-Prompt ───────────────
