@@ -1,0 +1,133 @@
+ABSCHLUSSBERICHT NACHREICHEN – TASKS #246, #247 UND #248
+
+Die Umsetzung ist abgeschlossen, aber es fehlt der vollständige Abschlussbericht.
+
+Bitte jetzt KEINE weiteren Änderungen vornehmen.
+
+Nur analysieren und berichten.
+
+Für jeden Task separat:
+
+==================================================
+TASK #246 – RECHNUNGSMODUL
+==================================================
+
+Berichte:
+1. Welche Dateien wurden geändert?
+2. Welche DB-Spalten/Tabellen wurden ergänzt?
+3. War die Migration idempotent?
+4. Wie wird invoice.payment_succeeded verarbeitet?
+5. Wie wird invoice.payment_failed verarbeitet?
+6. Wie werden doppelte Stripe-Webhooks verhindert?
+7. Welche Rechnungsdaten werden gespeichert?
+8. Werden hosted_invoice_url und invoice_pdf gespeichert?
+9. Wo sieht der Kunde Rechnungen?
+10. Wer darf Rechnungen sehen?
+11. Wurde Stripe weiterhin als Source of Truth verwendet?
+12. Wurden Pakete/Preise/Price-IDs verändert?
+13. Wurde Checkout/Billing Portal/Kündigung verändert?
+14. Welche Tests wurden ergänzt?
+15. Testergebnisse.
+
+==================================================
+TASK #247 – KUNDENVERWALTUNG
+==================================================
+
+Berichte:
+1. Welche Dateien wurden geändert?
+2. Wie wird jetzt definiert, wer ein Kunde ist?
+3. Werden normale Vereinstrainer noch als Kunden angezeigt?
+4. Wie werden Vereinskunden erkannt?
+5. Wie werden Einzeltrainer-Kunden erkannt?
+6. Was passiert mit technischen Mandanten?
+7. Wurden bestehende Kundennummern verändert?
+8. Wurden bestehende Kunden gelöscht oder migriert?
+9. Welche Filter wurden geändert?
+10. Welche Tests wurden ergänzt?
+11. Testergebnisse.
+
+==================================================
+TASK #248 – MEHRFACHMANDANTEN / TRAINERPORTAL
+==================================================
+
+Berichte sehr detailliert:
+
+1. Welche Dateien wurden geändert?
+2. Welche neue Tabelle/Felder wurden angelegt?
+3. Exaktes Schema von trainer_mandanten.
+4. Wie wurden bestehende benutzer.verein_id-Zuordnungen migriert?
+5. Bleibt benutzer.verein_id als Legacy-Fallback bestehen?
+6. Wie wird ein aktiver Mandant bestimmt?
+7. Wie funktioniert Mandant-Wechsel nach Login?
+8. Kann ein Trainer gleichzeitig:
+   - Einzeltrainer sein
+   - Verein A angehören
+   - Verein B angehören?
+9. Wie werden Spieler nach Mandant gefiltert?
+10. Wie wird verhindert, dass Trainer Spieler anderer Mandanten sehen?
+11. Wie funktioniert Spielerzuweisung?
+12. Was passiert beim Trainer-Austritt?
+13. Bleiben Spieler/Tests/Trainingspläne beim Verein?
+14. Wie werden Sessions nach Mandantenentzug invalidiert?
+15. Wie funktioniert der Beitrittscode bei bestehender E-Mail?
+16. Wird ein Doppelaccount verhindert?
+17. Wie funktioniert der Vereinsadmin-Zugriff?
+18. Welche alten Legacy-Fallbacks wurden entfernt?
+19. Welche Funktionen der alten Benutzerverwaltung wurden übernommen?
+20. Ist Benutzerverwaltung noch sichtbar?
+21. Welche vorgeschlagenen Folgeaufgaben sind noch offen?
+22. Warum wurden Reviews mehrfach rejected?
+23. Welche Sicherheitslücken wurden dabei gefunden?
+24. Wie wurden sie behoben?
+25. Welche neuen Tests wurden ergänzt?
+26. Finale Testanzahl und Ergebnis.
+
+==================================================
+SCHUTZBESTÄTIGUNGEN
+==================================================
+
+Bitte zusätzlich bestätigen:
+
+- keine bestehenden Spieler gelöscht
+- keine Tests gelöscht
+- keine Trainingspläne gelöscht
+- keine Kundennummern verändert
+- keine Stripe-Price-IDs verändert
+- keine Paketpreise verändert
+- keine Lizenztypen verändert
+- kein Checkout entfernt
+- kein Billing Portal entfernt
+- keine Kündigungslogik entfernt
+- keine Passwort-/Sessionlogik beschädigt
+- keine Alters-/Test-/Trainingslogik verändert
+- nicht deployed
+
+==================================================
+DB-MIGRATION
+==================================================
+
+Liste exakt:
+- neue Tabellen
+- neue Spalten
+- neue Indizes/Constraints
+- Datenmigrationen
+- Legacy-Fallbacks
+
+==================================================
+FINALER TESTBLOCK
+==================================================
+
+Alle ausgeführten Tests mit Ergebnis auflisten.
+
+Insbesondere:
+- Block-B
+- Session
+- Lizenz
+- Multi-Tenant
+- Cross-Tenant
+- Rechnungen
+- Kundenfilter
+- Beitrittscode
+
+Danach STOPPEN.
+Keine weiteren Änderungen.

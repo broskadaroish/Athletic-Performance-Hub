@@ -10,6 +10,10 @@ from database import (
     benutzer_foto_speichern, trainer_statistiken,
     benutzer_benutzername_setzen,
     vereine_laden,
+    trainer_mandanten_fuer_benutzer,
+    trainer_mandant_hinzufuegen,
+    trainer_mandant_entfernen,
+    trainer_mandanten_fuer_verein,
 )
 from auth import hash_password
 
@@ -119,9 +123,20 @@ def page_trainerportal():
     vereine       = vereine_laden()
     meine_verein  = user.get("verein_id")
 
-    # Rollenbasierter Filter
+    # ── Rollenbasierter Filter ────────────────────────────────────────────────
+    # Vereinsadmin: sieht alle Trainer die über trainer_mandanten seinem Verein
+    # zugeordnet sind — nicht nur jene mit benutzer.verein_id == meine_verein.
+    # Superadmin: sieht alle (optional nach Verein gefiltert).
     if rolle == "Vereinsadmin":
-        benutzer = [b for b in alle_benutzer if b.get("verein_id") == meine_verein]
+        # Maßgeblich: trainer_mandanten-Tabelle (aktive Mitgliedschaften).
+        # Der Legacy-FK benutzer.verein_id wird bewusst NICHT als Fallback
+        # verwendet — er bleibt Rückwärtskompatibilitäts-Feld, kein Autorisierungsfeld.
+        try:
+            _meine_trainer = trainer_mandanten_fuer_verein(meine_verein)
+            _tm_bid_set = {t["benutzer_id"] for t in _meine_trainer}
+        except Exception:
+            _tm_bid_set = set()
+        benutzer = [b for b in alle_benutzer if b["id"] in _tm_bid_set]
     else:
         vf = st.session_state["tp_verein_filter"]
         benutzer = [b for b in alle_benutzer if vf is None or b.get("verein_id") == vf]
@@ -215,6 +230,19 @@ def _trainer_karte(b: dict, admin_rolle: str, admin_user: dict):
 
     with c_info:
         kontakt = " · ".join(filter(None, [email, tel]))
+        # Mandanten-Badges (alle aktiven Vereine dieses Trainers)
+        try:
+            _mlist = trainer_mandanten_fuer_benutzer(vid)
+            _mhtml = "".join(
+                f'<span style="background:#1f2d1f;color:#3fb950;font-size:10px;'
+                f'font-weight:600;padding:1px 6px;border-radius:8px;'
+                f'border:1px solid #3fb95044;margin-right:3px">'
+                f'🏢 {m["verein_name"]}</span>'
+                for m in _mlist
+                if not m.get("ist_technischer_mandant")
+            ) if len(_mlist) > 1 else ""
+        except Exception:
+            _mhtml = ""
         st.markdown(
             f'<div style="padding:4px 0">'
             f'<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:4px">'
@@ -223,6 +251,7 @@ def _trainer_karte(b: dict, admin_rolle: str, admin_user: dict):
             f'&nbsp;{_aktiv_badge(b.get("aktiv",1))}'
             f'</div>'
             + (f'<div style="font-size:11px;color:#8b949e">🏢 {verein}</div>' if verein != "—" else "")
+            + (_mhtml if _mhtml else "")
             + (f'<div style="font-size:11px;color:#6e7681;margin-top:2px">{kontakt}</div>' if kontakt else "")
             + (f'<div style="font-size:10px;color:#6e7681">🎖 {lizenz}</div>' if lizenz != "—" else "")
             + f'</div>',
@@ -329,8 +358,8 @@ def _trainer_edit_form(b: dict, admin_user: dict, admin_rolle: str, vereine: lis
         unsafe_allow_html=True,
     )
 
-    tab_profil, tab_foto, tab_sicherheit, tab_loeschen = st.tabs(
-        ["📋 Profil", "📷 Profilfoto", "🔑 Passwort", "⚠ Löschen"]
+    tab_profil, tab_mandanten, tab_foto, tab_sicherheit, tab_loeschen = st.tabs(
+        ["📋 Profil", "🏢 Mandanten", "📷 Profilfoto", "🔑 Passwort", "⚠ Löschen"]
     )
 
     # ── Tab: Profil ────────────────────────────────────────────────────────────
@@ -377,6 +406,95 @@ def _trainer_edit_form(b: dict, admin_user: dict, admin_rolle: str, vereine: lis
                     st.rerun()
                 except (ValueError, PermissionError) as _tp_e:
                     st.error(str(_tp_e))
+
+    # ── Tab: Mandanten ────────────────────────────────────────────────────────
+    with tab_mandanten:
+        st.markdown("**Vereine / Mandanten dieses Trainers**")
+        st.caption(
+            "Ein Trainer kann mehreren Vereinen angehören. "
+            "Hier können Zugehörigkeiten verwaltet werden."
+        )
+        try:
+            _tm_list = trainer_mandanten_fuer_benutzer(vid)
+        except Exception:
+            _tm_list = []
+
+        if _tm_list:
+            for _tm in _tm_list:
+                _tm_c1, _tm_c2 = st.columns([4, 1])
+                _tm_echt = not _tm.get("ist_technischer_mandant")
+                _tm_c1.markdown(
+                    f'<div style="padding:6px 0">'
+                    f'<span style="color:#e6edf3;font-weight:600">'
+                    f'{"🏢" if _tm_echt else "👤"} {_tm["verein_name"]}</span>'
+                    f'<br><span style="font-size:10px;color:#8b949e">'
+                    f'Rolle: {_tm["rolle_im_verein"]} · '
+                    f'Seit: {_tm["beigetreten_am"] or "—"}</span></div>',
+                    unsafe_allow_html=True,
+                )
+                # Entfernen-Button nur für den eigenen Verein (Vereinsadmin)
+                # oder für alle Vereine (Superadmin).
+                _darf_entfernen = (
+                    _tm_echt
+                    and admin_rolle == "Superadmin"
+                ) or (
+                    _tm_echt
+                    and admin_rolle == "Vereinsadmin"
+                    and _tm["verein_id"] == admin_user.get("verein_id")
+                )
+                if _darf_entfernen:
+                    if _tm_c2.button(
+                        "✖ Entfernen",
+                        key=f"tp_tm_del_{vid}_{_tm['verein_id']}",
+                        use_container_width=True,
+                    ):
+                        try:
+                            trainer_mandant_entfernen(
+                                vid,
+                                _tm["verein_id"],
+                                caller_rolle=admin_rolle,
+                                caller_verein_id=admin_user.get("verein_id"),
+                            )
+                            st.success(
+                                f"✅ {name} aus **{_tm['verein_name']}** entfernt."
+                            )
+                            st.rerun()
+                        except (PermissionError, Exception) as _tm_e:
+                            st.error(str(_tm_e))
+        else:
+            st.info("Keine Mandanten gefunden.", icon="ℹ️")
+
+        # Mandant hinzufügen (nur Superadmin)
+        if admin_rolle == "Superadmin" and vereine:
+            st.divider()
+            st.markdown("**Mandant hinzufügen**")
+            _vorhandene_vid = {_m["verein_id"] for _m in _tm_list}
+            _verfuegbar = [v for v in vereine if v["id"] not in _vorhandene_vid]
+            if _verfuegbar:
+                _neu_ver = st.selectbox(
+                    "Verein",
+                    _verfuegbar,
+                    format_func=lambda x: x["name"],
+                    key=f"tp_tm_add_v_{vid}",
+                )
+                if st.button(
+                    "➕ Mandant hinzufügen",
+                    key=f"tp_tm_add_btn_{vid}",
+                    type="primary",
+                ):
+                    try:
+                        trainer_mandant_hinzufuegen(
+                            vid, _neu_ver["id"],
+                            rolle=b.get("rolle", "Trainer"),
+                        )
+                        st.success(
+                            f"✅ {name} zu **{_neu_ver['name']}** hinzugefügt."
+                        )
+                        st.rerun()
+                    except Exception as _tm_e:
+                        st.error(str(_tm_e))
+            else:
+                st.info("Dieser Trainer ist bereits in allen Vereinen eingetragen.")
 
     # ── Tab: Foto ──────────────────────────────────────────────────────────────
     with tab_foto:
@@ -551,6 +669,54 @@ def page_mein_profil():
         f'</div>',
         unsafe_allow_html=True,
     )
+
+    # ── Meine Vereine / Mandanten ─────────────────────────────────────────────
+    try:
+        _mp_mandanten = trainer_mandanten_fuer_benutzer(uid)
+        _mp_echte = [m for m in _mp_mandanten if not m.get("ist_technischer_mandant")]
+        if _mp_echte:
+            st.divider()
+            st.subheader("🏢 Meine Vereine")
+            st.caption(
+                "Vereine, denen du als Trainer zugeordnet bist. "
+                "Du kannst einen Verein über die Abmelden-Schaltfläche wechseln."
+            )
+            for _mp_m in _mp_echte:
+                _mp_c1, _mp_c2 = st.columns([5, 1])
+                _mp_c1.markdown(
+                    f'<div style="padding:6px 0">'
+                    f'<span style="font-size:14px;font-weight:600;color:#e6edf3">'
+                    f'🏢 {_mp_m["verein_name"]}</span>'
+                    f'<br><span style="font-size:11px;color:#8b949e">'
+                    f'Rolle: {_mp_m["rolle_im_verein"]} · '
+                    f'Mitglied seit: {_mp_m["beigetreten_am"] or "—"}'
+                    f'</span></div>',
+                    unsafe_allow_html=True,
+                )
+                _ist_aktiver = (
+                    _mp_m["verein_id"] == user.get("verein_id")
+                )
+                if _ist_aktiver:
+                    _mp_c2.markdown(
+                        '<div style="padding-top:6px">'
+                        '<span style="color:#3fb950;font-size:12px;font-weight:700">✓ Aktiv</span>'
+                        '</div>',
+                        unsafe_allow_html=True,
+                    )
+                else:
+                    if _mp_c2.button(
+                        "Wechseln",
+                        key=f"mp_mandant_sw_{_mp_m['verein_id']}",
+                        use_container_width=True,
+                    ):
+                        import streamlit as _st_inner
+                        _st_inner.session_state["user"]["verein_id"] = _mp_m["verein_id"]
+                        _st_inner.session_state["user"]["verein_name"] = _mp_m["verein_name"]
+                        _st_inner.session_state["_aktiver_mandant_id"] = _mp_m["verein_id"]
+                        _st_inner.session_state["_mandant_gewaehlt"] = True
+                        _st_inner.rerun()
+    except Exception:
+        pass
 
     # ── Passwort ändern ───────────────────────────────────────────────────────
     st.divider()

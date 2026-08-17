@@ -1178,9 +1178,12 @@ def zustimmung_registrierung_speichern(
 def spieler_laden(benutzer_id=None, rolle="Trainer", verein_id=None):
     """Lädt Spieler gefiltert nach Benutzerrolle (Multi-Tenant-Sicherheit).
 
-    Superadmin  → alle Spieler
+    Superadmin   → alle Spieler
     Vereinsadmin → alle Spieler seines Vereins
-    Trainer     → nur eigene Spieler (trainer_id = benutzer_id)
+    Trainer      → eigene Spieler (trainer_id = benutzer_id)
+                   • im aktiven Mandanten (verein_id): nur Spieler in diesem Verein,
+                     die dem Trainer zugewiesen sind (verein_id UND trainer_id)
+                   • ohne verein_id: alle eigenen Spieler über alle Vereine
     """
     with get_conn() as conn:
         if rolle == "Superadmin":
@@ -1188,12 +1191,48 @@ def spieler_laden(benutzer_id=None, rolle="Trainer", verein_id=None):
                 "SELECT * FROM spieler ORDER BY name"
             ).fetchall())
         if rolle == "Vereinsadmin":
+            # Serverseitige Mandanten-Prüfung: aktive Mitgliedschaft in trainer_mandanten
+            # ist Voraussetzung für Vereinsadmin-Datenzugriff. Schützt vor Zugriffen nach
+            # Entzug der Mitgliedschaft, da benutzer.verein_id nie verändert wird (Legacy-FK).
+            if benutzer_id is not None and verein_id is not None:
+                try:
+                    _tm_check = conn.execute(
+                        "SELECT 1 FROM trainer_mandanten "
+                        "WHERE benutzer_id=? AND verein_id=? AND aktiv=1",
+                        (benutzer_id, verein_id),
+                    ).fetchone()
+                    if not _tm_check:
+                        return []  # Keine aktive Mitgliedschaft → kein Zugriff (fail-closed)
+                except Exception:
+                    pass  # trainer_mandanten noch nicht angelegt → Legacy-Fallback erlaubt
             return _rows(conn.execute(
                 "SELECT * FROM spieler WHERE verein_id=? ORDER BY name",
                 (verein_id,),
             ).fetchall())
-        # Trainer (default)
+        # Trainer — Mehrfachmandanten-bewusste Filterung
         if benutzer_id is not None:
+            if verein_id is not None:
+                # Aktiver Mandant: Spieler, die diesem Trainer in diesem Verein zugeordnet sind
+                # ODER alle Spieler des Vereins wenn der Trainer eine aktive Mitgliedschaft hat
+                # (ermöglicht Trainer im Gastverein, die dort Spieler betreuen)
+                try:
+                    tm = conn.execute(
+                        "SELECT 1 FROM trainer_mandanten "
+                        "WHERE benutzer_id=? AND verein_id=? AND aktiv=1",
+                        (benutzer_id, verein_id),
+                    ).fetchone()
+                except Exception:
+                    tm = None
+                if tm:
+                    # Trainer ist aktives Mitglied dieses Vereins → zeige Spieler in diesem Verein
+                    # deren trainer_id auf diesen Trainer zeigt
+                    return _rows(conn.execute(
+                        "SELECT * FROM spieler WHERE verein_id=? AND trainer_id=? ORDER BY name",
+                        (verein_id, benutzer_id),
+                    ).fetchall())
+                # Kein aktives Mandant in diesem Verein → kein Zugriff (fail-closed)
+                return []
+            # Kein verein_id: alle eigenen Spieler (Legacy-Verhalten)
             return _rows(conn.execute(
                 "SELECT * FROM spieler WHERE trainer_id=? ORDER BY name",
                 (benutzer_id,),
@@ -1263,10 +1302,17 @@ def spieler_trainer_zuweisen(spieler_id: int, trainer_id, verein_id,
             if not row["aktiv"]:
                 raise ValueError(f"Trainer {trainer_id} ist deaktiviert.")
             if verein_id is not None and row["verein_id"] != verein_id:
-                raise ValueError(
-                    f"Trainer {trainer_id} gehört zu Verein {row['verein_id']}, "
-                    f"nicht zu Verein {verein_id}."
-                )
+                # Mehrfachmandanten: aktive trainer_mandanten-Mitgliedschaft genügt
+                tm_row = conn.execute(
+                    "SELECT 1 FROM trainer_mandanten "
+                    "WHERE benutzer_id=? AND verein_id=? AND aktiv=1",
+                    (trainer_id, verein_id),
+                ).fetchone()
+                if not tm_row:
+                    raise ValueError(
+                        f"Trainer {trainer_id} gehört weder über benutzer.verein_id "
+                        f"noch über eine aktive Mandanten-Mitgliedschaft zu Verein {verein_id}."
+                    )
 
         # Alte Werte lesen für Logging
         alt = conn.execute(
@@ -2800,6 +2846,44 @@ def _migrate_multitenant():
         except Exception:
             pass  # Index existiert bereits
 
+        # ── Trainer-Mandanten-Tabelle ──────────────────────────────────────
+        # Ermöglicht Mehrfachmandanten: ein Trainer kann mehreren Vereinen angehören.
+        # benutzer.verein_id bleibt als Legacy-Feld erhalten und wird NICHT entfernt.
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS trainer_mandanten (
+                id              INTEGER PRIMARY KEY AUTOINCREMENT,
+                benutzer_id     INTEGER NOT NULL REFERENCES benutzer(id) ON DELETE CASCADE,
+                verein_id       INTEGER NOT NULL REFERENCES vereine(id) ON DELETE CASCADE,
+                rolle_im_verein TEXT    NOT NULL DEFAULT 'Trainer',
+                aktiv           INTEGER NOT NULL DEFAULT 1,
+                beigetreten_am  TEXT    NOT NULL DEFAULT (date('now')),
+                UNIQUE(benutzer_id, verein_id)
+            )
+        """)
+        # Idempotente Migration: bestehende benutzer.verein_id → trainer_mandanten.
+        # INSERT OR IGNORE: bereits vorhandene Einträge bleiben unverändert.
+        conn.execute("""
+            INSERT OR IGNORE INTO trainer_mandanten
+                (benutzer_id, verein_id, rolle_im_verein, aktiv, beigetreten_am)
+            SELECT b.id, b.verein_id, b.rolle, 1,
+                   COALESCE(b.erstellt_am, date('now'))
+            FROM benutzer b
+            WHERE b.verein_id IS NOT NULL
+              AND b.rolle NOT IN ('Superadmin')
+        """)
+        # Performance-Index für häufige Mandanten-Lookups
+        try:
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_trainer_mandanten_benutzer "
+                "ON trainer_mandanten(benutzer_id, aktiv)"
+            )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_trainer_mandanten_verein "
+                "ON trainer_mandanten(verein_id, aktiv)"
+            )
+        except Exception:
+            pass
+
         # ── Testphase für bestehende Vereine initialisieren ────────────────
         # Vereine ohne testphase_bis bekommen heute + 14 Tage gesetzt
         conn.execute("""
@@ -2919,6 +3003,190 @@ def spieler_ohne_verein_zaehlen() -> int:
             "SELECT COUNT(*) FROM spieler WHERE verein_id IS NULL AND trainer_id IS NULL"
         ).fetchone()
         return row[0] if row else 0
+
+
+# --------------------------------------------------------------------------
+# Trainer-Mandanten-Funktionen (Mehrfachmandanten-Architektur)
+# --------------------------------------------------------------------------
+
+def trainer_mandanten_fuer_benutzer(benutzer_id: int) -> list[dict]:
+    """Gibt alle aktiven Mandanten (Vereine) eines Benutzers zurück.
+
+    Gibt leere Liste zurück wenn keine Mandanten vorhanden oder Tabelle fehlt.
+    """
+    try:
+        with get_conn() as conn:
+            rows = conn.execute("""
+                SELECT tm.id, tm.verein_id, v.name AS verein_name,
+                       tm.rolle_im_verein, tm.aktiv, tm.beigetreten_am,
+                       v.logo_blob, v.ist_technischer_mandant
+                FROM trainer_mandanten tm
+                JOIN vereine v ON v.id = tm.verein_id
+                WHERE tm.benutzer_id = ? AND tm.aktiv = 1
+                ORDER BY tm.beigetreten_am
+            """, (benutzer_id,)).fetchall()
+            return [
+                {
+                    "id":                    r[0],
+                    "verein_id":             r[1],
+                    "verein_name":           r[2],
+                    "rolle_im_verein":       r[3],
+                    "aktiv":                 r[4],
+                    "beigetreten_am":        r[5],
+                    "logo_blob":             r[6],
+                    "ist_technischer_mandant": r[7] or 0,
+                }
+                for r in rows
+            ]
+    except Exception:
+        return []
+
+
+def trainer_mandant_hinzufuegen(
+    benutzer_id: int,
+    verein_id: int,
+    rolle: str = "Trainer",
+) -> None:
+    """Fügt eine Trainer-Mandanten-Verknüpfung hinzu oder reaktiviert sie.
+
+    Idempotent: existierende inaktive Einträge werden reaktiviert.
+    """
+    with get_conn() as conn:
+        conn.execute("""
+            INSERT INTO trainer_mandanten (benutzer_id, verein_id, rolle_im_verein, aktiv)
+            VALUES (?, ?, ?, 1)
+            ON CONFLICT(benutzer_id, verein_id)
+            DO UPDATE SET aktiv=1, rolle_im_verein=excluded.rolle_im_verein
+        """, (benutzer_id, verein_id, rolle))
+
+
+def trainer_mandant_entfernen(
+    benutzer_id: int,
+    verein_id: int,
+    *,
+    caller_rolle: str = "Superadmin",
+    caller_verein_id: int | None = None,
+) -> None:
+    """Deaktiviert eine Trainer-Mandanten-Verknüpfung (Austritt aus Verein).
+
+    Autorisierungsregeln:
+    - Superadmin: darf jede Verknüpfung entfernen.
+    - Vereinsadmin: darf nur Verknüpfungen für den eigenen Verein entfernen.
+      (caller_verein_id muss == verein_id sein)
+
+    Spieler/Tests bleiben beim Verein — nur die Zugehörigkeit wird beendet.
+    benutzer.verein_id wird NICHT verändert (Legacy-Schutz).
+
+    Wirft PermissionError wenn ein Vereinsadmin versucht eine Verknüpfung
+    in einem fremden Verein zu entfernen.
+    """
+    if caller_rolle != "Superadmin":
+        if caller_verein_id is None or caller_verein_id != verein_id:
+            raise PermissionError(
+                "Nur der zugehörige Vereinsadmin oder ein Superadmin "
+                "darf diese Vereinszugehörigkeit beenden."
+            )
+    with get_conn() as conn:
+        conn.execute(
+            "UPDATE trainer_mandanten SET aktiv=0 "
+            "WHERE benutzer_id=? AND verein_id=?",
+            (benutzer_id, verein_id),
+        )
+        # Sessions ungültig machen: session_token_version inkrementieren.
+        # Das laufende per-Rerun-Token-Check (session_token_aktiv) erkennt die
+        # Versionsabweichung und leitet zum Login weiter — kein Zugriff mehr auf
+        # den entzogenen Mandanten. Betrifft alle Sitzungen des Benutzers.
+        try:
+            conn.execute(
+                "UPDATE benutzer SET session_token_version = "
+                "COALESCE(session_token_version, 0) + 1 "
+                "WHERE id=?",
+                (benutzer_id,),
+            )
+        except Exception:
+            pass  # Spalte evtl. noch nicht vorhanden — kein Blocker
+
+
+def trainer_mandanten_fuer_verein(verein_id: int) -> list[dict]:
+    """Gibt alle aktiven Trainer eines Vereins mit Mandanten-Metadaten zurück."""
+    try:
+        with get_conn() as conn:
+            rows = conn.execute("""
+                SELECT tm.id, tm.benutzer_id,
+                       b.vorname, b.nachname, b.email,
+                       b.rolle, b.aktiv AS benutzer_aktiv,
+                       b.letzter_login, tm.rolle_im_verein,
+                       tm.aktiv, tm.beigetreten_am, b.foto_blob
+                FROM trainer_mandanten tm
+                JOIN benutzer b ON b.id = tm.benutzer_id
+                WHERE tm.verein_id = ? AND tm.aktiv = 1
+                ORDER BY b.nachname, b.vorname
+            """, (verein_id,)).fetchall()
+            return [
+                {
+                    "id":              r[0],
+                    "benutzer_id":     r[1],
+                    "vorname":         r[2],
+                    "nachname":        r[3],
+                    "email":           r[4],
+                    "rolle":           r[5],
+                    "benutzer_aktiv":  r[6],
+                    "letzter_login":   r[7],
+                    "rolle_im_verein": r[8],
+                    "aktiv":           r[9],
+                    "beigetreten_am":  r[10],
+                    "foto_blob":       r[11],
+                }
+                for r in rows
+            ]
+    except Exception:
+        return []
+
+
+def alle_trainer_mit_mandanten() -> list[dict]:
+    """Superadmin-Übersicht: alle Trainer mit Mandanten-Anzahl und Liste."""
+    try:
+        with get_conn() as conn:
+            rows = conn.execute("""
+                SELECT b.id, b.vorname, b.nachname, b.email,
+                       b.rolle, b.aktiv, b.letzter_login, b.foto_blob,
+                       COUNT(tm.id) AS mandant_count,
+                       GROUP_CONCAT(v.name, ' | ') AS mandanten_namen
+                FROM benutzer b
+                LEFT JOIN trainer_mandanten tm
+                       ON tm.benutzer_id = b.id AND tm.aktiv = 1
+                LEFT JOIN vereine v ON v.id = tm.verein_id
+                WHERE b.rolle IN ('Trainer', 'Vereinsadmin')
+                GROUP BY b.id
+                ORDER BY b.nachname, b.vorname
+            """).fetchall()
+            return [
+                {
+                    "id":              r[0],
+                    "vorname":         r[1],
+                    "nachname":        r[2],
+                    "email":           r[3],
+                    "rolle":           r[4],
+                    "aktiv":           r[5],
+                    "letzter_login":   r[6],
+                    "foto_blob":       r[7],
+                    "mandant_count":   r[8] or 0,
+                    "mandanten_namen": r[9] or "",
+                }
+                for r in rows
+            ]
+    except Exception:
+        return []
+
+
+def benutzer_email_existiert(email: str) -> bool:
+    """Prüft ob eine E-Mail-Adresse bereits in benutzer registriert ist."""
+    email_norm = normalize_email(email)
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT id FROM benutzer WHERE LOWER(email)=?", (email_norm,)
+        ).fetchone()
+        return row is not None
 
 
 # --------------------------------------------------------------------------
@@ -3682,7 +3950,18 @@ def trainer_verein_beitreten(
                 (verein_id, vorname, nachname, email_norm,
                  _pw_hash(passwort), benutzername),
             )
-            return cur.lastrowid
+            new_bid = cur.lastrowid
+            # Trainer-Mandanten-Eintrag anlegen (Mehrfachmandanten-Architektur)
+            try:
+                conn.execute(
+                    "INSERT OR IGNORE INTO trainer_mandanten "
+                    "(benutzer_id, verein_id, rolle_im_verein, aktiv) "
+                    "VALUES (?, ?, 'Trainer', 1)",
+                    (new_bid, verein_id),
+                )
+            except Exception:
+                pass  # trainer_mandanten noch nicht migriert — kein Blocker
+            return new_bid
         except _sqlite3.IntegrityError as e:
             msg = str(e)
             if "UNIQUE" in msg and "email" in msg:
@@ -3718,7 +3997,20 @@ def benutzer_speichern(
                 VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?)
             """, (verein_id, vorname, nachname, email_norm,
                   _pw_hash(passwort), rolle, benutzername, email_verifiziert))
-            return cur.lastrowid
+            new_bid = cur.lastrowid
+            # Atomares trainer_mandanten-Insert: Trainer/Vereinsadmin mit verein_id
+            # werden sofort sichtbar ohne Init-Db-Neustart zu benötigen.
+            if verein_id and rolle in ("Trainer", "Vereinsadmin"):
+                try:
+                    conn.execute(
+                        "INSERT OR IGNORE INTO trainer_mandanten "
+                        "(benutzer_id, verein_id, rolle_im_verein, aktiv) "
+                        "VALUES (?, ?, ?, 1)",
+                        (new_bid, verein_id, rolle),
+                    )
+                except Exception:
+                    pass  # trainer_mandanten noch nicht angelegt — kein Blocker
+            return new_bid
         except _sqlite3.IntegrityError as e:
             msg = str(e)
             if "UNIQUE" in msg and "email" in msg:

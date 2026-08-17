@@ -1139,6 +1139,19 @@ if "user" not in st.session_state:
                                     trainer_verein_beitreten as _tvb,
                                     email_token_erzeugen as _ete_bj,
                                 )
+                                # E-Mail-Existenz-Check: Hinweis statt Fehlermeldung
+                                from database import (
+                                    benutzer_email_existiert as _bee,
+                                )
+                                if _bee(_bj_email.strip()):
+                                    st.info(
+                                        "ℹ️ **Ein Konto mit dieser E-Mail-Adresse existiert bereits.** "
+                                        "Bitte melde dich zuerst an. Mehrere Vereinsmitgliedschaften "
+                                        "können nach dem Login in deinem Profil unter "
+                                        "**Meine Vereine** verwaltet werden.",
+                                        icon="ℹ️",
+                                    )
+                                    st.stop()
                                 _bj_verein = _vbrc(_bj_code.strip())
                                 if _bj_verein is None:
                                     st.error("❌ Der Beitrittscode ist ungültig.")
@@ -1517,6 +1530,66 @@ if _rerun_token:
 # ─── Lizenz-Gate: Abgelaufene oder gesperrte Lizenzen blockieren ─────────────
 from license import enforce_license_gate
 enforce_license_gate()
+
+# ─── Mehrfachmandanten-Auswahl ────────────────────────────────────────────────
+# Trainern, die mehreren Vereinen angehören, wird nach dem Login eine
+# Auswahlseite gezeigt. Superadmins und Vereinsadmins überspringen diesen Schritt.
+# Einmal gewählt, wird die Auswahl im session_state gespeichert.
+# Ein "Mandant wechseln"-Link in der Sidebar setzt _mandant_gewaehlt zurück.
+_ma_user = st.session_state.get("user", {})
+if (
+    _ma_user.get("rolle") == "Trainer"
+    and not st.session_state.get("_mandant_gewaehlt")
+):
+    try:
+        from database import trainer_mandanten_fuer_benutzer as _tmfb_ma
+        _ma_mandanten = _tmfb_ma(_ma_user["id"])
+        # Nur echte Vereine (keine technischen Mandanten) zählen
+        _ma_echte = [m for m in _ma_mandanten if not m.get("ist_technischer_mandant")]
+        if len(_ma_echte) > 1:
+            # Auswahlscreen: Trainer wählt seinen aktiven Mandanten
+            st.markdown(
+                '<div style="max-width:580px;margin:60px auto">'
+                '<h2 style="color:#e6edf3;margin-bottom:4px">🏢 Mandant auswählen</h2>'
+                '<p style="color:#8b949e;font-size:13px;margin-bottom:24px">'
+                'Du bist mehreren Vereinen zugeordnet. '
+                'Wähle aus, für welchen Verein du jetzt arbeiten möchtest.</p>',
+                unsafe_allow_html=True,
+            )
+            for _mopt in _ma_echte:
+                _ma_col1, _ma_col2 = st.columns([4, 1])
+                _ma_col1.markdown(
+                    f'<div style="padding:8px 0">'
+                    f'<span style="font-size:15px;font-weight:700;color:#e6edf3">'
+                    f'🏢 {_mopt["verein_name"]}</span><br>'
+                    f'<span style="font-size:11px;color:#8b949e">'
+                    f'Rolle: {_mopt["rolle_im_verein"]} · '
+                    f'Mitglied seit: {_mopt["beigetreten_am"] or "—"}</span>'
+                    f'</div>',
+                    unsafe_allow_html=True,
+                )
+                if _ma_col2.button(
+                    "✅ Auswählen",
+                    key=f"_ma_sel_{_mopt['verein_id']}",
+                    use_container_width=True,
+                    type="primary",
+                ):
+                    st.session_state["user"]["verein_id"] = _mopt["verein_id"]
+                    st.session_state["user"]["verein_name"] = _mopt["verein_name"]
+                    st.session_state["_mandant_gewaehlt"] = True
+                    st.session_state["_aktiver_mandant_id"] = _mopt["verein_id"]
+                    st.rerun()
+            st.markdown("</div>", unsafe_allow_html=True)
+            st.stop()
+        elif len(_ma_echte) == 1:
+            # Nur ein echter Mandant → direkt setzen, kein Auswahlscreen
+            st.session_state["user"]["verein_id"] = _ma_echte[0]["verein_id"]
+            st.session_state["user"]["verein_name"] = _ma_echte[0]["verein_name"]
+            st.session_state["_aktiver_mandant_id"] = _ma_echte[0]["verein_id"]
+        st.session_state["_mandant_gewaehlt"] = True
+    except Exception:
+        # Fehler in der Mandantenabfrage darf Login/App nicht blockieren
+        st.session_state["_mandant_gewaehlt"] = True
 
 # ─── Startup-Gate: Zweckbestimmung muss bestätigt werden ─────────────────────
 if not _zweck_bestaetigt():
@@ -2651,11 +2724,28 @@ def _render_inline_edit_form(sp: dict) -> None:
         _e_verein_name = _za1.selectbox("Verein", _verein_opts, index=_verein_idx, key=f"il_verein_{_sid}")
         _e_verein_id   = _verein_ids[_verein_opts.index(_e_verein_name)]
 
-        # Trainer laden — gefiltert nach gewähltem Verein (oder alle bei Superadmin ohne Auswahl)
+        # Trainer laden — über trainer_mandanten_fuer_verein() um Mehrfachmandanten zu erfassen.
+        # Für Vereinsadmin: nur Trainer des eigenen Vereins; für Superadmin: alle aktiven Trainer
+        # im gewählten Verein. benutzer.verein_id ist kein Autorisierungsfeld mehr.
         _alle_benutzer = benutzer_laden()
-        _trainer_pool  = [b for b in _alle_benutzer if b.get("rolle") == "Trainer"]
         if _e_verein_id is not None:
-            _trainer_pool = [b for b in _trainer_pool if b.get("verein_id") == _e_verein_id]
+            try:
+                _tm_v = trainer_mandanten_fuer_verein(_e_verein_id)
+                _tm_bids = {t["benutzer_id"] for t in _tm_v}
+            except Exception:
+                _tm_bids = None  # Fallback auf Legacy
+            if _tm_bids is not None:
+                _trainer_pool = [
+                    b for b in _alle_benutzer
+                    if b.get("rolle") == "Trainer" and b["id"] in _tm_bids
+                ]
+            else:
+                _trainer_pool = [
+                    b for b in _alle_benutzer
+                    if b.get("rolle") == "Trainer" and b.get("verein_id") == _e_verein_id
+                ]
+        else:
+            _trainer_pool = [b for b in _alle_benutzer if b.get("rolle") == "Trainer"]
 
         _trainer_opts  = ["— kein Trainer —"] + [
             f"{b['vorname']} {b['nachname']}".strip() for b in _trainer_pool
@@ -2955,14 +3045,34 @@ def page_spieler():
                 )
                 _za_sel_vid = _za_v_ids[_za_v_opts.index(_za_verein_name)]
 
-                # Trainer aus dem gewählten Verein
+                # Trainer aus dem gewählten Verein — über trainer_mandanten_fuer_verein()
+                # damit Mehrfachmandanten-Trainer im zweiten Verein sichtbar sind.
                 _za_alle_benutzer = benutzer_laden()
-                _za_trainer_pool  = [
-                    b for b in _za_alle_benutzer
-                    if b.get("rolle") == "Trainer"
-                    and b.get("aktiv", 1)
-                    and (_za_sel_vid is None or b.get("verein_id") == _za_sel_vid)
-                ]
+                if _za_sel_vid is not None:
+                    try:
+                        _za_tm_v = trainer_mandanten_fuer_verein(_za_sel_vid)
+                        _za_tm_bids = {t["benutzer_id"] for t in _za_tm_v}
+                    except Exception:
+                        _za_tm_bids = None
+                    if _za_tm_bids is not None:
+                        _za_trainer_pool = [
+                            b for b in _za_alle_benutzer
+                            if b.get("rolle") == "Trainer"
+                            and b.get("aktiv", 1)
+                            and b["id"] in _za_tm_bids
+                        ]
+                    else:
+                        _za_trainer_pool = [
+                            b for b in _za_alle_benutzer
+                            if b.get("rolle") == "Trainer"
+                            and b.get("aktiv", 1)
+                            and b.get("verein_id") == _za_sel_vid
+                        ]
+                else:
+                    _za_trainer_pool  = [
+                        b for b in _za_alle_benutzer
+                        if b.get("rolle") == "Trainer" and b.get("aktiv", 1)
+                    ]
                 _za_t_opts = ["— kein Trainer —"] + [
                     f"{b['vorname']} {b['nachname']} (ID {b['id']})".strip()
                     for b in _za_trainer_pool
@@ -11258,6 +11368,28 @@ with st.sidebar:
         f'</div>',
         unsafe_allow_html=True,
     )
+    # Mandant-wechseln (nur für Trainer mit mehreren Mandanten)
+    if (
+        _sb_rolle == "Trainer"
+        and st.session_state.get("_aktiver_mandant_id")
+        and st.session_state.get("_mandant_gewaehlt")
+    ):
+        try:
+            from database import trainer_mandanten_fuer_benutzer as _tmfb_sb
+            _sb_mandanten = _tmfb_sb(_sb_user["id"])
+            _sb_echte = [m for m in _sb_mandanten if not m.get("ist_technischer_mandant")]
+            if len(_sb_echte) > 1:
+                if st.button(
+                    "🔀 Mandant wechseln",
+                    key="mandant_wechseln_btn",
+                    use_container_width=True,
+                ):
+                    st.session_state.pop("_mandant_gewaehlt", None)
+                    st.session_state.pop("_aktiver_mandant_id", None)
+                    st.rerun()
+        except Exception:
+            pass
+
     if st.button("🚪 Abmelden", key="logout_btn", use_container_width=True):
         # DB-Session beenden
         _logout_token = st.session_state.get("_session_token")
