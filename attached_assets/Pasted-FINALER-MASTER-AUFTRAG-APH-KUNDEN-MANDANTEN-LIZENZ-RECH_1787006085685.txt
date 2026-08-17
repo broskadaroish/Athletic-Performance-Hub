@@ -1,0 +1,758 @@
+FINALER MASTER-AUFTRAG – APH KUNDEN-/MANDANTEN-/LIZENZ-/RECHNUNGSVERWALTUNG VEREINHEITLICHEN
+
+WICHTIG:
+Produktivsystem.
+Keine bestehenden Kunden, Benutzer, Vereine, Spieler, Tests, Trainingspläne,
+Lizenzen, Stripe-Zuordnungen oder Rechnungsdaten löschen.
+
+Keine Preise ändern.
+Keine Stripe-Price-IDs ändern.
+Keine Paketdefinitionen ändern.
+Keine bestehende Checkout-/Subscription-/Webhook-Logik ersetzen.
+
+ZUERST IST-ZUSTAND PRÜFEN, DANN MINIMAL UND KONSISTENT UMBAUEN.
+
+==================================================
+1. ZIELMODELL
+==================================================
+
+APH soll klar unterscheiden zwischen:
+
+KUNDE
+→ Vertragspartner
+→ entweder:
+   A) Verein
+   B) Einzeltrainer
+
+BENUTZER
+→ Login-Person
+→ Rolle:
+   Superadmin
+   Vereinsadmin
+   Trainer
+
+LIZENZ
+→ gehört zum KUNDEN/MANDANTEN
+→ NICHT zum einzelnen Benutzer
+
+SPIELER
+→ gehört zum KUNDEN/MANDANTEN
+→ NICHT zum Trainer
+
+TRAINER
+→ Benutzer mit Zugriff auf einen oder mehrere Mandanten
+
+==================================================
+2. BESTEHENDE PAKETE UNVERÄNDERT ERHALTEN
+==================================================
+
+Vorhandene Pakete bleiben exakt erhalten:
+
+TRAINER_BASIC
+9,99 €/Monat
+99 €/Jahr
+1 Trainer
+20 Spieler
+
+TRAINER_PRO
+14,99 €/Monat
+149 €/Jahr
+1 Trainer
+unbegrenzt Spieler
+
+VEREIN_BASIC
+24,99 €/Monat
+249 €/Jahr
+2 Trainer
+50 Spieler
+
+VEREIN_PRO
+39,99 €/Monat
+399 €/Jahr
+15 Trainer
+unbegrenzt Spieler
+
+Keine Änderungen an:
+- Preisen
+- Limits
+- Paketnamen/Keys
+- STRIPE_PRICES
+- Price-IDs
+- normalize_lizenz_typ()
+- Testphase 30 Tage
+
+==================================================
+3. STRIPE UNVERÄNDERT WEITERVERWENDEN
+==================================================
+
+Vorhandene Stripe-Logik erhalten:
+
+- checkout.session.completed
+- invoice.payment_succeeded
+- invoice.payment_failed
+- customer.subscription.deleted
+- customer.subscription.updated
+- Billing Portal
+- Kündigung
+- Reaktivierung
+- Zahlungsstatus
+- Webhook-Fehlerlog
+
+Stripe bleibt Source of Truth für:
+- Zahlung
+- Subscription
+- Stripe Invoice
+
+APH speichert/zeigt nur die zugehörigen Daten.
+
+==================================================
+4. KUNDENVERWALTUNG – NUR VERTRAGSPARTNER
+==================================================
+
+Kundenverwaltung soll künftig ausschließlich Vertragspartner zeigen:
+
+A) Vereinskunden
+B) Einzeltrainer-Kunden
+
+NICHT:
+normale Vereinstrainer als eigene Kunden.
+
+Beispiel:
+
+FC Musterstadt
+Typ: Verein
+Kundennummer
+Lizenz
+Zahlungsstatus
+Kontakt
+Status
+
+Bruce Daroish
+Typ: Einzeltrainer
+Kundennummer
+Lizenz
+Zahlungsstatus
+Kontakt
+Status
+
+Ein Trainer, der nur einem Verein angehört:
+→ NICHT zusätzlich in Kundenverwaltung anzeigen.
+
+==================================================
+5. LIZENZVERWALTUNG – NUR VERTRÄGE/LIZENZEN
+==================================================
+
+Lizenzverwaltung soll nur Lizenz-/Abo-Themen enthalten:
+
+- Kunde
+- Kundentyp
+- Paket
+- Testphase
+- Lizenzstatus
+- Beginn
+- Ablauf
+- Abrechnungsintervall
+- Zahlungsstatus
+- Stripe Customer ID Status
+- Stripe Subscription Status
+- kündigen
+- reaktivieren
+- manuell sperren/freigeben
+- Paketwechsel soweit bereits vorhanden
+
+Keine Benutzer-/Trainerverwaltung dort.
+
+==================================================
+6. VEREINSVERWALTUNG – ORGANISATION
+==================================================
+
+Vereinsverwaltung zeigt:
+
+Verein
+→ Stammdaten
+→ Vereinsadmins
+→ Trainer
+→ Spieler
+→ Mannschaften
+→ Aktivität
+
+Lizenzinformationen dürfen angezeigt werden,
+aber Bearbeitung erfolgt primär in Lizenzverwaltung.
+
+==================================================
+7. TRAINERPORTAL – BENUTZER / TRAINER
+==================================================
+
+Trainerportal zeigt alle Trainer-Benutzer:
+
+- Einzeltrainer
+- Vereinsadmins
+- Vereinstrainer
+
+Mit:
+- Name
+- Rolle
+- Mandant(en)
+- Aktiv/gesperrt
+- Spielerzuweisungen
+- letzter Login
+
+NICHT:
+Lizenz als Trainer-Eigenschaft darstellen,
+wenn Trainer nur Vereinstrainer ist.
+
+==================================================
+8. BENUTZERVERWALTUNG ENTFLÄCHTEN
+==================================================
+
+Aktuelle Benutzerverwaltung zuerst prüfen.
+
+Identifizieren:
+- welche Funktionen gibt es ausschließlich dort?
+- Rollen ändern?
+- Benutzer anlegen?
+- deaktivieren?
+- Passwort?
+- Vereinszuordnung?
+
+Diese Funktionen sinnvoll verteilen:
+
+Trainerfunktionen
+→ Trainerportal
+
+Vereinsadmin-Funktionen
+→ Vereinsverwaltung
+
+Globale Kontosperre
+→ Superadmin
+
+Erst wenn alle Funktionen übernommen sind:
+separaten Menüpunkt „Benutzerverwaltung“ entfernen.
+
+NICHT vorher löschen.
+
+==================================================
+9. ROLLENRECHTE
+==================================================
+
+SUPERADMIN:
+- sieht alle Kunden
+- alle Lizenzen
+- alle Vereine
+- alle Trainer
+- globale Sperre
+- Kundennummern
+- Rechnungen
+- Zahlungsstatus
+
+VEREINSADMIN:
+- nur eigener Verein
+- Trainer verwalten
+- Spieler verwalten
+- Mannschaften
+- Spielerzuweisungen
+- Beitrittscode
+- eigene Vertrags-/Rechnungsdaten sehen
+- keine globalen Kunden
+
+TRAINER:
+- nur aktive Mandanten
+- nur zugewiesene Mannschaften/Spieler
+- Tests
+- Trainingspläne
+- Spieler bearbeiten
+- keine Trainerverwaltung
+- keine Rechnungen
+- keine Lizenzverwaltung
+
+==================================================
+10. SPIELERMODELL – MODELL B
+==================================================
+
+Spieler gehören dem Kunden/Mandanten.
+
+Verein:
+→ Spieler gehören dem Verein
+
+Einzeltrainer:
+→ Spieler gehören dem Einzeltrainer-Mandanten
+
+Trainer erhalten nur Zugriff.
+
+Wenn Trainer Verein verlässt:
+- Spieler bleiben beim Verein
+- Tests bleiben
+- Trainingspläne bleiben
+- Historie bleibt
+- nur Trainerzugriff entfernen
+
+==================================================
+11. TRAINER SIEHT NUR ZUGEWIESENE SPIELER
+==================================================
+
+Variante A verbindlich:
+
+Normaler Vereinstrainer:
+→ sieht nur explizit zugewiesene Spieler/Mannschaften.
+
+Nicht zugewiesene Spieler:
+→ nicht sichtbar.
+
+Vereinsadmin:
+→ sieht alle Spieler des eigenen Vereins.
+
+Superadmin:
+→ sieht alles.
+
+==================================================
+12. MEHRFACHMANDANTEN
+==================================================
+
+Ein Benutzerkonto = eine Person.
+
+Ein Trainer kann:
+
+- eigenen Einzeltrainer-Mandanten haben
+- Verein A angehören
+- Verein B angehören
+
+Keine drei Benutzerkonten erzeugen.
+
+Nach Login:
+Arbeitsbereich/Mandant auswählen.
+
+Beispiel:
+
+Arbeitsbereich:
+- Eigener Trainerbereich
+- FC Musterstadt
+- SV Beispiel
+
+Alle Daten strikt nach aktivem Mandanten filtern.
+
+==================================================
+13. TRAINER-BEITRITTSCODE
+==================================================
+
+Wenn Trainer noch keinen APH-Account hat:
+→ normales Beitrittsformular
+→ Konto anlegen
+→ E-Mail verifizieren
+→ Vereinszuordnung pending
+→ Vereinsadmin freischaltet
+
+Wenn E-Mail bereits existiert:
+KEIN zweites Konto anlegen.
+
+Anzeige:
+
+„Dieses Konto existiert bereits.
+Bitte melde dich an, um dem Verein beizutreten.“
+
+Nach Login:
+→ neue Mandantenzuordnung anlegen
+
+Keine neue Lizenz.
+Keine neue Kundennummer.
+Kein technischer Mandant.
+
+==================================================
+14. TRAINER VERLÄSST VEREIN
+==================================================
+
+Nicht Benutzer löschen.
+
+Nur Mandantenzuordnung deaktivieren/entfernen.
+
+Andere Mandanten bleiben erhalten.
+
+Einzeltrainerbereich bleibt erhalten.
+
+==================================================
+15. KÜNDIGUNG
+==================================================
+
+Verein kündigt:
+→ nur Vereinsmandant/Lizenz endet
+→ Trainerkonten bleiben technisch bestehen
+→ Zugriff auf diesen Mandanten endet
+→ andere Mandanten bleiben aktiv
+
+Einzeltrainer kündigt:
+→ nur Einzeltrainer-Mandant endet
+→ Vereinszugänge bleiben aktiv
+
+Globale Benutzersperre:
+→ nur Superadmin
+→ sperrt gesamten Benutzer über alle Mandanten
+
+==================================================
+16. RECHNUNGSMODUL
+==================================================
+
+Bestehende Tabellen/Funktionen verwenden:
+
+rechnungen
+rechnung_speichern()
+rechnungen_laden()
+rechnungsadressen
+stripe_invoice_id
+
+Kein zweites unabhängiges Rechnungssystem bauen.
+
+Stripe Invoice bleibt Source of Truth.
+
+Bei:
+
+invoice.payment_succeeded
+
+prüfen/ergänzen:
+
+- Stripe Invoice ID
+- Betrag
+- Status bezahlt
+- Rechnungsdatum
+- Paket
+- Leistungszeitraum
+- Kunde/Mandant
+
+→ idempotent in APH rechnungen speichern/aktualisieren
+
+Bei:
+
+invoice.payment_failed
+
+→ Zahlungsstatus aktualisieren
+→ Rechnung ggf. status fehlgeschlagen/offen aktualisieren
+
+Doppelte Stripe-Events dürfen keine doppelten Rechnungen erzeugen.
+
+==================================================
+17. RECHNUNGEN & ZAHLUNGEN – KUNDENANSICHT
+==================================================
+
+Unter:
+
+Mein Vertrag
+
+neuer Abschnitt:
+
+„Rechnungen & Zahlungen“
+
+Anzeigen:
+
+- Rechnungsnummer
+- Rechnungsdatum
+- Paket
+- Leistungszeitraum
+- Betrag
+- Zahlungsstatus
+- Stripe Invoice ID intern
+- Download / gehostete Rechnung
+
+Vereinskunde:
+→ nur Vereinsadmin
+
+Einzeltrainer:
+→ Einzeltrainer selbst
+
+Normaler Vereinstrainer:
+→ kein Zugriff
+
+==================================================
+18. RECHNUNG DOWNLOAD
+==================================================
+
+Wenn Stripe:
+- invoice_pdf
+oder
+- hosted_invoice_url
+
+vorhanden:
+
+Button:
+„Rechnung herunterladen“
+bzw.
+„Rechnung öffnen“
+
+Keine eigene zweite PDF-Rechnung erzeugen,
+solange Stripe bereits eine gültige Rechnung bereitstellt.
+
+==================================================
+19. RECHNUNG PER E-MAIL
+==================================================
+
+Prüfen, ob Stripe die Rechnungs-E-Mail bereits verschickt.
+
+Bevorzugt:
+Stripe übernimmt Rechnungsversand.
+
+APH optional:
+zusätzliche Benachrichtigung:
+
+„Ihre Rechnung ist verfügbar.“
+
+NICHT zwei unterschiedliche Rechnungs-PDFs verschicken.
+
+Rechnungs-E-Mail:
+aus rechnungsadressen.rechnung_email.
+
+==================================================
+20. SUPERADMIN RECHNUNGEN
+==================================================
+
+Kundenverwaltung Detail:
+
+neuer Tab/Bereich:
+
+Abrechnung
+
+Dort:
+
+- Lizenz
+- Zahlungen
+- Rechnungen
+- Zahlungsprobleme
+- Stripe Customer
+- Subscription
+- Rechnungsadresse
+
+Superadmin kann Rechnungsdaten einsehen.
+
+==================================================
+21. RECHNUNGSNUMMER
+==================================================
+
+Prüfen, ob Stripe-Rechnungsnummer vorhanden ist.
+
+Wenn ja:
+Stripe Invoice Number verwenden.
+
+Keine parallele APH-Rechnungsnummer generieren,
+wenn Stripe bereits eine offizielle Rechnungsnummer stellt.
+
+Wenn Stripe keine Nummer liefert:
+bestehende APH-Logik prüfen.
+
+Nicht zwei Rechnungsnummern für dieselbe Rechnung.
+
+==================================================
+22. BESTEHENDE RECHNUNGSTABELLE
+==================================================
+
+Aktuell vorhanden:
+
+id
+verein_id
+rechnungsnummer
+rechnungsdatum
+betrag_eur
+lizenz_typ
+status
+lizenz_von
+lizenz_bis_r
+stripe_invoice_id
+erstellt_am
+
+Prüfen, ob minimal ergänzt werden muss für:
+
+hosted_invoice_url
+invoice_pdf
+currency
+paid_at
+
+Nur wenn wirklich nötig.
+
+Migration:
+idempotent
+kein Datenverlust.
+
+==================================================
+23. TECHNISCHER MANDANT – LEGACY
+==================================================
+
+Bestehende technische Trainer-Mandanten nicht sofort löschen.
+
+Zuerst analysieren:
+
+- welche Einzeltrainer hängen daran?
+- welche Lizenz-/Stripe-Daten?
+- welche Spieler?
+- welche Tests?
+
+Legacy-Struktur kompatibel halten.
+
+Migration nur kontrolliert.
+
+==================================================
+24. BESTEHENDE DATEN MIGRIEREN
+==================================================
+
+Vor Migration:
+
+Backup-Pflicht.
+
+Migration idempotent.
+
+Bestehende:
+
+- Kunden
+- Vereine
+- Trainer
+- Spieler
+- Tests
+- Trainingspläne
+- Stripe IDs
+- Lizenzen
+- Testphasen
+- Kundennummern
+- Rechnungsadressen
+
+müssen vollständig erhalten bleiben.
+
+==================================================
+25. KEINE ÄNDERUNG AN
+==================================================
+
+Nicht verändern:
+
+- Testmodule
+- Normen
+- Alterslogik
+- Saisonlogik
+- Trainingsplanlogik
+- Equipment
+- Session
+- Mobile Navigation
+- Upload
+- Passwort
+- E-Mail-Verifikation
+
+==================================================
+26. TESTFÄLLE
+==================================================
+
+A)
+Verein registriert
+→ ein Kunde
+→ eine Lizenz
+→ Vereinsadmin Benutzer
+
+B)
+Vereinstrainer
+→ kein eigener Kunde
+→ keine eigene Lizenz
+
+C)
+Einzeltrainer
+→ eigener Kunde
+→ eigene Lizenz
+
+D)
+Einzeltrainer + Verein
+→ ein Benutzer
+→ zwei Mandanten
+
+E)
+Trainer in Verein A + Verein B
+→ ein Benutzer
+→ getrennte Daten
+
+F)
+Trainer verlässt Verein
+→ Spieler bleiben
+
+G)
+Vereinsadmin sieht alle Vereinsspieler
+
+H)
+Trainer sieht nur zugewiesene Spieler
+
+I)
+bestehende E-Mail + Beitrittscode
+→ kein Doppelaccount
+
+J)
+Stripe Checkout
+→ unverändert
+
+K)
+invoice.payment_succeeded
+→ Rechnung einmal gespeichert
+
+L)
+Webhook doppelt
+→ keine doppelte Rechnung
+
+M)
+invoice.payment_failed
+→ Status korrekt
+
+N)
+Vereinsadmin sieht Rechnungen
+
+O)
+Vereinstrainer sieht keine Rechnungen
+
+P)
+Einzeltrainer sieht eigene Rechnungen
+
+Q)
+Kündigung eines Mandanten beeinflusst andere Mandanten nicht
+
+==================================================
+27. REGRESSIONSTESTS
+==================================================
+
+Alle bestehenden Tests:
+
+- Block-B
+- Session
+- Saison
+- U-Logik
+- Alter-am-Testtag
+- Spieler löschen
+- Lizenztests
+
+Zusätzlich neue Tests für:
+
+- Kunde vs Benutzer
+- Mandantenzuordnung
+- Mehrfachmandanten
+- Spielerrechte
+- Rechnungen
+- Stripe-Webhook-Idempotenz
+- Beitritt mit bestehender E-Mail
+
+==================================================
+28. ABSCHLUSSBERICHT
+==================================================
+
+Bitte exakt berichten:
+
+1. aktuelle Datenstruktur vor Umbau
+2. neue fachliche Struktur
+3. welche Tabellen/Felder neu/angepasst
+4. Migration bestehender Kunden
+5. Migration Trainer
+6. Spielerzuordnung
+7. Mehrfachmandanten
+8. Rollenrechte
+9. Kundenverwaltung
+10. Lizenzverwaltung
+11. Vereinsverwaltung
+12. Trainerportal
+13. Benutzerverwaltung – entfernt/ersetzt?
+14. Beitrittscode
+15. bestehende Stripe-Logik
+16. Rechnungs-Webhook
+17. Rechnungsansicht
+18. Rechnungs-E-Mail
+19. geänderte Dateien
+20. DB-Migration
+21. Testergebnisse
+22. offene Risiken
+
+DANACH STOPPEN.
+
+NICHT DEPLOYEN.
