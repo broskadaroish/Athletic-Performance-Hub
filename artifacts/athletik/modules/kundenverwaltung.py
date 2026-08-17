@@ -24,6 +24,7 @@ from database import (
     kunde_zusammenfassung_laden,
     kunde_loeschen,
     db_backup_erstellen,
+    rechnungen_laden,
 )
 from license import LIZENZ_TYPEN, FEATURE_LABELS
 
@@ -688,6 +689,104 @@ def _detail_e_stripe(daten: dict) -> None:
             )
 
 
+def _detail_f_abrechnung(daten: dict) -> None:
+    """Section F: Abrechnung — Rechnungsliste + Zahlungsübersicht (Superadmin).
+
+    Zeigt alle Rechnungen des Kunden mit Stripe-URLs (PDF, Hosted Invoice),
+    Betrag, Zahlungsstatus und Leistungszeitraum.
+    Nur für Vereinskunden und Einzeltrainer-Kunden mit verein_id.
+    """
+    b = daten.get("benutzer") or {}
+    v = daten.get("verein") or {}
+    # verein_id: Echter Verein oder technischer Mandant (Einzeltrainer)
+    vid = v.get("id") if v else None
+    if not vid:
+        # Standalone-Trainer ohne verein_id: noch keine Rechnungen möglich
+        return
+
+    try:
+        rechnungen = rechnungen_laden(vid)
+    except Exception as _ex:
+        rechnungen = []
+
+    _STATUS_COL = {
+        "bezahlt":       ("#238636", "✅ Bezahlt"),
+        "offen":         ("#d29922", "⏳ Offen"),
+        "fehlgeschlagen":("#da3633", "❌ Fehlgeschlagen"),
+        "storniert":     ("#6e7681", "🚫 Storniert"),
+    }
+
+    def _kuerz_url(s: str) -> str:
+        return (s[:40] + "…") if len(s) > 40 else s
+
+    with st.expander(
+        f"**F — Abrechnung** ({len(rechnungen)} Rechnungen)",
+        expanded=False,
+    ):
+        # ── Stripe-Kurzinfos oben ─────────────────────────────────────────────
+        cid = v.get("stripe_customer_id") or ""
+        sid = v.get("stripe_subscription_id") or ""
+        zst = v.get("zahlungsstatus") or "—"
+        _zc = "#f85149" if zst == "fehlgeschlagen" else "#3fb950" if zst == "bezahlt" else "#8b949e"
+        c1, c2, c3 = st.columns(3)
+        c1.markdown(
+            f"**Customer-ID:** `{(cid[:14] + '…') if len(cid) > 14 else (cid or '—')}`"
+        )
+        c2.markdown(
+            f"**Subscription-ID:** `{(sid[:14] + '…') if len(sid) > 14 else (sid or '—')}`"
+        )
+        c3.markdown(
+            f"**Zahlungsstatus:** <span style='color:{_zc};font-weight:700'>{zst}</span>",
+            unsafe_allow_html=True,
+        )
+
+        st.markdown("---")
+
+        if not rechnungen:
+            st.info("Noch keine Rechnungen vorhanden.")
+        else:
+            for _r in rechnungen:
+                _rn   = _r.get("rechnungsnummer") or "—"
+                _dat  = (_r.get("rechnungsdatum") or "—")[:10]
+                _bet  = _r.get("betrag_eur")
+                _bets = f"{float(_bet):,.2f} €".replace(",","X").replace(".",",").replace("X",".") if _bet is not None else "—"
+                _cur  = (_r.get("currency") or "EUR").upper()
+                _pak  = _r.get("lizenz_typ") or "—"
+                _st   = _r.get("status") or "offen"
+                _von  = (_r.get("lizenz_von") or "—")[:10]
+                _bis  = (_r.get("lizenz_bis_r") or "—")[:10]
+                _url  = _r.get("hosted_invoice_url") or ""
+                _pdf  = _r.get("invoice_pdf") or ""
+                _sid  = _r.get("stripe_invoice_id") or ""
+                _sc, _sl = _STATUS_COL.get(_st, ("#6e7681", _st))
+
+                st.markdown(
+                    f'<div style="border:1px solid #30363d;border-radius:6px;'
+                    f'padding:10px 14px;margin:5px 0;background:#0d1117">'
+                    f'<div style="display:flex;justify-content:space-between;'
+                    f'align-items:center;flex-wrap:wrap;gap:6px">'
+                    f'<span style="font-weight:700;color:#e6edf3">{_rn}</span>'
+                    f'<span style="background:{_sc}22;color:{_sc};border:1px solid {_sc}55;'
+                    f'border-radius:10px;padding:2px 10px;font-size:11px;font-weight:700">{_sl}</span>'
+                    f'</div>'
+                    f'<div style="margin-top:5px;font-size:12px;color:#8b949e;line-height:1.7">'
+                    f'Datum: <span style="color:#e6edf3">{_dat}</span> &nbsp;·&nbsp; '
+                    f'Betrag: <span style="color:#e6edf3">{_bets} {_cur}</span> &nbsp;·&nbsp; '
+                    f'Paket: <span style="color:#e6edf3">{_pak}</span>'
+                    f'<br>Zeitraum: <span style="color:#e6edf3">{_von} – {_bis}</span>'
+                    + (f' &nbsp;·&nbsp; Stripe-ID: <code style="font-size:11px">{_sid[:18]}…</code>' if _sid else "")
+                    + f'</div>'
+                    f'</div>',
+                    unsafe_allow_html=True,
+                )
+                if _url or _pdf:
+                    _fc1, _fc2, _frest = st.columns([1, 1, 2])
+                    if _url:
+                        _fc1.link_button("🔗 Rechnung öffnen", _url, use_container_width=True)
+                    if _pdf:
+                        _fc2.link_button("📥 PDF", _pdf, use_container_width=True)
+
+
 def _detail_audit(daten: dict) -> None:
     """Audit-Verlauf der letzten 20 Änderungen."""
     audit = daten.get("audit") or []
@@ -992,6 +1091,7 @@ def _kunde_detail(verein_id: int | None, benutzer_id: int | None) -> None:
     _detail_c_lizenz(daten)
     _detail_d_vertrag(daten)
     _detail_e_stripe(daten)
+    _detail_f_abrechnung(daten)
     _detail_audit(daten)
     _detail_gefahrenbereich(daten)
 

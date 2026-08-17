@@ -2779,6 +2779,26 @@ def _migrate_multitenant():
                 FOREIGN KEY (verein_id) REFERENCES vereine(id)
             )
         """)
+        # ── Rechnungen erweitern: Stripe-URLs, Zahlungszeitpunkt, Währung ──
+        # Idempotente Migration — ALTER TABLE schlägt still fehl wenn Spalte bereits existiert.
+        for _rcol, _rtyp in [
+            ("hosted_invoice_url", "TEXT"),
+            ("invoice_pdf",        "TEXT"),
+            ("paid_at",            "TEXT"),
+            ("currency",           "TEXT"),
+        ]:
+            try:
+                conn.execute(f"ALTER TABLE rechnungen ADD COLUMN {_rcol} {_rtyp}")
+            except Exception:
+                pass  # Spalte existiert bereits
+        # Eindeutiger Index auf stripe_invoice_id — verhindert Duplikate bei Webhook-Replay
+        try:
+            conn.execute(
+                "CREATE UNIQUE INDEX IF NOT EXISTS idx_rechnungen_stripe_invoice_id "
+                "ON rechnungen(stripe_invoice_id) WHERE stripe_invoice_id IS NOT NULL"
+            )
+        except Exception:
+            pass  # Index existiert bereits
 
         # ── Testphase für bestehende Vereine initialisieren ────────────────
         # Vereine ohne testphase_bis bekommen heute + 14 Tage gesetzt
@@ -3244,28 +3264,62 @@ def rechnung_speichern(
     lizenz_von: str | None = None,
     lizenz_bis_r: str | None = None,
     stripe_invoice_id: str | None = None,
+    hosted_invoice_url: str | None = None,
+    invoice_pdf: str | None = None,
+    paid_at: str | None = None,
+    currency: str | None = None,
 ) -> int:
-    """Speichert eine Rechnung und gibt die ID zurück."""
+    """Speichert eine Rechnung idempotent und gibt die ID zurück.
+
+    Idempotenz: Wenn stripe_invoice_id bereits existiert, wird die bestehende
+    Rechnung mit den neuen Feldern (status, URLs, paid_at, currency) aktualisiert
+    statt eine neue Zeile anzulegen. Kein Duplikat bei Webhook-Replay.
+    """
     import datetime as _dt
     with get_conn() as conn:
+        if stripe_invoice_id:
+            existing = conn.execute(
+                "SELECT id FROM rechnungen WHERE stripe_invoice_id=?",
+                (stripe_invoice_id,),
+            ).fetchone()
+            if existing:
+                conn.execute(
+                    """UPDATE rechnungen
+                          SET status=?,
+                              hosted_invoice_url=COALESCE(?, hosted_invoice_url),
+                              invoice_pdf=COALESCE(?, invoice_pdf),
+                              paid_at=COALESCE(?, paid_at),
+                              currency=COALESCE(?, currency)
+                        WHERE id=?""",
+                    (status, hosted_invoice_url, invoice_pdf, paid_at, currency,
+                     existing[0]),
+                )
+                return existing[0]
         cur = conn.execute(
             """INSERT INTO rechnungen
                (verein_id, rechnungsnummer, rechnungsdatum, betrag_eur,
-                lizenz_typ, status, lizenz_von, lizenz_bis_r, stripe_invoice_id)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                lizenz_typ, status, lizenz_von, lizenz_bis_r, stripe_invoice_id,
+                hosted_invoice_url, invoice_pdf, paid_at, currency)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (verein_id, rechnungsnummer, _dt.date.today().isoformat(),
              betrag_eur, lizenz_typ, status, lizenz_von, lizenz_bis_r,
-             stripe_invoice_id),
+             stripe_invoice_id, hosted_invoice_url, invoice_pdf, paid_at, currency),
         )
         return cur.lastrowid
 
 
 def rechnungen_laden(verein_id: int) -> list[dict]:
-    """Lädt alle Rechnungen eines Vereins (neueste zuerst)."""
+    """Lädt alle Rechnungen eines Vereins (neueste zuerst).
+
+    Gibt neben den Basis-Feldern auch Stripe-URLs (hosted_invoice_url, invoice_pdf),
+    Zahlungszeitpunkt (paid_at) und Währung (currency) zurück.
+    """
     with get_conn() as conn:
         return _rows(conn.execute(
             """SELECT rechnungsnummer, rechnungsdatum, betrag_eur,
-                      lizenz_typ, status, lizenz_von, lizenz_bis_r
+                      lizenz_typ, status, lizenz_von, lizenz_bis_r,
+                      hosted_invoice_url, invoice_pdf, paid_at, currency,
+                      stripe_invoice_id
                  FROM rechnungen
                 WHERE verein_id=?
                 ORDER BY rechnungsdatum DESC, id DESC""",

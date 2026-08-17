@@ -8,7 +8,7 @@ Datenquelle: IMMER aus `vereine` (per verein_id), für alle Rollen.
 from __future__ import annotations
 import logging
 import streamlit as st
-from database import get_conn, kuendigung_einreichen, kuendigung_widerrufen
+from database import get_conn, kuendigung_einreichen, kuendigung_widerrufen, rechnungen_laden
 import logging as _logging_mv
 
 _log = logging.getLogger("athletik.kuendigung")
@@ -239,6 +239,72 @@ def page_mein_vertrag() -> None:
         if data.get("gekuendigt_zum"):
             _feld("Vertrag endet am",
                   _fmt_datum(data["gekuendigt_zum"]) or data["gekuendigt_zum"])
+
+    # ── Rechnungen & Zahlungen ───────────────────────────────────────────────
+    # Sichtbar für: Vereinsadmin (ist_verein=True) und Einzeltrainer
+    # (Trainer mit technischem Mandant, der eine eigene Lizenz hat).
+    # Normaler Vereinstrainer (kein eigener Vertrag) sieht diesen Bereich nicht.
+    _kann_rechnungen_sehen = (
+        user.get("rolle") == "Vereinsadmin"
+        or (user.get("rolle") == "Trainer" and data.get("ist_technischer_mandant"))
+    )
+    if _kann_rechnungen_sehen and verein_id:
+        st.markdown("---")
+        st.markdown("### 🧾 Rechnungen & Zahlungen")
+        try:
+            _rechnungen = rechnungen_laden(verein_id)
+        except Exception:
+            _rechnungen = []
+
+        if not _rechnungen:
+            st.info("Noch keine Rechnungen vorhanden.")
+        else:
+            _STATUS_COLOR = {
+                "bezahlt":       ("#238636", "✅ Bezahlt"),
+                "offen":         ("#d29922", "⏳ Offen"),
+                "fehlgeschlagen":("#da3633", "❌ Fehlgeschlagen"),
+                "storniert":     ("#6e7681", "🚫 Storniert"),
+            }
+            for _r in _rechnungen:
+                _rn    = _r.get("rechnungsnummer") or "—"
+                _dat   = _fmt_datum(_r.get("rechnungsdatum")) or _r.get("rechnungsdatum") or "—"
+                _bet   = _r.get("betrag_eur")
+                _bet_s = f"{float(_bet):,.2f} €".replace(",", "X").replace(".", ",").replace("X", ".") if _bet is not None else "—"
+                _curr  = (_r.get("currency") or "EUR").upper()
+                _paket = _r.get("lizenz_typ") or "—"
+                _st    = _r.get("status") or "offen"
+                _von   = _fmt_datum(_r.get("lizenz_von")) or _r.get("lizenz_von") or "—"
+                _bis   = _fmt_datum(_r.get("lizenz_bis_r")) or _r.get("lizenz_bis_r") or "—"
+                _url   = _r.get("hosted_invoice_url") or ""
+                _pdf   = _r.get("invoice_pdf") or ""
+                _sc, _sl = _STATUS_COLOR.get(_st, ("#6e7681", _st))
+
+                st.markdown(
+                    f'<div style="border:1px solid #30363d;border-radius:8px;'
+                    f'padding:12px 16px;margin:6px 0;background:#161b22">'
+                    f'<div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px">'
+                    f'<div>'
+                    f'<span style="font-weight:700;color:#e6edf3">{_rn}</span>'
+                    f'&nbsp;<span style="color:#8b949e;font-size:13px">{_dat}</span>'
+                    f'</div>'
+                    f'<span style="background:{_sc}22;color:{_sc};border:1px solid {_sc}55;'
+                    f'border-radius:12px;padding:2px 10px;font-size:11px;font-weight:700">{_sl}</span>'
+                    f'</div>'
+                    f'<div style="margin-top:6px;font-size:13px;color:#8b949e">'
+                    f'Paket: <span style="color:#e6edf3">{_paket}</span>'
+                    f' &nbsp;·&nbsp; Betrag: <span style="color:#e6edf3">{_bet_s} {_curr}</span>'
+                    f' &nbsp;·&nbsp; Zeitraum: <span style="color:#e6edf3">{_von} – {_bis}</span>'
+                    f'</div>'
+                    f'</div>',
+                    unsafe_allow_html=True,
+                )
+                # Download-Buttons nur wenn URL vorhanden
+                if _url or _pdf:
+                    _bc1, _bc2, _ = st.columns([1, 1, 2])
+                    if _url:
+                        _bc1.link_button("🔗 Rechnung öffnen", _url, use_container_width=True)
+                    if _pdf:
+                        _bc2.link_button("📥 PDF herunterladen", _pdf, use_container_width=True)
 
     # ── Aktive Kündigung: Info + ggf. Widerruf ───────────────────────────────
     if data.get("kuendigung_eingegangen"):

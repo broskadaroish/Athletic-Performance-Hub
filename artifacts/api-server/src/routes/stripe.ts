@@ -95,6 +95,29 @@ function ensureDbExtensions(): void {
         // Spalte existiert bereits — kein Fehler
       }
     }
+    // Neue rechnungen-Spalten für Stripe-URLs, Zahlungszeitpunkt und Währung
+    for (const [col, def] of [
+      ["hosted_invoice_url", "TEXT"],
+      ["invoice_pdf",        "TEXT"],
+      ["paid_at",            "TEXT"],
+      ["currency",           "TEXT"],
+    ] as [string, string][]) {
+      try {
+        conn.exec(`ALTER TABLE rechnungen ADD COLUMN ${col} ${def}`);
+      } catch {
+        // Spalte existiert bereits oder Tabelle noch nicht angelegt — kein Fehler
+      }
+    }
+    // Eindeutiger Index auf stripe_invoice_id für Idempotenz (Webhook-Replay-Schutz)
+    try {
+      conn.exec(`
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_rechnungen_stripe_invoice_id
+        ON rechnungen(stripe_invoice_id)
+        WHERE stripe_invoice_id IS NOT NULL
+      `);
+    } catch {
+      // Index existiert bereits
+    }
     _dbInitialized = true;
     logger.info("Stripe DB-Erweiterungen initialisiert");
   } finally {
@@ -468,14 +491,22 @@ router.post("/stripe/webhook", (req: Request, res: Response): void => {
       // ── 5. Rechnung bezahlt (invoice.paid ist der empfohlene Event-Name) ───────
       case "invoice.paid":
       case "invoice.payment_succeeded": {
-        const customerId  = obj["customer"] as string;
-        const amountPaid  = (obj["amount_paid"] as number) ?? 0;
+        const customerId        = obj["customer"] as string;
+        const amountPaid        = (obj["amount_paid"] as number) ?? 0;
+        const stripeInvoiceId   = obj["id"] as string | undefined;
+        const hostedInvoiceUrl  = (obj["hosted_invoice_url"] as string | null) ?? null;
+        const invoicePdf        = (obj["invoice_pdf"] as string | null) ?? null;
+        const currency          = ((obj["currency"] as string | null) ?? "eur").toUpperCase();
+        const stripeNumber      = (obj["number"] as string | null) ?? null;
 
         interface InvObj {
           lines?: { data?: Array<{ period?: { end?: number }; price?: { id?: string } }> };
         }
         const inv       = obj as InvObj;
         const periodEnd = isoDate(inv.lines?.data?.[0]?.period?.end);
+        const priceId   = inv.lines?.data?.[0]?.price?.id ?? "";
+        const lizenzTyp = priceId ? lizenzTypAusPrice(priceId) : null;
+        const paidAt    = amountPaid > 0 ? new Date().toISOString().slice(0, 10) : null;
 
         if (amountPaid > 0) {
           // Echte kostenpflichtige Rechnung — Zahlung bestätigen und Lizenz auf 'active' setzen.
@@ -489,6 +520,51 @@ router.post("/stripe/webhook", (req: Request, res: Response): void => {
           `).run(periodEnd, periodEnd, customerId);
 
           logger.info({ customerId, amountPaid, periodEnd, eventId }, "Echte Zahlung bestätigt — lizenz_status=active");
+
+          // ── Rechnung idempotent in rechnungen-Tabelle speichern ────────────
+          if (stripeInvoiceId) {
+            const vereinRow = conn.prepare(
+              "SELECT id FROM vereine WHERE stripe_customer_id = ?"
+            ).get(customerId) as { id: number } | undefined;
+
+            if (vereinRow) {
+              const rechnungsnummer = stripeNumber || stripeInvoiceId;
+              const betragEur       = amountPaid / 100;
+
+              // INSERT OR IGNORE schlägt lautlos fehl wenn stripe_invoice_id bereits existiert.
+              // Anschließendes UPDATE aktualisiert status/URLs/paid_at auf den neuesten Stand.
+              conn.prepare(`
+                INSERT OR IGNORE INTO rechnungen
+                  (verein_id, rechnungsnummer, rechnungsdatum, betrag_eur,
+                   lizenz_typ, status, lizenz_bis_r, stripe_invoice_id,
+                   hosted_invoice_url, invoice_pdf, paid_at, currency)
+                VALUES (?, ?, date('now'), ?, ?, 'bezahlt', ?, ?, ?, ?, ?, ?)
+              `).run(
+                vereinRow.id, rechnungsnummer, betragEur,
+                lizenzTyp ?? null, periodEnd, stripeInvoiceId,
+                hostedInvoiceUrl, invoicePdf, paidAt, currency
+              );
+              conn.prepare(`
+                UPDATE rechnungen
+                   SET status              = 'bezahlt',
+                       hosted_invoice_url  = COALESCE(?, hosted_invoice_url),
+                       invoice_pdf         = COALESCE(?, invoice_pdf),
+                       paid_at             = COALESCE(?, paid_at),
+                       currency            = COALESCE(?, currency)
+                 WHERE stripe_invoice_id = ?
+              `).run(hostedInvoiceUrl, invoicePdf, paidAt, currency, stripeInvoiceId);
+
+              logger.info(
+                { vereinId: vereinRow.id, rechnungsnummer, betragEur, stripeInvoiceId },
+                "Rechnung gespeichert/aktualisiert",
+              );
+            } else {
+              logger.warn(
+                { customerId, stripeInvoiceId },
+                "Kein Verein für stripe_customer_id gefunden — Rechnung nicht gespeichert",
+              );
+            }
+          }
         } else {
           // 0-Euro-Trial-Invoice — Zahlungsmethode hinterlegt, aber noch kein Geld geflossen.
           // lizenz_status bleibt unverändert (wird von subscription.created auf 'trial' gesetzt).
@@ -506,7 +582,8 @@ router.post("/stripe/webhook", (req: Request, res: Response): void => {
 
       // ── 6. Zahlung fehlgeschlagen → Status markieren, KEIN Account-Löschen ───
       case "invoice.payment_failed": {
-        const customerId = obj["customer"] as string;
+        const customerId      = obj["customer"] as string;
+        const stripeInvoiceId = obj["id"] as string | undefined;
 
         conn.prepare(`
           UPDATE vereine
@@ -515,8 +592,16 @@ router.post("/stripe/webhook", (req: Request, res: Response): void => {
            WHERE stripe_customer_id = ?
         `).run(customerId);
 
+        // Bestehende Rechnung auf 'fehlgeschlagen' setzen (wenn vorhanden)
+        if (stripeInvoiceId) {
+          conn.prepare(`
+            UPDATE rechnungen SET status = 'fehlgeschlagen'
+             WHERE stripe_invoice_id = ?
+          `).run(stripeInvoiceId);
+        }
+
         // Benutzerkonto und Daten bleiben unberührt — nur Status für Support sichtbar
-        logger.warn({ customerId, eventId }, "Stripe-Zahlung fehlgeschlagen");
+        logger.warn({ customerId, stripeInvoiceId, eventId }, "Stripe-Zahlung fehlgeschlagen");
         logWebhookFehler(
           `Zahlung fehlgeschlagen für customer_id: ${customerId}`,
           eventId, eventType,
