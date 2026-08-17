@@ -1,0 +1,209 @@
+PRE-DEPLOYMENT SECURITY AUDIT – MULTI-TENANT / SPIELERZUGRIFF
+
+WICHTIG:
+Noch NICHT deployen.
+Keine große Architekturänderung.
+Keine neuen Features.
+Nur prüfen und nur bei tatsächlich gefundenem Sicherheitsproblem minimal korrigieren.
+
+==================================================
+1. spieler_laden() AUDIT
+==================================================
+
+Aktueller Bericht sagt:
+
+Trainer + verein_id übergeben:
+→ aktive trainer_mandanten-Mitgliedschaft prüfen
+→ dann Spieler WHERE verein_id=? AND trainer_id=?
+
+Trainer + KEINE verein_id:
+→ Legacy: alle eigenen Spieler via trainer_id
+
+Bitte vollständig prüfen:
+
+- Welche produktiven Stellen in app.py / modules/*.py rufen spieler_laden() OHNE verein_id auf?
+- Können diese Aufrufe bei einem Multi-Mandant-Trainer Spieler aus mehreren Mandanten vermischen?
+- Kann ein Trainer dadurch Spieler eines Vereins sehen, obwohl aktuell ein anderer Mandant aktiv ist?
+
+ZIEL:
+Bei authentifizierter Multi-Tenant-Nutzung muss immer der aktive Mandant führend sein.
+
+Falls ein Trainer mehrere aktive Mandanten besitzt:
+spieler_laden() ohne explizite verein_id darf NICHT mandantenübergreifend Daten zurückgeben.
+
+Falls nur Legacy-Kompatibilität benötigt wird:
+nur für eindeutig nicht-multitenante Alt-Fälle zulassen.
+
+Fail-closed bevorzugen.
+
+==================================================
+2. benutzer.verein_id LEGACY-FALLBACK AUDIT
+==================================================
+
+Bericht sagt gleichzeitig:
+
+A)
+benutzer.verein_id wird nicht für Zugriffsentscheidungen verwendet
+
+aber auch:
+
+B)
+spieler_trainer_zuweisen() hat Legacy-Fallback,
+wenn trainer_mandanten nicht existiert.
+
+Bitte prüfen:
+
+- alle Zugriffsentscheidungen
+- alle Mandantenprüfungen
+- Spieler laden
+- Spieler zuweisen
+- Vereinsadmin
+- Trainerportal
+- Beitritt
+- Mandantenwechsel
+
+ZIEL:
+Wenn trainer_mandanten-Tabelle existiert,
+darf benutzer.verein_id KEINE alternative Autorisierungsquelle mehr sein.
+
+Legacy-Fallback nur dann zulassen,
+wenn trainer_mandanten technisch noch gar nicht existiert
+(z. B. alte DB vor Migration).
+
+Nach erfolgreicher Migration:
+trainer_mandanten ist die einzige Autorisierungsquelle für Vereinszugriff.
+
+==================================================
+3. AKTIVER MANDANT
+==================================================
+
+Prüfen:
+
+- _aktiver_mandant_id
+- user["verein_id"] im session_state
+- Mandant wechseln
+- Rerun
+- Re-Login
+- Session Restore
+
+Ein Trainer mit Verein A + Verein B:
+
+Aktiver Mandant A
+→ niemals Daten aus B
+
+Aktiver Mandant B
+→ niemals Daten aus A
+
+==================================================
+4. VEREINSADMIN
+==================================================
+
+Prüfen:
+
+- Vereinsadmin sieht nur eigenen aktiven Mandanten
+- nach trainer_mandant_entfernen() kein Zugriff mehr
+- auch nach Re-Login kein Legacy-Zugriff über benutzer.verein_id
+- kein Cross-Tenant-Removal
+
+==================================================
+5. SPIELERZUWEISUNG
+==================================================
+
+Prüfen:
+
+- Trainer kann nur Spielern innerhalb eines aktiven Mandanten zugewiesen werden
+- Trainer muss aktives trainer_mandanten-Membership im Zielverein haben
+- kein Trainer aus Verein A darf Spieler aus Verein B bekommen
+- Superadmin-Sonderrechte klar dokumentieren
+
+==================================================
+6. PRODUKTIVE CALL-SITES
+==================================================
+
+Bitte alle Call-Sites auflisten von:
+
+- spieler_laden(
+- spieler_trainer_zuweisen(
+- trainer_mandant_hinzufuegen(
+- trainer_mandant_entfernen(
+- trainer_mandanten_fuer_benutzer(
+- trainer_mandanten_fuer_verein(
+
+Für jede Call-Site:
+- Datei
+- Funktion
+- Rolle
+- verein_id / aktiver Mandant vorhanden?
+- sicher / unsicher
+
+==================================================
+7. TESTS
+==================================================
+
+Mindestens neue Grenztests:
+
+A)
+Trainer A in Verein 1 + Verein 2
+aktiver Verein 1
+→ nur Spieler Verein 1
+
+B)
+aktiver Verein 2
+→ nur Spieler Verein 2
+
+C)
+spieler_laden() ohne verein_id bei Multi-Mandant
+→ darf NICHT beide Mandanten mischen
+
+D)
+Vereinsadmin nach Mandatsentzug
+→ 0 Spieler
+
+E)
+Re-Login nach Mandatsentzug
+→ weiterhin 0 Spieler
+
+F)
+spieler_trainer_zuweisen:
+Trainer ohne Membership im Zielverein
+→ blockiert
+
+G)
+trainer_mandanten vorhanden
+→ benutzer.verein_id darf keine Autorisierung ermöglichen
+
+H)
+Cross-Tenant Removal
+→ PermissionError
+
+==================================================
+8. REGRESSION
+==================================================
+
+Danach ausführen:
+
+- tools/test_trainer_mandanten.py
+- tools/test_rechnungen.py
+- tools/test_kundenverwaltung_filter.py
+- tools/test_session.py
+- tools/test_block_b.py
+- py_compile aller geänderten Dateien
+
+==================================================
+9. ABSCHLUSSBERICHT
+==================================================
+
+Bitte nur berichten:
+
+1. gefundene produktive Call-Sites
+2. ob spieler_laden ohne verein_id ein Risiko war
+3. ob benutzer.verein_id noch als Autorisierungsfallback wirkte
+4. ggf. minimale Fixes
+5. geänderte Dateien
+6. neue Tests
+7. alle Testergebnisse
+8. verbleibende Risiken
+
+Danach STOPPEN.
+
+NICHT DEPLOYEN.

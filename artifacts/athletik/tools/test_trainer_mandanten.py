@@ -485,10 +485,10 @@ def test_spieler_laden_multi_mandant():
     v3_spieler = spieler_laden(bid, "Trainer", v3)
     check("Trainer ohne Mandant in Verein C sieht keine Spieler", len(v3_spieler) == 0)
 
-    # Ohne verein_id: alle eigenen Spieler (Legacy-Verhalten)
+    # Ohne verein_id bei Multi-Mandant: fail-closed (kein Mix über Vereinsgrenzen)
+    # Audit-C: spieler_laden() ohne verein_id darf bei Multi-Mandant NICHT mischen
     all_spieler = spieler_laden(bid, "Trainer", None)
-    all_names = [s["name"] for s in all_spieler]
-    check("Ohne verein_id: alle eigenen Spieler", "Spieler-A" in all_names and "Spieler-B" in all_names)
+    check("Ohne verein_id bei Multi-Mandant → fail-closed (kein Mix)", len(all_spieler) == 0)
 
 
 def test_spieler_zuweisen_mandant_autorisierung():
@@ -643,6 +643,130 @@ def test_trainer_pool_per_mandant():
     check("Beide Trainer erscheinen im Pool für V1", bid in bids_v1 and bid_nur_v1 in bids_v1)
 
 
+def test_audit_A_B_aktiver_mandant_isolation():
+    print("\n── Audit A+B: Aktiver Mandant isoliert Spieler ──────")
+    from database import spieler_laden
+
+    v1 = _verein("Audit-AB-V1")
+    v2 = _verein("Audit-AB-V2")
+    bid = _benutzer(v1, "audit_ab@test.de")
+    _mandant_direct(bid, v1)
+    _mandant_direct(bid, v2)
+
+    with db.get_conn() as c:
+        c.execute("INSERT INTO spieler (name, trainer_id, verein_id) VALUES ('AB-Spieler-V1', ?, ?)", (bid, v1))
+        c.execute("INSERT INTO spieler (name, trainer_id, verein_id) VALUES ('AB-Spieler-V2', ?, ?)", (bid, v2))
+
+    # A: aktiver Mandant V1 → nur V1-Spieler
+    r1 = spieler_laden(bid, "Trainer", v1)
+    check("Audit A: Aktiver Mandant V1 → nur V1-Spieler",
+          all(s["verein_id"] == v1 for s in r1) and any(s["name"] == "AB-Spieler-V1" for s in r1))
+    check("Audit A: Kein V2-Spieler bei aktivem Mandant V1",
+          not any(s["name"] == "AB-Spieler-V2" for s in r1))
+
+    # B: aktiver Mandant V2 → nur V2-Spieler
+    r2 = spieler_laden(bid, "Trainer", v2)
+    check("Audit B: Aktiver Mandant V2 → nur V2-Spieler",
+          all(s["verein_id"] == v2 for s in r2) and any(s["name"] == "AB-Spieler-V2" for s in r2))
+    check("Audit B: Kein V1-Spieler bei aktivem Mandant V2",
+          not any(s["name"] == "AB-Spieler-V1" for s in r2))
+
+
+def test_audit_C_kein_mix_ohne_verein_id():
+    print("\n── Audit C: Kein Mix ohne verein_id bei Multi-Mandant")
+    from database import spieler_laden
+
+    v1 = _verein("Audit-C-V1")
+    v2 = _verein("Audit-C-V2")
+    bid = _benutzer(v1, "audit_c@test.de")
+    _mandant_direct(bid, v1)
+    _mandant_direct(bid, v2)  # Trainer in zwei Vereinen
+
+    with db.get_conn() as c:
+        c.execute("INSERT INTO spieler (name, trainer_id, verein_id) VALUES ('C-V1', ?, ?)", (bid, v1))
+        c.execute("INSERT INTO spieler (name, trainer_id, verein_id) VALUES ('C-V2', ?, ?)", (bid, v2))
+
+    # Aufruf OHNE verein_id: Multi-Mandant → fail-closed, keine mandantenübergreifenden Daten
+    r = spieler_laden(bid, "Trainer", None)
+    check("Audit C: spieler_laden ohne verein_id bei Multi-Mandant gibt leer zurück",
+          len(r) == 0,
+          f"Erhielt {len(r)} Spieler statt 0")
+
+    # Einzelmandant ohne verein_id: Legacy-Pfad erlaubt
+    v3 = _verein("Audit-C-V3")
+    bid3 = _benutzer(v3, "audit_c3@test.de")
+    _mandant_direct(bid3, v3)
+    with db.get_conn() as c:
+        c.execute("INSERT INTO spieler (name, trainer_id, verein_id) VALUES ('C-V3', ?, ?)", (bid3, v3))
+    r3 = spieler_laden(bid3, "Trainer", None)
+    check("Audit C: Einzelmandant ohne verein_id → Legacy-Pfad gibt Spieler zurück",
+          len(r3) == 1 and r3[0]["name"] == "C-V3")
+
+
+def test_audit_E_relogin_nach_entzug():
+    print("\n── Audit E: Re-Login nach Mandatsentzug → 0 Spieler ─")
+    from database import spieler_laden, trainer_mandant_entfernen
+
+    v1 = _verein("Audit-E-V1")
+    va_bid = _benutzer(v1, "audit_e_va@test.de", rolle="Vereinsadmin")
+    _mandant_direct(va_bid, v1)
+
+    with db.get_conn() as c:
+        c.execute("INSERT INTO spieler (name, verein_id) VALUES ('E-Spieler', ?)", (v1,))
+
+    # Vor Entzug: Spieler sichtbar
+    r_vorher = spieler_laden(va_bid, "Vereinsadmin", v1)
+    check("Audit E: VA sieht Spieler vor Entzug", any(s["name"] == "E-Spieler" for s in r_vorher))
+
+    # Entzug
+    trainer_mandant_entfernen(va_bid, v1, caller_rolle="Superadmin")
+
+    # Re-Login simuliert: session_validieren() lädt benutzer.verein_id (= v1, nie geändert),
+    # aber spieler_laden prüft trainer_mandanten — aktiv=0 → kein Zugriff
+    r_nachher = spieler_laden(va_bid, "Vereinsadmin", v1)
+    check("Audit E: VA sieht nach Re-Login+Entzug KEINE Spieler (benutzer.verein_id irrelevant)",
+          len(r_nachher) == 0,
+          f"Erwartet 0, erhielt {len(r_nachher)}")
+
+    # Bestätigung: benutzer.verein_id zeigt noch auf v1 (Legacy-FK unverändert)
+    with _raw() as c:
+        row = c.execute("SELECT verein_id FROM benutzer WHERE id=?", (va_bid,)).fetchone()
+    check("Audit E: benutzer.verein_id bleibt unverändert trotz Entzug",
+          row["verein_id"] == v1)
+
+
+def test_audit_G_legacy_verein_id_keine_autorisierung():
+    print("\n── Audit G: benutzer.verein_id keine Autorisierung ──")
+    from database import spieler_trainer_zuweisen, trainer_mandant_entfernen
+
+    v1 = _verein("Audit-G-V1")
+    bid = _benutzer(v1, "audit_g@test.de")
+    _mandant_direct(bid, v1)
+
+    with db.get_conn() as c:
+        cur = c.execute("INSERT INTO spieler (name, verein_id) VALUES ('G-Spieler', ?)", (v1,))
+        sp_id = cur.lastrowid
+
+    # Mandant entfernen → aktiv=0, aber benutzer.verein_id bleibt v1
+    trainer_mandant_entfernen(bid, v1, caller_rolle="Superadmin")
+
+    # benutzer.verein_id == v1 (Legacy-FK unverändert)
+    with _raw() as c:
+        row = c.execute("SELECT verein_id FROM benutzer WHERE id=?", (bid,)).fetchone()
+    check("Audit G: benutzer.verein_id stimmt noch mit Zielverein überein (pre-condition)",
+          row["verein_id"] == v1)
+
+    # Zuweisung muss TROTZDEM scheitern (trainer_mandanten.aktiv=0)
+    blocked = False
+    try:
+        spieler_trainer_zuweisen(sp_id, bid, v1)
+    except ValueError:
+        blocked = True
+    check("Audit G: Zuweisung blockiert obwohl benutzer.verein_id == Zielverein (aktiv=0)",
+          blocked,
+          "LÜCKE: benutzer.verein_id wirkt als Autorisierungsfallback!")
+
+
 def cleanup():
     db.DB_PATH = _ORIG_DB_PATH
     try:
@@ -674,6 +798,11 @@ if __name__ == "__main__":
         test_session_invalidierung_bei_austritt()
         test_vereinsadmin_zugriffsschutz_nach_austritt()
         test_trainer_pool_per_mandant()
+        # ── Audit-Grenztests (Security-Audit) ─────────────────────────────────
+        test_audit_A_B_aktiver_mandant_isolation()
+        test_audit_C_kein_mix_ohne_verein_id()
+        test_audit_E_relogin_nach_entzug()
+        test_audit_G_legacy_verein_id_keine_autorisierung()
     finally:
         cleanup()
 

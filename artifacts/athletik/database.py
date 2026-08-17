@@ -1232,7 +1232,19 @@ def spieler_laden(benutzer_id=None, rolle="Trainer", verein_id=None):
                     ).fetchall())
                 # Kein aktives Mandant in diesem Verein → kein Zugriff (fail-closed)
                 return []
-            # Kein verein_id: alle eigenen Spieler (Legacy-Verhalten)
+            # Kein verein_id: Legacy-Pfad.
+            # Sicherheitsguard: Multi-Mandant-Trainer ohne expliziten aktiven Mandant
+            # dürfen NICHT Spieler über Vereinsgrenzen mischen. Wenn trainer_mandanten
+            # existiert und der Trainer mehrere aktive Einträge hat → fail-closed.
+            try:
+                _multi = conn.execute(
+                    "SELECT COUNT(*) FROM trainer_mandanten WHERE benutzer_id=? AND aktiv=1",
+                    (benutzer_id,),
+                ).fetchone()
+                if _multi and _multi[0] > 1:
+                    return []  # Multi-Mandant ohne aktiven Kontext → kein Zugriff
+            except Exception:
+                pass  # trainer_mandanten noch nicht angelegt → Legacy-Fallback erlaubt
             return _rows(conn.execute(
                 "SELECT * FROM spieler WHERE trainer_id=? ORDER BY name",
                 (benutzer_id,),
@@ -1301,18 +1313,34 @@ def spieler_trainer_zuweisen(spieler_id: int, trainer_id, verein_id,
                 )
             if not row["aktiv"]:
                 raise ValueError(f"Trainer {trainer_id} ist deaktiviert.")
-            if verein_id is not None and row["verein_id"] != verein_id:
-                # Mehrfachmandanten: aktive trainer_mandanten-Mitgliedschaft genügt
-                tm_row = conn.execute(
-                    "SELECT 1 FROM trainer_mandanten "
-                    "WHERE benutzer_id=? AND verein_id=? AND aktiv=1",
-                    (trainer_id, verein_id),
-                ).fetchone()
-                if not tm_row:
-                    raise ValueError(
-                        f"Trainer {trainer_id} gehört weder über benutzer.verein_id "
-                        f"noch über eine aktive Mandanten-Mitgliedschaft zu Verein {verein_id}."
-                    )
+            if verein_id is not None:
+                # trainer_mandanten ist die primäre Autorisierungsquelle (nach Migration).
+                # IMMER prüfen — kein Short-Circuit über benutzer.verein_id, da dieser
+                # Legacy-FK nach einem Mandanten-Entzug (aktiv=0) noch auf den alten Verein
+                # zeigen kann und so einen deaktivierten Trainer durchlassen würde.
+                # Legacy-Fallback NUR wenn trainer_mandanten-Tabelle noch nicht existiert.
+                try:
+                    tm_row = conn.execute(
+                        "SELECT 1 FROM trainer_mandanten "
+                        "WHERE benutzer_id=? AND verein_id=? AND aktiv=1",
+                        (trainer_id, verein_id),
+                    ).fetchone()
+                    # Tabelle existiert → sie ist einzige Autorisierungsquelle (fail-closed)
+                    if not tm_row:
+                        raise ValueError(
+                            f"Trainer {trainer_id} hat keine aktive Mandanten-Mitgliedschaft "
+                            f"in Verein {verein_id}."
+                        )
+                except ValueError:
+                    raise  # echte Autorisierungsablehnung weitergeben
+                except Exception:
+                    # trainer_mandanten noch nicht angelegt (Pre-Migration) →
+                    # Legacy-Fallback: benutzer.verein_id als Prüfquelle
+                    if row["verein_id"] != verein_id:
+                        raise ValueError(
+                            f"Trainer {trainer_id} gehört zu Verein {row['verein_id']}, "
+                            f"nicht zu Verein {verein_id}."
+                        )
 
         # Alte Werte lesen für Logging
         alt = conn.execute(
