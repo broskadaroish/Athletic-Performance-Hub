@@ -899,14 +899,17 @@ def _trainer_schnellaktionen() -> None:
             _navigate("📄  Dokumente")
 
 
-def _trainer_letzte_spieler(trainer_id) -> None:
-    """Zuletzt verwendete Spieler — max 3, kompakte Karten."""
+def _trainer_letzte_spieler(trainer_id, verein_id=None) -> None:
+    """Zuletzt verwendete Spieler — max 3, kompakte Karten.
+
+    verein_id: aktiver Mandant — nur Spieler dieses Vereins anzeigen.
+    """
     st.markdown(
         f'<div style="font-size:10px;color:{_C["muted"]};letter-spacing:.8px;'
         f'margin:20px 0 12px">👤 ZULETZT VERWENDET</div>',
         unsafe_allow_html=True,
     )
-    letzte = dashboard_trainer_letzte_spieler(trainer_id, limit=3) if trainer_id else []
+    letzte = dashboard_trainer_letzte_spieler(trainer_id, limit=3, verein_id=verein_id) if trainer_id else []
     if not letzte:
         st.caption("Keine kürzlich verwendeten Spieler.")
         if st.button("👥 Alle Spieler anzeigen →", key="lsp_alle_leer",
@@ -992,9 +995,10 @@ def _dash_trainer(user: dict):
         _trainer_leer(trainer_id)
         return
 
-    faellig    = dashboard_trainer_ohne_test(trainer_id)    if trainer_id else 0
-    verletz    = dashboard_trainer_neue_verletzungen(trainer_id) if trainer_id else 0
-    diag_monat = dashboard_trainer_diagnostiken_monat(trainer_id) if trainer_id else 0
+    _aktiver_vid = user.get("verein_id")  # nach Mandant-Auswahlscreen: aktiver Mandant
+    faellig    = dashboard_trainer_ohne_test(trainer_id, verein_id=_aktiver_vid)    if trainer_id else 0
+    verletz    = dashboard_trainer_neue_verletzungen(trainer_id, verein_id=_aktiver_vid) if trainer_id else 0
+    diag_monat = dashboard_trainer_diagnostiken_monat(trainer_id, verein_id=_aktiver_vid) if trainer_id else 0
 
     # Team-Score + Risiko (bestehende Berechnung, keine neue Logik)
     avg_score, high_risk, n_scored = _compute_team_score(alle_spieler)
@@ -1012,15 +1016,15 @@ def _dash_trainer(user: dict):
     # 5. Schnellaktionen
     _trainer_schnellaktionen()
 
-    # 6. Zuletzt verwendete Spieler
-    _trainer_letzte_spieler(trainer_id)
+    # 6. Zuletzt verwendete Spieler (nur aktiver Mandant)
+    _trainer_letzte_spieler(trainer_id, verein_id=_aktiver_vid)
 
     # ── Daten laden ───────────────────────────────────────────────────────────
-    alle_spieler = spieler_laden(trainer_id, "Trainer", user.get("verein_id"))
+    alle_spieler = spieler_laden(trainer_id, "Trainer", _aktiver_vid)
     n_spieler    = len(alle_spieler) if alle_spieler else 0
-    faellig      = dashboard_trainer_ohne_test(trainer_id) if trainer_id else 0
-    verletz      = dashboard_trainer_neue_verletzungen(trainer_id) if trainer_id else 0
-    diag_monat   = dashboard_trainer_diagnostiken_monat(trainer_id) if trainer_id else 0
+    faellig      = dashboard_trainer_ohne_test(trainer_id, verein_id=_aktiver_vid) if trainer_id else 0
+    verletz      = dashboard_trainer_neue_verletzungen(trainer_id, verein_id=_aktiver_vid) if trainer_id else 0
+    diag_monat   = dashboard_trainer_diagnostiken_monat(trainer_id, verein_id=_aktiver_vid) if trainer_id else 0
 
     # Athletikscore (Stichprobe max. 12) + Risiko für alle Spieler berechnen
     avg_score  = 0
@@ -1094,7 +1098,7 @@ def _dash_trainer(user: dict):
         unsafe_allow_html=True,
     )
 
-    letzte = dashboard_trainer_letzte_spieler(trainer_id, limit=6) if trainer_id else []
+    letzte = dashboard_trainer_letzte_spieler(trainer_id, limit=6, verein_id=_aktiver_vid) if trainer_id else []
 
     if not letzte:
         st.markdown(

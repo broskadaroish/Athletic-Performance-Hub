@@ -4858,7 +4858,16 @@ def dashboard_letzte_logins(verein_id=None, limit: int = 8) -> list:
              "rolle": r[3], "letzter_login": r[4]} for r in rows]
 
 
-def dashboard_trainer_letzte_spieler(trainer_id: int, limit: int = 6) -> list:
+def dashboard_trainer_letzte_spieler(
+    trainer_id: int, limit: int = 6, verein_id: int | None = None
+) -> list:
+    """Zuletzt getestete Spieler des Trainers.
+
+    verein_id: wenn gesetzt (aktiver Mandant), nur Spieler dieses Vereins.
+    Verhindert mandantenübergreifende Vermischung bei Multi-Mandant-Trainern.
+    """
+    vid_filter = "AND s.verein_id=?" if verein_id is not None else ""
+    params = (trainer_id, verein_id, limit) if verein_id is not None else (trainer_id, limit)
     with get_conn() as conn:
         rows = conn.execute(
             "SELECT s.id, s.name, s.vorname, s.nachname, s.mannschaft, s.altersklasse, "
@@ -4868,21 +4877,26 @@ def dashboard_trainer_letzte_spieler(trainer_id: int, limit: int = 6) -> list:
             " UNION ALL SELECT datum FROM y_balance_test WHERE spieler_id=s.id "
             " UNION ALL SELECT datum FROM agilitaet_test WHERE spieler_id=s.id "
             " UNION ALL SELECT datum FROM ausdauer_test  WHERE spieler_id=s.id "
-            ")) AS letzte_messung "
-            "FROM spieler s WHERE s.trainer_id=? "
+            f")) AS letzte_messung "
+            f"FROM spieler s WHERE s.trainer_id=? {vid_filter} "
             "ORDER BY letzte_messung DESC LIMIT ?",
-            (trainer_id, limit),
+            params,
         ).fetchall()
     return [{"id": r[0], "name": r[1], "vorname": r[2], "nachname": r[3],
              "mannschaft": r[4] or "—", "altersklasse": r[5] or "—",
              "letzte_messung": r[6]} for r in rows]
 
 
-def dashboard_trainer_ohne_test(trainer_id: int) -> int:
-    """Spieler ohne Test in den letzten 30 Tagen (inkl. nie getesteter)."""
+def dashboard_trainer_ohne_test(trainer_id: int, verein_id: int | None = None) -> int:
+    """Spieler ohne Test in den letzten 30 Tagen (inkl. nie getesteter).
+
+    verein_id: wenn gesetzt (aktiver Mandant), nur Spieler dieses Vereins.
+    """
+    vid_filter = "AND s.verein_id=?" if verein_id is not None else ""
+    params = (trainer_id, verein_id) if verein_id is not None else (trainer_id,)
     with get_conn() as conn:
         n = conn.execute(
-            "SELECT COUNT(*) FROM spieler s WHERE s.trainer_id=? "
+            f"SELECT COUNT(*) FROM spieler s WHERE s.trainer_id=? {vid_filter} "
             "AND NOT EXISTS ("
             " SELECT 1 FROM ("
             "  SELECT spieler_id, datum FROM fms_test "
@@ -4893,33 +4907,44 @@ def dashboard_trainer_ohne_test(trainer_id: int) -> int:
             " ) t WHERE t.spieler_id=s.id "
             "   AND t.datum >= date('now','-30 days')"
             ")",
-            (trainer_id,),
+            params,
         ).fetchone()[0]
     return n
 
 
-def dashboard_trainer_neue_verletzungen(trainer_id: int) -> int:
+def dashboard_trainer_neue_verletzungen(trainer_id: int, verein_id: int | None = None) -> int:
+    """Neue Verletzungen der letzten 14 Tage.
+
+    verein_id: wenn gesetzt (aktiver Mandant), nur Spieler dieses Vereins.
+    """
+    vid_filter = "AND s.verein_id=?" if verein_id is not None else ""
+    params = (trainer_id, verein_id) if verein_id is not None else (trainer_id,)
     with get_conn() as conn:
         n = conn.execute(
             "SELECT COUNT(*) FROM verletzung v JOIN spieler s ON v.spieler_id=s.id "
-            "WHERE s.trainer_id=? AND v.datum >= date('now','-14 days')",
-            (trainer_id,),
+            f"WHERE s.trainer_id=? {vid_filter} AND v.datum >= date('now','-14 days')",
+            params,
         ).fetchone()[0]
     return n
 
 
-def dashboard_trainer_diagnostiken_monat(trainer_id: int) -> int:
-    """Diagnostiken diesen Monat für alle Spieler des Trainers."""
+def dashboard_trainer_diagnostiken_monat(trainer_id: int, verein_id: int | None = None) -> int:
+    """Diagnostiken diesen Monat für alle Spieler des Trainers.
+
+    verein_id: wenn gesetzt (aktiver Mandant), nur Spieler dieses Vereins.
+    """
     monat = __import__("datetime").date.today().strftime("%Y-%m")
+    vid_filter = "AND verein_id=?" if verein_id is not None else ""
     total = 0
     with get_conn() as conn:
         for t in _DIAG_TBLS:
             try:
+                params = (trainer_id, verein_id, monat) if verein_id is not None else (trainer_id, monat)
                 total += conn.execute(
                     f"SELECT COUNT(*) FROM {t} WHERE spieler_id IN "
-                    f"(SELECT id FROM spieler WHERE trainer_id=?) "
+                    f"(SELECT id FROM spieler WHERE trainer_id=? {vid_filter}) "
                     f"AND strftime('%Y-%m',datum)=?",
-                    (trainer_id, monat),
+                    params,
                 ).fetchone()[0]
             except Exception:
                 pass
