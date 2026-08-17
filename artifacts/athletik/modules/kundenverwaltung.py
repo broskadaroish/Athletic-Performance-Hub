@@ -53,7 +53,7 @@ def _badge(text: str, color: str = "#30363d") -> str:
 def _kpis(kunden: list[dict]) -> None:
     total       = len(kunden)
     aktiv       = sum(1 for k in kunden if k["aktiv"])
-    trainer     = sum(1 for k in kunden if k["kundentyp"] == "Trainer")
+    trainer     = sum(1 for k in kunden if k["kundentyp"] == "Einzeltrainer")
     vereine     = sum(1 for k in kunden if k["kundentyp"] == "Verein")
     unverif     = sum(1 for k in kunden if not k["email_verifiziert"])
     liz_aktiv   = sum(1 for k in kunden if k["lizenz_status"] == "active")
@@ -163,7 +163,7 @@ def _detail_a_kundenkonto(daten: dict) -> None:
     """Section A: Kundenkonto — Stammdaten + Account-Status."""
     b = daten.get("benutzer") or {}
     v = daten.get("verein") or {}
-    kundentyp = "Verein" if v else "Trainer"
+    kundentyp = "Verein" if v else "Einzeltrainer"
 
     with st.expander("**A — Kundenkonto**", expanded=True):
         c1, c2 = st.columns(2)
@@ -1069,14 +1069,14 @@ def _kunde_detail(verein_id: int | None, benutzer_id: int | None) -> None:
 
     b   = daten.get("benutzer") or {}
     v   = daten.get("verein") or {}
-    # Technischer Mandant: ist Trainer-Konto — Kundennummer liegt auf benutzer, Typ bleibt "Trainer"
+    # Technischer Mandant: ist Einzeltrainer-Konto — Kundennummer liegt auf benutzer
     _ist_tech_mandant = bool(v) and bool(v.get("ist_technischer_mandant"))
     if _ist_tech_mandant:
         kn  = b.get("kundennummer") or v.get("kundennummer") or "—"
-        typ = "Trainer"
+        typ = "Einzeltrainer"
     else:
         kn  = v.get("kundennummer") or b.get("kundennummer") or "—"
-        typ = "Verein" if v else "Trainer"
+        typ = "Verein" if v else "Einzeltrainer"
     tit = (None if _ist_tech_mandant else v.get("name")) or f"{b.get('vorname','')} {b.get('nachname','')}".strip() or "Unbekannt"
 
     st.markdown(
@@ -1333,7 +1333,7 @@ def page_kundenverwaltung():
         fc1, fc2, fc3 = st.columns([3, 1, 1])
         such        = fc1.text_input("🔍 Suche", placeholder="Kundennummer, Name, E-Mail, Benutzername…",
                                       key="kv_such", label_visibility="collapsed")
-        filter_typ  = fc2.selectbox("Kundentyp", ["Alle", "Verein", "Trainer"],
+        filter_typ  = fc2.selectbox("Kundentyp", ["Alle", "Verein", "Einzeltrainer"],
                                      key="kv_typ", label_visibility="collapsed")
         filter_st   = fc3.selectbox(
             "Accountstatus",

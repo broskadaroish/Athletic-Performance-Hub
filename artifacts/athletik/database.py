@@ -5411,8 +5411,13 @@ def kunden_liste_laden(
     filter_lizenz: str = "Alle",
     filter_zahlungsstatus: str = "Alle",   # B3: neu
 ) -> list[dict]:
-    """Lädt alle Kunden (Vereine + standalone Trainer) für Superadmin-Übersicht.
+    """Lädt alle Kunden (Vereine + Einzeltrainer) für Superadmin-Übersicht.
+
     Gibt eine flache Liste von dicts zurück, die beide Kundentypen vereinheitlicht.
+    Nur echte Vertragspartner erscheinen:
+      - Vereinskunden (ist_technischer_mandant=0)
+      - Einzeltrainer-Kunden mit Kundennummer oder aktivem Stripe-Vertrag
+    Normale Vereinstrainer (Rolle=Trainer, kein eigener Vertrag) werden herausgefiltert.
     B3: zahlungsstatus in SELECT; filter_zahlungsstatus-Parameter ergänzt.
     """
     sql = """
@@ -5456,7 +5461,7 @@ def kunden_liste_laden(
         SELECT
             NULL                            AS verein_id,
             b.id                            AS benutzer_id,
-            'Trainer'                       AS kundentyp,
+            'Einzeltrainer'                 AS kundentyp,
             b.kundennummer,
             NULL                            AS vereinsname,
             b.vorname,
@@ -5484,7 +5489,10 @@ def kunden_liste_laden(
         LEFT JOIN vereine v2
                ON v2.id = b.verein_id
               AND COALESCE(v2.ist_technischer_mandant, 0) = 1
-        -- Trainer-Kunden: Rolle='Trainer' UND (kein Verein ODER technischer Mandant)
+        -- Einzeltrainer-Kunden: Rolle='Trainer' UND (kein Verein ODER technischer Mandant)
+        -- UND echter Vertragspartner (Kundennummer oder aktive Stripe-Verbindung vorhanden).
+        -- Normale Vereinstrainer (verein_id auf echten Verein) und ungebundene Trainer
+        -- ohne Vertrag erscheinen NICHT in der Kundenverwaltung.
         WHERE b.rolle = 'Trainer'
           AND (
               b.verein_id IS NULL
@@ -5493,6 +5501,13 @@ def kunden_liste_laden(
                   WHERE v3.id = b.verein_id
                     AND COALESCE(v3.ist_technischer_mandant, 0) = 1
               )
+          )
+          -- Nur echte Vertragspartner: haben eine Kundennummer ODER einen aktiven Stripe-Vertrag
+          AND (
+              b.kundennummer IS NOT NULL
+              OR v2.kundennummer IS NOT NULL
+              OR v2.stripe_customer_id IS NOT NULL
+              OR v2.stripe_subscription_id IS NOT NULL
           )
 
         ORDER BY kundennummer
