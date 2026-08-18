@@ -1,0 +1,61 @@
+APH – AUDIT AUSDAUER / ALTERSKLASSE / TRAININGSPLAN
+
+Noch nichts ändern und nicht deployen. Zuerst ausschließlich analysieren und Abschlussbericht erstellen.
+
+Testfall:
+
+Geburtsdatum: 26.08.2016
+Jahrgang: 2016
+Saison: 2026/27
+Fußball-Altersklasse: U11
+Test: Yo-Yo Intermittent Recovery Test Level 1 (IR1)
+Distanz: 520 m
+HFmax: 195 bpm
+RPE: 15
+
+Prüfe die komplette Verarbeitungskette vom gespeicherten Spieler bis zum generierten Trainingsplan.
+
+Altersklassenlogik prüfen
+Warum zeigt die Ausdauerdiagnostik „Normbereich (U10)“?
+Warum zeigt die Ergebnisbewertung gleichzeitig „Bewertung U8/U9“?
+Wo werden Kalenderalter, Jahrgang und Fußball-Altersklasse berechnet?
+Für Saison 2026/27 muss Jahrgang 2016 der U11 zugeordnet werden.
+Prüfen, ob dieser Fehler auch FMS, Y-Balance, Sprint, Sprung, Agilität, Kraft und andere altersabhängige Bewertungen betrifft.
+Yo-Yo-IR1-Normwerte prüfen
+Zeige die aktuell im Code hinterlegten Grenzwerte für alle Altersklassen.
+Zeige exakt, warum 520 m als „Gut“ bewertet wird.
+Keine Normwerte erfinden oder verändern.
+Dokumentiere, aus welcher Datei/Funktion/Tabelle die Bewertung stammt.
+VO₂max-Berechnung prüfen
+Zeige die verwendete Bangsbo-Formel.
+Rechne nachvollziehbar vor, warum 520 m zu 40,8 ml/kg/min führt.
+Prüfe, ob diese Formel für IR1 vorgesehen ist.
+Noch keine Formel verändern.
+Defizitlogik prüfen
+Warum wird derselbe Ausdauertest im Ergebnis als „Gut“ dargestellt, im Trainingsplan aber als Defizit „Aerobe Kapazität“ erkannt?
+Zeige die konkrete Schwelle/Funktion, die das Defizit erzeugt.
+Prüfe, ob unterschiedliche Altersklassen oder unterschiedliche Normtabellen verwendet werden.
+Trainingsplangenerator prüfen
+Es werden zwei Defizite erkannt: „Core/Rumpf“ und „Aerobe Kapazität“ mit ca. 35 % + 35 % sowie ca. 30 % allgemeinem Erhalt.
+Der erzeugte Plan enthält jedoch überwiegend Rumpf und Schnelligkeit.
+Erkläre, warum trotz Hauptschwerpunkt „Aerobe Kapazität“ kein klarer Ausdauerblock erzeugt wurde.
+Prüfe Mapping Defizit → Trainingsbereich → Übungsauswahl.
+Sicherheitsanforderung
+Bestehende Daten, Tests, Trainingspläne und Funktionen nicht verändern.
+Keine DB-Migration.
+Keine Normwerte ändern.
+Nicht deployen.
+
+Abschlussbericht liefern mit:
+
+Ursache Altersklassenfehler
+Ursache U10 vs. U8/U9
+aktuelle Yo-Yo-IR1-Normwerte
+verwendete VO₂max-Formel
+Ursache „Gut“ → trotzdem Defizit
+Ursache fehlender Ausdauerübungen
+betroffene Dateien/Funktionen
+konkrete Fix-Empfehlung
+Risiko für bestehende Daten/Funktionen
+
+Erst nach meiner Freigabe Änderungen durchführen.
