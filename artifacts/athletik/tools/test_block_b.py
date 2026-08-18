@@ -2,11 +2,16 @@
 """
 Block-B Automatisierte Tests (B8)
 Prüft B2–B7 ohne Streamlit-Imports. Läuft direkt als python3 test_block_b.py.
-25 Tests — alle müssen mit PASS enden.
+35 Tests — alle müssen mit PASS enden.
+
+Isolierte Testdatenbank: temporäres SQLite-File, nach dem Lauf gelöscht.
+Die Produktivdatenbank (/data/athletik.db) wird nicht berührt.
 """
 import sys
 import os
 import sqlite3
+import shutil
+import tempfile
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 os.environ.setdefault("STREAMLIT_SERVER_HEADLESS", "1")
@@ -19,8 +24,18 @@ from license import (
     LIZENZ_TYPEN,
 )
 
-# Nutze die echte athletik.db — get_conn() verwendet denselben Pfad
-_DB_PATH = os.path.join(os.path.dirname(__file__), "..", "athletik.db")
+# ── Isolierte Testdatenbank ────────────────────────────────────────────────────
+# Temp-Verzeichnis und -DB vor allen Imports anlegen, damit alle db.*-Funktionen
+# von Anfang an auf die Testdatenbank zeigen. Die Produktivdaten werden nicht
+# berührt. Cleanup erfolgt am Ende von main().
+
+_TMP_DIR    = tempfile.mkdtemp(prefix="test_block_b_")
+_DB_PATH    = os.path.join(_TMP_DIR, "test.db")
+_ORIG_DB    = db.DB_PATH     # Originalwert für Restore in cleanup()
+
+# Alle db.* Funktionen auf die Temp-DB umleiten
+db.DB_PATH = _DB_PATH
+db.init_db()                 # Schema vollständig anlegen
 
 # ── Hilfsfunktionen ──────────────────────────────────────────────────────────
 
@@ -43,49 +58,62 @@ def check(name: str, condition: bool, reason: str = "") -> None:
     else:
         fail(name, reason)
 
+def _raw() -> sqlite3.Connection:
+    """Direkte SQLite-Verbindung zur isolierten Test-DB (umgeht db.get_conn())."""
+    conn = sqlite3.connect(_DB_PATH)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+def cleanup() -> None:
+    """Restore + Temp-Verzeichnis löschen."""
+    db.DB_PATH = _ORIG_DB
+    shutil.rmtree(_TMP_DIR, ignore_errors=True)
+
 # ── Setup: Testdaten anlegen ──────────────────────────────────────────────────
 
-def _raw() -> sqlite3.Connection:
-    return sqlite3.connect(_DB_PATH)
-
 def setup():
-    """Legt minimale Testdaten an (2 Vereine, 3 Benutzer inkl. 1 SA). IDs ≥ 9000."""
+    """Legt minimale Testdaten in der Temp-DB an. IDs ≥ 9000, plus id=1 für B1-Guard."""
     conn = _raw()
     c = conn.cursor()
-    # Superadmin
+
+    # id=1 Superadmin: wird vom B1-Letzter-SA-Guard geschützt
     c.execute("""
-        INSERT OR IGNORE INTO benutzer (id, benutzername, email, passwort_hash, rolle, aktiv, email_verifiziert)
-        VALUES (9001, 'sa_test', 'sa@test.de', 'x', 'Superadmin', 1, 1)
+        INSERT OR IGNORE INTO benutzer (id, email, passwort_hash, rolle, aktiv)
+        VALUES (1, 'sa_main@test.de', 'x', 'Superadmin', 1)
     """)
-    # Verein A
+    # Test-Superadmin id=9001 (wird in B1 temporär deaktiviert)
+    c.execute("""
+        INSERT OR IGNORE INTO benutzer (id, email, passwort_hash, rolle, aktiv)
+        VALUES (9001, 'sa_test@test.de', 'x', 'Superadmin', 1)
+    """)
+    # Verein A — TRAINER_BASIC, trial
     c.execute("""
         INSERT OR IGNORE INTO vereine (id, name, aktiv, lizenztyp, lizenz_status)
         VALUES (9001, 'Testverein A', 1, 'TRAINER_BASIC', 'trial')
     """)
-    # Verein B (PRO, viele Trainer simulieren)
+    # Verein B — VEREIN_PRO, active
     c.execute("""
         INSERT OR IGNORE INTO vereine (id, name, aktiv, lizenztyp, lizenz_status)
         VALUES (9002, 'Testverein B', 1, 'VEREIN_PRO', 'active')
     """)
-    # Vereinsadmin für A
+    # Vereinsadmin für Verein A
     c.execute("""
-        INSERT OR IGNORE INTO benutzer (id, benutzername, email, passwort_hash, rolle, aktiv, verein_id)
-        VALUES (9002, 'va_a', 'va@a.de', 'x', 'Vereinsadmin', 1, 9001)
+        INSERT OR IGNORE INTO benutzer (id, email, passwort_hash, rolle, aktiv, verein_id)
+        VALUES (9002, 'va@a.de', 'x', 'Vereinsadmin', 1, 9001)
     """)
-    # Trainer für A (3 Stück)
+    # 3 Trainer für Verein A  → überschreitet TRAINER_BASIC-Limit (max_trainer=2)
     for i in range(3):
-        c.execute(f"""
-            INSERT OR IGNORE INTO benutzer
-            (id, benutzername, email, passwort_hash, rolle, aktiv, verein_id)
-            VALUES ({9010+i}, 't_{i}', 't{i}@a.de', 'x', 'Trainer', 1, 9001)
-        """)
-    # 5 Spieler für Verein A (spieler hat kein aktiv-Feld)
+        c.execute(
+            "INSERT OR IGNORE INTO benutzer (id, email, passwort_hash, rolle, aktiv, verein_id) "
+            "VALUES (?, ?, 'x', 'Trainer', 1, 9001)",
+            (9010 + i, f"t{i}@a.de"),
+        )
+    # 5 Spieler für Verein A  → unter TRAINER_BASIC-Limit (max_spieler=25)
     for i in range(5):
-        c.execute(f"""
-            INSERT OR IGNORE INTO spieler
-            (id, name, verein_id)
-            VALUES ({9010+i}, 'Spieler {i}', 9001)
-        """)
+        c.execute(
+            "INSERT OR IGNORE INTO spieler (id, name, verein_id) VALUES (?, ?, 9001)",
+            (9010 + i, f"Spieler {i}"),
+        )
     conn.commit()
     conn.close()
 
@@ -334,29 +362,33 @@ if __name__ == "__main__":
     print("  Block-B Testsuite (B8)")
     print("=" * 60)
 
-    setup()
+    try:
+        setup()
 
-    test_b2_unique_indexes()
-    test_b2_atomic_assignment()
-    test_b2_no_duplicate()
+        test_b2_unique_indexes()
+        test_b2_atomic_assignment()
+        test_b2_no_duplicate()
 
-    test_b3_dashboard_kpis()
-    test_b3_filter_trial()
-    test_b3_filter_zahlungsstatus()
-    test_b3_filter_status_trial()
+        test_b3_dashboard_kpis()
+        test_b3_filter_trial()
+        test_b3_filter_zahlungsstatus()
+        test_b3_filter_status_trial()
 
-    test_b4_stripe_fields_in_vollstaendig()
+        test_b4_stripe_fields_in_vollstaendig()
 
-    test_b5_fail_closed()
-    test_b5_downgrade_schutz_definition()
+        test_b5_fail_closed()
+        test_b5_downgrade_schutz_definition()
 
-    test_b6_verein_sperren()
-    test_b6_benutzer_aktivieren()
+        test_b6_verein_sperren()
+        test_b6_benutzer_aktivieren()
 
-    test_b7_audit_log()
-    test_b7_audit_eintragen()
+        test_b7_audit_log()
+        test_b7_audit_eintragen()
 
-    test_b1_regression()
+        test_b1_regression()
+
+    finally:
+        cleanup()
 
     print("\n" + "=" * 60)
     print(f"  Ergebnis: {_pass} PASS, {_fail} FAIL")
