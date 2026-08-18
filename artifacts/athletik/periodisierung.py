@@ -303,6 +303,134 @@ _POOL: dict[str, dict[str, list]] = {
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Altersgerechter Ausdauer-Pool — fußballspezifisch, nach Plangruppe
+# (Quelle: Bangsbo 2008; Buchheit & Laursen 2013; DFB-Junioren-Konzept)
+#
+# Drei Kategorien:
+#   "Jugend"  → plangruppe U7/U8/U10  (Alter ≤ 11 J.) — spielerisch, mit Ball
+#   "Mittel"  → plangruppe U14         (Alter 12–14 J.) — strukturierte Intervalle
+#   "Senior"  → plangruppe U18/Senior/Ü40/Ü55 (Alter 15+) — GA1/GA2/RSA
+#
+# Übungen folgen demselben (pool_key, saetze, volumen, haeufigkeit)-Schema wie _POOL.
+# ─────────────────────────────────────────────────────────────────────────────
+
+_AUSDAUER_POOL: dict[str, dict[str, list]] = {
+
+    # ── Jugend (≤ U11) — spielerisch, kurze intermittierende Belastungen ──────
+    "Jugend": {
+        "stabilisation": [   # Phase 1/2: aerobe Basis, niedrig intensiv
+            ("Fangspiel mit Ballkontrolle",     "1", "8 Minuten",    "2×/Woche"),
+            ("Dribbling-Staffel aerob",         "3", "Durchgänge",   "2×/Woche"),
+            ("Reaktionsspiel Tempowechsel",      "1", "6 Minuten",    "2×/Woche"),
+            ("Pass-Lauf-Kombinationen",          "1", "8 Minuten",    "2×/Woche"),
+            ("Bewegungsaufgaben mit Ball",       "1", "8 Minuten",    "2×/Woche"),
+            ("Kleine Spielform 2v2 extensiv",   "1", "6 Minuten",    "2×/Woche"),
+        ],
+        "kraft": [           # Phase 2/3: mittelintensiv, ballnah
+            ("Dribbel-Ausdauerzirkel",           "1", "10 Minuten",   "2×/Woche"),
+            ("Pass-Ausdauerzirkel",              "1", "10 Minuten",   "2×/Woche"),
+            ("Kleine Spielform 3v3",             "1", "8 Minuten",    "2×/Woche"),
+            ("Shuttle-Lauf mit Ball",            "5", "Durchgänge",   "2×/Woche"),
+            ("Rondo-Ausdauerform 4+1",           "1", "8 Minuten",    "2×/Woche"),
+            ("Ballbesitz-Laufspiel",             "1", "8 Minuten",    "2×/Woche"),
+        ],
+        "power": [           # Phase 3/4: höhere Intensität, kurze Belastungen
+            ("Spielform 4v4 großes Feld",        "1", "10 Minuten",   "1×/Woche"),
+            ("Spielform 5v5 mit Laufaufgaben",   "1", "10 Minuten",   "1×/Woche"),
+            ("Tempolauf-Staffel",                "5", "Durchgänge",   "2×/Woche"),
+            ("Reaktivitäts-Laufspiel",           "1", "6 Minuten",    "2×/Woche"),
+            ("Intermittierende Spielform",       "1", "10 Minuten",   "1×/Woche"),
+            ("Dribbling-Intervall mit Pause",    "8", "Durchgänge",   "1×/Woche"),
+        ],
+    },
+
+    # ── Mittel (U14 — Alter 12–14) — strukturierte Spielformen + Intervalle ───
+    "Mittel": {
+        "stabilisation": [
+            ("Extensive Spielform 4v4",          "1", "12 Minuten",   "2×/Woche"),
+            ("Ballbesitz-Ausdauerform groß",     "1", "12 Minuten",   "2×/Woche"),
+            ("Tempo-Dribblings extensiv",        "1", "10 Minuten",   "2×/Woche"),
+            ("Rondo-Ausdauerform 5+2",           "1", "10 Minuten",   "2×/Woche"),
+            ("Pass-Ausdauerzirkel intensiv",     "1", "12 Minuten",   "2×/Woche"),
+            ("Spielform 5v5 extensiv",           "1", "12 Minuten",   "2×/Woche"),
+        ],
+        "kraft": [
+            ("15:15 Intervalle mit Ball",        "8", "Durchgänge",   "2×/Woche"),
+            ("20:20 Spielform-Intervalle",       "6", "Durchgänge",   "2×/Woche"),
+            ("Shuttle-Intervall 20 m",           "6", "Durchgänge",   "2×/Woche"),
+            ("Ballbesitz-Intervall 5v5",         "5", "Durchgänge",   "2×/Woche"),
+            ("Tempowechsellauf mit Ball",        "6", "Durchgänge",   "2×/Woche"),
+            ("Intensive Spielform 4v4",          "1", "8 Minuten",    "2×/Woche"),
+        ],
+        "power": [
+            ("30:30 Intervalle fußballspezifisch","8","Durchgänge",   "1×/Woche"),
+            ("Intensive Spielform 5v5 groß",     "1", "12 Minuten",   "1×/Woche"),
+            ("Richtungswechsel-Intervall",        "8", "Durchgänge",   "2×/Woche"),
+            ("High-Intensity Spielform 4v4",     "1", "6 Minuten",    "2×/Woche"),
+            ("Pressing-Ausdauer-Übung",          "6", "Durchgänge",   "1×/Woche"),
+            ("RSA-orientiertes Laufspiel",       "6", "Durchgänge",   "1×/Woche"),
+        ],
+    },
+
+    # ── Senior (U18+) — GA1/GA2, Intervalle, RSA ──────────────────────────────
+    "Senior": {
+        "stabilisation": [
+            ("GA1-Dauerlauf 65–75 % HFmax",     "1", "20 Minuten",   "2×/Woche"),
+            ("Extensive Dauermethode",           "1", "25 Minuten",   "1×/Woche"),
+            ("Fahrtspiel fußballspezifisch",     "1", "20 Minuten",   "2×/Woche"),
+            ("Ballbesitzspiel extensiv groß",    "1", "15 Minuten",   "2×/Woche"),
+            ("Tempodauerlauf 70 % HFmax",        "1", "20 Minuten",   "2×/Woche"),
+            ("Aerobe Spielform 6v6+",            "1", "20 Minuten",   "2×/Woche"),
+        ],
+        "kraft": [
+            ("15:15 Intervall aerob-anaerob",    "10","Durchgänge",   "2×/Woche"),
+            ("30:30 fußballspezifisch",          "10","Durchgänge",   "1×/Woche"),
+            ("Extensive Intervallmethode",        "6", "×4 min",       "2×/Woche"),
+            ("GA2-Intervall 80–85 % HFmax",      "5", "×4 min",       "2×/Woche"),
+            ("Shuttle-Intervall 40 m",           "8", "Durchgänge",   "2×/Woche"),
+            ("Intensive Spielform 6v6",          "1", "15 Minuten",   "2×/Woche"),
+        ],
+        "power": [
+            ("RSA 6×30 m mit Erholungsphase",   "6", "Serien",        "1×/Woche"),
+            ("Intensive Intervallmethode",        "6", "×1 min",       "2×/Woche"),
+            ("High-Intensity Shuttle 40 m",      "8", "Durchgänge",   "1×/Woche"),
+            ("Pressing-Simulation intensiv",     "6", "Durchgänge",   "2×/Woche"),
+            ("RSA + Ballkontrolle",              "6", "30 m",          "1×/Woche"),
+            ("Intermittierende Hochintensität",  "6", "Durchgänge",   "2×/Woche"),
+        ],
+    },
+}
+
+# Mapping Plangruppe → Ausdauer-Kategorie
+_PLANGRUPPE_ZU_AUSDAUER: dict[str, str] = {
+    "U7": "Jugend", "U8": "Jugend", "U10": "Jugend",   # Alter ≤ 11
+    "U14": "Mittel",                                     # Alter 12–14
+    "U18": "Senior", "Senior": "Senior",                 # Alter 15+
+    "Ü40": "Senior", "Ü55": "Senior",
+}
+
+
+def _ausdauer_pool_fuer_plangruppe(
+    plangruppe: str,
+    pool_key: str,
+    n: int,
+    offset: int = 0,
+) -> list:
+    """Gibt altersgerechte Ausdauer-Übungen zurück.
+
+    Selektiert aus _AUSDAUER_POOL[Jugend|Mittel|Senior][pool_key].
+    Ü40/Ü55 nutzen Senior-Pool, werden aber durch _max_pool_key auf
+    'stabilisation'/'kraft' begrenzt (keine RSA-power-Übungen).
+    """
+    kategorie = _PLANGRUPPE_ZU_AUSDAUER.get(plangruppe, "Senior")
+    exercises  = _AUSDAUER_POOL.get(kategorie, {}).get(pool_key, [])
+    if not exercises:
+        return []
+    n = min(n, len(exercises))
+    return [exercises[(offset + i) % len(exercises)] for i in range(n)]
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Per-week plan configuration — explicit, no formulas
 # Each entry: (pool_key, phase_name, phase_ziel, is_deload, vol_mult, offset)
 #
@@ -404,6 +532,10 @@ _BEREICH_PARAMS: dict[tuple[str, str], tuple[int, str]] = {
     ("Fußball",       "stabilisation"): (45,  "Technisch / kontrolliert"),
     ("Fußball",       "kraft"):         (60,  "Mittel-intensiv / wettkampfnah"),
     ("Fußball",       "power"):         (60,  "Wettkampfintensität — kurze Pausen (RSA)"),
+    # Ausdauer: Pause = aktive Erholungszeit zwischen Intervallen/Spielformen
+    ("Ausdauer",      "stabilisation"): (60,  "Aerob / kontinuierlich — Belastung aufrechterhalten"),
+    ("Ausdauer",      "kraft"):         (60,  "Aktive Pause / Belastungs-Pausen-Verhältnis 1:1"),
+    ("Ausdauer",      "power"):         (90,  "Vollständige Erholung zwischen Intensiv-Intervallen"),
 }
 
 _PAUSE_FALLBACK:       dict[str, int] = {"stabilisation": 45, "kraft": 90, "power": 120}
@@ -741,6 +873,9 @@ _TRAININGS_SEQUENZ: dict[tuple[str, str], int] = {
     ("Fußball",       "stabilisation"): 17,  # Cool-down / Fußball
     ("Fußball",       "kraft"):         17,
     ("Fußball",       "power"):         17,
+    ("Ausdauer",      "stabilisation"): 16,  # Ausdauerblock — nach Kraft/Speed
+    ("Ausdauer",      "kraft"):         16,
+    ("Ausdauer",      "power"):         16,
 }
 
 # §5 Energiesystem-Zuordnung pro (bereich, pool_key)
@@ -772,6 +907,9 @@ _ENERGIE_SYSTEM: dict[tuple[str, str], str] = {
     ("Fußball",       "stabilisation"): "Aerob",
     ("Fußball",       "kraft"):         "Gemischt",
     ("Fußball",       "power"):         "Laktazid",
+    ("Ausdauer",      "stabilisation"): "Aerob",
+    ("Ausdauer",      "kraft"):         "Laktazid",
+    ("Ausdauer",      "power"):         "Laktazid",
 }
 
 # §4 Primäres Equipment pro (bereich, pool_key)
@@ -803,6 +941,9 @@ _EQUIPMENT_PRIMÄR: dict[tuple[str, str], str] = {
     ("Fußball",       "stabilisation"): "Ball",
     ("Fußball",       "kraft"):         "Ball",
     ("Fußball",       "power"):         "Ball",
+    ("Ausdauer",      "stabilisation"): "Ball",
+    ("Ausdauer",      "kraft"):         "Ball",
+    ("Ausdauer",      "power"):         "Ball",
 }
 
 # Equipment-Fallback: alternative pool_key wenn primäres Equipment fehlt (§4)
@@ -1265,7 +1406,9 @@ def defizit_score(schwerpunkt_text: str) -> dict[str, int]:
           "antrittsschnelligkeit"],                                          "Schnelligkeit"),
         (["explosiv", "sprung", "sprungkraft"],                             "Explosivität"),
         (["agil", "richtungswechsel", "505"],                               "Agilität"),
-        (["fußball", "fussball", "ausdauer", "aerob", "intermittier"],     "Fußball"),
+        (["fußball", "fussball"],                                           "Fußball"),
+        # Ausdauer-Keywords → eigenständiger "Ausdauer"-Bereich (nicht Fußball-Bereich)
+        (["ausdauer", "aerob", "intermittier", "yo-yo", "yoyo"],           "Ausdauer"),
     ]
     counts: dict[str, int] = {}
     for keywords, area in _mapping:
@@ -1594,7 +1737,11 @@ def trainingsplan_multi_erstellen(spieler_id: int, schwerpunkt_text: str,
                     effective_pk = _max_pool_key(fallback, "stabilisation")
                     eq_primary   = _EQUIPMENT_PRIMÄR.get((area, effective_pk), "Körpergewicht")
 
-            exercises = _pool_fuer_area(area, effective_pk, n, offset=offset)
+            # Ausdauer-Bereich nutzt altersgerechten Pool statt _POOL
+            if area == "Ausdauer":
+                exercises = _ausdauer_pool_fuer_plangruppe(plangruppe, effective_pk, n, offset=offset)
+            else:
+                exercises = _pool_fuer_area(area, effective_pk, n, offset=offset)
 
             # §4b Per-Übung Equipment-Filter (nach Pool-Key-Fallback)
             if _equip_set is not None:
@@ -1602,8 +1749,11 @@ def trainingsplan_multi_erstellen(spieler_id: int, schwerpunkt_text: str,
                 _filtered = [e for e in exercises if _equip_verfuegbar(e[0], _equip_exp_set)]
                 if not _filtered:
                     # Fallback 1: stabilisation-Pool des gleichen Bereichs versuchen
-                    _fb = [e for e in _pool_fuer_area(area, "stabilisation", n, offset=offset)
-                           if _equip_verfuegbar(e[0], _equip_exp_set)]
+                    if area == "Ausdauer":
+                        _fb_src = _ausdauer_pool_fuer_plangruppe(plangruppe, "stabilisation", n, offset=offset)
+                    else:
+                        _fb_src = _pool_fuer_area(area, "stabilisation", n, offset=offset)
+                    _fb = [e for e in _fb_src if _equip_verfuegbar(e[0], _equip_exp_set)]
                     # Kein ungefilterter Fallback: lieber leer als inkompatible Übung
                     exercises = _fb  # kann leer sein → Bereich wird übersprungen
                 else:

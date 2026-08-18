@@ -1,0 +1,910 @@
+FINALER MASTER-AUFTRAG – APH AUSDAUER / ALTERSKLASSEN / DEFIZITLOGIK / FUSSBALLSPEZIFISCHER TRAININGSPLAN
+
+WICHTIG:
+Produktivsystem.
+Noch NICHT deployen.
+
+Keine bestehenden Testdaten löschen.
+Keine historischen Trainingspläne verändern.
+Keine DB-Migration, sofern nicht zwingend nötig.
+Keine Lizenz-/Stripe-/Mandanten-/Kundenlogik verändern.
+
+ZUERST IST-ZUSTAND PRÜFEN.
+DANN NUR NACHGEWIESENE INKONSISTENZEN KORRIGIEREN.
+
+==================================================
+1. AUSGANGSFALL / PFLICHT-REGRESSION
+==================================================
+
+Spieler:
+
+Geburtsdatum:
+26.08.2016
+
+Jahrgang:
+2016
+
+Saison:
+2026/27
+
+Fußball-Altersklasse:
+U11
+
+Test:
+Yo-Yo Intermittent Recovery Test Level 1 / IR1
+
+Distanz:
+520 m
+
+HFmax:
+195 bpm
+
+RPE:
+15
+
+Aktueller Zustand:
+
+- Fußballklasse: U11
+- Normbadge teilweise: U10
+- Yo-Yo-Bewertung teilweise: U8/U9
+- 520 m wird als "Gut" bewertet
+- VO₂max-Schätzung: 40,8 ml/kg/min
+- Trainingsplan erkennt trotzdem:
+  "Aerobe Kapazität" als Defizit
+- Trainingsplan zeigt aber keinen klaren
+  fußballspezifischen Ausdauerblock
+
+Dieser Fall muss nach dem Fix logisch konsistent sein.
+
+==================================================
+2. NICHT NUR U11 PRÜFEN
+==================================================
+
+WICHTIG:
+
+Die Korrektur darf NICHT nur für Jahrgang 2016 / U11 gelten.
+
+U11 ist lediglich der bekannte Fehlerfall.
+
+Prüfe systematisch ALLE unterstützten Altersklassen und Jahrgänge.
+
+Insbesondere alle Übergänge:
+
+U6
+U7
+U8
+U9
+U10
+U11
+U12
+U13
+U14
+U15
+U16
+U17
+U18
+U19
+Senioren
+
+bzw. alle tatsächlich von APH unterstützten Gruppen.
+
+Für jede Altersklasse prüfen:
+
+- Fußball-Altersklasse
+- chronologisches Alter
+- Testreferenz
+- Normgruppe
+- Yo-Yo-Normgruppe
+- Defiziterkennung
+- Trainingsstufe
+- Trainingsplan
+
+Keine widersprüchlichen Altersanzeigen.
+
+==================================================
+3. ZENTRALE ALTERSKLASSENLOGIK
+==================================================
+
+Bestehende zentrale Funktionen verwenden.
+
+Fußball-Altersklasse:
+
+aus Saison + Geburtsjahr
+über saison.py
+
+Beispiel:
+
+JG 2016
+Saison 2026/27
+→ U11
+
+Diese Berechnung ist aktuell korrekt und darf nicht beschädigt werden.
+
+Chronologisches Alter:
+
+weiterhin für altersbasierte medizinische/
+leistungsphysiologische Normen verwenden,
+wenn diese Normen tatsächlich nach Alter definiert sind.
+
+Alter am Testtag:
+bestehende alter_am_datum()-Logik weiterverwenden.
+
+==================================================
+4. YO-YO-NORMGRUPPE ZENTRALISIEREN
+==================================================
+
+Die aktuelle lokale Funktion:
+
+alter_zu_gruppe()
+
+in app.py erzeugt falsche Zuordnungen.
+
+Bekannte Fehler:
+
+Alter 9
+→ U8/U9
+statt
+→ passende Gruppe U10/U11
+
+und:
+U13/U14 wird teilweise übersprungen.
+
+Diese lokale Sonderlogik entfernen bzw. ersetzen.
+
+Keine neue vierte Alterslogik bauen.
+
+Eine zentrale Funktion schaffen bzw. vorhandene Logik nutzen:
+
+Fußballklasse / chronologisches Alter
+→ eindeutige Yo-Yo-Normgruppe
+
+Beispiel:
+
+Fußballklasse U11
+→ Yo-Yo-Normgruppe U10/U11
+
+Die UI soll klar unterscheiden:
+
+Fußball-Altersklasse:
+U11
+
+Yo-Yo-Testreferenz:
+U10/U11
+
+Nicht:
+
+U11
++
+U10
++
+U8/U9 gleichzeitig.
+
+==================================================
+5. YO-YO-IR1 NORMWERTE NICHT ERFINDEN
+==================================================
+
+Vorhandene Normwerte aus ausdauer.py weiterhin verwenden,
+sofern fachlich vorgesehen.
+
+Aktuell dokumentiert:
+
+U8/U9
+Gut >= 200 m
+Mittel >= 120 m
+
+U10/U11
+Gut >= 480 m
+Mittel >= 280 m
+
+U12/U13
+Gut >= 800 m
+Mittel >= 480 m
+
+U13/U14
+Gut >= 1200 m
+Mittel >= 800 m
+
+U15/U16
+Gut >= 1600 m
+Mittel >= 1100 m
+
+U17/U18
+Gut >= 2000 m
+Mittel >= 1400 m
+
+Senioren
+Gut >= 2400 m
+Mittel >= 1600 m
+
+Keine Normwerte verändern,
+ohne bestehende Quellen-/Normlogik nachzuweisen.
+
+Testfall:
+
+U11 / U10-U11 Referenz
+520 m
+→ Gut
+
+==================================================
+6. VO2MAX BANGSBO-FORMEL
+==================================================
+
+Bestehende IR1-Formel beibehalten:
+
+VO₂max =
+Distanz × 0.0084 + 36.4
+
+Test:
+
+520 × 0.0084 + 36.4
+= 40.768
+→ 40.8 ml/kg/min
+
+IR2-Formel nicht verändern.
+
+==================================================
+7. KRITISCHER FEHLER – DEFIZITLOGIK
+==================================================
+
+Aktuell verwendet analytics.py offenbar:
+
+VO₂max < 45
+→ kritisch
+
+VO₂max < 50
+→ Warnung
+
+Diese Schwellen sind altersblind.
+
+Dadurch passiert:
+
+Yo-Yo:
+520 m
+→ Gut
+
+VO₂max:
+40.8
+
+analytics.py:
+40.8 < 45
+→ kritisches Defizit "Aerobe Kapazität"
+
+Das ist inkonsistent.
+
+==================================================
+8. ALTERSGERECHTE VO2MAX-BEWERTUNG
+==================================================
+
+Bestehende altersabhängige Normfunktion aus age_norms.py verwenden.
+
+Insbesondere:
+
+vo2_bewertung_alter()
+
+oder die vorhandene zentrale äquivalente Funktion.
+
+Keine zweite VO₂max-Normlogik erstellen.
+
+Spieleralter muss am TESTTAG verwendet werden.
+
+Geschlecht berücksichtigen,
+wenn die bestehende Normfunktion dies vorsieht.
+
+ZIEL:
+
+Testbewertung
++
+VO₂max-Einstufung
++
+Defiziterkennung
+
+müssen dieselbe fachliche Richtung ergeben.
+
+Wenn der Wert altersgerecht:
+
+Gut / Sehr gut / Durchschnittlich ohne Defizit
+
+ist,
+
+darf analytics.py NICHT automatisch ein
+kritisches Defizit "Aerobe Kapazität" erzeugen.
+
+==================================================
+9. HISTORISCHE TESTS
+==================================================
+
+Bestehende Regel beachten:
+
+Alter wird am Testdatum bestimmt.
+
+Beispiel:
+
+Geburtstag:
+26.08.2016
+
+Test:
+20.08.2026
+→ Alter 9
+
+Test:
+27.08.2026
+→ Alter 10
+
+Historische Tests dürfen nach einem Geburtstag
+nicht nachträglich anders bewertet werden.
+
+==================================================
+10. ANDERE TESTMODULE AUDITIEREN
+==================================================
+
+Im Audit wurde festgestellt:
+
+analytics.py könnte auch bei:
+
+- Sprint
+- Sprung
+- Agilität
+- Kraft
+
+eigene pauschale Schwellen verwenden,
+obwohl age_norms.py altersabhängige Normen besitzt.
+
+Bitte diese Bereiche systematisch prüfen.
+
+NICHT blind umbauen.
+
+Für jeden Bereich:
+
+1. Welche gespeicherte Bewertung verwendet der Test selbst?
+2. Welche Bewertung verwendet analytics.py?
+3. Werden gleiche Normen benutzt?
+4. Gibt es widersprüchliche Ergebnisse?
+5. Kann ein Test "Gut" anzeigen und analytics.py trotzdem Defizit erzeugen?
+
+Nur nachgewiesene Inkonsistenzen korrigieren.
+
+FMS und Y-Balance nur ändern,
+wenn tatsächlich eine Inkonsistenz vorliegt.
+
+==================================================
+11. GRUNDSATZ FÜR DEFIZITE
+==================================================
+
+Ein Defizit darf nur entstehen wenn:
+
+- die alters-/geschlechts-/testgerechte Norm
+  tatsächlich Verbesserungsbedarf zeigt
+
+oder
+
+- eine fachlich definierte Auffälligkeit
+  aus dem jeweiligen Test vorliegt.
+
+Nicht:
+
+eine universelle Pauschalschwelle auf alle Altersgruppen anwenden.
+
+==================================================
+12. TRAININGSPLAN – AUSDAUER FEHLT
+==================================================
+
+Aktuell:
+
+"Aerobe Kapazität"
+→ defizit_score()
+→ Bereich "Fußball"
+
+aber:
+
+_POOL["Fußball"]
+
+hat keinen echten:
+
+"ausdauer"
+
+Pool.
+
+Dadurch wird der Ausdauer-Schwerpunkt nicht sauber
+in Ausdauertraining übersetzt.
+
+Das muss korrigiert werden.
+
+==================================================
+13. FUSSBALLSPEZIFISCHEN AUSDAUERBEREICH ERGÄNZEN
+==================================================
+
+Wenn ein ECHTES altersgerecht bestätigtes Ausdauerdefizit vorliegt,
+muss der Trainingsplan auch klar erkennbare Ausdauerinhalte enthalten.
+
+Nicht einfach generische Erwachsenen-Dauerläufe.
+
+Der Ausdauerbereich muss fußballspezifisch sein.
+
+Mögliche Übungskategorien:
+
+- extensive Spielformen
+- intensive Spielformen
+- 3v3
+- 4v4
+- 5v5
+- größere Spielformen
+- Intervallläufe mit Ball
+- Dribbel-Ausdauerzirkel
+- Pass-Ausdauerzirkel
+- Shuttle-Intervalle
+- Tempowechselläufe
+- Intervallformen mit Richtungswechsel
+- 15:15
+- 20:20
+- 30:30
+- kleine Spiele mit Belastungs-/Pausensteuerung
+- Rondo-Ausdauerformen
+- Ballbesitz-Ausdauerformen
+- positions-/fußballspezifische Laufmuster
+- RSA-orientierte Inhalte
+- intermittierende Ausdauer
+
+Nicht automatisch alle verwenden.
+
+Auswahl abhängig von:
+
+- Alter
+- Trainingsstufe
+- Defizitart
+- Saisonphase
+- Trainingszeit
+- Equipment
+- Belastbarkeit
+
+==================================================
+14. AUSDAUER DIFFERENZIEREN
+==================================================
+
+Nicht alles unter einem einzigen
+"Aerobe Kapazität"-Pool zusammenwerfen.
+
+Soweit bestehende Testdaten es fachlich erlauben,
+zwischen folgenden Bereichen unterscheiden:
+
+A)
+Aerobe Basis / Grundlagenausdauer
+
+B)
+Intermittierende Ausdauer
+
+C)
+Repeated Sprint Ability / RSA
+
+D)
+Erholungsfähigkeit zwischen intensiven Aktionen
+
+E)
+ggf. anaerobe Kapazität,
+wenn dafür tatsächlich valide Testdaten vorhanden sind
+
+Keine Defizite erfinden,
+wenn APH diese Daten nicht misst.
+
+==================================================
+15. ALTERSGERECHTE AUSDAUER U6–U11
+==================================================
+
+Bei jungen Spielern:
+
+kein Erwachsenen-Ausdauertraining als Standard.
+
+Für U6–U11 bevorzugt:
+
+- spielerisch
+- mit Ball
+- kleine Spielformen
+- Bewegungsaufgaben
+- Fang-/Reaktionsspiele
+- Dribbel-/Passzirkel
+- kurze intermittierende Belastungen
+- häufige Richtungswechsel
+- technisch-taktisch eingebettet
+
+Kein automatischer:
+
+25–40 Minuten monotoner Dauerlauf
+
+als Standardlösung für Kinder.
+
+==================================================
+16. U12–U15
+==================================================
+
+Mit zunehmendem Alter:
+
+mehr strukturierte fußballspezifische Intervalle möglich.
+
+Beispielsweise:
+
+- 15:15
+- 20:20
+- 30:30
+- extensive Spielformen
+- größere Spielfelder
+- intensive Ballbesitzformen
+- Lauf-/Ball-Kombinationen
+
+Belastungssteuerung altersgerecht.
+
+==================================================
+17. U16–SENIOREN
+==================================================
+
+Bei älteren Jugendlichen / Erwachsenen
+dürfen zusätzlich verwendet werden:
+
+- GA1
+- GA2
+- extensive Intervallmethode
+- intensive Intervallmethode
+- längere Intervalle
+- Tempodauerläufe
+- RSA
+- fußballspezifische Shuttle-Intervalle
+
+aber weiterhin bevorzugt sportartspezifisch,
+wenn Trainingsziel und Saisonphase passen.
+
+==================================================
+18. BELASTUNGSSTEUERUNG
+==================================================
+
+Ausdauerübungen müssen bestehende APH-Belastungslogik nutzen.
+
+Berücksichtigen:
+
+- Belastungsdauer
+- Belastungsumfang
+- Belastungsdichte
+- Belastungshäufigkeit
+- Intensität
+- Pause
+- RPE
+- Trainingszeit
+- Saisonperiode
+
+Keine neue unabhängige Belastungsengine bauen.
+
+Bestehende Periodisierungslogik integrieren.
+
+==================================================
+19. SAISONPERIODE
+==================================================
+
+Ausdauertraining muss ggf. unterscheiden zwischen:
+
+- Vorbereitung
+- normale Saison
+- intensive Spielphase
+- Regeneration
+
+Keine maximale Ausdauerbelastung unmittelbar
+vor wichtigen Spielbelastungen erzwingen.
+
+Bestehende Saisonperiodisierung verwenden.
+
+==================================================
+20. TRAININGSPLAN-PRIORISIERUNG
+==================================================
+
+Wenn z.B. zwei Defizite erkannt werden:
+
+Core/Rumpf
++
+Aerobe Kapazität
+
+und beide Hauptschwerpunkte sind,
+
+muss der Plan beide sichtbar widerspiegeln.
+
+Nicht:
+
+35 % Ausdauer angekündigt,
+aber 0 echte Ausdauerübungen erzeugen.
+
+Die tatsächliche Übungsverteilung muss
+zur angezeigten Schwerpunktverteilung passen.
+
+==================================================
+21. KEIN AUSDAUERDEFIZIT
+==================================================
+
+Sehr wichtig:
+
+Wenn Yo-Yo / VO₂max altersgerecht
+KEIN Defizit zeigt:
+
+→ kein künstlicher Ausdauer-Hauptschwerpunkt
+
+→ kein erzwungener Ausdauerblock
+
+Allgemeiner Erhalt darf weiterhin
+altersgerecht Ausdaueranteile enthalten,
+wenn die Trainingsphilosophie dies vorsieht.
+
+==================================================
+22. ECHTES AUSDAUERDEFIZIT
+==================================================
+
+Wenn ein echtes Ausdauerdefizit vorhanden ist:
+
+→ Defizit sichtbar anzeigen
+
+→ Begründung anzeigen
+
+→ Quelle/Testdatum anzeigen
+
+→ passende fußballspezifische Übungen auswählen
+
+→ Trainingsplan muss den Schwerpunkt tatsächlich abbilden
+
+==================================================
+23. UI-KONSISTENZ
+==================================================
+
+Beim Yo-Yo-Test klar anzeigen:
+
+Beispiel:
+
+Fußballklasse:
+U11 – Saison 2026/27
+
+Testreferenz:
+U10/U11
+
+Alter am Testtag:
+9 Jahre
+
+Bewertung:
+Gut
+
+VO₂max-Schätzung:
+40.8 ml/kg/min
+
+Keine widersprüchlichen Labels.
+
+==================================================
+24. TESTREFERENZ ≠ FUSSBALLKLASSE
+==================================================
+
+Die App muss fachlich sauber unterscheiden:
+
+Fußballklasse:
+U11
+
+ist NICHT zwingend identisch mit:
+
+Norm-/Testgruppe:
+U10/U11
+
+Deshalb nicht alles einfach "U11" nennen.
+
+Die UI soll verständlich erklären:
+
+"Fußballklasse: U11"
+"Testreferenz: U10/U11"
+
+==================================================
+25. BESTEHENDE HISTORISCHE DATEN
+==================================================
+
+NICHT verändern:
+
+- gespeicherte Yo-Yo-Distanzen
+- HFmax
+- RPE
+- VO₂max-Werte
+- Testdaten
+- historische Trainingspläne
+- gespeicherte PDFs
+
+Neue Bewertungslogik wirkt auf neue Anzeige/
+Analyse bzw. zukünftige Plangenerierung.
+
+Bestehende versionierte Trainingspläne bleiben unverändert.
+
+==================================================
+26. KEINE ÄNDERUNG AN
+==================================================
+
+Nicht verändern:
+
+- Kundenverwaltung
+- Rechnungsmodul
+- Stripe
+- Checkout
+- Price IDs
+- Lizenzpakete
+- Preise
+- trainer_mandanten
+- Sessions
+- Login
+- Passwort
+- E-Mail-Verifikation
+- Mobile Navigation
+- Upload
+- saison.py-Fußballklassenlogik,
+  außer zwingend zur Wiederverwendung
+- bestehende funktionierende Testmodule
+
+==================================================
+27. PFLICHTTESTS – ALTERSKLASSEN
+==================================================
+
+Automatisierte Tests für alle Alters-/Saisonübergänge.
+
+Mindestens:
+
+JG 2016 + Saison 2026/27
+→ Fußballklasse U11
+
+Alter 9
+→ korrekte Testreferenz
+
+U11
+→ Yo-Yo-Gruppe U10/U11
+
+Keine U8/U9-Anzeige.
+
+Zusätzlich Grenzen für:
+
+8 → 9
+9 → 10
+10 → 11
+11 → 12
+12 → 13
+13 → 14
+14 → 15
+15 → 16
+16 → 17
+17 → 18
+
+prüfen.
+
+==================================================
+28. PFLICHTTESTS – YO-YO
+==================================================
+
+Testfall:
+
+520 m
+U10/U11
+männlich
+
+→ Gut
+
+VO₂max:
+40.8
+
+→ altersgerechte Bewertung
+
+→ kein kritisches Ausdauerdefizit,
+wenn age_norms dies nicht als Defizit bewertet.
+
+Zusätzlich:
+
+ein bewusst schlechter Wert
+→ Verbesserungsbedarf
+
+→ Defizit wird erzeugt.
+
+==================================================
+29. PFLICHTTESTS – TRAININGSPLAN
+==================================================
+
+A)
+Kein Ausdauerdefizit
+→ kein Ausdauer-Hauptschwerpunkt
+
+B)
+Echtes Ausdauerdefizit U11
+→ fußballspezifische altersgerechte Ausdauerübungen
+
+C)
+Echtes Ausdauerdefizit U16
+→ altersgerechte strukturiertere Intervalle möglich
+
+D)
+Senior
+→ GA/Intervall/RSA möglich
+
+E)
+Core + Ausdauer
+→ beide Bereiche im Plan sichtbar
+
+F)
+Ausdauer als Hauptschwerpunkt
+→ nicht nur Rumpf/Schnelligkeit im Plan
+
+==================================================
+30. PFLICHTTESTS – ANDERE DIAGNOSTIK
+==================================================
+
+Audit + Regression für:
+
+Sprint
+Sprung
+Agilität
+Kraft
+
+Prüfen:
+
+Testbewertung
+vs.
+analytics.py-Defizit
+
+Keine widersprüchliche:
+
+"Normbereich/Gut"
++
+"kritisches Defizit"
+
+ohne fachliche Begründung.
+
+Nur nachgewiesene Fehler korrigieren.
+
+==================================================
+31. REGRESSIONSTESTS
+==================================================
+
+Alle bestehenden Tests ausführen:
+
+- test_verein_ohne_admin.py
+- test_kundenverwaltung_filter.py
+- test_rechnungen.py
+- test_trainer_mandanten.py
+- test_dashboard_mandant.py
+- test_session.py
+- test_block_b.py
+- test_ulogik.py
+- test_saison.py
+- test_alter_testtag.py
+
+plus neue Tests:
+
+- test_ausdauer_alterslogik.py
+- test_ausdauer_defizit.py
+- test_ausdauer_trainingsplan.py
+- ggf. test_analytics_normkonsistenz.py
+
+==================================================
+32. ABSCHLUSSBERICHT
+==================================================
+
+Bitte exakt berichten:
+
+1. Welche Alterslogiken vorher existierten
+2. Welche zentrale Logik jetzt verwendet wird
+3. Mapping Fußballklasse → Yo-Yo-Normgruppe
+4. Ergebnisse aller Altersgrenztests
+5. Yo-Yo-Normwerte unverändert?
+6. VO₂max-Formel unverändert?
+7. Wie altersgerechte VO₂max-Bewertung funktioniert
+8. Warum 520 m / 40.8 jetzt korrekt behandelt wird
+9. Welche analytics.py-Schwellen entfernt/geändert wurden
+10. Ergebnisse Audit Sprint
+11. Ergebnisse Audit Sprung
+12. Ergebnisse Audit Agilität
+13. Ergebnisse Audit Kraft
+14. Neuer Ausdauerbereich im Trainingsplan
+15. Welche fußballspezifischen Ausdauerübungen ergänzt wurden
+16. Alterslogik dieser Übungen
+17. Saison-/Belastungslogik
+18. Core + Ausdauer Beispielplan
+19. Geänderte Dateien
+20. DB-Migration
+21. Auswirkungen auf historische Tests
+22. Auswirkungen auf bestehende Trainingspläne
+23. neue Tests
+24. bestehende Regressionstests
+25. Gesamtzahl PASS/FAIL
+26. verbleibende Risiken
+
+Danach STOPP.
+
+NICHT DEPLOYEN.

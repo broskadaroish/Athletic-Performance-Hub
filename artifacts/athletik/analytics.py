@@ -283,6 +283,7 @@ def defizite_ermitteln(
     aus_row=None,
     anthro_row=None,
     spiro_row=None,
+    geschlecht: str = "Männlich",
 ) -> list[dict]:
     """
     Returns a deduplicated list of deficit dicts.  NO_DATA (None row) ≠ Defizit.
@@ -416,9 +417,10 @@ def defizite_ermitteln(
 
     # ── Ausdauer ──────────────────────────────────────────────────────────────
     if aus_row:
-        bew    = str(aus_row.get("bewertung") or "")
-        vo2max = aus_row.get("vo2max") or 0
-        _d     = aus_row.get("datum") or aus_row.get("erstellt_am")
+        bew         = str(aus_row.get("bewertung") or "")
+        vo2max      = aus_row.get("vo2max") or 0
+        yoyo_gruppe = str(aus_row.get("altersgruppe") or "Senioren")
+        _d          = aus_row.get("datum") or aus_row.get("erstellt_am")
 
         if bew == "Verbesserungsbedarf":
             add("kritisch", "Intermittierende Ausdauer",
@@ -426,12 +428,30 @@ def defizite_ermitteln(
         elif bew == "Mittel":
             add("warnung", "Intermittierende Ausdauer",
                 "Yo-Yo IR-Ergebnis im mittleren Bereich.", "Ausdauer", _d)
-        if vo2max and float(vo2max) < 45:
-            add("kritisch", "Aerobe Kapazität",
-                f"VO₂max-Schätzung {float(vo2max):.1f} ml/kg/min — aerobe Basis stärken.", "Ausdauer", _d)
-        elif vo2max and float(vo2max) < 50:
-            add("warnung", "Aerobe Kapazität",
-                f"VO₂max-Schätzung {float(vo2max):.1f} ml/kg/min — Ausdauertraining intensivieren.", "Ausdauer", _d)
+
+        # Altersgerechte VO₂max-Bewertung statt altersblinder Pauschalschwelle.
+        # Norm-Gruppe aus der gespeicherten Yo-Yo-Altersgruppe abgeleitet —
+        # dadurch konsistent mit der Testbewertung, die ebenfalls altersabhängig ist.
+        if vo2max and float(vo2max) > 0:
+            from age_norms import _VO2_NORMEN_M, _VO2_NORMEN_W
+            _YO_MAP = {
+                "U8/U9": "U8", "U10/U11": "U10", "U12/U13": "U12",
+                "U13/U14": "U14", "U15/U16": "U16", "U17/U18": "U18",
+                "Senioren": "Senioren",
+            }
+            _normgruppe = _YO_MAP.get(yoyo_gruppe, "Senioren")
+            _ist_w = "w" in geschlecht.lower() or "f" in geschlecht.lower()
+            _tab   = _VO2_NORMEN_W if _ist_w else _VO2_NORMEN_M
+            _n     = _tab.get(_normgruppe, _tab["Senioren"])
+            _v     = float(vo2max)
+            if _v < _n["Durchschnittlich"] * 0.85:
+                add("kritisch", "Aerobe Kapazität",
+                    f"VO₂max-Schätzung {_v:.1f} ml/kg/min — deutlich unter Norm für {_normgruppe} "
+                    f"(Grenze: {_n['Durchschnittlich']:.0f}).", "Ausdauer", _d)
+            elif _v < _n["Durchschnittlich"]:
+                add("warnung", "Aerobe Kapazität",
+                    f"VO₂max-Schätzung {_v:.1f} ml/kg/min — unter Norm für {_normgruppe} "
+                    f"(Grenze: {_n['Durchschnittlich']:.0f}).", "Ausdauer", _d)
 
     # ── Anthropometrie ────────────────────────────────────────────────────────
     if anthro_row:

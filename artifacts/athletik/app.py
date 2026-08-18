@@ -2112,7 +2112,8 @@ def page_dashboard():
         spiro  = spiro_test_letzter(pid)
         sc     = athletik_score(fms, y, sprint, sprung, agil, aus, spiro_row=spiro)
         defizite = defizite_ermitteln(fms, y, sprint, sprung, agil, aus, anthro,
-                                      spiro_row=spiro)
+                                      spiro_row=spiro,
+                                      geschlecht=p.get("geschlecht", "Männlich"))
         # last test date across all modules
         dates = [d["datum"] for d in [fms, y, sprint, sprung, agil, aus]
                  if d and d.get("datum")]
@@ -3760,7 +3761,8 @@ def page_spieler_profil():
     label, level = risiko_label(rs)
     _spiro_p = spiro_test_letzter(sid)
     ascore   = athletik_score(fms, y, sprint, sprung, agil, aus, spiro_row=_spiro_p)
-    defizite = defizite_ermitteln(fms, y, sprint, sprung, agil, aus, anthro, spiro_row=_spiro_p)
+    defizite = defizite_ermitteln(fms, y, sprint, sprung, agil, aus, anthro, spiro_row=_spiro_p,
+                                  geschlecht=auswahl.get("geschlecht", "Männlich"))
     schwerpunkt = schwerpunkt_sammeln(fms, y, sprint, sprung, agil, aus,
                                       kraft_row=kraft_letzter(sid), spiro_row=_spiro_p)
     alter = berechne_alter(auswahl.get("geburtsdatum"))
@@ -4277,7 +4279,8 @@ def page_trainingsplan():
 
     # ── SCHRITT 3: Datenstatus + Defiziterkennung (NO_DATA ≠ DEFIZIT) ────────
     _tests_vorhanden  = any([fms, y, sprint, sprung, agil, aus, spiro])
-    defizite_valide   = defizite_ermitteln(fms, y, sprint, sprung, agil, aus, spiro_row=spiro)
+    defizite_valide   = defizite_ermitteln(fms, y, sprint, sprung, agil, aus, spiro_row=spiro,
+                                            geschlecht=auswahl.get("geschlecht", "Männlich"))
     _anzahl_defizite  = len(defizite_valide)   # nur echte, datenbasierte Defizite zählen
 
     schwerpunkt = schwerpunkt_sammeln(fms, y, sprint, sprung, agil, aus,
@@ -8088,28 +8091,39 @@ def page_ausdauer():
     letzter = ausdauer_letzter(sid)
     hist    = ausdauer_history(sid)
 
-    # Altersgruppe aus Alter ableiten
-    def alter_zu_gruppe(a):
-        if a < 10: return "U8/U9"
-        if a < 12: return "U10/U11"
-        if a < 14: return "U12/U13"
-        if a < 16: return "U15/U16"
-        if a < 18: return "U17/U18"
-        return "Senioren"
+    # ── Zentrale Yo-Yo-Gruppenableitung via Fußball-Altersklasse ─────────────
+    # Ersetzt die frühere lokale alter_zu_gruppe()-Funktion.
+    # Bug dort: Alter 9 → "U8/U9" statt "U10/U11"; "U13/U14" fehlte komplett.
+    from ausdauer import fussballklasse_zu_yoyo_gruppe as _fk_zu_yoyo
+    from saison  import fussballklasse_aus_datum       as _fk_aus_datum
 
     tab_neu, tab_verlauf = st.tabs(["📋 Neuer Test", "📈 Verlauf"])
 
     with tab_neu:
         c1, c2 = st.columns(2)
         datum       = c1.date_input("Testdatum", value=date.today(), key="aus_datum")
-        # Alter am gewählten Testdatum für Altersgruppen-Default (Spec §3)
+        # Alter am gewählten Testdatum (Spec §3)
         _alter_aus_td = alter_am_datum(
             sp.get("geburtsdatum", "") if sp else "", datum.strftime("%d.%m.%Y")
         ) or alter
+        # Fußballklasse am Testtag → Yo-Yo-Normgruppe (FK ist primäre Quelle)
+        _gbd_aus   = sp.get("geburtsdatum", "") if sp else ""
+        _fk_am_td  = _fk_aus_datum(_gbd_aus, stichtag=datum) if _gbd_aus else None
+        _yoyo_def  = _fk_zu_yoyo(_fk_am_td, _alter_aus_td)
+        _yoyo_idx  = (ALTERSGRUPPEN_YO.index(_yoyo_def)
+                      if _yoyo_def in ALTERSGRUPPEN_YO else len(ALTERSGRUPPEN_YO) - 1)
+
         test_typ    = c1.selectbox("Test-Level", ["IR1", "IR2"], key="aus_typ")
         altersgruppe = c2.selectbox("Altersgruppe", ALTERSGRUPPEN_YO,
-                                     index=ALTERSGRUPPEN_YO.index(alter_zu_gruppe(_alter_aus_td or 20)),
+                                     index=_yoyo_idx,
                                      key="aus_ag")
+        # Info: FK ≠ Testreferenz ist bewusst (Spec §2)
+        if _gbd_aus:
+            c2.caption(
+                f"**Fußballklasse:** {_fk_am_td or '—'} · "
+                f"**Testreferenz:** {_yoyo_def} · "
+                f"**Alter am Testtag:** {int(_alter_aus_td or 0)} J."
+            )
 
         st.markdown("#### Testergebnis")
         _fh = lambda fid: show_field_help("yoyo", fid)
@@ -8647,7 +8661,8 @@ def page_startseite():
     _, level        = risiko_label(rs)
     _spiro_s = spiro_test_letzter(sid)
     ascore          = athletik_score(fms, y, sprint, sprung, agil, aus, spiro_row=_spiro_s)
-    defizite = defizite_ermitteln(fms, y, sprint, sprung, agil, aus, anthro, spiro_row=_spiro_s)
+    defizite = defizite_ermitteln(fms, y, sprint, sprung, agil, aus, anthro, spiro_row=_spiro_s,
+                                  geschlecht=auswahl.get("geschlecht", "Männlich"))
     alter    = berechne_alter(auswahl.get("geburtsdatum"))
 
     # ── Greeting ──────────────────────────────────────────────────────────────

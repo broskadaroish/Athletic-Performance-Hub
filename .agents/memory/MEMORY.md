@@ -33,3 +33,4 @@
 - [Alter am Testtag](alter-am-testtag.md) — alter_am_datum(geb,testdatum) in database.py; Testbefund=Testtag-Alter, Belastungssteuerung=heute, FK=saison; Sprint/Sprung/Agil/Kraft/Ausdauer tab_neu nutzen _td-Variable
 - [U-Logik Alterskorrektur](u-logik-alterskorrektur.md) — U=unter: Alter 9 → U10 (nicht U8); field_eval + periodisierung grenzwerte -1 verschoben; altersklasse_vorschlag() saisonal via FK; jugendklasse_aus_fussballklasse() in saison.py
 - [Mehrfachmandanten-Architektur](mehrfachmandanten.md) — trainer_mandanten Tabelle additiv; benutzer.verein_id Legacy-FK bleibt; Mandant-Auswahlscreen in app.py nach enforce_license_gate()
+- [Ausdauer Alters-Logik + Defizit](ausdauer-alterslogik.md) — FK primär für Yo-Yo-Gruppe; Alters-Fallback U-Logik-konsistent; VO₂max altersgerecht via age_norms; Ausdauer-Bereich ≠ Fußball in defizit_score
