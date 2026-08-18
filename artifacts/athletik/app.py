@@ -6482,16 +6482,37 @@ def page_sprint():
         ) or alter_sprint
         if datum > date.today():
             st.warning("⚠️ Testdatum liegt in der Zukunft — bitte prüfen.")
+
+        _ALLE_DIST = ["5 m", "10 m", "20 m", "30 m", "40 m"]
+        aktive_dist = st.multiselect(
+            "Distanzen für diese Sitzung auswählen",
+            _ALLE_DIST, default=[], key="sprint_aktive_distanzen",
+            help="Nur tatsächlich gemessene Sprintdistanzen auswählen.",
+        )
+        if not aktive_dist:
+            st.info("Wähle mindestens eine Sprintdistanz für diese Sitzung aus.")
+
         st.markdown("#### Zeiten eingeben (Sekunden) — Versuch 1 / 2 / 3")
-        st.caption("Nicht gemessene Distanzen auf 0.00 lassen. ℹ️-Button neben jeder Distanz für Eingabehilfe.")
+        st.caption("0.00 = Versuch nicht durchgeführt. ℹ️-Button neben jeder Distanz für Eingabehilfe.")
 
         c_l, c_r = st.columns(2)
-        v1_5,  v2_5,  v3_5,  b5  = _sprint_eingabe("5 m",  "s5",  letzter, c_l, "sprint_5m",  altersgruppe)
-        v1_10, v2_10, v3_10, b10 = _sprint_eingabe("10 m", "s10", letzter, c_l, "sprint_10m", altersgruppe)
-        v1_20, v2_20, v3_20, b20 = _sprint_eingabe("20 m", "s20", letzter, c_r, "sprint_20m", altersgruppe)
-        v1_30, v2_30, v3_30, b30 = _sprint_eingabe("30 m", "s30", letzter, c_r, "sprint_30m", altersgruppe)
-        v1_40, v2_40, v3_40, b40 = _sprint_eingabe("40 m", "s40", letzter, c_r, "sprint_40m", altersgruppe)
-        c_r.caption("40-m-Zeit nur eingeben wenn gemessen — sonst auf 0.00 lassen.")
+        # Initialisierung auf None — nur ausgewählte Distanzen rendern
+        v1_5  = v2_5  = v3_5  = b5  = None
+        v1_10 = v2_10 = v3_10 = b10 = None
+        v1_20 = v2_20 = v3_20 = b20 = None
+        v1_30 = v2_30 = v3_30 = b30 = None
+        v1_40 = v2_40 = v3_40 = b40 = None
+
+        if "5 m"  in aktive_dist:
+            v1_5,  v2_5,  v3_5,  b5  = _sprint_eingabe("5 m",  "s5",  letzter, c_l, "sprint_5m",  altersgruppe)
+        if "10 m" in aktive_dist:
+            v1_10, v2_10, v3_10, b10 = _sprint_eingabe("10 m", "s10", letzter, c_l, "sprint_10m", altersgruppe)
+        if "20 m" in aktive_dist:
+            v1_20, v2_20, v3_20, b20 = _sprint_eingabe("20 m", "s20", letzter, c_r, "sprint_20m", altersgruppe)
+        if "30 m" in aktive_dist:
+            v1_30, v2_30, v3_30, b30 = _sprint_eingabe("30 m", "s30", letzter, c_r, "sprint_30m", altersgruppe)
+        if "40 m" in aktive_dist:
+            v1_40, v2_40, v3_40, b40 = _sprint_eingabe("40 m", "s40", letzter, c_r, "sprint_40m", altersgruppe)
 
         from sprint import (beschleunigungsindex, bewertung_sprint, bewertung_farbe,
                             SprintErgebnis as _SE)
@@ -6560,6 +6581,7 @@ def page_sprint():
                 _save_ok("Sprint-Test gespeichert!")
                 _reset_keys(*[f"{p}_{v}" for p in ["s5", "s10", "s20", "s30", "s40"]
                                for v in ["v1", "v2", "v3"]])
+                _reset_keys("sprint_aktive_distanzen")
                 st.rerun()
 
     with tab_verlauf:

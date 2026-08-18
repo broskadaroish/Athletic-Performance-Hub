@@ -1,0 +1,592 @@
+APH – HOTFIX / UX-ERWEITERUNG
+SPRINTTEST → DISTANZEN PRO SITZUNG AUSWÄHLEN
+
+WICHTIG:
+Noch NICHT deployen.
+Keine DB-Migration.
+Keine bestehende Sprint-Norm-, Bewertungs-, Defizit- oder Trainingsplanlogik verändern.
+Historische Sprinttests vollständig erhalten.
+
+ZIEL:
+Der Sprinttest soll dasselbe Bedienprinzip erhalten wie Agilität und Sprung:
+
+Neue Testsitzung
+→ standardmäßig KEINE Sprintdistanz aktiviert
+
+Trainer wählt nur die Distanzen aus,
+die in dieser Sitzung tatsächlich gemessen werden.
+
+============================================================
+1. IST-ZUSTAND
+============================================================
+
+Aktuell werden im Sprinttest immer alle Distanzblöcke angezeigt:
+
+- 5 m
+- 10 m
+- 20 m
+- 30 m
+- 40 m
+
+jeweils mit Versuch 1 / 2 / 3.
+
+Das soll geändert werden.
+
+============================================================
+2. MULTI-SELECT DIREKT UNTER TESTDATUM
+============================================================
+
+Direkt unter dem Testdatum neue Auswahl:
+
+„Distanzen für diese Sitzung auswählen“
+
+Multi-Select standardmäßig LEER:
+
+default=[]
+
+Verfügbare Distanzen:
+
+- 5 m
+- 10 m
+- 20 m
+- 30 m
+- 40 m
+
+Keine Distanz vorauswählen.
+
+============================================================
+3. LEERE AUSWAHL
+============================================================
+
+Wenn keine Distanz ausgewählt wurde:
+
+Hinweis anzeigen:
+
+„Wähle mindestens eine Sprintdistanz für diese Sitzung aus.“
+
+Keine Distanzblöcke rendern.
+
+Keine Fehlermeldung.
+Keine automatische Vorauswahl.
+
+============================================================
+4. NUR AUSGEWÄHLTE DISTANZEN ANZEIGEN
+============================================================
+
+Nur ausgewählte Distanzen rendern.
+
+Beispiel:
+
+Auswahl:
+10 m
+30 m
+
+→ nur 10-m-Block und 30-m-Block anzeigen.
+
+Nicht anzeigen:
+
+5 m
+20 m
+40 m
+
+Beispiel:
+
+Auswahl:
+5 m
+
+→ ausschließlich 5-m-Test anzeigen.
+
+============================================================
+5. 3 VERSUCHE BLEIBEN UNVERÄNDERT
+============================================================
+
+Für jede ausgewählte Distanz weiterhin:
+
+Versuch 1
+Versuch 2
+Versuch 3
+
+Bestzeit:
+
+min(V1, V2, V3)
+
+unter Berücksichtigung der bestehenden Regel:
+
+0.00 = Versuch nicht durchgeführt
+
+Diese Logik NICHT verändern.
+
+============================================================
+6. NICHT AUSGEWÄHLTE DISTANZEN
+============================================================
+
+Nicht ausgewählte Distanzen dürfen:
+
+- nicht gerendert werden
+- nicht bewertet werden
+- kein Normbadge erzeugen
+- kein Defizit erzeugen
+- die Sprint-Analyse nicht verfälschen
+
+Bestehende Datenstruktur darf weiterhin 0 / None für nicht gemessene
+Distanzen verwenden, sofern dies der bestehende Sprint-Speicherstandard ist.
+
+Wichtig:
+
+0 / None
+bei nicht ausgewählter Distanz
+
+=
+„nicht gemessen“
+
+NICHT:
+schlechtes Ergebnis.
+
+============================================================
+7. BESTEHENDER SPRINT-FIX MUSS ERHALTEN BLEIBEN
+============================================================
+
+Sehr wichtig:
+
+APH erlaubt bereits jede Sprintdistanz unabhängig zu messen.
+
+Der bestehende Fix muss vollständig erhalten bleiben:
+
+hat_sprint_daten = any(
+    Wert > 0
+    für beste_5m / beste_10m / beste_20m / beste_30m / beste_40m
+)
+
+Nicht wieder eine Abhängigkeit von beste_10m einbauen.
+
+Beispiele:
+
+nur 5 m
+→ gültiger Sprinttest
+
+nur 20 m
+→ gültiger Sprinttest
+
+nur 30 m
+→ gültiger Sprinttest
+
+nur 40 m
+→ gültiger Sprinttest
+
+============================================================
+8. SESSION-STATE
+============================================================
+
+Neue Sitzung:
+
+sprint_aktive_distanzen = []
+
+Wenn Trainer Distanzen auswählt:
+
+Auswahl muss über normale Streamlit-Reruns erhalten bleiben.
+
+Prüfen:
+
+- +/- Buttons
+- Info-Buttons
+- number_input
+- Scroll/Rerun
+- Wechsel zwischen Sprint-Untertabs
+
+dürfen die Auswahl nicht zurücksetzen.
+
+Nur nach erfolgreichem Speichern der Sprinttestsitzung:
+
+_reset_keys("sprint_aktive_distanzen")
+
+oder äquivalente bestehende Reset-Logik
+
+→ nächste neue Sitzung startet wieder leer.
+
+============================================================
+9. EINGEGEBENE WERTE SCHÜTZEN
+============================================================
+
+Wenn Trainer z. B.
+
+10 m auswählt
+und V1 = 2.10 eingibt,
+
+darf normaler Streamlit-Rerun diesen Wert nicht löschen.
+
+Dasselbe für alle ausgewählten Distanzen und Versuche.
+
+Keine neue komplizierte Persistenz bauen.
+
+Bestehenden Streamlit Widget-State verwenden.
+
+============================================================
+10. SPEICHERN
+============================================================
+
+Nur tatsächlich ausgewählte / gemessene Distanzen sollen fachlich als
+Bestandteil des Sprinttests behandelt werden.
+
+Nicht ausgewählte Distanzen:
+
+→ 0 / None gemäß bestehendem DB-Standard
+→ keine Bewertung
+→ kein Defizit
+
+Ausgewählte Distanz mit allen Versuchen = 0:
+
+→ weiterhin „nicht durchgeführt“
+
+Wenn in keiner ausgewählten Distanz ein Wert > 0 vorhanden ist:
+
+→ Sprinttest nicht als gültigen Test speichern
+bzw. bestehende Schutzlogik verwenden.
+
+Keine neue DB-Struktur.
+
+============================================================
+11. BESTZEIT
+============================================================
+
+Bestzeit je Distanz nur aus Werten > 0 berechnen.
+
+Beispiel:
+
+10 m:
+V1 = 2.10
+V2 = 0
+V3 = 2.04
+
+→ beste_10m = 2.04
+
+Bestehende min-positive-Logik beibehalten.
+
+============================================================
+12. NORMBEWERTUNG
+============================================================
+
+Normbewertung nur für tatsächlich gemessene Distanzen.
+
+Nicht ausgewählt / 0 / None:
+
+→ keine Normbewertung
+→ „—“ bzw. bestehender Nicht-gemessen-Status
+
+Bestehende Alterslogik am Testtag erhalten.
+
+Keine Änderungen an:
+
+- alter_am_datum
+- alter_zu_normgruppe
+- SprintErgebnis
+- U-Logik
+
+============================================================
+13. SPRINT-ANALYSE
+============================================================
+
+Sprint-Analyse muss weiterhin korrekt funktionieren,
+wenn nur Teilstrecken vorliegen.
+
+Beispiele prüfen:
+
+nur 5 m
+nur 10 m
+nur 20 m
+nur 30 m
+nur 40 m
+10 + 30 m
+5 + 20 + 40 m
+
+Keine Analyse darf wegen fehlender 10-m-Zeit abstürzen.
+
+Bestehende Fallback-Logik beibehalten.
+
+============================================================
+14. DEFIZITLOGIK
+============================================================
+
+Nicht gemessene Distanz darf kein Defizit erzeugen.
+
+Beispiel:
+
+nur 30 m gemessen
+10 m nicht ausgewählt
+
+→ kein künstliches Beschleunigungsdefizit aus 10 m = 0
+
+Wenn 30 m auffällig:
+
+→ vorhandenes Maximalgeschwindigkeits-/Sprintdefizit darf erkannt werden.
+
+Wenn Sprintwerte gut:
+
+→ kein künstliches Defizit.
+
+============================================================
+15. TRAININGSPLAN-KETTE
+============================================================
+
+Bestehende Kette erhalten:
+
+Sprinttest
+→ gespeicherte Bewertung/Defizite
+→ analytics
+→ defizit_score
+→ Bereich Schnelligkeit
+→ Trainingsplan
+
+Nicht ausgewählte Distanzen dürfen diese Kette nicht beeinflussen.
+
+============================================================
+16. VERLAUF
+============================================================
+
+Historische Sprinttests vollständig erhalten.
+
+Verlauf zeigt weiterhin bereits gespeicherte Daten.
+
+Keine Migration.
+Keine historischen Datensätze ändern.
+
+============================================================
+17. SPRINT-KARTE / DASHBOARD
+============================================================
+
+Bestehende Anzeigepriorität beibehalten:
+
+30 m
+> 20 m
+> 10 m
+> 40 m
+> 5 m
+
+bzw. exakt die aktuell implementierte Prioritätslogik nicht verändern.
+
+Sprint gilt als vorhanden, wenn mindestens eine Distanz > 0 ist.
+
+Nicht wieder nur beste_10m prüfen.
+
+============================================================
+18. MOBILE UX
+============================================================
+
+Auf Mobile soll der Sprinttest durch Auswahl deutlich kompakter werden.
+
+Multi-Select darf nicht horizontal überlaufen.
+
+Nur ausgewählte Distanzblöcke rendern.
+
+Keine neue Navigation bauen.
+
+============================================================
+19. TEXT IM UI
+============================================================
+
+Empfohlener Text:
+
+„Distanzen für diese Sitzung auswählen“
+
+Darunter optional:
+
+„Nur tatsächlich gemessene Sprintdistanzen auswählen.“
+
+Bestehender Hinweis:
+
+„Nicht gemessene Distanzen auf 0.00 lassen“
+
+kann angepasst werden, weil künftig nicht ausgewählte Distanzen gar nicht
+mehr angezeigt werden.
+
+Besser:
+
+„0.00 = Versuch nicht durchgeführt.“
+
+============================================================
+20. BESTEHENDE FUNKTIONEN SCHÜTZEN
+============================================================
+
+NICHT verändern:
+
+- Sprint-Normwerte
+- Alters-/U-Logik
+- Testtag-Alter
+- SprintErgebnis-Bewertung
+- Sprintanalyse
+- Defizitmapping
+- Trainingsplanlogik
+- Saisonlogik
+- Agilität
+- Sprung
+- Ausdauer
+- FMS
+- Y-Balance
+- Kraft
+- Kunden/Stripe/Lizenzen/Sessions
+
+Nur Sprint-Auswahl / Rendering / sichere Speicherung anpassen.
+
+============================================================
+21. NEUE TESTSUITE
+============================================================
+
+Neue Testsuite erstellen, z. B.:
+
+tools/test_sprint_auswahl.py
+
+Mindestens prüfen:
+
+1.
+Neue Sitzung
+→ Auswahl leer
+
+2.
+Keine automatische Sprintdistanz aktiviert
+
+3.
+Multiselect enthält:
+5 m, 10 m, 20 m, 30 m, 40 m
+
+4.
+Nur 5 m gewählt
+→ nur 5-m-Block fachlich aktiv
+
+5.
+Nur 10 m gewählt
+→ nur 10-m-Block aktiv
+
+6.
+Nur 20 m gewählt
+→ nur 20-m-Block aktiv
+
+7.
+Nur 30 m gewählt
+→ nur 30-m-Block aktiv
+
+8.
+Nur 40 m gewählt
+→ nur 40-m-Block aktiv
+
+9.
+10 + 30 m gewählt
+→ beide aktiv
+
+10.
+nicht ausgewählte Distanz
+→ kein Defizit
+
+11.
+0.00
+→ nicht durchgeführt
+
+12.
+Bestzeit nur aus positiven Versuchen
+
+13.
+nur 30 m vorhanden
+→ gültiger Sprinttest
+
+14.
+nur 5 m vorhanden
+→ gültiger Sprinttest
+
+15.
+fehlende 10 m
+→ kein „keine Daten vorhanden“
+
+16.
+Sprint-Karte zeigt beste verfügbare Distanz
+
+17.
+guter Teiltest
+→ kein künstliches Defizit
+
+18.
+auffälliger gemessener Teiltest
+→ korrektes Sprintdefizit
+
+19.
+historischer Sprinttest weiterhin lesbar
+
+20.
+Auswahl kann nach erfolgreichem Speichern zurückgesetzt werden
+
+============================================================
+22. BESTEHENDE SPRINT-REGRESSIONEN
+============================================================
+
+Den bereits implementierten A–K Sprint-Fix erneut prüfen:
+
+A nur 5 m
+B nur 10 m
+C nur 20 m
+D nur 30 m
+E nur 40 m
+F 10 + 30 m
+G alle 0
+H Sprint auffällig
+I Sprint gut
+J gespeichertes defizite-Feld
+K Produktionsfall
+
+Alle weiterhin PASS.
+
+============================================================
+23. WEITERE REGRESSION
+============================================================
+
+Zusätzlich ausführen:
+
+python tools/test_ulogik.py
+python tools/test_saison.py
+python tools/test_alter_testtag.py
+python tools/test_block_b.py
+
+sowie vorhandene Sprinttests,
+falls eigene Testsuite existiert.
+
+============================================================
+24. PY_COMPILE
+============================================================
+
+Mindestens:
+
+app.py
+analytics.py
+sprint.py
+
+und jede weitere tatsächlich geänderte Python-Datei.
+
+============================================================
+25. ABSCHLUSSBERICHT
+============================================================
+
+Bitte berichten:
+
+1. Welche Dateien geändert wurden
+2. Wo Sprintdistanzen vorher fest gerendert wurden
+3. Wie der neue Multiselect implementiert wurde
+4. Welche Distanzen verfügbar sind
+5. Warum neue Sitzung leer startet
+6. Wie Session-State erhalten bleibt
+7. Wie nicht ausgewählte Distanzen behandelt werden
+8. Wie 0.00 behandelt wird
+9. Wie Bestzeit berechnet wird
+10. Wie nur 5/10/20/30/40 m weiterhin funktioniert
+11. Bestätigung: keine beste_10m-Abhängigkeit wieder eingeführt
+12. Auswirkungen auf Normbewertung
+13. Auswirkungen auf Defizite
+14. Auswirkungen auf Sprint-Analyse
+15. Auswirkungen auf Trainingsplan
+16. Auswirkungen auf historische Tests
+17. neue Tests
+18. Regressionstests
+19. Gesamt PASS / FAIL
+20. DB-Migration ja/nein
+21. py_compile
+22. Bestätigung: NICHT deployed
+
+Danach STOPP.
+
+NICHT DEPLOYEN.
+NICHT automatisch auf Produktivsystem übernehmen.
