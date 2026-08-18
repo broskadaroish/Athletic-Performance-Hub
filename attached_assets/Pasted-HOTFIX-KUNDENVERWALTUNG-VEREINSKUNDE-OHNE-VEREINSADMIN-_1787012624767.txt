@@ -1,0 +1,312 @@
+HOTFIX – KUNDENVERWALTUNG: VEREINSKUNDE OHNE VEREINSADMIN CRASHT
+
+AKTUELLER PRODUKTIONSFEHLER:
+
+Beim Öffnen eines Kunden in der Superadmin-Kundenverwaltung:
+
+KeyError: 'id'
+
+Trace:
+modules/kundenverwaltung.py
+_detail_a_kundenkonto()
+kundenstamm_aendern(b["id"], v.get("id"), ...)
+
+URSACHE IST BESTÄTIGT:
+
+kunde_vollstaendig_laden(verein_id=...) lädt:
+
+SELECT * FROM benutzer
+WHERE verein_id=? AND rolle='Vereinsadmin'
+LIMIT 1
+
+Ein Verein kann aber als Vertragspartner/Kunde existieren, obwohl aktuell
+kein Vereinsadmin-Benutzer gefunden wird.
+
+Dann:
+b = None
+UI macht daraus:
+b = {}
+
+_detail_a_kundenkonto() setzt trotzdem:
+kundentyp = "Verein"
+
+und verwendet anschließend mehrfach zwingend:
+
+b["id"]
+
+→ KeyError.
+
+WICHTIG:
+NICHT einfach b["id"] durch b.get("id") ersetzen.
+Die fachliche Trennung zwischen VERTRAGSPARTNER und BENUTZERKONTO
+muss korrekt umgesetzt werden.
+
+
+==================================================
+1. KLARE TRENNUNG
+==================================================
+
+VEREINSKUNDE:
+
+verein / verein_id
+= Vertragspartner / Kundenstamm / Lizenz / Stripe / Vertragsstatus
+
+Vereinsadmin-Benutzer
+= Login-Konto des Vereins
+
+Ein Verein darf als Kunde existieren, auch wenn aktuell kein
+Vereinsadmin-Benutzer vorhanden ist.
+
+EINZELTRAINER:
+
+benutzer
+= Login-Konto
+
+technischer Mandant / Verein
+= Vertrags-/Lizenz-/Stripe-Träger gemäß bestehender Architektur
+
+Diese bestehende Architektur NICHT verändern.
+
+
+==================================================
+2. _detail_a_kundenkonto() ABSICHERN
+==================================================
+
+Explizit bestimmen:
+
+_benutzer_id = b.get("id")
+_verein_id = v.get("id")
+_hat_benutzer = bool(_benutzer_id)
+
+Bei Vereinskunden ohne Benutzer darf die Seite NICHT crashen.
+
+Vereinsdaten weiterhin anzeigen:
+- Kundennummer
+- Vereinsname
+- Ansprechpartner aus Verein
+- Telefon aus Verein
+- Aktivstatus des Vereins
+- Vertrags-/Lizenzdaten
+- Stripe
+- Abrechnung
+- Audit soweit vorhanden
+
+Benutzerbezogene Felder bei fehlendem Benutzer:
+
+- Benutzername → "—"
+- E-Mail → "Kein Vereinsadmin hinterlegt"
+- E-Mail-Status → "—"
+- letzter Login → "—"
+- DSGVO/AGB → nur anzeigen wenn Benutzer vorhanden
+
+Benutzerbezogene Aktionen NICHT anzeigen bzw. deaktivieren:
+
+- Benutzer aktivieren/deaktivieren
+- E-Mail ändern
+- Benutzername ändern
+- Passwort-/Login-bezogene Aktionen
+
+Stattdessen Hinweis:
+
+"Für diesen Verein ist aktuell kein Vereinsadmin-Benutzer hinterlegt.
+Die Vereins- und Vertragsdaten können weiterhin verwaltet werden."
+
+
+==================================================
+3. STAMMDATEN VEREIN OHNE BENUTZER
+==================================================
+
+Bei einem Vereinskunden ohne Benutzer müssen weiterhin änderbar sein:
+
+- Vereinsname
+- Ansprechpartner
+- Vereinstelefon
+- Vereins-Aktivstatus
+
+Dafür darf keine benutzer_id zwingend erforderlich sein.
+
+kundenstamm_aendern() entsprechend minimal erweitern:
+
+benutzer_id: int | None
+
+Benutzer-UPDATE nur wenn:
+benutzer_id is not None
+
+Vereins-UPDATE wenn:
+verein_id is not None
+
+UND mindestens eines gesetzt ist:
+- vereinsname
+- ansprechpartner
+- aktiv
+- ggf. Vereinstelefon, sofern diese Funktion dieses Feld fachlich verwaltet
+
+WICHTIGER BESTEHENDER BUG:
+
+Aktuell wird aktiv beim Verein nur aktualisiert wenn gleichzeitig
+vereinsname oder ansprechpartner gesetzt ist:
+
+if verein_id and (vereinsname is not None or ansprechpartner is not None):
+
+Das ist falsch.
+
+aktiv allein muss ebenfalls das Vereins-UPDATE auslösen.
+
+
+==================================================
+4. BENUTZER-AKTIVSTATUS
+==================================================
+
+benutzer_aktivieren(...)
+NUR aufrufen wenn _benutzer_id vorhanden ist.
+
+Bei Vereinskunde ohne Benutzer:
+Vereins-Aktivstatus über Verein verwalten.
+
+Nicht versuchen, einen Benutzer künstlich anzulegen.
+
+
+==================================================
+5. AUDIT
+==================================================
+
+audit_log_eintragen() darf nicht mit einer erfundenen Benutzer-ID
+aufgerufen werden.
+
+Bestehende Audit-Struktur prüfen.
+
+Wenn audit_log benutzer_id NULL zulässt:
+→ bei reinem Vereinsvorgang NULL verwenden und verein_id/details dokumentieren.
+
+Falls die bestehende Funktion zwingend benutzer_id benötigt:
+→ minimal und rückwärtskompatibel erweitern oder vorhandenen
+vereinsbezogenen Audit-Mechanismus verwenden.
+
+Keine Fake-ID und keinen fremden Vereinsadmin verwenden.
+
+
+==================================================
+6. kunde_vollstaendig_laden()
+==================================================
+
+Das aktuelle Verhalten darf grundsätzlich bestehen bleiben:
+
+Verein laden
+→ optional Vereinsadmin laden
+
+ABER:
+
+Ein fehlender Vereinsadmin darf NICHT bedeuten,
+dass der Vereinskunde unvollständig/unbenutzbar ist.
+
+"benutzer": None ist für einen Vereinskunden ein gültiger Zustand.
+
+Bestehende Einzeltrainer-/technischer-Mandant-Logik nicht verändern.
+
+
+==================================================
+7. ALLE DETAILSEKTIONEN PRÜFEN
+==================================================
+
+Nicht nur _detail_a_kundenkonto prüfen.
+
+Auch:
+
+_detail_b_rechnungsadresse
+_detail_c_lizenz
+_detail_d_vertrag
+_detail_e_stripe
+_detail_f_abrechnung
+_detail_audit
+_detail_gefahrenbereich
+
+auf direkte Zugriffe prüfen wie:
+
+b["id"]
+b["email"]
+b["..."]
+
+Vereinskunde ohne Vereinsadmin darf in KEINER Sektion crashen.
+
+Benutzeraktionen nur anbieten, wenn Benutzer vorhanden.
+
+
+==================================================
+8. BESTEHENDE FUNKTIONEN SCHÜTZEN
+==================================================
+
+Nicht verändern:
+
+- Stripe Price IDs
+- Preise/Pakete
+- Checkout
+- Webhooks
+- Billing Portal
+- Kündigungen
+- Rechnungslogik
+- trainer_mandanten
+- Spielerzuweisungen
+- Session-System
+- bestehende Kunden-/Lizenzdaten
+
+Keine destructive DB-Migration.
+
+Keine bestehenden Daten löschen oder überschreiben.
+
+
+==================================================
+9. TESTS
+==================================================
+
+Neue Regressionstests ergänzen:
+
+A)
+Verein mit Vereinsadmin
+→ Detailseite/Funktionen wie bisher
+
+B)
+Verein OHNE Vereinsadmin
+→ kunde_vollstaendig_laden() liefert:
+verein vorhanden
+benutzer None
+→ kein Crash
+
+C)
+Verein ohne Vereinsadmin:
+Vereinsname ändern → funktioniert
+
+D)
+Verein ohne Vereinsadmin:
+aktiv 1 → 0 → funktioniert
+
+E)
+Kein Aufruf von benutzer_aktivieren(None)
+
+F)
+Einzeltrainer → bestehendes Verhalten unverändert
+
+G)
+Technischer Mandant → bestehendes Verhalten unverändert
+
+H)
+Alle Detailsektionen mit Verein ohne Benutzer prüfen.
+
+Danach bestehende Regression:
+
+test_kundenverwaltung_filter.py
+test_rechnungen.py
+test_trainer_mandanten.py
+test_dashboard_mandant.py
+test_session.py
+test_block_b.py
+
+Alle bestehenden Tests müssen weiter PASS sein.
+
+py_compile:
+database.py
+modules/kundenverwaltung.py
+
+Danach Abschlussbericht.
+
+NICHT DEPLOYEN.
+STOPP nach Tests.

@@ -6044,7 +6044,7 @@ def vertragsfelder_setzen(
 
 
 def kundenstamm_aendern(
-    benutzer_id: int,
+    benutzer_id: int | None,      # None erlaubt: Vereinskunde ohne Vereinsadmin
     verein_id: int | None,
     *,
     vorname: str | None = None,
@@ -6055,9 +6055,20 @@ def kundenstamm_aendern(
     aktiv: int | None = None,
     superadmin_id: int | None = None,
 ) -> None:
-    """Ändert Kundenstammdaten (Benutzer + optional Verein). Loggt Änderung."""
+    """Ändert Kundenstammdaten (Benutzer + optional Verein). Loggt Änderung.
+
+    benutzer_id darf None sein (Vereinskunde ohne Vereinsadmin).
+    In diesem Fall wird nur der Verein-Datensatz aktualisiert.
+
+    BUG-FIX: aktiv allein löst jetzt das Vereins-UPDATE aus — nicht mehr nur
+    zusammen mit vereinsname oder ansprechpartner.
+    """
     with get_conn() as conn:
-        if vorname is not None or nachname is not None or telefon is not None:
+        # Benutzer-UPDATE nur wenn ein Benutzerkonto vorhanden ist
+        if benutzer_id is not None and (
+            vorname is not None or nachname is not None
+            or telefon is not None or aktiv is not None
+        ):
             conn.execute(
                 """UPDATE benutzer SET
                        vorname  = COALESCE(?, vorname),
@@ -6067,7 +6078,10 @@ def kundenstamm_aendern(
                    WHERE id=?""",
                 (vorname, nachname, telefon, aktiv, benutzer_id),
             )
-        if verein_id and (vereinsname is not None or ansprechpartner is not None):
+        # Vereins-UPDATE: aktiv allein genügt als Trigger (BUG-FIX)
+        if verein_id and (
+            vereinsname is not None or ansprechpartner is not None or aktiv is not None
+        ):
             conn.execute(
                 """UPDATE vereine SET
                        name            = COALESCE(?, name),

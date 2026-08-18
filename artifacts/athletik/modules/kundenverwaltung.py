@@ -160,145 +160,208 @@ def _kunden_karte(k: dict) -> None:
 
 
 def _detail_a_kundenkonto(daten: dict) -> None:
-    """Section A: Kundenkonto — Stammdaten + Account-Status."""
+    """Section A: Kundenkonto — Stammdaten + Account-Status.
+
+    HOTFIX: Vereinskunde ohne Vereinsadmin-Benutzer darf nicht crashen.
+    Trennung: Vertragspartner (verein) ≠ Benutzerkonto (benutzer).
+    benutzer=None ist für Vereinskunden ein gültiger Zustand.
+    """
     b = daten.get("benutzer") or {}
     v = daten.get("verein") or {}
     kundentyp = "Verein" if v else "Einzeltrainer"
 
+    # ── Kernunterscheidung: Vertragspartner vs. Benutzerkonto ────────────────
+    _benutzer_id  = b.get("id")                        # None wenn kein Vereinsadmin
+    _verein_id    = v.get("id")
+    _hat_benutzer = bool(_benutzer_id)
+    _form_key     = _benutzer_id if _benutzer_id else f"v{_verein_id}"  # stabiler Widget-Key
+
     with st.expander("**A — Kundenkonto**", expanded=True):
+
+        # ── Hinweis wenn kein Vereinsadmin-Konto vorhanden ───────────────────
+        if kundentyp == "Verein" and not _hat_benutzer:
+            st.info(
+                "ℹ️ Für diesen Verein ist aktuell kein Vereinsadmin-Benutzer hinterlegt. "
+                "Die Vereins- und Vertragsdaten können weiterhin verwaltet werden."
+            )
+
+        # ── Stammdaten-Anzeige ────────────────────────────────────────────────
         c1, c2 = st.columns(2)
         c1.markdown(f"**Kundennummer:** `{v.get('kundennummer') or b.get('kundennummer') or '—'}`")
         c2.markdown(f"**Kundentyp:** {kundentyp}")
         if kundentyp == "Verein":
             c1.markdown(f"**Vereinsname:** {v.get('name','—')}")
-            c2.markdown(f"**Ansprechpartner:** {b.get('vorname','')} {b.get('nachname','')}")
+            # Ansprechpartner: aus Verein (bevorzugt) oder aus Benutzerkonto
+            _ansp = (v.get("ansprechpartner")
+                     or (f"{b.get('vorname','')} {b.get('nachname','')}".strip() if _hat_benutzer else ""))
+            c2.markdown(f"**Ansprechpartner:** {_ansp or '—'}")
         else:
             c1.markdown(f"**Name:** {b.get('vorname','')} {b.get('nachname','')}")
+
         c1.markdown(f"**Benutzername:** `{b.get('benutzername') or '—'}`")
-        c2.markdown(f"**E-Mail:** {b.get('email','—')}")
-        ev = "✅ Bestätigt" if b.get("email_verifiziert") else "❌ Ausstehend"
-        c1.markdown(f"**E-Mail-Status:** {ev}")
+        if _hat_benutzer:
+            c2.markdown(f"**E-Mail:** {b.get('email','—')}")
+            ev = "✅ Bestätigt" if b.get("email_verifiziert") else "❌ Ausstehend"
+            c1.markdown(f"**E-Mail-Status:** {ev}")
+        else:
+            c2.markdown("**E-Mail:** Kein Vereinsadmin hinterlegt")
+            c1.markdown("**E-Mail-Status:** —")
+
         c2.markdown(f"**Telefon:** {b.get('telefon') or v.get('telefon') or '—'}")
-        c1.markdown(f"**Registriert am:** {b.get('erstellt_am','—')}")
-        c2.markdown(f"**Letzter Login:** {b.get('letzter_login','—')}")
-        c1.markdown(f"**Account:** {'🟢 Aktiv' if b.get('aktiv') else '⛔ Deaktiviert'}")
+        c1.markdown(f"**Registriert am:** {b.get('erstellt_am') or '—'}")
+        c2.markdown(f"**Letzter Login:** {b.get('letzter_login','—') if _hat_benutzer else '—'}")
 
-        # ── DSGVO-Zustimmung (nur lesen) ─────────────────────────────────────
-        _ds_ok  = bool(b.get("datenschutz_akzeptiert"))
-        _agb_ok = bool(b.get("agb_akzeptiert"))
-        if _ds_ok or _agb_ok:
-            st.markdown("---")
-            st.markdown("**📋 Rechtliche Zustimmungen**")
-            zc1, zc2 = st.columns(2)
-            if _ds_ok:
-                zc1.markdown(
-                    f"**Datenschutz:** ✅ akzeptiert am "
-                    f"{b.get('datenschutz_akzeptiert_am','—')[:10]}  \n"
-                    f"Version: `{b.get('datenschutz_version','—')}`"
-                )
-            else:
-                zc1.markdown("**Datenschutz:** ❌ keine Zustimmung (Altdaten)")
-            if _agb_ok:
-                zc2.markdown(
-                    f"**AGB:** ✅ akzeptiert am "
-                    f"{b.get('agb_akzeptiert_am','—')[:10]}  \n"
-                    f"Version: `{b.get('agb_version','—')}`"
-                )
-            else:
-                zc2.markdown("**AGB:** ❌ keine Zustimmung (Altdaten)")
+        # Account-Status: benutzer.aktiv wenn vorhanden, sonst verein.aktiv
+        _ist_aktiv = bool(b.get("aktiv")) if _hat_benutzer else bool(v.get("aktiv", 1))
+        c1.markdown(f"**Account:** {'🟢 Aktiv' if _ist_aktiv else '⛔ Deaktiviert'}")
 
-        unvollstaendig = not b.get("email") or (kundentyp == "Verein" and not v.get("name"))
+        # ── DSGVO-Zustimmung — nur anzeigen wenn Benutzer vorhanden ─────────
+        if _hat_benutzer:
+            _ds_ok  = bool(b.get("datenschutz_akzeptiert"))
+            _agb_ok = bool(b.get("agb_akzeptiert"))
+            if _ds_ok or _agb_ok:
+                st.markdown("---")
+                st.markdown("**📋 Rechtliche Zustimmungen**")
+                zc1, zc2 = st.columns(2)
+                if _ds_ok:
+                    zc1.markdown(
+                        f"**Datenschutz:** ✅ akzeptiert am "
+                        f"{b.get('datenschutz_akzeptiert_am','—')[:10]}  \n"
+                        f"Version: `{b.get('datenschutz_version','—')}`"
+                    )
+                else:
+                    zc1.markdown("**Datenschutz:** ❌ keine Zustimmung (Altdaten)")
+                if _agb_ok:
+                    zc2.markdown(
+                        f"**AGB:** ✅ akzeptiert am "
+                        f"{b.get('agb_akzeptiert_am','—')[:10]}  \n"
+                        f"Version: `{b.get('agb_version','—')}`"
+                    )
+                else:
+                    zc2.markdown("**AGB:** ❌ keine Zustimmung (Altdaten)")
+
+        # Vollständigkeitsprüfung: E-Mail-Pflicht nur wenn Benutzer vorhanden
+        unvollstaendig = (
+            (_hat_benutzer and not b.get("email"))
+            or (kundentyp == "Verein" and not v.get("name"))
+        )
         if unvollstaendig:
             st.warning("⚠️ Stammdaten unvollständig")
 
+        # ── Stammdaten bearbeiten ─────────────────────────────────────────────
         st.markdown("---")
         st.markdown("**✏️ Stammdaten bearbeiten**")
         ec1, ec2 = st.columns(2)
-        e_vn   = ec1.text_input("Vorname",   value=b.get("vorname",""),  key=f"ekd_vn_{b.get('id')}")
-        e_nn   = ec2.text_input("Nachname",  value=b.get("nachname",""), key=f"ekd_nn_{b.get('id')}")
-        e_tel  = ec1.text_input("Telefon",   value=b.get("telefon") or v.get("telefon") or "",
-                                key=f"ekd_tel_{b.get('id')}")
-        if kundentyp == "Verein":
-            e_vname = ec2.text_input("Vereinsname", value=v.get("name") or "", key=f"ekd_vname_{b.get('id')}")
-            e_ansp  = ec1.text_input("Ansprechpartner (Nachname + Vorname getrennt)",
-                                     value=v.get("ansprechpartner") or "", key=f"ekd_ansp_{b.get('id')}")
-        e_aktiv = st.checkbox("Konto aktiv", value=bool(b.get("aktiv")), key=f"ekd_ak_{b.get('id')}")
 
-        if st.button("💾 Stammdaten speichern", key=f"ekd_save_{b.get('id')}"):
+        # Vorname/Nachname/Telefon: nur für Benutzerkonten relevant
+        if _hat_benutzer:
+            e_vn  = ec1.text_input("Vorname",  value=b.get("vorname",""),  key=f"ekd_vn_{_form_key}")
+            e_nn  = ec2.text_input("Nachname", value=b.get("nachname",""), key=f"ekd_nn_{_form_key}")
+            e_tel = ec1.text_input("Telefon",  value=b.get("telefon") or v.get("telefon") or "",
+                                    key=f"ekd_tel_{_form_key}")
+        else:
+            e_vn = e_nn = e_tel = None
+
+        if kundentyp == "Verein":
+            e_vname = ec2.text_input("Vereinsname", value=v.get("name") or "",
+                                      key=f"ekd_vname_{_form_key}")
+            e_ansp  = ec1.text_input("Ansprechpartner",
+                                      value=v.get("ansprechpartner") or "",
+                                      key=f"ekd_ansp_{_form_key}")
+        else:
+            e_vname = e_ansp = None
+
+        e_aktiv = st.checkbox("Konto aktiv", value=_ist_aktiv, key=f"ekd_ak_{_form_key}")
+
+        if st.button("💾 Stammdaten speichern", key=f"ekd_save_{_form_key}"):
             try:
                 kundenstamm_aendern(
-                    b["id"], v.get("id"),
-                    vorname=e_vn.strip() or None,
-                    nachname=e_nn.strip() or None,
-                    telefon=e_tel.strip() or None,
-                    vereinsname=e_vname.strip() if kundentyp == "Verein" else None,
-                    ansprechpartner=e_ansp.strip() if kundentyp == "Verein" else None,
+                    _benutzer_id,   # None → kein Benutzer-UPDATE (Verein ohne VA)
+                    _verein_id,
+                    vorname=e_vn.strip() if e_vn else None,
+                    nachname=e_nn.strip() if e_nn else None,
+                    telefon=e_tel.strip() if e_tel else None,
+                    vereinsname=e_vname.strip() if kundentyp == "Verein" and e_vname else None,
+                    ansprechpartner=e_ansp.strip() if kundentyp == "Verein" and e_ansp else None,
                     aktiv=1 if e_aktiv else 0,
                     superadmin_id=_sa_id(),
                 )
-                benutzer_aktivieren(b["id"], 1 if e_aktiv else 0)
-                audit_log_eintragen(b["id"], "account_status_geaendert",
-                                    f"aktiv={'1' if e_aktiv else '0'}", _sa_id())
+                # benutzer_aktivieren NUR wenn Benutzerkonto vorhanden
+                if _hat_benutzer:
+                    benutzer_aktivieren(_benutzer_id, 1 if e_aktiv else 0)
+                    audit_log_eintragen(_benutzer_id, "account_status_geaendert",
+                                        f"aktiv={'1' if e_aktiv else '0'}", _sa_id())
                 st.success("✅ Gespeichert.")
                 st.rerun()
             except ValueError as _kv_e:
                 st.error(str(_kv_e))
 
+        # ── Account-Status — Login-Aktionen nur wenn Benutzer vorhanden ──────
         st.markdown("---")
         st.markdown("**⚡ Account-Status**")
-        _ist_aktiv = bool(b.get("aktiv"))
-        if _ist_aktiv:
+
+        if not _hat_benutzer:
+            st.info(
+                "ℹ️ Kein Vereinsadmin-Benutzerkonto vorhanden — "
+                "Login-Aktionen (aktivieren/deaktivieren) sind nicht verfügbar. "
+                "Den Vereins-Aktivstatus über »Stammdaten bearbeiten« anpassen."
+            )
+        elif _ist_aktiv:
             st.success("🟢 Konto ist aktiv — Kunde kann sich einloggen.")
-            if st.button("🔴 Account deaktivieren", key=f"deakt_btn_{b.get('id')}", type="secondary"):
-                st.session_state[f"_deakt_confirm_{b.get('id')}"] = True
-            if st.session_state.get(f"_deakt_confirm_{b.get('id')}"):
+            if st.button("🔴 Account deaktivieren", key=f"deakt_btn_{_benutzer_id}", type="secondary"):
+                st.session_state[f"_deakt_confirm_{_benutzer_id}"] = True
+            if st.session_state.get(f"_deakt_confirm_{_benutzer_id}"):
                 st.warning(
                     "⚠️ Möchtest du den Zugang dieses Kunden wirklich deaktivieren? "
                     "Der Login wird blockiert. Alle Daten bleiben vollständig erhalten."
                 )
                 _dc1, _dc2 = st.columns(2)
-                if _dc1.button("✅ Ja, deaktivieren", key=f"deakt_ja_{b.get('id')}", type="primary"):
-                    kundenstamm_aendern(b["id"], v.get("id"), aktiv=0, superadmin_id=_sa_id())
-                    benutzer_aktivieren(b["id"], 0)
-                    audit_log_eintragen(b["id"], "konto_deaktiviert",
+                if _dc1.button("✅ Ja, deaktivieren", key=f"deakt_ja_{_benutzer_id}", type="primary"):
+                    kundenstamm_aendern(_benutzer_id, _verein_id, aktiv=0, superadmin_id=_sa_id())
+                    benutzer_aktivieren(_benutzer_id, 0)
+                    audit_log_eintragen(_benutzer_id, "konto_deaktiviert",
                                         "Superadmin hat Konto deaktiviert", _sa_id())
-                    st.session_state.pop(f"_deakt_confirm_{b.get('id')}", None)
+                    st.session_state.pop(f"_deakt_confirm_{_benutzer_id}", None)
                     st.success("⛔ Konto deaktiviert.")
                     st.rerun()
-                if _dc2.button("❌ Abbrechen", key=f"deakt_nein_{b.get('id')}"):
-                    st.session_state.pop(f"_deakt_confirm_{b.get('id')}", None)
+                if _dc2.button("❌ Abbrechen", key=f"deakt_nein_{_benutzer_id}"):
+                    st.session_state.pop(f"_deakt_confirm_{_benutzer_id}", None)
                     st.rerun()
         else:
             st.warning("⛔ Konto ist deaktiviert — Login blockiert.")
-            if st.button("🟢 Account aktivieren", key=f"akt_btn_{b.get('id')}", type="primary"):
-                st.session_state[f"_akt_confirm_{b.get('id')}"] = True
-            if st.session_state.get(f"_akt_confirm_{b.get('id')}"):
+            if st.button("🟢 Account aktivieren", key=f"akt_btn_{_benutzer_id}", type="primary"):
+                st.session_state[f"_akt_confirm_{_benutzer_id}"] = True
+            if st.session_state.get(f"_akt_confirm_{_benutzer_id}"):
                 st.info("Möchtest du diesen Account reaktivieren? Der Kunde kann sich danach wieder einloggen.")
                 _ac1, _ac2 = st.columns(2)
-                if _ac1.button("✅ Ja, aktivieren", key=f"akt_ja_{b.get('id')}", type="primary"):
-                    kundenstamm_aendern(b["id"], v.get("id"), aktiv=1, superadmin_id=_sa_id())
-                    benutzer_aktivieren(b["id"], 1)
-                    audit_log_eintragen(b["id"], "konto_aktiviert",
+                if _ac1.button("✅ Ja, aktivieren", key=f"akt_ja_{_benutzer_id}", type="primary"):
+                    kundenstamm_aendern(_benutzer_id, _verein_id, aktiv=1, superadmin_id=_sa_id())
+                    benutzer_aktivieren(_benutzer_id, 1)
+                    audit_log_eintragen(_benutzer_id, "konto_aktiviert",
                                         "Superadmin hat Konto reaktiviert", _sa_id())
-                    st.session_state.pop(f"_akt_confirm_{b.get('id')}", None)
+                    st.session_state.pop(f"_akt_confirm_{_benutzer_id}", None)
                     st.success("✅ Konto aktiviert.")
                     st.rerun()
-                if _ac2.button("❌ Abbrechen", key=f"akt_nein_{b.get('id')}"):
-                    st.session_state.pop(f"_akt_confirm_{b.get('id')}", None)
+                if _ac2.button("❌ Abbrechen", key=f"akt_nein_{_benutzer_id}"):
+                    st.session_state.pop(f"_akt_confirm_{_benutzer_id}", None)
                     st.rerun()
+
+        # ── E-Mail + Benutzername: nur wenn Benutzerkonto vorhanden ─────────
+        if not _hat_benutzer:
+            return  # keine benutzerbezogenen Aktionen ohne Konto
 
         st.markdown("---")
         st.markdown("**🔑 E-Mail-Adresse ändern**")
         ec3, ec4 = st.columns(2)
-        e_email_neu = ec3.text_input("Neue E-Mail-Adresse", key=f"ekd_email_{b.get('id')}",
+        e_email_neu = ec3.text_input("Neue E-Mail-Adresse", key=f"ekd_email_{_benutzer_id}",
                                      placeholder="neu@verein.de")
-        if ec4.button("✉️ E-Mail ändern + Verifikation senden", key=f"ekd_email_save_{b.get('id')}"):
+        if ec4.button("✉️ E-Mail ändern + Verifikation senden", key=f"ekd_email_save_{_benutzer_id}"):
             if not e_email_neu.strip() or "@" not in e_email_neu:
                 st.error("Bitte gültige E-Mail-Adresse eingeben.")
             else:
                 try:
                     import os as _os_ev
-                    _token = superadmin_email_aendern(b["id"], e_email_neu.strip(), _sa_id())
+                    _token = superadmin_email_aendern(_benutzer_id, e_email_neu.strip(), _sa_id())
                     _base = _os_ev.environ.get("APP_BASE_URL") or (
                         f"https://{_os_ev.environ.get('REPLIT_DEV_DOMAIN','localhost')}/athletik/app"
                     )
@@ -315,14 +378,14 @@ def _detail_a_kundenkonto(daten: dict) -> None:
 
         st.markdown("**👤 Benutzername ändern**")
         ec5, ec6 = st.columns(2)
-        e_uname = ec5.text_input("Neuer Benutzername", key=f"ekd_uname_{b.get('id')}",
+        e_uname = ec5.text_input("Neuer Benutzername", key=f"ekd_uname_{_benutzer_id}",
                                   value=b.get("benutzername") or "")
-        if ec6.button("✅ Benutzername speichern", key=f"ekd_uname_save_{b.get('id')}"):
+        if ec6.button("✅ Benutzername speichern", key=f"ekd_uname_save_{_benutzer_id}"):
             if not e_uname.strip():
                 st.error("Benutzername darf nicht leer sein.")
             else:
                 try:
-                    superadmin_benutzername_aendern(b["id"], e_uname.strip(), _sa_id())
+                    superadmin_benutzername_aendern(_benutzer_id, e_uname.strip(), _sa_id())
                     st.success("✅ Benutzername geändert.")
                     st.rerun()
                 except ValueError as _ve:
@@ -330,9 +393,16 @@ def _detail_a_kundenkonto(daten: dict) -> None:
 
 
 def _detail_b_rechnungsadresse(daten: dict) -> None:
-    """Section B: Rechnungsadresse — ansehen + bearbeiten."""
+    """Section B: Rechnungsadresse — ansehen + bearbeiten.
+
+    HOTFIX: Rechnungsadresse ist benutzer-gebunden. Vereinskunde ohne
+    Vereinsadmin kann Adresse anzeigen, aber nicht bearbeiten (kein benutzer_id).
+    """
     b  = daten.get("benutzer") or {}
     ra = daten.get("rechnungsadresse") or {}
+    _benutzer_id  = b.get("id")
+    _hat_benutzer = bool(_benutzer_id)
+    _form_key     = _benutzer_id if _benutzer_id else f"vra_{daten.get('verein', {}).get('id')}"
 
     with st.expander("**B — Rechnungsadresse**", expanded=False):
         if ra:
@@ -350,47 +420,56 @@ def _detail_b_rechnungsadresse(daten: dict) -> None:
             st.warning("⚠️ Keine Rechnungsadresse hinterlegt.")
 
         st.markdown("---")
+
+        # Bearbeiten nur wenn Benutzerkonto vorhanden (rechnungsadressen sind benutzer-gebunden)
+        if not _hat_benutzer:
+            st.info(
+                "ℹ️ Rechnungsadresse kann erst bearbeitet werden, "
+                "wenn ein Vereinsadmin-Benutzerkonto für diesen Verein hinterlegt ist."
+            )
+            return
+
         st.markdown("**✏️ Rechnungsadresse bearbeiten**")
         rb1, rb2 = st.columns(2)
-        f_firma   = rb1.text_input("Firma/Verein (optional)", key=f"ra_firma_{b.get('id')}",
+        f_firma   = rb1.text_input("Firma/Verein (optional)", key=f"ra_firma_{_form_key}",
                                     value=ra.get("firma") or "")
-        f_tel     = rb2.text_input("Telefon (optional)",      key=f"ra_tel_{b.get('id')}",
+        f_tel     = rb2.text_input("Telefon (optional)",      key=f"ra_tel_{_form_key}",
                                     value=ra.get("telefon") or "")
         rb3, rb4 = st.columns(2)
-        f_vn      = rb3.text_input("Vorname *",   key=f"ra_vn_{b.get('id')}",
+        f_vn      = rb3.text_input("Vorname *",   key=f"ra_vn_{_form_key}",
                                     value=ra.get("vorname") or "")
-        f_nn      = rb4.text_input("Nachname *",  key=f"ra_nn_{b.get('id')}",
+        f_nn      = rb4.text_input("Nachname *",  key=f"ra_nn_{_form_key}",
                                     value=ra.get("nachname") or "")
         rb5, rb6 = st.columns([3,1])
-        f_str     = rb5.text_input("Straße *",    key=f"ra_str_{b.get('id')}",
+        f_str     = rb5.text_input("Straße *",    key=f"ra_str_{_form_key}",
                                     value=ra.get("strasse") or "")
-        f_hnr     = rb6.text_input("Nr. *",       key=f"ra_hnr_{b.get('id')}",
+        f_hnr     = rb6.text_input("Nr. *",       key=f"ra_hnr_{_form_key}",
                                     value=ra.get("hausnummer") or "")
         rb7, rb8 = st.columns([1,2])
-        f_plz     = rb7.text_input("PLZ *",       key=f"ra_plz_{b.get('id')}",
+        f_plz     = rb7.text_input("PLZ *",       key=f"ra_plz_{_form_key}",
                                     value=ra.get("plz") or "")
-        f_ort     = rb8.text_input("Ort *",       key=f"ra_ort_{b.get('id')}",
+        f_ort     = rb8.text_input("Ort *",       key=f"ra_ort_{_form_key}",
                                     value=ra.get("ort") or "")
         rb9, rb10 = st.columns(2)
-        f_land    = rb9.text_input("Land *",      key=f"ra_land_{b.get('id')}",
+        f_land    = rb9.text_input("Land *",      key=f"ra_land_{_form_key}",
                                     value=ra.get("land") or "Deutschland")
-        f_remail  = rb10.text_input("Rechnungs-E-Mail *", key=f"ra_remail_{b.get('id')}",
+        f_remail  = rb10.text_input("Rechnungs-E-Mail *", key=f"ra_remail_{_form_key}",
                                      value=ra.get("rechnung_email") or "")
-        f_ustid   = st.text_input("Umsatzsteuer-ID (optional)", key=f"ra_ustid_{b.get('id')}",
+        f_ustid   = st.text_input("Umsatzsteuer-ID (optional)", key=f"ra_ustid_{_form_key}",
                                    value=ra.get("ust_id") or "")
 
-        if st.button("💾 Rechnungsadresse speichern", key=f"ra_save_{b.get('id')}"):
+        if st.button("💾 Rechnungsadresse speichern", key=f"ra_save_{_form_key}"):
             pflicht = [f_vn, f_nn, f_str, f_hnr, f_plz, f_ort, f_land, f_remail]
             if any(not v.strip() for v in pflicht):
                 st.error("Bitte alle Pflichtfelder (*) ausfüllen.")
             else:
-                _bestaetigt = st.session_state.get(f"ra_bestaetigt_{b.get('id')}", False)
+                _bestaetigt = st.session_state.get(f"ra_bestaetigt_{_form_key}", False)
                 if not _bestaetigt:
-                    st.session_state[f"ra_bestaetigt_{b.get('id')}"] = True
+                    st.session_state[f"ra_bestaetigt_{_form_key}"] = True
                     st.warning("⚠️ **Rechnungsdaten wirklich ändern?** Nochmals speichern zum Bestätigen.")
                 else:
                     rechnungsadresse_speichern(
-                        b["id"],
+                        _benutzer_id,
                         firma=f_firma.strip() or None,
                         vorname=f_vn.strip(),
                         nachname=f_nn.strip(),
@@ -405,11 +484,11 @@ def _detail_b_rechnungsadresse(daten: dict) -> None:
                     )
                     # B7: Audit-Log für alle SA-Schreibaktionen — Details mitloggen
                     audit_log_eintragen(
-                        b["id"], "rechnungsadresse_geaendert",
+                        _benutzer_id, "rechnungsadresse_geaendert",
                         f"email={f_remail.strip()}, ort={f_ort.strip()}",
                         _sa_id(),
                     )
-                    st.session_state.pop(f"ra_bestaetigt_{b.get('id')}", None)
+                    st.session_state.pop(f"ra_bestaetigt_{_form_key}", None)
                     st.success("✅ Rechnungsadresse gespeichert.")
                     st.rerun()
 
