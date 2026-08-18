@@ -1,0 +1,600 @@
+FINALER MASTER-AUFTRAG – APH MANUELLE TRAININGSPLAN-AUSDAUER + TESTAUSWAHL AGILITÄT / SPRUNG
+
+WICHTIG:
+Noch NICHT deployen.
+Keine unnötige Architekturänderung.
+Keine DB-Migration, sofern nicht zwingend erforderlich.
+Bestehende Daten, historische Tests und Trainingspläne vollständig erhalten.
+
+Nur die nachfolgend beschriebenen Bereiche ändern.
+
+============================================================
+TEIL A – TRAININGSPLAN → MANUELL HINZUFÜGEN → AUSDAUER ERGÄNZEN
+============================================================
+
+1. IST-ZUSTAND PRÜFEN
+
+Suche zuerst die komplette Implementierung von:
+
+Trainingsplan
+→ Manuell hinzufügen
+
+Ermittle:
+
+- Woher das Dropdown „Bereich“ seine Werte bekommt
+- Woher die auswählbaren Übungen kommen
+- Wie der Equipment-Filter funktioniert
+- Wie Wiederholungen / Dauer gespeichert werden
+- Wie Woche / Trainingstag gespeichert werden
+- Wie manuell hinzugefügte Übungen später in:
+  - Plan anzeigen
+  - PDF
+  - gespeicherten Trainingsplänen
+  erscheinen
+
+Keine Änderung, bevor der bestehende Flow verstanden wurde.
+
+============================================================
+2. BEREICH „AUSDAUER“ ERGÄNZEN
+============================================================
+
+Ergänze „Ausdauer“ sauber in die bestehende Bereichsauswahl.
+
+Keine bestehende Kategorie entfernen oder umbenennen.
+
+Gewünschte Reihenfolge:
+
+Sprunggelenk
+Knie
+Hüfte
+Rumpf
+Oberschenkel
+Schnelligkeit
+Explosivität
+Agilität
+Ausdauer
+Fußball
+
+============================================================
+3. BESTEHENDEN AUSDAUER-POOL WIEDERVERWENDEN
+============================================================
+
+In periodisierung.py existiert bereits die getestete Ausdauerlogik:
+
+_AUSDAUER_POOL
+_ausdauer_pool_fuer_plangruppe(...)
+
+Diese Logik soll als SINGLE SOURCE OF TRUTH verwendet werden.
+
+KEINE zweite unabhängige Ausdauer-Übungsliste für „Manuell hinzufügen“
+bauen, wenn dies technisch vermeidbar ist.
+
+Automatischer Trainingsplan und manueller Trainingsplan sollen dieselbe
+fachliche Datenbasis für Ausdauer verwenden.
+
+============================================================
+4. ALTERSGERECHTE AUSDAUER-AUSWAHL
+============================================================
+
+Auch bei „Manuell hinzufügen“ muss die Ausdauer-Auswahl altersgerecht sein.
+
+Bestehende APH-Logik wiederverwenden:
+
+- Fußballklasse = saisonale Mannschaftsklasse
+- chronologisches Alter = Alter des Spielers
+- Plangruppe = Trainingssteuerung
+- bestehende _ausdauer_pool_fuer_plangruppe()-Logik
+
+Keine neue Alterslogik bauen.
+
+Beispiel:
+
+Spieler:
+JG 2016
+Geburtsdatum 26.08.2016
+Saison 2026/27
+Fußballklasse U11
+Plangruppe U10
+
+→ Jugend-Ausdauerpool
+
+Beispiele geeigneter Inhalte:
+
+- Fangspiel mit Ballkontrolle
+- Dribbling-Staffel aerob
+- Reaktionsspiel Tempowechsel
+- Pass-Lauf-Kombinationen
+
+Keine Erwachsenen-Ausdauerformen bei U11 wie:
+
+- GA1-Dauerlauf
+- GA2
+- extensive Dauermethode
+- lange monotone Dauerläufe
+
+============================================================
+5. ALLE ALTERSGRUPPEN
+============================================================
+
+Nicht nur U11 prüfen.
+
+Bestehende Zuordnung vollständig respektieren:
+
+jüngere Spieler
+→ spielerische / ballnahe Ausdauer
+
+mittlere Jugend
+→ strukturiertere fußballspezifische Intervalle / Spielformen
+
+ältere Jugend / Erwachsene
+→ fortgeschrittene Ausdauerformen, soweit bestehender Pool dies vorsieht
+
+Keine Lücke zwischen Alters-/Plangruppen erzeugen.
+
+============================================================
+6. EQUIPMENT-FILTER
+============================================================
+
+Der vorhandene Equipment-Filter muss weiterhin funktionieren.
+
+Bestehende Equipment-Metadaten des Ausdauer-Pools verwenden.
+
+Nur fehlende Metadaten minimal ergänzen, wenn dies für die manuelle Auswahl
+technisch notwendig ist.
+
+Keine neue Equipment-Logik und keinen zweiten Ausdauer-Pool bauen.
+
+Beispiele:
+
+Ballbasierte Ausdauerübung
+→ Equipment „Ball“
+
+Übung ohne spezielles Material
+→ passende bestehende Kategorie verwenden
+
+============================================================
+7. MANUELLES SPEICHERN
+============================================================
+
+Eine manuell gewählte Ausdauerübung muss über exakt dieselbe bestehende
+Trainingsplan-/Speicherstruktur gespeichert werden wie alle anderen Bereiche.
+
+Keine neue Tabelle.
+Kein neues Datenmodell.
+Kein separates Ausdauer-Speichersystem.
+
+Prüfen:
+
+- Bereich = „Ausdauer“
+- Übungsname korrekt
+- Woche korrekt
+- Trainingstag korrekt
+- Wiederholungen / Dauer korrekt
+- Equipment korrekt
+- Plan anzeigen funktioniert
+- PDF funktioniert
+
+Kein Fallback auf „Fußball“.
+
+============================================================
+8. BELASTUNGSPARAMETER
+============================================================
+
+Ausdauerübungen sind nicht immer sinnvoll über reine „Wiederholungen“ steuerbar.
+
+Prüfe die bestehende Datenstruktur.
+
+Wenn bereits ein allgemeines Feld für:
+
+- Wiederholungen
+- Dauer
+- Distanz
+- Durchgänge
+
+vorhanden ist, bestehende Struktur nutzen.
+
+Keinen großen UI-Umbau durchführen.
+
+Nur sicherstellen, dass die Ausdauerübungen mit der bestehenden
+Trainingsplanstruktur kompatibel gespeichert werden.
+
+============================================================
+9. AUTOMATISCHE PLANLOGIK NICHT VERÄNDERN
+============================================================
+
+Die bereits getestete automatische Ausdauerlogik darf nicht verändert werden.
+
+Insbesondere:
+
+U11 / Jugend-Ausdauer
+→ keine GA1-/Dauerlauf-Erwachsenenübungen
+
+Senior
+→ vorhandene Senior-Ausdauerformen weiterhin möglich
+
+Kein Ausdauerdefizit
+→ kein künstlicher Ausdauerblock
+
+============================================================
+TEIL B – AGILITÄT: NEUE SITZUNG STARTET OHNE AKTIVIERTE TESTS
+============================================================
+
+10. AKTUELLER FEHLER
+
+Im Agilitätstest gibt es bereits eine Multi-Select-Auswahl:
+
+„Tests für diese Sitzung aktivieren“
+
+Aktuell sind mehrere Tests standardmäßig vorausgewählt.
+
+Das soll geändert werden.
+
+============================================================
+11. NEUES VERHALTEN AGILITÄT
+============================================================
+
+Bei jeder NEUEN Testsitzung:
+
+→ standardmäßig KEIN Agilitätstest aktiviert
+
+Der Multi-Select startet leer.
+
+Trainer wählt selbst die benötigten Tests aus.
+
+Verfügbare bestehende Tests vollständig erhalten:
+
+- 505-Test R/L
+- 5-10-5 Shuttle
+- T-Test
+- Illinois Agility
+- Modified T-Test
+- Pro Agility Shuttle
+- Arrowhead R/L
+- Zig-Zag
+- Balsom
+
+Keine Tests löschen oder umbenennen.
+
+============================================================
+12. AGILITÄT – NUR AUSGEWÄHLTE TESTS RENDERN
+============================================================
+
+Nur Tests anzeigen, die im Multi-Select ausgewählt wurden.
+
+Beispiel:
+
+Trainer wählt nur:
+- T-Test
+- 505-Test R/L
+
+→ nur diese Testblöcke anzeigen
+
+Nicht ausgewählte Tests:
+→ nicht rendern
+→ nicht bewerten
+→ nicht speichern
+→ keine Defizite erzeugen
+
+============================================================
+13. AGILITÄT – LEERE AUSWAHL
+============================================================
+
+Wenn kein Test gewählt wurde:
+
+Hinweis anzeigen:
+
+„Wähle mindestens einen Test für diese Sitzung aus.“
+
+Keine Fehlermeldung.
+Keine automatisch aktivierten Tests.
+
+============================================================
+TEIL C – SPRUNG: GLEICHES AUSWAHLPRINZIP WIE AGILITÄT
+============================================================
+
+14. AKTUELLER ZUSTAND SPRUNG
+
+Im Sprungtest werden aktuell alle Testblöcke direkt angezeigt.
+
+Das soll auf dasselbe Bedienprinzip wie Agilität umgestellt werden.
+
+============================================================
+15. SPRUNG – MULTI-SELECT ERGÄNZEN
+============================================================
+
+Direkt unter dem Testdatum neue Auswahl:
+
+„Tests für diese Sitzung auswählen“
+
+Multi-Select standardmäßig LEER.
+
+Bestehende Sprungtests übernehmen, u. a.:
+
+- CMJ beidbeinig
+- CMJ einbeinig rechts
+- CMJ einbeinig links
+- Squat Jump
+- Drop Jump — Höhe
+- Drop Jump — KZ
+- Standweitsprung
+
+Keine bestehenden Tests löschen oder umbenennen.
+
+============================================================
+16. SPRUNG – NUR AUSGEWÄHLTE TESTS RENDERN
+============================================================
+
+Nur ausgewählte Sprungtests anzeigen.
+
+Beispiel:
+
+Trainer wählt:
+- CMJ beidbeinig
+- Standweitsprung
+
+→ nur diese beiden Testblöcke werden angezeigt.
+
+Nicht ausgewählte Tests:
+→ nicht rendern
+→ nicht bewerten
+→ nicht speichern
+→ keine Defizite erzeugen
+
+============================================================
+17. SPRUNG – LEERE AUSWAHL
+============================================================
+
+Wenn kein Sprungtest gewählt wurde:
+
+Hinweis:
+
+„Wähle mindestens einen Sprungtest für diese Sitzung aus.“
+
+Keine automatisch aktivierten Tests.
+
+============================================================
+18. SESSION-VERHALTEN – SEHR WICHTIG
+============================================================
+
+Leer nur beim Start einer NEUEN Testsitzung.
+
+Wenn der Trainer während derselben Sitzung Tests auswählt und Werte eingibt:
+
+→ Auswahl darf durch normalen Streamlit-Rerun NICHT verschwinden.
+
+Session-State sauber nutzen.
+
+Prüfen:
+
+- Auswahl bleibt bei +/- Buttons erhalten
+- Auswahl bleibt bei Info-Buttons erhalten
+- Auswahl bleibt bei anderen Eingaben erhalten
+- Auswahl bleibt bei normalem Streamlit-Rerun erhalten
+- Wechsel zwischen Untertabs darf Auswahl nicht unnötig löschen
+
+Neue Sitzung:
+→ wieder leer
+
+============================================================
+19. WERTE NICHT VERLIEREN
+============================================================
+
+Wenn Trainer z. B. einen Test auswählt und Werte eingibt,
+darf ein Rerun diese Werte nicht zurücksetzen.
+
+Wenn ein Test innerhalb derselben Sitzung abgewählt und später wieder
+ausgewählt wird:
+
+Bestehendes Streamlit-Verhalten prüfen.
+
+Keine komplizierte neue Persistenz bauen.
+
+Aber:
+Normaler Rerun darf eingegebene Werte nicht verlieren.
+
+============================================================
+20. SPEICHERLOGIK AGILITÄT / SPRUNG
+============================================================
+
+Nur tatsächlich ausgewählte Tests sollen als Bestandteil der Sitzung
+gespeichert / ausgewertet werden.
+
+Nicht ausgewählte Tests:
+
+- nicht als durchgeführt behandeln
+- keine künstlichen 0.00-Werte als echte Testwerte interpretieren
+- keine Bewertung
+- kein Defizit
+
+0.00 innerhalb eines ausgewählten Tests bedeutet weiterhin:
+
+„Versuch nicht durchgeführt“
+
+entsprechend bestehender Logik.
+
+============================================================
+21. HISTORISCHE TESTS
+============================================================
+
+Bestehende gespeicherte Tests vollständig erhalten.
+
+Keine historischen Datensätze verändern.
+
+Verlauf weiterhin korrekt anzeigen.
+
+Keine Migration nur wegen der neuen Auswahl-UI.
+
+============================================================
+22. TESTBESCHREIBUNG / ANLEITUNG
+============================================================
+
+Bestehende:
+
+- Info-Buttons
+- Testbeschreibung
+- Anleitung
+
+müssen weiterhin funktionieren.
+
+Kein Verlust der erklärenden Inhalte.
+
+============================================================
+23. MOBILE UX
+============================================================
+
+Die Änderung soll auch mobil sauber funktionieren.
+
+Gerade Sprung profitiert davon:
+
+statt viele Testblöcke gleichzeitig
+→ nur ausgewählte Tests anzeigen.
+
+Multi-Select darf nicht horizontal aus dem Viewport laufen.
+
+Keine neue Navigation bauen.
+
+============================================================
+24. BESTEHENDE BEWERTUNGSLOGIK SCHÜTZEN
+============================================================
+
+Nicht verändern:
+
+- Sprint-Bewertung
+- Sprung-Normen
+- Agilitäts-Normen
+- Alterslogik
+- Testtag-Alter
+- Defizitlogik
+- Trainingsplanlogik
+- Ausdauerbewertung
+- FMS
+- Y-Balance
+- Kraft
+
+Nur Auswahl/Rendering/Speicherung der ausgewählten Tests anpassen.
+
+============================================================
+25. TESTS – MANUELLE AUSDAUER
+============================================================
+
+Neue Testsuite z. B.:
+
+tools/test_manuell_ausdauer.py
+
+Mindestens prüfen:
+
+1. „Ausdauer“ ist im manuellen Bereich vorhanden
+2. Reihenfolge enthält:
+   Sprunggelenk, Knie, Hüfte, Rumpf, Oberschenkel,
+   Schnelligkeit, Explosivität, Agilität, Ausdauer, Fußball
+3. Ausdauer liefert Übungen
+4. U10-Plangruppe liefert Jugend-Ausdauerübungen
+5. JG2016/U11 bekommt Jugend-Ausdauerpool
+6. U11 bekommt keinen GA1-Dauerlauf
+7. U11 bekommt keine extensive Dauermethode
+8. Senior bekommt Senior-Ausdauerübungen
+9. Equipment-Filter funktioniert
+10. manuelle Ausdauerübung kann gespeichert werden
+11. gespeicherter Bereich = „Ausdauer“
+12. Plan kann danach geladen werden
+13. bestehende Bereiche weiterhin vorhanden
+
+============================================================
+26. TESTS – AGILITÄT
+============================================================
+
+Neue Regressionstests:
+
+1. neue Sitzung → Auswahl leer
+2. keine automatische Vorauswahl
+3. 1 Test auswählen → nur dieser sichtbar
+4. mehrere Tests auswählen → nur diese sichtbar
+5. Auswahl bleibt über Rerun erhalten
+6. nicht ausgewählte Tests werden nicht als durchgeführt behandelt
+7. nicht ausgewählte Tests erzeugen kein Defizit
+8. historische gespeicherte Tests bleiben lesbar
+
+============================================================
+27. TESTS – SPRUNG
+============================================================
+
+Neue Regressionstests:
+
+1. neue Sitzung → Auswahl leer
+2. Multi-Select enthält alle bestehenden Sprungtests
+3. 1 Test auswählen → nur dieser sichtbar
+4. mehrere Tests auswählen → nur diese sichtbar
+5. Auswahl bleibt über Rerun erhalten
+6. nicht ausgewählte Tests werden nicht als durchgeführt behandelt
+7. nicht ausgewählte Tests erzeugen kein Defizit
+8. historische gespeicherte Tests bleiben lesbar
+
+============================================================
+28. REGRESSIONSTESTS
+============================================================
+
+Zusätzlich alle relevanten bestehenden Tests:
+
+python tools/test_ausdauer_alterslogik.py
+python tools/test_ausdauer_defizit.py
+python tools/test_ausdauer_trainingsplan.py
+python tools/test_ulogik.py
+python tools/test_saison.py
+python tools/test_alter_testtag.py
+python tools/test_block_b.py
+
+sowie vorhandene Sprint-/Sprung-/Agilitäts-Tests,
+falls vorhanden.
+
+============================================================
+29. SCHUTZ
+============================================================
+
+Nicht verändern:
+
+- Kundenverwaltung
+- Stripe
+- Rechnungen
+- Lizenzverwaltung
+- trainer_mandanten
+- Sessions/Login
+- Passwort
+- E-Mail-Verifikation
+- Mobile Navigation
+- Saisonlogik
+- historische Testdaten
+- bestehende Trainingspläne
+
+Keine destructive DB-Migration.
+
+============================================================
+30. ABSCHLUSSBERICHT
+============================================================
+
+Bitte exakt berichten:
+
+1. Welche Dateien geändert wurden
+2. Warum „Ausdauer“ vorher im manuellen Bereich fehlte
+3. Woher die manuelle Bereichsliste kam
+4. Wie „Ausdauer“ jetzt eingebunden wurde
+5. Ob _AUSDAUER_POOL wiederverwendet wird
+6. Wie altersgerechte Auswahl funktioniert
+7. Equipment-Verhalten
+8. Speicherstruktur manueller Ausdauerübungen
+9. Wie Agilität vorher initialisiert wurde
+10. Wie Agilität jetzt leer startet
+11. Wie Sprung auf Multi-Select umgestellt wurde
+12. Wie Session-State geschützt wird
+13. Wie nicht ausgewählte Tests behandelt werden
+14. Auswirkungen auf historische Tests
+15. neue Tests
+16. Regressionstests
+17. Gesamt PASS/FAIL
+18. py_compile
+19. DB-Migration ja/nein
+20. Bestätigung: NICHT deployed
+
+Danach STOPP.
+
+NICHT DEPLOYEN.
+NICHT automatisch Änderungen auf Produktivsystem übernehmen.

@@ -165,7 +165,7 @@ from periodisierung import (zyklus_erstellen, zyklus_laden, trainingsplan_multi_
                              _ALTERS_ERSATZ, verletzung_aktive_bereiche,
                              schaetze_tag_dauer_min, _ZEITBUDGET_CONFIG,
                              empfohlene_athletik_einheiten, empfohlene_athletik_tage,
-                             _WOCHENTAGE_WP)
+                             _WOCHENTAGE_WP, _ausdauer_pool_fuer_plangruppe)
 from trainingsphilosophie import (
     PHILOSOPHIEN, empfehle_philosophie, philosophie_erklaerung,
 )
@@ -4827,7 +4827,7 @@ def page_trainingsplan():
         st.markdown("### Übung manuell hinzufügen")
         mc1, mc2 = st.columns(2)
         bereich = mc1.selectbox("Bereich", ["Sprunggelenk","Knie","Hüfte","Rumpf","Oberschenkel",
-                                             "Schnelligkeit","Explosivität","Agilität","Fußball"],
+                                             "Schnelligkeit","Explosivität","Agilität","Ausdauer","Fußball"],
                                 key="manual_bereich")
 
         # Equipment-Filter für Manuell-Tab
@@ -4849,10 +4849,19 @@ def page_trainingsplan():
         # Übungskatalog aus Pool für gewählten Bereich (ohne Duplikate, alle Phasen)
         _manual_equip_exp = _equip_expanded(set(_manual_equip)) if _manual_equip else None
         _katalog: list[str] = []
-        for _pk in ["stabilisation", "kraft", "power"]:
-            for _u, *_ in _POOL.get(bereich, {}).get(_pk, []):
-                if _u not in _katalog and _equip_verfuegbar(_u, _manual_equip_exp):
-                    _katalog.append(_u)
+        if bereich == "Ausdauer":
+            # Altersgerechten Ausdauer-Pool aus bestehender Logik ableiten (Single Source of Truth)
+            _m_alter = berechne_alter(auswahl.get("geburtsdatum"))
+            _m_pg    = _alter_zu_plangruppe(_m_alter)
+            for _pk in ["stabilisation", "kraft", "power"]:
+                for _u, *_ in _ausdauer_pool_fuer_plangruppe(_m_pg, _pk, 99):
+                    if _u not in _katalog and _equip_verfuegbar(_u, _manual_equip_exp):
+                        _katalog.append(_u)
+        else:
+            for _pk in ["stabilisation", "kraft", "power"]:
+                for _u, *_ in _POOL.get(bereich, {}).get(_pk, []):
+                    if _u not in _katalog and _equip_verfuegbar(_u, _manual_equip_exp):
+                        _katalog.append(_u)
         _EIGENE_OPT = "✏️ Eigene Übung eingeben..."
         _katalog_opts = _katalog + [_EIGENE_OPT]
 
@@ -6796,20 +6805,47 @@ def page_sprung():
         ) or alter_sprung
         if datum > date.today():
             st.warning("⚠️ Testdatum liegt in der Zukunft — bitte prüfen.")
+        _ALLE_SPRUNG = [
+            "CMJ beidbeinig", "CMJ einbeinig rechts", "CMJ einbeinig links",
+            "Squat Jump", "Drop Jump — Höhe", "Drop Jump — KZ", "Standweitsprung",
+        ]
+        aktive_sprung = st.multiselect(
+            "Tests für diese Sitzung auswählen",
+            _ALLE_SPRUNG, default=[], key="sprung_aktive_tests",
+        )
+        if not aktive_sprung:
+            st.info("Wähle mindestens einen Sprungtest für diese Sitzung aus.")
+
         st.markdown("#### Sprünge — je 3 Versuche | Bestwert = max(V1, V2, V3)")
         st.caption("0.00 = Versuch nicht durchgeführt")
 
         c1, c2 = st.columns(2)
 
-        v1_cb, v2_cb, v3_cb, b_cmj_beid = _v3_sprung("CMJ beidbeinig (cm)", "cmj_beid_", 100.0, col=c1, field_id="cmj_beid")
-        v1_cr, v2_cr, v3_cr, b_cmj_r    = _v3_sprung("CMJ einbeinig rechts (cm)", "cmj_r_",  80.0,  col=c1, field_id="cmj_r")
-        v1_cl, v2_cl, v3_cl, b_cmj_l    = _v3_sprung("CMJ einbeinig links (cm)",  "cmj_l_",  80.0,  col=c1, field_id="cmj_l")
+        # Initialisierung aller Variablen auf None — nur ausgewählte Tests rendern
+        v1_cb = v2_cb = v3_cb = b_cmj_beid = None
+        v1_cr = v2_cr = v3_cr = b_cmj_r    = None
+        v1_cl = v2_cl = v3_cl = b_cmj_l    = None
+        v1_sq = v2_sq = v3_sq = b_squat    = None
+        v1_dh = v2_dh = v3_dh = b_dj_h    = None
+        v1_dk = v2_dk = v3_dk = b_dj_kz   = None
+        v1_sw = v2_sw = v3_sw = b_swj      = None
+
+        if "CMJ beidbeinig" in aktive_sprung:
+            v1_cb, v2_cb, v3_cb, b_cmj_beid = _v3_sprung("CMJ beidbeinig (cm)", "cmj_beid_", 100.0, col=c1, field_id="cmj_beid")
+        if "CMJ einbeinig rechts" in aktive_sprung:
+            v1_cr, v2_cr, v3_cr, b_cmj_r = _v3_sprung("CMJ einbeinig rechts (cm)", "cmj_r_", 80.0, col=c1, field_id="cmj_r")
+        if "CMJ einbeinig links" in aktive_sprung:
+            v1_cl, v2_cl, v3_cl, b_cmj_l = _v3_sprung("CMJ einbeinig links (cm)",  "cmj_l_", 80.0, col=c1, field_id="cmj_l")
         if b_cmj_r and b_cmj_l:
             c1.markdown(asymmetrie_badge_html(b_cmj_r, b_cmj_l, niedriger_besser=False), unsafe_allow_html=True)
-        v1_sq, v2_sq, v3_sq, b_squat    = _v3_sprung("Squat Jump (cm)", "squat_", 100.0, col=c1, field_id="squat_jump")
-        v1_dh, v2_dh, v3_dh, b_dj_h     = _v3_sprung("Drop Jump — Höhe (cm)", "dj_h_", 80.0, col=c2, field_id="dj_hoehe")
-        v1_dk, v2_dk, v3_dk, b_dj_kz    = _v3_sprung("Drop Jump — KZ (s)", "dj_kz_", 2.0, step=0.01, col=c2, field_id="dj_kontakt")
-        v1_sw, v2_sw, v3_sw, b_swj       = _v3_sprung("Standweitsprung (cm)", "swj_", 400.0, step=1.0, col=c2, field_id="standweit")
+        if "Squat Jump" in aktive_sprung:
+            v1_sq, v2_sq, v3_sq, b_squat = _v3_sprung("Squat Jump (cm)", "squat_", 100.0, col=c1, field_id="squat_jump")
+        if "Drop Jump — Höhe" in aktive_sprung:
+            v1_dh, v2_dh, v3_dh, b_dj_h = _v3_sprung("Drop Jump — Höhe (cm)", "dj_h_", 80.0, col=c2, field_id="dj_hoehe")
+        if "Drop Jump — KZ" in aktive_sprung:
+            v1_dk, v2_dk, v3_dk, b_dj_kz = _v3_sprung("Drop Jump — KZ (s)", "dj_kz_", 2.0, step=0.01, col=c2, field_id="dj_kontakt")
+        if "Standweitsprung" in aktive_sprung:
+            v1_sw, v2_sw, v3_sw, b_swj = _v3_sprung("Standweitsprung (cm)", "swj_", 400.0, step=1.0, col=c2, field_id="standweit")
 
         from sprung import SprungErgebnis as _SpE
         res = _SpE(cmj_beid=b_cmj_beid, cmj_rechts=b_cmj_r, cmj_links=b_cmj_l,
@@ -6887,6 +6923,7 @@ def page_sprung():
                 _reset_keys(*[f"{p}_v{n}" for p in [
                     "cmj_beid_", "cmj_r_", "cmj_l_", "squat_", "dj_h_", "dj_kz_", "swj_",
                 ] for n in [1, 2, 3]])
+                _reset_keys("sprung_aktive_tests")
                 st.rerun()
 
     with tab_verlauf:
@@ -7042,9 +7079,11 @@ def page_agilitaet():
             st.warning("⚠️ Testdatum liegt in der Zukunft — bitte prüfen.")
 
         aktive_agil = st.multiselect(
-            "Tests für diese Sitzung aktivieren — nicht benötigte Tests abwählen",
-            _ALLE_AGIL, default=_ALLE_AGIL, key="agil_aktive_tests",
+            "Tests für diese Sitzung aktivieren",
+            _ALLE_AGIL, default=[], key="agil_aktive_tests",
         )
+        if not aktive_agil:
+            st.info("Wähle mindestens einen Test für diese Sitzung aus.")
 
         st.markdown("#### Zeiten — je 3 Versuche | Bestzeit = min(V1, V2, V3)")
         st.caption("0.00 = Versuch nicht durchgeführt")
@@ -7173,6 +7212,7 @@ def page_agilitaet():
                     "a505r_", "a505l_", "a5105_", "att_", "aill_",
                     "amtt_", "apa_", "aarrr_", "adarrl_", "azz_", "abal_",
                 ] for n in [1, 2, 3]])
+                _reset_keys("agil_aktive_tests")
                 st.rerun()
 
     with tab_verlauf:
