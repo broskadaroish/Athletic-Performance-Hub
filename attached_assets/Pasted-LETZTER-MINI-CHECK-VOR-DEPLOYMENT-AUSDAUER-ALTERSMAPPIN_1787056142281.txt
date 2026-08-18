@@ -1,0 +1,114 @@
+LETZTER MINI-CHECK VOR DEPLOYMENT – AUSDAUER ALTERSMAPPING
+
+Noch nichts deployen.
+
+Bitte nur prüfen und nur bei echtem Fehler minimal korrigieren.
+
+1. AUSDAUER-POOL ALTERSGRUPPEN
+
+Im Abschlussbericht steht:
+
+- Jugend U7–U10
+- Mittel U14
+- Senior U18+
+
+Bitte exakt zeigen, welcher _AUSDAUER_POOL für folgende Fußball-/Trainingsstufen
+verwendet wird:
+
+U7
+U8
+U9
+U10
+U11
+U12
+U13
+U14
+U15
+U16
+U17
+U18
+Senior
+
+Es darf keine Lücke geben.
+
+Pflichtfall:
+JG 2016 / Saison 2026/27 / Fußballklasse U11
+→ altersgerechter Kinder-/Jugend-Ausdauerpool
+→ NICHT Senior
+→ keine Erwachsenen-GA1/GA2-Standardinhalte.
+
+Falls U11–U13 oder U15–U17 aktuell über einen undokumentierten Fallback laufen:
+bitte dokumentieren und testen.
+
+2. KONKRETER U11-PLAN
+
+Erzeuge einen Testplan für:
+
+- JG 2016
+- GD 26.08.2016
+- Saison 2026/27
+- U11
+- echtes Ausdauerdefizit
+
+Zeige die tatsächlich ausgewählten Ausdauerübungen.
+
+Sie müssen:
+- fußballspezifisch
+- altersgerecht
+- spielerisch/intermittierend
+sein.
+
+Keine Erwachsenen-Dauerlauf-/GA2-Inhalte.
+
+3. ALTER AM TESTTAG
+
+Prüfe die VO2-Defizitlogik mit:
+
+Geburtsdatum 26.08.2016
+
+Test am 20.08.2026
+→ Alter 9
+
+Test am 27.08.2026
+→ Alter 10
+
+Die verwendete VO2-Norm muss zum Alter/Referenzzustand AM TESTTAG passen.
+
+Prüfe insbesondere, ob die gespeicherte `altersgruppe` zuverlässig die
+Testreferenz vom Testtag enthält.
+
+Historische Tests dürfen sich nach einem Geburtstag nicht ändern.
+
+4. YO-YO REFERENZ
+
+JG 2016 / Saison 2026/27:
+Fußballklasse U11
+→ Yo-Yo-Testreferenz U10/U11
+
+520 m:
+→ Gut
+→ VO2max 40.8
+→ kein falsches kritisches Ausdauerdefizit.
+
+5. REGRESSION
+
+Neue Ausdauertests vollständig laufen lassen.
+
+Zusätzlich:
+test_ulogik.py
+test_saison.py
+test_alter_testtag.py
+test_block_b.py
+
+6. test_b1_guards.py
+
+Den bereits bekannten Fehler nur analysieren:
+"sessions-Tabelle fehlt im Minimal-Schema".
+
+Nicht Produktivcode ändern.
+
+Falls es eindeutig nur ein Test-Setup-Problem wie beim früheren Block-B ist,
+kurz berichten.
+
+Danach STOPP.
+NICHT DEPLOYEN.
