@@ -52,7 +52,7 @@ from database import (
     init_db,
     spieler_speichern, spieler_laden, spieler_by_id, spieler_loeschen, spieler_aktualisieren,
     spieler_trainer_zuweisen,
-    berechne_alter, alter_am_datum, altersklasse_vorschlag,
+    berechne_alter, alter_am_datum, altersklasse_vorschlag, parse_datum_safe,
     verletzung_speichern, verletzungen_laden, verletzung_loeschen,
     anthropometrie_speichern, anthropometrie_letzter, anthropometrie_history, anthropometrie_loeschen_letzten,
     fms_speichern, fms_letzter, fms_history, fms_history_full,
@@ -2148,14 +2148,14 @@ def page_dashboard():
             "faellig":  ("📋", "Spieler ohne Test > 30 Tage (FMS, Sprint, Y-Balance, Agilität, Ausdauer)",
                          lambda d: all(
                              (not x or not x.get("datum") or
-                              (date.today() - _dt.strptime(x["datum"], "%Y-%m-%d").date()).days > 30)
+                              (lambda _d: _d is None or (date.today() - _d).days > 30)(
+                                  parse_datum_safe(x["datum"])))
                              for x in [d["fms"], d["sprint"], d["y"], d["agil"], d["aus"]]
                          )),
             "verletzt": ("🩺", "Spieler mit Verletzung in den letzten 14 Tagen",
                          lambda d: any(
                              (lambda s: s is not None and (date.today() - s).days <= 14)(
-                                 _dt.strptime(v["datum"], "%Y-%m-%d").date()
-                                 if v.get("datum") else None
+                                 parse_datum_safe(v.get("datum"))
                              )
                              for v in (d["verlet"] or [])
                          )),
@@ -2189,19 +2189,14 @@ def page_dashboard():
     def _fmt_date(d: str | None) -> str:
         if not d:
             return "Kein Test"
-        try:
-            return _dt.strptime(d, "%Y-%m-%d").strftime("%d.%m.%Y")
-        except Exception:
-            return d
+        _pd = parse_datum_safe(d)
+        return _pd.strftime("%d.%m.%Y") if _pd else str(d)
 
     def _days_since(d: str | None) -> int | None:
         if not d:
             return None
-        try:
-            delta = date.today() - _dt.strptime(d, "%Y-%m-%d").date()
-            return delta.days
-        except Exception:
-            return None
+        _pd = parse_datum_safe(d)
+        return (date.today() - _pd).days if _pd else None
 
     # ── Tabs ──────────────────────────────────────────────────────────────────
     tab_kacheln, tab_gruppen, tab_warn, tab_tabelle = st.tabs([
@@ -10495,11 +10490,8 @@ def page_diagnostik_overview() -> None:
     def _fmt_date(d: str | None) -> str:
         if not d:
             return "Noch kein Test"
-        try:
-            from datetime import datetime as _dt
-            return _dt.strptime(d, "%Y-%m-%d").strftime("%d.%m.%Y")
-        except Exception:
-            return d
+        _pd = parse_datum_safe(d)
+        return _pd.strftime("%d.%m.%Y") if _pd else str(d)
 
     # ── Key metric per test ───────────────────────────────────────────────────
     def _yb_metric():

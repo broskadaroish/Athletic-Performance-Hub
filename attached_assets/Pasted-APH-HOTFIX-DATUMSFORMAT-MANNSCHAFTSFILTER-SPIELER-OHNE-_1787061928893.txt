@@ -1,0 +1,493 @@
+APH – HOTFIX DATUMSFORMAT / MANNSCHAFTSFILTER „SPIELER OHNE TEST > 30 TAGE“
+
+WICHTIG:
+Noch NICHT deployen.
+Keine historischen Daten löschen.
+Keine destructive DB-Migration.
+Bestehende Tests und Trainingsdaten vollständig erhalten.
+
+============================================================
+1. PRODUKTIONSFEHLER
+============================================================
+
+Aktueller Fehler auf der Mannschafts-/Dashboard-Seite:
+
+ValueError:
+time data '18.08.2026' does not match format '%Y-%m-%d'
+
+Trace u. a.:
+
+app.py
+page_dashboard()
+Filter:
+„Spieler ohne Test > 30 Tage“
+
+Die Filterlogik verwendet aktuell sinngemäß:
+
+datetime.strptime(x["datum"], "%Y-%m-%d")
+
+Mindestens ein gespeicherter Test hat aber:
+
+18.08.2026
+
+statt:
+
+2026-08-18
+
+Dadurch crasht die komplette Mannschaftsseite.
+
+============================================================
+2. ZIEL
+============================================================
+
+Datumswerte müssen robust verarbeitet werden.
+
+Folgende Formate mindestens akzeptieren:
+
+YYYY-MM-DD
+z. B.
+2026-08-18
+
+DD.MM.YYYY
+z. B.
+18.08.2026
+
+Optional vorhandene Zeit-/Suffixformate ebenfalls berücksichtigen,
+wenn sie im bestehenden APH bereits vorkommen.
+
+Ein ungültiger oder leerer Datumswert darf NICHT die gesamte Seite crashen.
+
+============================================================
+3. KEIN EINZELNER INLINE-FIX
+============================================================
+
+NICHT nur diese eine strptime-Zeile mit try/except versehen.
+
+Prüfe, ob APH bereits eine zentrale Datumsparser-Funktion besitzt.
+
+Insbesondere vorhandene Funktionen wie:
+
+alter_am_datum()
+bestehende Datumshilfen in database.py / app.py
+
+prüfen und möglichst wiederverwenden.
+
+Falls keine passende allgemeine Funktion existiert:
+
+eine kleine zentrale Helper-Funktion erstellen, z. B.:
+
+parse_datum_safe(value) -> date | None
+
+Sie soll:
+
+- datetime/date direkt akzeptieren
+- YYYY-MM-DD akzeptieren
+- DD.MM.YYYY akzeptieren
+- ggf. vorhandene Uhrzeitsuffixe sauber behandeln
+- bei leer/None/ungültig → None
+- niemals ValueError bis in die UI durchreichen
+
+Keine dritte oder vierte unabhängige Datumslogik bauen.
+
+============================================================
+4. MANNSCHAFTSFILTER REPARIEREN
+============================================================
+
+Den Filter:
+
+„Spieler ohne Test > 30 Tage“
+
+auf den sicheren Parser umstellen.
+
+Für jeden Testdatensatz:
+
+- Datum erfolgreich geparst
+  → Alter des Tests berechnen
+
+- Datum leer/ungültig
+  → diesen Eintrag nicht zum Crash führen lassen
+
+Fachlich sinnvoll behandeln:
+
+Wenn für einen Test kein gültiges Datum existiert,
+darf daraus kein falscher „frischer Test“ entstehen.
+
+Dokumentiere, wie dieser Sonderfall behandelt wird.
+
+============================================================
+5. BETROFFENE TESTARTEN PRÜFEN
+============================================================
+
+Der Filter nennt aktuell u. a.:
+
+- FMS
+- Sprint
+- Y-Balance
+- Agilität
+- Ausdauer
+
+Zusätzlich prüfen:
+
+- Sprung
+- Kraft
+- Anthropometrie
+- Spiro
+
+wenn diese Datumsfelder in Dashboard/Spielerstatus/„letzter Test“-Logik verwenden.
+
+Prüfe sämtliche Call-Sites im Dashboard/Mannschaftsbereich,
+die Testdaten direkt mit strptime("%Y-%m-%d") parsen.
+
+Nicht nur die eine Traceback-Stelle.
+
+============================================================
+6. SPEICHERFORMAT ANALYSIEREN
+============================================================
+
+Finde heraus, welche Testmodule aktuell welches Format speichern.
+
+Für mindestens:
+
+FMS
+Y-Balance
+Sprint
+Sprung
+Agilität
+Ausdauer
+Kraft
+Anthropometrie
+Spiro
+
+dokumentieren:
+
+- welches Feld
+- welches Format beim Speichern
+- ob historische Datensätze andere Formate enthalten können
+
+============================================================
+7. ZUKÜNFTIG EINHEITLICHES SPEICHERFORMAT
+============================================================
+
+Für NEUE Testdatensätze soll nach Möglichkeit ein einheitliches internes
+DB-Format verwendet werden:
+
+YYYY-MM-DD
+
+also ISO:
+
+2026-08-18
+
+Das ist das bevorzugte interne Speicherformat.
+
+WICHTIG:
+
+UI darf weiterhin deutsch anzeigen:
+
+18.08.2026
+
+wenn gewünscht.
+
+Trennung:
+
+DB/intern:
+YYYY-MM-DD
+
+UI/Anzeige:
+DD.MM.YYYY
+
+============================================================
+8. HISTORISCHE DATEN NICHT MIGRIEREN
+============================================================
+
+Bestehende Datensätze wie:
+
+18.08.2026
+
+NICHT zwangsläufig massenhaft umschreiben.
+
+Keine riskante Migration nur für diesen Bug.
+
+Der neue Parser muss historische Werte weiterhin lesen können.
+
+Falls eine Migration technisch absolut notwendig wäre:
+STOPP und zuerst berichten.
+
+============================================================
+9. DATUM AM TESTTAG / ALTER NICHT BESCHÄDIGEN
+============================================================
+
+Bestehende Logik:
+
+alter_am_datum()
+
+muss weiterhin funktionieren.
+
+Geburtstags-Grenzen müssen unverändert bleiben.
+
+Beispiel:
+
+Geburtsdatum:
+26.08.2016
+
+Test:
+20.08.2026
+→ Alter 9
+
+Test:
+26.08.2026
+→ Alter 10
+
+Test:
+27.08.2026
+→ Alter 10
+
+Keine Regression.
+
+============================================================
+10. FILTERLOGIK
+============================================================
+
+Pflichtfälle:
+
+Heute beispielhaft:
+18.08.2026
+
+letzter Test:
+2026-08-10
+→ nicht >30 Tage
+
+letzter Test:
+10.08.2026
+→ gleiches Ergebnis
+
+letzter Test:
+2026-06-01
+→ >30 Tage
+
+letzter Test:
+01.06.2026
+→ gleiches Ergebnis
+
+leeres Datum
+→ kein Crash
+
+ungültiges Datum:
+"abc"
+→ kein Crash
+
+None
+→ kein Crash
+
+============================================================
+11. MEHRERE TESTS PRO SPIELER
+============================================================
+
+Wenn mehrere Tests derselben Art existieren:
+
+immer den tatsächlich neuesten gültigen Test verwenden.
+
+Nicht lexikografisch Strings vergleichen,
+sondern echte date/datetime-Werte.
+
+Beispiel:
+
+"31.12.2025"
+und
+"2026-01-02"
+
+→ 02.01.2026 ist neuer.
+
+============================================================
+12. FILTERBEDEUTUNG PRÜFEN
+============================================================
+
+Filtertext:
+
+„Spieler ohne Test > 30 Tage (FMS, Sprint, Y-Balance, Agilität, Ausdauer)“
+
+Bitte exakt prüfen, was die Logik bedeutet:
+
+A)
+Spieler erscheint, wenn MINDESTENS EINER dieser Tests >30 Tage alt / nie gemacht ist
+
+oder
+
+B)
+Spieler erscheint nur, wenn ALLE diese Tests >30 Tage alt / nie gemacht sind
+
+Bestehendes gewünschtes Verhalten nicht stillschweigend ändern.
+
+Nur dokumentieren und Regressionstest dafür ergänzen.
+
+============================================================
+13. UI
+============================================================
+
+Kein technischer Traceback mehr für normale Benutzer anzeigen.
+
+Bei einzelnen beschädigten Datensätzen soll die Seite weiter laden.
+
+Falls sinnvoll:
+
+dezent loggen / warning intern,
+aber nicht die komplette Mannschaftsseite blockieren.
+
+Keine neue große Fehler-UI bauen.
+
+============================================================
+14. WEITERE HARDCODED strptime SUCHEN
+============================================================
+
+Projektweit prüfen:
+
+strptime(... "%Y-%m-%d")
+strptime(... "%d.%m.%Y")
+
+insbesondere bei Testdatum-/Dashboard-/Verlauf-/Filterlogik.
+
+Nur Stellen korrigieren, bei denen derselbe Dual-Format-Bug real auftreten kann.
+
+Nicht unnötig das gesamte Datumssystem umbauen.
+
+============================================================
+15. TESTS
+============================================================
+
+Neue Testsuite erstellen, z. B.:
+
+tools/test_datum_filter.py
+
+Mindestens:
+
+1.
+parse YYYY-MM-DD
+
+2.
+parse DD.MM.YYYY
+
+3.
+None → None
+
+4.
+"" → None
+
+5.
+ungültiges Datum → None, kein Crash
+
+6.
+ISO und DE-Datum ergeben dasselbe date
+
+7.
+>30-Tage-Filter mit ISO
+
+8.
+>30-Tage-Filter mit DE-Format
+
+9.
+frischer Test mit ISO
+
+10.
+frischer Test mit DE-Format
+
+11.
+gemischte historische Formate
+
+12.
+mehrere Tests → neuestes echtes Datum
+
+13.
+Spieler ohne Test → bestehendes Filterverhalten
+
+14.
+ungültiger Einzeltest crasht Mannschaftsseite nicht
+
+15.
+FMS Datum beide Formate
+
+16.
+Sprint Datum beide Formate
+
+17.
+Y-Balance Datum beide Formate
+
+18.
+Agilität Datum beide Formate
+
+19.
+Ausdauer Datum beide Formate
+
+20.
+Sprung Datum beide Formate, falls Dashboard relevant
+
+============================================================
+16. REGRESSION
+============================================================
+
+Zusätzlich ausführen:
+
+python tools/test_sprint_auswahl.py
+python tools/test_ulogik.py
+python tools/test_saison.py
+python tools/test_alter_testtag.py
+python tools/test_block_b.py
+
+sowie vorhandene Dashboard-/Mandanten-Tests,
+falls relevante Dashboard-Funktionen geändert werden.
+
+============================================================
+17. PY_COMPILE
+============================================================
+
+Alle tatsächlich geänderten Python-Dateien.
+
+Mindestens app.py
+und ggf. database.py / Helper-Modul.
+
+============================================================
+18. NICHT VERÄNDERN
+============================================================
+
+Nicht verändern:
+
+- Normwerte
+- Testbewertungen
+- Defizitlogik
+- Trainingsplanlogik
+- Saisonlogik
+- Spielerzuweisungen
+- Mandanten
+- Kundenverwaltung
+- Stripe
+- Rechnungen
+- Lizenzen
+- Sessions/Login
+- historische Testwerte
+
+============================================================
+19. ABSCHLUSSBERICHT
+============================================================
+
+Bitte berichten:
+
+1. genaue Ursache
+2. welche Testart '18.08.2026' gespeichert hatte
+3. alle gefundenen Datumsformate
+4. welche zentrale Parser-Funktion jetzt verwendet wird
+5. welche Call-Sites geändert wurden
+6. zukünftiges internes Speicherformat
+7. UI-Anzeigeformat
+8. Umgang mit historischen Daten
+9. Umgang mit ungültigen Daten
+10. Bedeutung des >30-Tage-Filters
+11. betroffene Testmodule
+12. neue Tests
+13. Regressionstests
+14. Gesamt PASS/FAIL
+15. py_compile
+16. DB-Migration ja/nein
+17. Auswirkungen auf bestehende Daten
+18. Bestätigung: NICHT deployed
+
+Danach STOPP.
+
+NICHT DEPLOYEN.

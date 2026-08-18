@@ -1089,6 +1089,35 @@ def altersklasse_vorschlag(geburtsdatum_str: str) -> str:
     return "Senioren"
 
 
+def parse_datum_safe(value) -> "date | None":
+    """Zentraler Datumsparser — akzeptiert beide im APH verwendeten Formate.
+
+    Unterstützte Eingaben:
+      - date / datetime-Objekte → direkt zurückgeben
+      - ``YYYY-MM-DD``  (ISO, z. B. ``2026-08-18``)
+      - ``DD.MM.YYYY``  (DE,  z. B. ``18.08.2026``)
+      - Zeitstempel-Suffix wird abgeschnitten (``2026-08-18 14:30``, ``18.08.2026 (14:30)``)
+      - None / leer / ungültig → None, niemals ValueError
+    """
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, date):
+        return value
+    s = str(value).strip()
+    if not s:
+        return None
+    # Zeit- oder Klammernsuffix abschneiden ("2026-08-18 14:30" / "18.08.2026 (14:30)")
+    s = s.split(" ")[0].split("(")[0].strip().rstrip(".")
+    for fmt in ("%Y-%m-%d", "%d.%m.%Y"):
+        try:
+            return datetime.strptime(s, fmt).date()
+        except ValueError:
+            continue
+    return None  # ungültig — kein Crash
+
+
 # ─── Spieler ───────────────────────────────────────────────────────────────
 
 def spieler_speichern(vorname, nachname, geburtsdatum, geschlecht,
