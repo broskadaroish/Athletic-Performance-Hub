@@ -2048,6 +2048,90 @@ def _player_selector(key_suffix="") -> dict | None:
     return spieler[0]
 
 
+def _spieler_suchname(spieler: dict) -> str:
+    """Stable display name for the shared active-player search."""
+    return (
+        spieler.get("name")
+        or f"{spieler.get('vorname', '')} {spieler.get('nachname', '')}".strip()
+        or f"Spieler #{spieler.get('id', '—')}"
+    )
+
+
+def _spieler_suchtreffer(spieler_liste: list[dict], suchtext: str) -> list[dict]:
+    """Case-insensitive partial search over first name, last name and full name."""
+    query = (suchtext or "").strip().casefold()
+    if not query:
+        return spieler_liste
+    treffer = []
+    for spieler in spieler_liste:
+        vorname = str(spieler.get("vorname") or "")
+        nachname = str(spieler.get("nachname") or "")
+        name = _spieler_suchname(spieler)
+        suchfelder = (vorname, nachname, name, f"{vorname} {nachname}")
+        if any(query in feld.casefold() for feld in suchfelder if feld):
+            treffer.append(spieler)
+    return treffer
+
+
+def _aktiven_spieler_suchbereich(
+    spieler_liste: list[dict],
+    bereich: str,
+    *,
+    titel: str = "Spieler suchen …",
+) -> dict | None:
+    """Shared, confirmed active-player search for sidebar and diagnostics.
+
+    Only ``global_player_id`` is written. The player list is always supplied by
+    the caller's existing permission-aware ``spieler_laden`` call.
+    """
+    if not spieler_liste:
+        return None
+
+    query_key = f"_aktiver_spieler_suche_{bereich}"
+    choice_key = f"_aktiver_spieler_treffer_{bereich}"
+    notice_key = f"_aktiver_spieler_hinweis_{bereich}"
+
+    suchtext = st.text_input(
+        titel,
+        key=query_key,
+        placeholder="Vorname, Nachname oder vollständiger Name",
+        label_visibility="collapsed" if bereich == "sidebar" else "visible",
+    )
+    treffer = _spieler_suchtreffer(spieler_liste, suchtext)
+    if not treffer:
+        st.caption("Kein passender Spieler gefunden.")
+        return None
+
+    current_id = st.session_state.get("global_player_id")
+    current_index = next(
+        (i for i, spieler in enumerate(treffer) if spieler.get("id") == current_id),
+        0,
+    )
+    auswahl = st.selectbox(
+        "Treffer",
+        treffer,
+        index=current_index,
+        format_func=_spieler_suchname,
+        key=choice_key,
+        label_visibility="collapsed" if bereich == "sidebar" else "visible",
+    )
+    if st.button(
+        "Auswahl bestätigen",
+        key=f"_aktiver_spieler_bestaetigen_{bereich}",
+        use_container_width=True,
+        type="primary" if bereich != "sidebar" else "secondary",
+    ):
+        st.session_state["global_player_id"] = auswahl["id"]
+        st.session_state[f"_aktiver_spieler_suche_offen_{bereich}"] = False
+        st.session_state[notice_key] = _spieler_suchname(auswahl)
+        st.rerun()
+
+    hinweis = st.session_state.pop(notice_key, None)
+    if hinweis:
+        st.success(f"✅ {hinweis} ist jetzt der aktive Spieler.")
+    return auswahl
+
+
 # ─── Plotly theme helper ───────────────────────────────────────────────────────
 
 PLOTLY_LAYOUT = dict(
@@ -10449,11 +10533,25 @@ def page_diagnostik_overview() -> None:
         unsafe_allow_html=True,
     )
 
+    if st.button("👤 Spieler wechseln", key="diagnostik_spieler_wechsel", use_container_width=False):
+        st.session_state["_aktiver_spieler_suche_offen_diagnostik"] = not st.session_state.get(
+            "_aktiver_spieler_suche_offen_diagnostik", False
+        )
+        st.rerun()
+    _diagnostik_hinweis = st.session_state.pop("_aktiver_spieler_hinweis_diagnostik", None)
+    if _diagnostik_hinweis:
+        st.success(f"✅ {_diagnostik_hinweis} ist jetzt der aktive Spieler.")
+    if st.session_state.get("_aktiver_spieler_suche_offen_diagnostik"):
+        _diagnostik_spieler = spieler_laden(
+            _akt_user()["id"], _akt_user()["rolle"], _akt_user()["verein_id"]
+        )
+        _aktiven_spieler_suchbereich(_diagnostik_spieler, "diagnostik")
+
     sid = st.session_state.get("global_player_id")
     if not sid:
         st.markdown(
             empty_state("👤", "Kein Spieler ausgewählt",
-                        "Bitte einen Spieler in der Seitenleiste auswählen."),
+                        "Bitte einen Spieler suchen und auswählen."),
             unsafe_allow_html=True,
         )
         return
@@ -11119,23 +11217,22 @@ with st.sidebar:
         unsafe_allow_html=True,
     )
 
-    # ── Global player selector ────────────────────────────────────────────────
+    # ── Global player search ──────────────────────────────────────────────────
     alle_spieler = spieler_laden(_akt_user()["id"], _akt_user()["rolle"], _akt_user()["verein_id"])
     if alle_spieler:
-        pid_current = st.session_state.get("global_player_id")
-        idx_current = 0
-        if pid_current:
-            ids = [p["id"] for p in alle_spieler]
-            if pid_current in ids:
-                idx_current = ids.index(pid_current)
-        sel_player = st.selectbox(
-            "Aktiver Spieler",
-            alle_spieler,
-            index=idx_current,
-            format_func=lambda x: x["name"],
-            key="sidebar_player_sel",
+        _ids = [p["id"] for p in alle_spieler]
+        if st.session_state.get("global_player_id") not in _ids:
+            st.session_state["global_player_id"] = alle_spieler[0]["id"]
+        st.markdown(
+            '<div style="font-size:11px;font-weight:700;color:#8b949e;'
+            'letter-spacing:.5px;margin:4px 0 5px">AKTIVER SPIELER</div>',
+            unsafe_allow_html=True,
         )
-        st.session_state["global_player_id"] = sel_player["id"]
+        _aktiven_spieler_suchbereich(alle_spieler, "sidebar", titel="Spieler suchen …")
+        sel_player = next(
+            (p for p in alle_spieler if p["id"] == st.session_state.get("global_player_id")),
+            alle_spieler[0],
+        )
 
         # ── Kompakte Pill (immer sichtbar) ───────────────────────────────────
         _sb_pos  = sel_player.get("hauptposition") or sel_player.get("position") or "—"
@@ -11513,7 +11610,8 @@ elif section == "👤  Spieler":
     inject_mobile_player_selector(alle_spieler, st.session_state.get("global_player_id"), section)
     _SUB_SPIELER[sub_choice]()
 elif section == "🔬  Diagnostik":
-    inject_mobile_player_header(_mob_player(), section)
+    # The diagnostics overview owns the inline "Spieler wechseln" search.
+    # Do not route mobile users to Spieler → Verwaltung anymore.
     inject_mobile_player_selector(alle_spieler, st.session_state.get("global_player_id"))
     _SUB_DIAGNOSTIK[sub_choice]()
 elif section == "📅  Training":

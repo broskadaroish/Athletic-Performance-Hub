@@ -1,0 +1,211 @@
+KLEINER UX-HOTFIX – AKTIVER SPIELER SUCHEN + SPIELER WECHSELN IN DIAGNOSTIK
+
+WICHTIG:
+Bitte nur diese Funktion ändern.
+Keine große Architektur-Analyse.
+Keine DB-Migration.
+Keine bestehenden Daten verändern.
+Keine anderen Module umbauen.
+Nicht deployen.
+
+ZIEL:
+Es gibt weiterhin GENAU EINEN globalen „aktiven Spieler“.
+
+Dieser aktive Spieler soll künftig auf 2 Wegen geändert werden können:
+
+1. Navigation → Aktiver Spieler
+2. Diagnostik → Button „👤 Spieler wechseln“
+
+Beide Wege müssen denselben bestehenden aktiven-Spieler-State verwenden.
+
+==================================================
+1. NAVIGATION – AKTIVER SPIELER ALS SUCHE
+==================================================
+
+Das bisherige Dropdown unter:
+
+„Aktiver Spieler“
+
+durch eine kompakte Suchauswahl ersetzen.
+
+Trainer tippt z. B.:
+
+Dev
+Lion
+Daro
+
+→ passende Spieler anzeigen.
+
+Nach Auswahl + Bestätigung:
+
+→ Spieler wird globaler aktiver Spieler
+→ bestehender aktiver-Spieler-State wird gesetzt
+→ normale App-Logik läuft weiter
+
+Danach beziehen sich wie bisher auf diesen Spieler:
+
+- Startseite
+- Diagnostik
+- Training
+- Entwicklung
+- Spielerprofil
+- Vergleich
+- Dokumente
+
+Keine zweite State-Variable anlegen.
+
+==================================================
+2. DIAGNOSTIK – „SPIELER WECHSELN“
+==================================================
+
+Aktuell führt „👤 Spieler wechseln“ zur Spielerverwaltung.
+
+Das ändern.
+
+Klick auf:
+
+„👤 Spieler wechseln“
+
+→ KEIN Seitenwechsel
+
+→ direkt unter dem Button öffnet sich ein kompakter Suchbereich:
+
+„Spieler suchen …“
+
+mit passenden Treffern.
+
+Ablauf exakt:
+
+1. Trainer ist auf Diagnostik
+2. klickt „👤 Spieler wechseln“
+3. Suchfeld erscheint direkt darunter
+4. Trainer sucht und wählt z. B. „Lion Daroish“
+5. Button:
+   „Auswahl bestätigen“
+6. nach Bestätigung:
+   Hinweis:
+   „✅ Lion Daroish ist jetzt der aktive Spieler.“
+7. Suchbox schließt sich
+8. Trainer bleibt auf Diagnostik
+9. st.rerun()
+10. Diagnostikkarten laden sofort für Lion
+
+==================================================
+3. BEIDE WEGE DÜRFEN SICH NICHT BEHINDERN
+==================================================
+
+Navigation und Diagnostik-Spielersuche sind nur 2 UI-Einstiege.
+
+Beide müssen denselben bestehenden globalen aktiven-Spieler-State setzen.
+
+Beispiel:
+
+Diagnostik:
+Lion auswählen
+→ Navigation zeigt danach ebenfalls Lion
+
+Später Navigation:
+Devin auswählen
+→ Diagnostik zeigt danach Devin
+
+Keine getrennten Zustände wie:
+
+nav_aktiver_spieler
+diagnostik_aktiver_spieler
+
+==================================================
+4. SICHERHEIT / MANDANTENTRENNUNG – NICHT VERÄNDERN
+==================================================
+
+Sehr wichtig:
+
+Bestehende Spielerzugriffslogik wiederverwenden.
+
+Normale Trainer dürfen NIEMALS fremde Spieler sehen.
+
+Trainer Verein A:
+→ keine Spieler von Verein B
+
+Multi-Mandant-Trainer:
+→ nur Spieler des aktuell aktiven Mandanten
+
+Fremder Trainer:
+→ keine Spieler ohne bestehende Berechtigung/Zuweisung
+
+Vereinsadmin:
+→ nur eigener Verein
+
+Superadmin:
+→ bestehende Sonderrechte unverändert
+
+KEINE globale Spielerliste verwenden.
+
+KEIN neuer eigener SQL-Zugriff, wenn bestehende sichere Spieler-Ladefunktion vorhanden ist.
+
+==================================================
+5. SUCHE
+==================================================
+
+Suche mindestens nach:
+
+- Vorname
+- Nachname
+- vollständigem Namen
+
+case-insensitive
+Teilstring-Suche
+
+Beispiele:
+
+„dev“
+→ Devin Daroish
+
+„daro“
+→ passende berechtigte Daroish-Spieler
+
+Kein Treffer:
+„Kein passender Spieler gefunden.“
+
+==================================================
+6. MOBILE
+==================================================
+
+Suchfeld und Treffer mobil gut anklickbar.
+
+Keine horizontale Überbreite.
+
+Keine neue Navigation bauen.
+
+==================================================
+7. NUR KLEINE TESTS
+==================================================
+
+Bitte keine große neue Testsuite bauen.
+
+Nur gezielte Regressionstests:
+
+1. Navigation-Suche findet berechtigten Spieler
+2. Diagnostik-Suche findet berechtigten Spieler
+3. Spieler aus anderem Verein nicht sichtbar
+4. Auswahl setzt globalen aktiven Spieler
+5. Diagnostik bleibt nach Auswahl geöffnet
+6. Navigation und Diagnostik zeigen danach denselben aktiven Spieler
+7. kein Treffer → sauberer Hinweis
+
+Bestehende Mandanten-/Spielerzugriffstests weiter grün lassen.
+
+==================================================
+8. ABSCHLUSS
+==================================================
+
+Am Ende kurz berichten:
+
+- welche Datei(en) geändert
+- wie der aktive Spieler gesetzt wird
+- wie Mandantenschutz erhalten bleibt
+- Testergebnis
+- py_compile
+- keine DB-Migration
+- NICHT deployed
+
+Dann STOPP.
