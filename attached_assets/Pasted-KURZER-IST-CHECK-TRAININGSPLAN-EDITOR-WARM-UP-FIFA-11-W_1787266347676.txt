@@ -1,0 +1,136 @@
+KURZER IST-CHECK – TRAININGSPLAN-EDITOR / WARM-UP / FIFA 11+
+
+WICHTIG:
+Nur analysieren.
+KEINE Dateien ändern.
+KEIN Coding.
+KEIN Deployment.
+Keine große Projektanalyse – nur die unten genannten Punkte prüfen.
+
+Bitte im bestehenden APH-Trainingsplan gezielt prüfen:
+
+1. MANUELLES HINZUFÜGEN
+Welche Felder existieren aktuell beim manuellen Hinzufügen einer Übung?
+
+Prüfen:
+- Bereich
+- Übung
+- Sätze
+- Wiederholungen
+- Pause
+- Ausführung
+- Intensität
+- Equipment
+- Häufigkeit
+- Woche
+- Trainingstag
+
+Für jedes Feld:
+vorhanden / nicht vorhanden / nur intern vorhanden.
+
+2. BESTEHENDE ÜBUNG BEARBEITEN
+Kann eine bereits im automatisch generierten Plan vorhandene Übung aktuell bearbeitet werden?
+
+Prüfen:
+- Übungsname
+- Sätze
+- Wiederholungen
+- Pause
+- Ausführung
+- Woche
+- Trainingstag
+- Bereich
+
+3. WOCHEN- / TAGESVERTEILUNG
+Welche Funktionen existieren bereits für:
+
+- nur diesen Tag
+- mehrere Trainingstage
+- mehrere Wochen
+- alle Wochen
+- alle Tage
+- Duplizieren/Kopieren
+- Verschieben
+
+Bitte zeigen, welche Funktionen vorhanden sind und welche fehlen.
+
+4. WARM-UP
+Wie wird das aktuelle Warm-up technisch erzeugt und gespeichert?
+
+Prüfen:
+- fest im Generator?
+- eigener Bereich?
+- normale Trainingsplan-Einträge?
+- pro Tag individuell änderbar?
+- pro Woche individuell änderbar?
+- kann Warm-up entfernt/ersetzt werden?
+- Dauer wird berücksichtigt?
+
+5. FIFA 11+
+Prüfen, ob bereits irgendeine FIFA-11+-Logik, Übung oder Datenstruktur existiert.
+
+Falls ja:
+nur dokumentieren.
+
+Falls nein:
+nur „nicht vorhanden“ schreiben.
+NOCH NICHT implementieren.
+
+6. KEINE DEFIZITE / KEINE TESTS
+Prüfen, was APH aktuell macht bei:
+
+A) keine Tests vorhanden
+B) 1 Test vorhanden, kein Defizit
+C) mehrere Tests vorhanden, keine Defizite
+D) Defizite vorhanden
+
+WICHTIG:
+Prüfen, ob bereits ein Basis-/Erhaltungsmodus existiert.
+
+Keine neue Vollständigkeitsregel bauen.
+Keine Mindestanzahl an Tests einführen.
+
+7. TESTFREIHEIT
+Bestätigen, ob der Trainer aktuell frei entscheiden kann:
+
+- 0 Tests
+- 1 Test
+- 2 Tests
+- mehrere Tests
+- alle Tests
+
+und ob nicht getestete Bereiche neutral bleiben.
+
+8. BELASTUNGSLOGIK
+Prüfen, ob manuell hinzugefügte/duplizierte Übungen bereits in bestehende Regeln einfließen:
+
+- Belastungsumfang
+- Belastungsintensität
+- Belastungsdichte
+- Belastungshäufigkeit
+- Altersgrenzen
+- Reihenfolge der Übungen
+
+Nur dokumentieren.
+
+9. SPEICHERSTRUKTUR
+Zeigen, wie Trainingsplan-Einträge gespeichert werden.
+
+Insbesondere:
+- welche Felder besitzt ein Eintrag
+- ob „Ausführung“ bereits gespeichert werden kann
+- ob Woche und Tag Bestandteil des Datensatzes sind
+- ob für freie Verteilung eine DB-Migration nötig wäre
+
+10. ABSCHLUSS
+Kurzen Bericht liefern:
+
+- bereits vorhanden
+- teilweise vorhanden
+- fehlt
+- welche Dateien/Funktionen betroffen wären
+- ob DB-Migration nötig wäre
+- klein / mittel / groß pro gewünschter Erweiterung
+
+Danach STOPP.
+NICHTS ÄNDERN.
