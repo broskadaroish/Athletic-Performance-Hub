@@ -21,6 +21,7 @@ from safety_texts import (
     KURZ_HINWEIS,
     ABBRUCH_HINWEIS,
 )
+from warmup import WARMUP_BEREICH, warmup_meta_lesen, warmup_details
 
 
 # ─── Encoding-Schutz ─────────────────────────────────────────────────────────
@@ -1575,16 +1576,6 @@ def generate_vergleich_pdf(
 
 # ─── Trainingsplan-PDF (Standalone) ──────────────────────────────────────────
 
-_WARMUP_ROWS = [
-    ("Aktivierungslauf",          "5 min",       "Leichtes Joggen, Seitwarts-, Ruckwartslaufe"),
-    ("Huftkreisen beidbeinig",    "2x10",        "Kontrolliert, langsam"),
-    ("World's Greatest Stretch",  "2x5/Seite",   "Tief und kontrolliert"),
-    ("Leg Swings vor/ruck",       "2x10/Seite",  "Freies Pendeln, zunehmende Amplitude"),
-    ("Leg Swings seitlich",       "2x10/Seite",  "Lateral, gestreckt"),
-    ("Glute Bridge",              "2x10",        "Langsam, Becken oben halten 2 s"),
-    ("Mini-Band Walk",            "2x10 m",      "Lateral, Knie leicht gebeugt"),
-]
-
 _TAG_NAMEN = {1: "Tag 1 - Montag", 2: "Tag 2 - Mittwoch", 3: "Tag 3 - Freitag",
               4: "Tag 4 - Samstag", 0: "Alle Tage"}
 
@@ -1605,6 +1596,7 @@ def generate_trainingsplan_pdf(
     version_nr: int | None = None,
     plan_datum: str = "",
     wochenplanung_json: str | None = None,
+    legacy_warmup_min: int = 8,
 ) -> bytes:
     """
     Druckbarer Trainingsplan-PDF fuer einen Spieler.
@@ -1905,18 +1897,42 @@ def generate_trainingsplan_pdf(
             pdf.set_text_color(*pdf.DARK)
             pdf.ln(10)
 
-            # Warm-Up (Querformat-optimiert, volle Breite)
+            # Warm-Up: gespeicherte Auswahl oder APH-Legacy-Fallback
+            tag_rows = wochen[woche_nr][tag_nr]
+            warmup_row = next(
+                (row for row in tag_rows if row.get("bereich") == WARMUP_BEREICH),
+                None,
+            )
+            warmup_meta = warmup_meta_lesen(warmup_row)
+            warmup_aph_dauer = warmup_meta.get("aph_dauer_min") or legacy_warmup_min
+            warmup_info = warmup_details(
+                warmup_meta["art"], warmup_meta["level"], warmup_meta["teile"],
+                aph_dauer_min=warmup_aph_dauer,
+            )
             pdf.set_font("Helvetica", "B", 10)
             pdf.set_text_color(*pdf.MID)
-            pdf.cell(0, 5, "WARM-UP (8-10 min, fussballspezifisch):", new_x="LMARGIN", new_y="NEXT")
-            # Ubung 33 %, Volumen 14 %, Hinweis 53 % → Summe = _cw
-            wu_cols = [("Ubung", 90), ("Volumen", 38), ("Hinweis", _cw - 128)]
-            pdf.table_header(wu_cols, font_size=9)
-            wu_fill = False
-            for wu_name, wu_vol, wu_hint in _WARMUP_ROWS:
-                pdf.table_row_tp([_safe(wu_name), _safe(wu_vol), _safe(wu_hint)],
-                                 [c[1] for c in wu_cols], wu_fill, font_size=9)
-                wu_fill = not wu_fill
+            pdf.cell(
+                0, 5,
+                _safe("WARM-UP: %s (~%s min)" % (warmup_info["titel"], warmup_info["dauer_min"])),
+                new_x="LMARGIN", new_y="NEXT",
+            )
+            if warmup_info["hinweis"]:
+                pdf.set_font("Helvetica", "I", 7)
+                pdf.cell(0, 4, _safe(warmup_info["hinweis"]), new_x="LMARGIN", new_y="NEXT")
+            if warmup_info["zeilen"]:
+                wu_cols = [("Teil", 35), ("Ubung", 90), ("Volumen", 46), ("Hinweis", _cw - 171)]
+                pdf.table_header(wu_cols, font_size=8)
+                wu_fill = False
+                for wu_row in warmup_info["zeilen"]:
+                    pdf.table_row_tp(
+                        [_safe(wu_row["teil"]), _safe(wu_row["uebung"]),
+                         _safe(wu_row["volumen"]), _safe(wu_row["hinweis"])],
+                        [c[1] for c in wu_cols], wu_fill, font_size=8,
+                    )
+                    wu_fill = not wu_fill
+            else:
+                pdf.set_font("Helvetica", "I", 8)
+                pdf.cell(0, 5, "Kein Warm-up eingeplant.", new_x="LMARGIN", new_y="NEXT")
             pdf.ln(3)
 
             # Hauptteil-Ubungen (Querformat-optimiert, volle Breite)
@@ -1931,9 +1947,11 @@ def generate_trainingsplan_pdf(
                         ("Ausfuhrung", _cw - 153)]
             pdf.table_header(cols_ueb, font_size=9)
             ueb_fill = False
-            tag_rows = wochen[woche_nr][tag_nr]
             # Sort by Bereich
-            for row in sorted(tag_rows, key=lambda r: str(r.get("bereich", ""))):
+            for row in sorted(
+                (row for row in tag_rows if row.get("bereich") != WARMUP_BEREICH),
+                key=lambda r: str(r.get("bereich", "")),
+            ):
                 bereich  = str(row.get("bereich", "-"))
                 uebung   = str(row.get("uebung", "-"))
                 saetze   = str(row.get("saetze", "-"))

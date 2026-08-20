@@ -2238,6 +2238,114 @@ def trainingsplan_eintrag_speichern(spieler_id, datum, woche, bereich, uebung, s
         )
 
 
+def plan_warmup_speichern(spieler_id: int, plan_id: int, woche: int, tag: int,
+                          art: str, level: int = 1,
+                          teile: list[str] | None = None,
+                          aph_dauer_min: int = 8) -> bool:
+    """Speichert genau eine Warm-up-Auswahl für Woche/Tag eines eigenen Plans.
+
+    Die vorhandene trainingsplan-Tabelle bleibt die Datenquelle. Auch
+    ``Kein Warm-up`` wird als Auswahlzeile gespeichert, damit es sich sauber vom
+    Legacy-Fallback ohne gespeicherte Warm-up-Zeile unterscheidet.
+    """
+    from warmup import WARMUP_BEREICH, warmup_meta_kodieren, warmup_details
+
+    with get_conn() as conn:
+        version = conn.execute(
+            "SELECT id FROM trainingsplan_versionen WHERE id=? AND spieler_id=?",
+            (plan_id, spieler_id),
+        ).fetchone()
+        if not version:
+            return False
+        conn.execute(
+            "DELETE FROM trainingsplan WHERE spieler_id=? AND plan_id=? AND woche=? AND tag=? AND bereich=?",
+            (spieler_id, plan_id, int(woche), int(tag), WARMUP_BEREICH),
+        )
+        details = warmup_details(art, level, teile, aph_dauer_min=aph_dauer_min)
+        conn.execute(
+            """INSERT INTO trainingsplan
+               (spieler_id,datum,woche,bereich,uebung,saetze,wiederholungen,haeufigkeit,status,
+                tag,pause_sekunden,ausfuehrung,rpe,energie_system,equipment,begruendung,plan_id,position,notiz)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+            (
+                spieler_id, str(date.today()), int(woche), WARMUP_BEREICH, details["titel"],
+                "—", f"{details['dauer_min']} min", "Warm-up", "offen", int(tag), 0,
+                details["hinweis"], max(1, min(3, int(level or 1))), "Warm-up", "",
+                "Manuell gewählte Warm-up-Steuerung", plan_id, -1,
+                warmup_meta_kodieren(art, level, teile, aph_dauer_min),
+            ),
+        )
+    return True
+
+
+def plan_eintrag_verteilen(spieler_id: int, plan_id: int, eintrag_id: int,
+                            wochen: list[int], tage: list[int]) -> dict:
+    """Kopiert einen eigenen Plan-Eintrag auf zulässige Woche/Tag-Kombinationen.
+
+    Der Ursprung bleibt erhalten. Exakt gleiche Bereich-/Übungs-Kombinationen am
+    selben Plan-Tag werden übersprungen statt doppelt gespeichert.
+    """
+    requested_weeks = sorted({int(w) for w in wochen if int(w) > 0})
+    requested_days = sorted({int(t) for t in tage if int(t) >= 0})
+    result = {"erstellt": 0, "duplikate": 0, "haeufigkeit": None}
+    if not requested_weeks or not requested_days:
+        return result
+
+    with get_conn() as conn:
+        source = conn.execute(
+            """SELECT * FROM trainingsplan
+               WHERE id=? AND spieler_id=? AND plan_id=? AND bereich<>?""",
+            (eintrag_id, spieler_id, plan_id, "Warm-up"),
+        ).fetchone()
+        if not source:
+            return result
+        row = dict(source)
+        neue_haeufigkeit = f"{len(requested_days)}×/Woche"
+
+        for woche in requested_weeks:
+            for tag in requested_days:
+                if woche == int(row["woche"]) and tag == int(row["tag"]):
+                    continue
+                exists = conn.execute(
+                    """SELECT 1 FROM trainingsplan
+                       WHERE spieler_id=? AND plan_id=? AND woche=? AND tag=?
+                         AND bereich=? AND uebung=? LIMIT 1""",
+                    (spieler_id, plan_id, woche, tag, row["bereich"], row["uebung"]),
+                ).fetchone()
+                if exists:
+                    result["duplikate"] += 1
+                    continue
+                position = (conn.execute(
+                    """SELECT COALESCE(MAX(position), -1) + 1 FROM trainingsplan
+                       WHERE spieler_id=? AND plan_id=? AND woche=? AND tag=?""",
+                    (spieler_id, plan_id, woche, tag),
+                ).fetchone() or [0])[0]
+                conn.execute(
+                    """INSERT INTO trainingsplan
+                       (spieler_id,datum,woche,bereich,uebung,saetze,wiederholungen,haeufigkeit,status,
+                        tag,pause_sekunden,ausfuehrung,rpe,energie_system,equipment,begruendung,
+                        plan_id,position,notiz,trainerhinweis,spielerhinweis,abgehakt)
+                       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                    (
+                        spieler_id, str(date.today()), woche, row["bereich"], row["uebung"],
+                        row["saetze"], row["wiederholungen"], neue_haeufigkeit, "offen",
+                        tag, row["pause_sekunden"], row["ausfuehrung"], row["rpe"],
+                        row["energie_system"], row["equipment"], row["begruendung"],
+                        plan_id, position, row["notiz"], row.get("trainerhinweis", ""),
+                        row.get("spielerhinweis", ""), 0,
+                    ),
+                )
+                result["erstellt"] += 1
+
+        if result["erstellt"]:
+            conn.execute(
+                "UPDATE trainingsplan SET haeufigkeit=? WHERE id=? AND spieler_id=? AND plan_id=?",
+                (neue_haeufigkeit, eintrag_id, spieler_id, plan_id),
+            )
+            result["haeufigkeit"] = neue_haeufigkeit
+    return result
+
+
 def trainingsplan_laden(spieler_id):
     """Lädt den aktiven Trainingsplan (mit id-Spalte für Bearbeitung)."""
     with get_conn() as conn:
@@ -2263,6 +2371,8 @@ def trainingsplan_laden(spieler_id):
             f"COALESCE(begruendung,'') as begruendung,"
             f"COALESCE(position,0) as position,"
             f"COALESCE(notiz,'') as notiz,"
+            f"COALESCE(trainerhinweis,'') as trainerhinweis,"
+            f"COALESCE(spielerhinweis,'') as spielerhinweis,"
             f"COALESCE(abgehakt,0) as abgehakt "
             f"FROM trainingsplan WHERE {where} ORDER BY woche,tag,COALESCE(position,0),id",
             param,
@@ -2351,13 +2461,15 @@ def plan_laden_nach_version(version_id: int) -> list:
             "COALESCE(begruendung,'') as begruendung,"
             "COALESCE(position,0) as position,"
             "COALESCE(notiz,'') as notiz,"
+            "COALESCE(trainerhinweis,'') as trainerhinweis,"
+            "COALESCE(spielerhinweis,'') as spielerhinweis,"
             "COALESCE(abgehakt,0) as abgehakt "
             "FROM trainingsplan WHERE plan_id=? ORDER BY woche,tag,COALESCE(position,0),id",
             (version_id,),
         ).fetchall()
         cols = ["id","bereich","uebung","saetze","wiederholungen","haeufigkeit","woche","tag",
                 "pause_sekunden","ausfuehrung","rpe","energie_system","equipment","begruendung",
-                "position","notiz","abgehakt"]
+                "position","notiz","trainerhinweis","spielerhinweis","abgehakt"]
         return [dict(zip(cols, r)) for r in rows]
 
 
@@ -2410,28 +2522,34 @@ def plan_duplizieren(spieler_id: int, source_version_id: int, datum: str,
     src_rows = plan_laden_nach_version(source_version_id)
     with get_conn() as conn:
         r = conn.execute(
-            "SELECT modus,schwerpunkt,trainingszeit_min FROM trainingsplan_versionen WHERE id=?",
+            "SELECT modus,schwerpunkt,trainingszeit_min,wochenplanung_json "
+            "FROM trainingsplan_versionen WHERE id=?",
             (source_version_id,),
         ).fetchone()
-    src_meta = {"modus": r[0], "schwerpunkt": r[1], "trainingszeit_min": r[2]} if r else \
-               {"modus": "Basis", "schwerpunkt": "", "trainingszeit_min": 60}
+    src_meta = {"modus": r[0], "schwerpunkt": r[1], "trainingszeit_min": r[2],
+                "wochenplanung_json": r[3]} if r else \
+               {"modus": "Basis", "schwerpunkt": "", "trainingszeit_min": 60,
+                "wochenplanung_json": None}
     plan_version_archivieren_aktiv(spieler_id)
     new_id = plan_version_erstellen(
         spieler_id, datum, erstellt_von,
         src_meta["modus"], src_meta["schwerpunkt"], src_meta["trainingszeit_min"],
+        wochenplanung_json=src_meta["wochenplanung_json"],
     )
     with get_conn() as conn:
         for i, row in enumerate(src_rows):
             conn.execute(
                 "INSERT INTO trainingsplan "
                 "(spieler_id,datum,woche,bereich,uebung,saetze,wiederholungen,haeufigkeit,status,"
-                "tag,pause_sekunden,ausfuehrung,rpe,energie_system,equipment,begruendung,plan_id,position,notiz) "
-                "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                "tag,pause_sekunden,ausfuehrung,rpe,energie_system,equipment,begruendung,plan_id,position,notiz,"
+                "trainerhinweis,spielerhinweis,abgehakt) "
+                "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 (spieler_id, datum, row["woche"], row["bereich"], row["uebung"],
                  row["saetze"], row["wiederholungen"], row["haeufigkeit"], "offen",
                  row["tag"], row["pause_sekunden"], row["ausfuehrung"], row["rpe"],
                  row["energie_system"], row["equipment"], row["begruendung"],
-                 new_id, i, row.get("notiz", "")),
+                 new_id, i, row.get("notiz", ""), row.get("trainerhinweis", ""),
+                 row.get("spielerhinweis", ""), row.get("abgehakt", 0)),
             )
     return new_id
 

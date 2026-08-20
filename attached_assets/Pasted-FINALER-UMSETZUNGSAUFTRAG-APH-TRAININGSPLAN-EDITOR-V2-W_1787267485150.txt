@@ -1,0 +1,893 @@
+FINALER UMSETZUNGSAUFTRAG
+APH – TRAININGSPLAN-EDITOR V2 + WARM-UP-STEUERUNG + FIFA 11+
+
+WICHTIG:
+Der vorherige IST-CHECK ist die Grundlage dieses Auftrags.
+
+Arbeite gezielt und kostenbewusst.
+KEINE unnötige Neuarchitektur.
+KEINE bereits vorhandene Funktion neu bauen.
+Bestehende Datenbankstrukturen und Helper wiederverwenden.
+Bestehende funktionierende Logik nicht verändern, wenn dies für diesen Auftrag nicht erforderlich ist.
+
+NICHT DEPLOYEN.
+
+============================================================
+1. ZIEL
+============================================================
+
+Der bestehende APH-Trainingsplan soll flexibler bearbeitbar werden.
+
+Der Trainer soll:
+
+1. beim manuellen Hinzufügen mehr Trainingsparameter festlegen können,
+2. vorhandene Übungen vollständiger bearbeiten können,
+3. Übungen gezielt auf bestimmte Trainingstage und Wochen verteilen können,
+4. Übungen auf mehrere Tage/Wochen kopieren können,
+5. das Warm-up pro Trainingstag und Woche selbst bestimmen können,
+6. zwischen APH Standard-Warm-up und FIFA 11+ wählen können,
+7. FIFA 11+ strukturiert mit Teil 1, Teil 2 Level 1–3 und Teil 3 verwenden können.
+
+WICHTIG:
+Die bestehende automatische Trainingsplan-, Defizit-, Alters-, Belastungs-
+und Periodisierungslogik grundsätzlich NICHT neu bauen.
+
+============================================================
+2. BESTEHENDE LOGIK UNBEDINGT ERHALTEN
+============================================================
+
+Folgende bestehende Funktionen dürfen nicht unnötig verändert werden:
+
+- Basis-Modus bei 0 Tests
+- Erhaltungsmodus bei vorhandenen Tests ohne Defizit
+- Diagnostik-Modus bei echten Defiziten
+- freie Entscheidung des Trainers, wie viele Tests durchgeführt werden
+- NO_DATA-Logik
+- nicht getestete Bereiche bleiben neutral
+- Alterslogik
+- Defizitpriorisierung
+- Ausdauer-Alterslogik
+- Trainingsplan-Generator
+- bestehende Belastungsnormative
+- Equipment-Logik
+- Planversionen
+- bestehende historische Trainingspläne
+- Spieler-/Mandantenberechtigungen
+
+KEINE Mindestanzahl an Tests einführen.
+
+0, 1, 2, 3 oder alle Tests müssen weiterhin möglich sein.
+
+Nicht getestete Bereiche dürfen:
+- kein Defizit erzeugen
+- aber auch nicht als positives Testergebnis gewertet werden.
+
+============================================================
+3. MANUELLES HINZUFÜGEN ERWEITERN
+============================================================
+
+Im bestehenden Tab:
+
+„✍️ Manuell hinzufügen“
+
+sind bereits vorhanden:
+
+- Bereich
+- Übung
+- Sätze
+- Wiederholungen
+- Häufigkeit
+- Woche
+
+Ergänze die bereits technisch vorhandenen Parameter als UI-Felder:
+
+- Pause
+- Ausführung
+- RPE / Intensität
+- Equipment
+- Trainingstag
+
+Dabei vorhandene DB-Felder und bestehende Speicherfunktionen verwenden.
+
+KEINE neue Tabelle.
+
+------------------------------------------------------------
+AUSFÜHRUNG
+------------------------------------------------------------
+
+Besonders wichtig:
+
+Die Ausführung darf nicht mehr unsichtbar pauschal auf
+„kontrolliert“
+gesetzt werden, wenn eine konkrete Ausführung vorhanden ist.
+
+Wenn für eine Katalogübung bereits eine Ausführung/Anleitung vorhanden ist:
+→ diese als Standard übernehmen.
+
+Trainer darf sie bearbeiten.
+
+Bei einer freien eigenen Übung:
+→ Trainer kann die Ausführung selbst eingeben.
+
+Beispiel:
+
+Übung:
+Squat Jump
+
+Sätze:
+3
+
+Wiederholungen:
+6
+
+Pause:
+90 s
+
+Ausführung:
+„Aus stabiler Kniebeuge maximal explosiv nach oben springen.
+Weich und kontrolliert landen. Zwischen den Wiederholungen neu stabilisieren.“
+
+RPE:
+7
+
+Equipment:
+Körpergewicht
+
+============================================================
+4. BESTEHENDE ÜBUNG VOLLSTÄNDIGER BEARBEITEN
+============================================================
+
+Im bestehenden Editor unter „📋 Plan anzeigen“ sind bereits viele
+Parameter editierbar.
+
+Ergänze dort zusätzlich:
+
+- Ausführung
+- Woche
+- Trainingstag
+
+Backend-Unterstützung existiert bereits über
+plan_eintrag_aktualisieren(...).
+
+Diese vorhandene Funktion verwenden.
+
+KEINE neue Update-Logik bauen, wenn nicht erforderlich.
+
+Bestehende Funktionen weiterhin erhalten:
+
+- Übung bearbeiten
+- Übung ersetzen
+- Übung löschen
+- Notizen
+- RPE
+- Equipment
+- Reihenfolge
+- Erledigt-Status
+
+============================================================
+5. ÜBUNG GEZIELT AUF TAGE UND WOCHEN VERTEILEN
+============================================================
+
+Der Trainer soll bei einer Übung selbst entscheiden können,
+wann sie vorkommt.
+
+Dafür eine kompakte Funktion:
+
+„📅 Übung einplanen / verteilen“
+
+bereitstellen.
+
+------------------------------------------------------------
+TRAININGSTAGE
+------------------------------------------------------------
+
+Mehrfachauswahl der tatsächlich im Plan vorhandenen Trainingstage.
+
+Beispiel:
+
+☑ Tag 1
+☐ Tag 2
+☑ Tag 3
+
+Keine festen Wochentage wie Montag/Mittwoch erzwingen, wenn der
+bestehende Plan intern mit Tag 1, Tag 2 usw. arbeitet.
+
+Falls der Plan bereits reale Wochentage besitzt, vorhandene Zuordnung
+anzeigen.
+
+------------------------------------------------------------
+WOCHEN
+------------------------------------------------------------
+
+Mehrfachauswahl nur aus den tatsächlich vorhandenen Planwochen.
+
+Beispiel bei einem 8-Wochen-Plan:
+
+☑ Woche 1
+☑ Woche 2
+☑ Woche 3
+☑ Woche 4
+☐ Woche 5
+...
+
+Zusätzlich komfortable Schnellwahl:
+
+- nur aktuelle Woche
+- alle Wochen
+- Wochen 1–4
+- Wochen 1–6
+- Wochen 1–8
+
+ABER:
+Nur Optionen anbieten, die innerhalb der tatsächlichen Planlänge liegen.
+
+Bei einem 4-Wochen-Plan darf keine Woche 5–8 erzeugt werden.
+
+------------------------------------------------------------
+BEISPIELE
+------------------------------------------------------------
+
+Der Trainer muss z. B. einstellen können:
+
+Squat Jump
+→ Tag 1
+→ Wochen 1–4
+
+oder:
+
+Sprintübung
+→ Tag 1 + Tag 3
+→ alle 8 Wochen
+
+oder:
+
+Mobilität
+→ alle vorhandenen Trainingstage
+→ alle Wochen.
+
+============================================================
+6. KOPIEREN STATT BESTEHENDEN EINTRAG ZERSTÖREN
+============================================================
+
+Wichtig:
+
+Wenn eine bestehende Übung auf zusätzliche Tage/Wochen verteilt wird,
+soll der ursprüngliche Eintrag nicht versehentlich verschoben oder
+überschrieben werden.
+
+Der Trainer soll unterscheiden können:
+
+A) Verschieben
+B) Auf weitere Tage/Wochen kopieren
+
+Für die Mehrfachverteilung standardmäßig:
+
+„Auf ausgewählte Tage/Wochen kopieren“
+
+verwenden.
+
+Bestehende Parameter übernehmen:
+
+- Bereich
+- Übung
+- Sätze
+- Wiederholungen
+- Pause
+- Ausführung
+- RPE
+- Equipment
+- Häufigkeit
+- Begründung
+- Hinweise
+
+Keine unnötigen Duplikate erzeugen.
+
+Wenn exakt dieselbe Übung bereits im selben Plan,
+derselben Woche und demselben Tag vorhanden ist:
+→ Warnung bzw. Duplikat verhindern.
+
+============================================================
+7. HÄUFIGKEIT
+============================================================
+
+Aktuell ist „Häufigkeit“ nur ein Textwert wie:
+
+2×/Woche
+
+Nach einer gezielten Verteilung soll die Anzeige nicht offensichtlich
+der tatsächlichen Verteilung widersprechen.
+
+Prüfe die bestehende Verwendung von „haeufigkeit“.
+
+Wenn ohne große Nebenwirkungen möglich:
+→ bei einer Mehrfachverteilung passend setzen/aktualisieren.
+
+Beispiel:
+
+Tag 1 + Tag 3 innerhalb einer Woche
+→ 2×/Woche
+
+Aber:
+KEINE große Umstellung der Generatorlogik vornehmen.
+
+Falls das Feld an anderen Stellen fachlich anders verwendet wird:
+bestehende Semantik erhalten und im Abschlussbericht dokumentieren.
+
+============================================================
+8. WARM-UP – NEUE PLANSTEUERUNG
+============================================================
+
+Aktuell ist das APH-Warm-up:
+
+- hardcodiert in app.py als _WARMUP_TV
+- separat hardcodiert im PDF als _WARMUP_ROWS
+- kein DB-Eintrag
+- nicht pro Tag/Woche steuerbar
+
+Das soll verbessert werden.
+
+Ziel:
+
+Warm-up soll Bestandteil des konkreten Trainingsplans werden und
+pro Woche/Trainingstag steuerbar sein.
+
+WICHTIG:
+Bevor eine neue Tabelle gebaut wird, prüfen, ob die bestehende
+trainingsplan-Struktur dafür ausreicht.
+
+Bevorzugte Lösung:
+
+Bestehende trainingsplan-Tabelle verwenden.
+
+Bereich:
+„Warm-up“
+
+KEINE neue Tabelle, sofern technisch nicht zwingend notwendig.
+
+============================================================
+9. WARM-UP-AUSWAHL
+============================================================
+
+Der Trainer soll pro Trainingstag auswählen können:
+
+- APH Standard-Warm-up
+- FIFA 11+ komplett
+- FIFA 11+ individuell
+- kein Warm-up
+
+Optional darf eine einfache Aktion vorhanden sein:
+
+„Auf weitere Tage/Wochen anwenden“
+
+Diese soll dieselbe Wochen-/Tag-Mehrfachauswahl wie bei normalen
+Übungen verwenden.
+
+Dadurch muss möglich sein:
+
+Woche 1:
+Tag 1 → FIFA 11+
+Tag 2 → APH
+Tag 3 → FIFA 11+
+
+Woche 2:
+Tag 1 → APH
+Tag 2 → FIFA 11+
+Tag 3 → APH
+
+oder:
+
+alle Wochen + alle Tage → APH
+
+============================================================
+10. BESTEHENDES APH STANDARD-WARM-UP
+============================================================
+
+Das vorhandene Warm-up NICHT löschen.
+
+Bestehende Übungen:
+
+- Aktivierungslauf
+- Hüftkreisen
+- World’s Greatest Stretch
+- Leg Swings vor/zurück und seitlich
+- Glute Bridge
+- Mini-Band Walk
+
+Dieses Programm soll als:
+
+„APH Standard-Warm-up“
+
+weiterverwendet werden.
+
+Die bisherige Darstellung möglichst aus einer gemeinsamen Quelle
+erzeugen, damit UI und PDF nicht dauerhaft zwei voneinander
+abweichende hardcodierte Listen besitzen.
+
+Keine unnötige Doppelpflege.
+
+============================================================
+11. FIFA 11+ STRUKTURIERT INTEGRIEREN
+============================================================
+
+FIFA 11+ als eigenes strukturiertes Warm-up-Programm integrieren.
+
+NICHT als normales Defizit behandeln.
+
+NICHT in den normalen Hauptteil mischen.
+
+Es bleibt ein Warm-up-/Präventionsprogramm.
+
+Struktur:
+
+FIFA 11+ komplett
+ca. 26 Minuten
+
+--------------------------------
+TEIL 1
+--------------------------------
+
+Laufübungen
+ca. 8 Minuten
+
+--------------------------------
+TEIL 2
+--------------------------------
+
+Kraft
+Plyometrie
+Gleichgewicht / neuromuskuläre Kontrolle
+
+ca. 10 Minuten
+
+Teil 2 besitzt:
+
+Level 1
+Level 2
+Level 3
+
+Trainer muss das Level auswählen können.
+
+NICHT automatisch allein anhand des Alters festlegen.
+
+--------------------------------
+TEIL 3
+--------------------------------
+
+Laufübungen / dynamischer Abschluss
+ca. 8 Minuten.
+
+============================================================
+12. FIFA 11+ KOMPLETT
+============================================================
+
+Bei:
+
+„FIFA 11+ komplett“
+
+werden verwendet:
+
+Teil 1
++
+Teil 2 mit ausgewähltem Level
++
+Teil 3
+
+UI soll beispielsweise anzeigen:
+
+🔥 FIFA 11+ – ca. 26 min
+
+Teil 1 – Laufübungen (~8 min)
+
+Teil 2 – Kraft · Plyometrie · Gleichgewicht (~10 min)
+Level: 1 / 2 / 3
+
+Teil 3 – Laufübungen (~8 min)
+
+============================================================
+13. FIFA 11+ INDIVIDUELL
+============================================================
+
+Bei:
+
+„FIFA 11+ individuell“
+
+darf der Trainer auswählen:
+
+☑ Teil 1
+☑ Teil 2
+☑ Teil 3
+
+Wenn Teil 2 ausgewählt:
+→ Level 1 / 2 / 3 auswählen.
+
+Dadurch kann z. B. nur:
+
+Teil 1 + Teil 3
+
+oder:
+
+Teil 1 + Teil 2 Level 1 + Teil 3
+
+geplant werden.
+
+Wichtig:
+In der UI klar kennzeichnen, dass nur
+„FIFA 11+ komplett“
+dem vollständigen Programm entspricht.
+
+============================================================
+14. FIFA 11+ INHALTE
+============================================================
+
+Die FIFA-11+-Übungen NICHT frei erfinden.
+
+Nutze die vom Nutzer bereitgestellte DFB/FIFA-11+-Vorlage als
+inhaltliche Referenz.
+
+Die Programmstruktur, Teilzuordnung und Levelzuordnung müssen der
+Vorlage entsprechen.
+
+Keine erfundenen Level oder Übungsnamen ergänzen.
+
+Wenn eine konkrete Information aus der vorhandenen Vorlage nicht
+eindeutig hervorgeht:
+→ nicht raten.
+→ im Abschlussbericht nennen.
+
+============================================================
+15. FIFA 11+ UND BELASTUNG
+============================================================
+
+WICHTIG:
+
+Teil 2 gehört weiterhin zum FIFA-11+-Warm-up.
+
+Teil 2 enthält jedoch bereits:
+
+- Kraft
+- Rumpfstabilität
+- Gleichgewicht
+- Beinachsenkontrolle
+- Hamstring-Belastung
+- Sprung/Plyometrie
+
+Deshalb:
+
+FIFA 11+ Teil 2 NICHT zusätzlich als diagnostisches Defizit oder
+normalen Hauptteil verbuchen.
+
+Bestehenden Hauptteil nicht automatisch löschen.
+
+Aber die Warm-up-Dauer muss bei der Gesamtdauer des Trainingstags
+berücksichtigt werden.
+
+Beispiel:
+
+FIFA 11+ komplett ≈ 26 min
+
+darf nicht zusätzlich so behandelt werden, als hätte der Tag nur
+5–10 Minuten Warm-up.
+
+============================================================
+16. AUTOMATISCHER TRAININGSPLAN
+============================================================
+
+Die bestehende automatische Planlogik NICHT neu bauen.
+
+Bestehende Modi bleiben:
+
+A) Basis-Modus
+B) Erhaltungsmodus
+C) Diagnostik-Modus
+
+FIFA 11+ darf als Warm-up-/Präventionsoption verfügbar sein.
+
+Aber:
+
+- keine neue Defizitlogik
+- keine neue Mindesttestanzahl
+- keine neue „Diagnostik vollständig“-Pflicht
+- kein automatisches FIFA-Level nur anhand des Alters
+
+Falls das automatische Einsetzen von FIFA 11+ erhebliche Änderungen
+am Generator erfordern würde:
+
+NICHT ungefragt umbauen.
+
+Zunächst nur die manuelle Warm-up-Steuerung implementieren und im
+Abschlussbericht dokumentieren.
+
+============================================================
+17. PLANANZEIGE
+============================================================
+
+Warm-up klar vom Hauptteil trennen.
+
+Beispiel:
+
+WOCHE 2 · TAG 1
+
+🔥 WARM-UP
+FIFA 11+ · Level 2 · ca. 26 min
+
+Teil 1 – Laufübungen
+Teil 2 – Kraft/Plyometrie/Gleichgewicht · Level 2
+Teil 3 – Laufübungen
+
+----------------------------
+
+🏋️ HAUPTTEIL
+
+Schnelligkeit
+...
+
+Explosivität
+...
+
+----------------------------
+
+🧘 COOL-DOWN
+...
+
+Bestehendes Layout nicht unnötig komplett neu gestalten.
+
+============================================================
+18. PDF
+============================================================
+
+Der PDF-Trainingsplan muss dieselbe Warm-up-Auswahl wie die UI
+anzeigen.
+
+Wenn für:
+
+Woche 1 / Tag 1 → FIFA 11+
+
+gespeichert ist, darf das PDF dort nicht weiterhin automatisch das
+alte APH-Warm-up anzeigen.
+
+UI und PDF müssen dieselbe Quelle verwenden.
+
+Ziel:
+keine getrennte Wahrheit mehr zwischen _WARMUP_TV und _WARMUP_ROWS.
+
+============================================================
+19. BESTEHENDE PLÄNE / RÜCKWÄRTSKOMPATIBILITÄT
+============================================================
+
+Sehr wichtig:
+
+Historische und bereits vorhandene Trainingspläne dürfen nicht
+kaputtgehen.
+
+Wenn ein alter Plan noch keine gespeicherten Warm-up-Einträge besitzt:
+
+→ bisheriges APH Standard-Warm-up als Legacy-Fallback anzeigen.
+
+Dadurch bleiben alte Pläne unverändert nutzbar.
+
+Neue oder bearbeitete Pläne können die neue Warm-up-Steuerung nutzen.
+
+Keine bestehende Planversion automatisch migrieren oder verändern.
+
+============================================================
+20. MANUELLE ÄNDERUNGEN UND BELASTUNGSLOGIK
+============================================================
+
+Wie im IST-Check festgestellt:
+
+Manuell hinzugefügte Übungen werden aktuell nicht vollständig erneut
+durch die Generator-Normative geprüft.
+
+Das soll in diesem Auftrag NICHT zu einer großen Neuarchitektur führen.
+
+Aber:
+
+Wenn der Trainer eine Übung sehr häufig auf Tage/Wochen kopiert,
+soll möglichst eine einfache Warnung erscheinen, wenn eine offensichtlich
+hohe Häufigkeit entsteht.
+
+Beispiel:
+
+⚠️ Hinweis:
+Diese Übung wurde für viele Trainingseinheiten eingeplant.
+Bitte Belastung und Regeneration prüfen.
+
+Nur Hinweis.
+Keine harte Sperre.
+
+Bestehende Trainerentscheidung bleibt erhalten.
+
+============================================================
+21. MANDANTENSCHUTZ
+============================================================
+
+Keine Änderung an Berechtigungen.
+
+Alle Planoperationen müssen weiterhin ausschließlich für den
+berechtigten aktiven Spieler funktionieren.
+
+Trainer anderer Vereine/Mandanten dürfen:
+
+- keine fremden Pläne sehen
+- keine fremden Plan-Einträge bearbeiten
+- keine fremden Übungen kopieren
+- keine fremden Warm-up-Einstellungen verändern
+
+Vorhandene Mandanten-/Spielerprüfung wiederverwenden.
+
+Keine globale ungefilterte Spielerabfrage einführen.
+
+============================================================
+22. KEINE UNNÖTIGE DB-MIGRATION
+============================================================
+
+Der IST-Check zeigt:
+
+trainingsplan besitzt bereits:
+
+- woche
+- tag
+- bereich
+- uebung
+- saetze
+- wiederholungen
+- haeufigkeit
+- pause_sekunden
+- ausfuehrung
+- rpe
+- energie_system
+- equipment
+- begruendung
+- plan_id
+- position
+- notiz
+- trainerhinweis
+- spielerhinweis
+
+Diese vorhandene Struktur maximal wiederverwenden.
+
+Neue Tabelle oder neue Spalten nur dann, wenn die Anforderungen
+nachweislich nicht sauber mit der vorhandenen Struktur umgesetzt
+werden können.
+
+Falls doch eine Migration erforderlich wäre:
+STOPP vor der Migration und im Bericht begründen.
+
+============================================================
+23. KEINE UNNÖTIGEN ÄNDERUNGEN
+============================================================
+
+Nicht anfassen, sofern nicht erforderlich:
+
+- Sprintdiagnostik
+- Sprungdiagnostik
+- Agilitätsdiagnostik
+- Ausdauerdiagnostik
+- FMS
+- Y-Balance
+- Anthropometrie
+- Kundenverwaltung
+- Rechnungen
+- Stripe
+- Login/Session
+- Dashboard
+- Spielerwechsel
+- Mandantenlogik
+- Saison-/U-Logik
+
+============================================================
+24. TESTS
+============================================================
+
+Gezielte neue Tests erstellen.
+
+Mindestens prüfen:
+
+A) MANUELLER EDITOR
+1. Ausführung speicherbar
+2. Pause speicherbar
+3. RPE speicherbar
+4. Equipment speicherbar
+5. Tag speicherbar
+6. Woche speicherbar
+
+B) BESTEHENDER EDITOR
+7. Ausführung änderbar
+8. Tag änderbar
+9. Woche änderbar
+
+C) VERTEILUNG
+10. nur eine Woche
+11. mehrere Wochen
+12. alle vorhandenen Wochen
+13. nur ein Tag
+14. mehrere Tage
+15. alle vorhandenen Tage
+16. keine Woche außerhalb Planlänge
+17. kein identisches Duplikat
+
+D) WARM-UP
+18. APH Standard-Warm-up
+19. FIFA 11+ komplett
+20. FIFA 11+ individuell
+21. Teil-2-Level 1
+22. Teil-2-Level 2
+23. Teil-2-Level 3
+24. unterschiedliche Warm-ups zwischen Wochen
+25. unterschiedliche Warm-ups zwischen Tagen
+26. kein Warm-up
+27. Legacy-Plan ohne Warm-up-Eintrag funktioniert
+
+E) PDF
+28. PDF verwendet dasselbe Warm-up wie Plan
+29. FIFA-Tag zeigt nicht APH-Warm-up
+30. Legacy-Plan zeigt weiterhin Standard-Warm-up
+
+F) SICHERHEIT / REGRESSION
+31. bestehende Plan-Einträge bleiben erhalten
+32. Basis-Modus unverändert
+33. Erhaltungsmodus unverändert
+34. Diagnostik-Modus unverändert
+35. keine Mindestanzahl Tests
+36. NO_DATA bleibt neutral
+37. fremder Spieler/Mandant nicht bearbeitbar
+
+Zusätzlich relevante bestehende Regressionstests ausführen.
+
+Nicht blind die komplette Testsammlung laufen lassen, wenn dafür kein
+Grund besteht.
+
+============================================================
+25. PY_COMPILE
+============================================================
+
+Alle geänderten Python-Dateien mit py_compile prüfen.
+
+============================================================
+26. ABSCHLUSSBERICHT
+============================================================
+
+Am Ende exakt berichten:
+
+1. geänderte Dateien
+2. welche vorhandenen Funktionen wiederverwendet wurden
+3. welche UI-Felder neu sind
+4. wie Ausführung behandelt wird
+5. wie Woche/Tag bearbeitet werden
+6. wie Mehrfachverteilung funktioniert
+7. wie Duplikate verhindert werden
+8. wie Häufigkeit behandelt wird
+9. wie Warm-up gespeichert wird
+10. ob neue DB-Felder nötig waren
+11. wie Legacy-Pläne behandelt werden
+12. APH Standard-Warm-up Quelle
+13. FIFA-11+-Datenquelle
+14. FIFA 11+ Teil 1
+15. FIFA 11+ Teil 2 + Level 1–3
+16. FIFA 11+ Teil 3
+17. wie individuelle Teil-Auswahl funktioniert
+18. wie Warm-up-Dauer berechnet wird
+19. wie UI und PDF synchron bleiben
+20. Auswirkungen auf Basis-Modus
+21. Auswirkungen auf Erhaltungsmodus
+22. Auswirkungen auf Diagnostik-Modus
+23. Auswirkungen auf Belastungslogik
+24. Auswirkungen auf historische Pläne
+25. Mandantenschutz
+26. neue Tests
+27. Regressionstests
+28. Gesamt PASS/FAIL
+29. py_compile
+30. DB-Migration ja/nein
+31. offene Punkte
+32. Deployment-Status
+
+============================================================
+27. STOPP
+============================================================
+
+NICHT DEPLOYEN.
+
+Nach Implementierung + Tests + Abschlussbericht STOPP.
+
+Keine weiteren Features ergänzen.

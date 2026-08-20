@@ -34,3 +34,4 @@
 - [U-Logik Alterskorrektur](u-logik-alterskorrektur.md) — U=unter: Alter 9 → U10 (nicht U8); field_eval + periodisierung grenzwerte -1 verschoben; altersklasse_vorschlag() saisonal via FK; jugendklasse_aus_fussballklasse() in saison.py
 - [Mehrfachmandanten-Architektur](mehrfachmandanten.md) — trainer_mandanten Tabelle additiv; benutzer.verein_id Legacy-FK bleibt; Mandant-Auswahlscreen in app.py nach enforce_license_gate()
 - [Ausdauer Alters-Logik + Defizit](ausdauer-alterslogik.md) — FK primär für Yo-Yo-Gruppe; Alters-Fallback U-Logik-konsistent; VO₂max altersgerecht via age_norms; Ausdauer-Bereich ≠ Fußball in defizit_score
+- [Warm-up plan representation](warmup-plan-representation.md) — special plan rows keep APH/FIFA selections, canonical duration, and legacy fallback in UI/PDF sync
