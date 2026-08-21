@@ -6150,6 +6150,14 @@ def page_trainingsplan():
         }
         _tv_pg_clr  = _tv_pg_farben.get(_tv_pg, "#8b949e")
         _tv_alt_str = f" / {int(_tv_alter)} Jahre" if _tv_alter else ""
+        # Legacy-APH-Fallback für PDF und Planansicht. Die konkrete Auswahl je
+        # Tag wird weiterhin ausschließlich durch warmup_meta_lesen/details
+        # aufgelöst.
+        _zeit_soll = _av["trainingszeit_min"]
+        _wu_min = _ZEITBUDGET_CONFIG.get(
+            max(k for k in _ZEITBUDGET_CONFIG if k <= _zeit_soll),
+            {"warmup_min": 10},
+        )["warmup_min"]
         st.markdown(
             f'<div style="background:#161b22;border:2px solid {_tv_pg_clr};border-radius:8px;'
             f'padding:10px 16px;margin-bottom:12px">'
@@ -6247,10 +6255,6 @@ def page_trainingsplan():
             pass  # Fallback: Standard-Zuordnung bleibt
         _BEREICHE_ALL = ["Sprunggelenk","Knie","Hüfte","Rumpf","Oberschenkel",
                          "Schnelligkeit","Explosivität","Agilität","Fußball"]
-        _zeit_soll = _av["trainingszeit_min"]
-        _wu_min    = _ZEITBUDGET_CONFIG.get(max(k for k in _ZEITBUDGET_CONFIG if k <= _zeit_soll),
-                                            {"warmup_min":10})["warmup_min"]
-
         # ── Übungsplan mit interaktiver Bearbeitung ───────────────────────────
         alle_wochen = sorted(set(r["woche"] for r in plan))
         for woche_nr in alle_wochen:
