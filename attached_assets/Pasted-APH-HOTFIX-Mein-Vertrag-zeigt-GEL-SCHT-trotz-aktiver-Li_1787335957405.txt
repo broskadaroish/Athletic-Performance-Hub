@@ -1,0 +1,53 @@
+APH HOTFIX – „Mein Vertrag“ zeigt GELÖSCHT trotz aktiver Lizenz
+
+Bei einem reaktivierten Kunden besteht eine Inkonsistenz zwischen Superadmin-Lizenzverwaltung und der Kundenseite „Mein Vertrag“.
+
+Konkreter reproduzierbarer Fall:
+
+Kunde/Account: Daroish
+Superadmin → Lizenzverwaltung zeigt Verein Pro / Aktiv
+Restlaufzeit wird korrekt angezeigt
+Anmeldung und Nutzung funktionieren
+Unter „Mein Vertrag“ erscheint jedoch:
+Kundennummer [gelöscht]
+Lizenzstatus GELÖSCHT
+gleichzeitig Paket Verein Pro
+
+Bitte zunächst nur die Ursache analysieren, anschließend den kleinsten sauberen Fix umsetzen.
+
+Prüfe insbesondere, aus welchen DB-Feldern/Funktionen „Mein Vertrag“ folgende Werte bezieht:
+
+Kundennummer
+Kundentyp
+aktuelles Paket
+Lizenzstatus
+Vertragsbeginn
+Ablaufdatum
+Kündigungsstatus
+
+Vergleiche diesen Datenpfad mit der Superadmin-Lizenzverwaltung, die den Account korrekt als aktiv erkennt.
+
+Ziel: Es darf für denselben aktuellen Lizenzdatensatz nicht zwei widersprüchliche Statusquellen geben. „Mein Vertrag“ soll den tatsächlich wirksamen aktuellen Lizenz-/Vertragsstatus anzeigen.
+
+Wichtig:
+
+Nicht einfach GELÖSCHT in der UI verstecken.
+Keine konkreten Produktionsdaten von Daroish manuell überschreiben.
+Keine neue parallele Lizenzlogik einführen.
+Bestehende zentrale Lizenz-/Statusfunktionen möglichst wiederverwenden.
+Prüfen, ob die Reaktivierung einer zuvor gelöschten/deaktivierten Lizenz den zugrunde liegenden Kunden-/Vertragsstatus korrekt wiederherstellt.
+Prüfen, ob [gelöscht] bei der Kundennummer aus einer Anonymisierung/Löschroutine stammt. Falls die Kundennummer absichtlich irreversibel anonymisiert wurde, nicht einfach rekonstruieren; diesen Fall getrennt behandeln und im Bericht erklären.
+Andere aktive, Trial-, gekündigte, abgelaufene und tatsächlich gelöschte Accounts dürfen nicht verändert werden.
+
+Ergänze Regressionstests mindestens für:
+
+aktive Lizenz → „Mein Vertrag“ = Aktiv
+reaktivierte Lizenz → nicht weiterhin „Gelöscht“
+abgelaufene Lizenz → korrekter Status
+gekündigte Lizenz → korrekter Kündigungsstatus
+tatsächlich gelöschter/anonymisierter Account → bleibt korrekt als gelöscht/anonymisiert behandelt
+Superadmin-Lizenzverwaltung und „Mein Vertrag“ liefern für dieselbe Lizenz keinen widersprüchlichen Aktiv/Gelöscht-Status.
+
+Keine DB-Migration, sofern nicht zwingend erforderlich. Keine Produktionsdaten manuell ändern. NICHT DEPLOYEN.
+
+Danach relevante Regressionen, py_compile und git diff --check ausführen und im Abschlussbericht die genaue Ursache nennen. Danach STOPP.
