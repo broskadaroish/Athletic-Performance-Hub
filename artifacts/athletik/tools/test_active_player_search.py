@@ -55,12 +55,45 @@ check(
 with open(APP_PATH, encoding="utf-8") as handle:
     _source = handle.read()
 check("Globaler State bleibt global_player_id", 'st.session_state["global_player_id"] = auswahl["id"]' in _source)
-_diagnostik_route = _source.split('elif section == "🔬  Diagnostik":', 1)[1].split(
-    'elif section == "📅  Training":', 1
+_inline_helper = _source.split("def _inline_spielerwechsel", 1)[1].split(
+    "\n\n# ─── Plotly", 1
 )[0]
 check(
-    "Diagnostik bleibt auf derselben Route",
-    'st.session_state["_nav_goto"] = "👤  Spieler"' not in _diagnostik_route
-    and "inject_mobile_player_header" not in _diagnostik_route,
+    "Inline-Wechsel lädt ausschließlich die berechtigte Spielerliste",
+    'spieler_laden(\n            _akt_user()["id"], _akt_user()["rolle"], _akt_user()["verein_id"]' in _inline_helper,
 )
-print("  Ergebnis: 8 PASS, 0 FAIL")
+check(
+    "Inline-Wechsel namespacet seinen offenen Suchzustand",
+    'offen_key = f"_aktiver_spieler_suche_offen_{bereich}"' in _inline_helper,
+)
+for bereich in ("diagnostik", "training", "entwicklung", "vergleich", "dokumente"):
+    check(
+        f"{bereich}: gemeinsamer Inline-Wechsel wird verwendet",
+        f'_inline_spielerwechsel("{bereich}")' in _source,
+    )
+
+_mobile_route = "\n".join(
+    _source.split(f'elif section == "{section}":', 1)[1].split(
+        'elif section == "', 1
+    )[0]
+    for section in (
+        "🔬  Diagnostik",
+        "📅  Training",
+        "📈  Entwicklung",
+        "⚖️  Vergleich",
+        "📄  Dokumente",
+    )
+)
+check(
+    "Betroffene Mobilseiten haben keinen separaten Direktselektor mehr",
+    "inject_mobile_player_selector" not in _mobile_route,
+)
+
+MOBILE_PATH = os.path.join(os.path.dirname(__file__), "..", "mobile.py")
+with open(MOBILE_PATH, encoding="utf-8") as handle:
+    _mobile_source = handle.read()
+check(
+    "Mobiler Kopfbereich navigiert nicht mehr zur Spielerverwaltung",
+    'st.session_state["_nav_goto"] = "👤  Spieler"' not in _mobile_source,
+)
+print("  Ergebnis: 15 PASS, 0 FAIL")

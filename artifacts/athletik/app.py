@@ -3022,7 +3022,7 @@ def _aktiven_spieler_suchbereich(
     *,
     titel: str = "Spieler suchen …",
 ) -> dict | None:
-    """Shared, confirmed active-player search for sidebar and diagnostics.
+    """Shared, confirmed active-player search for sidebar and main pages.
 
     Only ``global_player_id`` is written. The player list is always supplied by
     the caller's existing permission-aware ``spieler_laden`` call.
@@ -3073,6 +3073,29 @@ def _aktiven_spieler_suchbereich(
     if hinweis:
         st.success(f"✅ {hinweis} ist jetzt der aktive Spieler.")
     return auswahl
+
+
+def _inline_spielerwechsel(bereich: str) -> None:
+    """Renders the shared in-place active-player switcher for one main page."""
+    offen_key = f"_aktiver_spieler_suche_offen_{bereich}"
+    hinweis_key = f"_aktiver_spieler_hinweis_{bereich}"
+    if st.button(
+        "👤 Spieler wechseln",
+        key=f"{bereich}_spieler_wechsel",
+        use_container_width=False,
+    ):
+        st.session_state[offen_key] = not st.session_state.get(offen_key, False)
+        st.rerun()
+
+    hinweis = st.session_state.pop(hinweis_key, None)
+    if hinweis:
+        st.success(f"✅ {hinweis} ist jetzt der aktive Spieler.")
+
+    if st.session_state.get(offen_key):
+        berechtigte_spieler = spieler_laden(
+            _akt_user()["id"], _akt_user()["rolle"], _akt_user()["verein_id"]
+        )
+        _aktiven_spieler_suchbereich(berechtigte_spieler, bereich)
 
 
 # ─── Plotly theme helper ───────────────────────────────────────────────────────
@@ -5283,6 +5306,7 @@ def page_spieler_profil():
 
 def page_trainingsplan():
     st.markdown("# 📅 Trainingsplan")
+    _inline_spielerwechsel("training")
 
     auswahl = _player_selector("plan")
     if not auswahl:
@@ -6801,6 +6825,7 @@ def page_trainingsplan():
 def page_periodisierung():
     st.markdown("# 🔄 Periodisierungsplan")
     st.markdown("Regelbasierter Athletik-Zyklus: Defizit-gewichtet · Multi-Fokus pro Woche · Progressive Belastungssteuerung")
+    _inline_spielerwechsel("training")
 
     auswahl = _player_selector("perio")
     if not auswahl:
@@ -6983,6 +7008,7 @@ def page_periodisierung():
 
 def page_fortschritt():
     st.markdown("# 📈 Fortschrittsverfolgung")
+    _inline_spielerwechsel("entwicklung")
 
     auswahl = _player_selector("prog")
     if not auswahl:
@@ -10939,6 +10965,7 @@ def page_dokumente():
         section_header("📄 Dokumente", "Testanleitungen und Druckprotokolle"),
         unsafe_allow_html=True,
     )
+    _inline_spielerwechsel("dokumente")
     tab_anl, tab_proto = st.tabs(["📄 Testanleitungen", "🖨️ Druckprotokoll"])
     with tab_anl:
         page_export_pdf()
@@ -11174,6 +11201,7 @@ def page_spieler_vergleich():
         'Testwerte, Stärken und Defizite auf einen Blick.</p>',
         unsafe_allow_html=True,
     )
+    _inline_spielerwechsel("vergleich")
     st.markdown("---")
 
     alle_spieler = spieler_laden(_akt_user()["id"], _akt_user()["rolle"], _akt_user()["verein_id"])
@@ -11850,19 +11878,7 @@ def page_diagnostik_overview() -> None:
         unsafe_allow_html=True,
     )
 
-    if st.button("👤 Spieler wechseln", key="diagnostik_spieler_wechsel", use_container_width=False):
-        st.session_state["_aktiver_spieler_suche_offen_diagnostik"] = not st.session_state.get(
-            "_aktiver_spieler_suche_offen_diagnostik", False
-        )
-        st.rerun()
-    _diagnostik_hinweis = st.session_state.pop("_aktiver_spieler_hinweis_diagnostik", None)
-    if _diagnostik_hinweis:
-        st.success(f"✅ {_diagnostik_hinweis} ist jetzt der aktive Spieler.")
-    if st.session_state.get("_aktiver_spieler_suche_offen_diagnostik"):
-        _diagnostik_spieler = spieler_laden(
-            _akt_user()["id"], _akt_user()["rolle"], _akt_user()["verein_id"]
-        )
-        _aktiven_spieler_suchbereich(_diagnostik_spieler, "diagnostik")
+    _inline_spielerwechsel("diagnostik")
 
     sid = st.session_state.get("global_player_id")
     if not sid:
@@ -12916,27 +12932,20 @@ elif section == "👤  Spieler":
     inject_mobile_player_selector(alle_spieler, st.session_state.get("global_player_id"), section)
     _SUB_SPIELER[sub_choice]()
 elif section == "🔬  Diagnostik":
-    # The diagnostics overview owns the inline "Spieler wechseln" search.
-    # Do not route mobile users to Spieler → Verwaltung anymore.
-    inject_mobile_player_selector(alle_spieler, st.session_state.get("global_player_id"))
     _SUB_DIAGNOSTIK[sub_choice]()
 elif section == "📅  Training":
     inject_mobile_player_header(_mob_player(), section)
-    inject_mobile_player_selector(alle_spieler, st.session_state.get("global_player_id"))
     _SUB_TRAINING[sub_choice]()
 elif section == "📈  Entwicklung":
     inject_mobile_player_header(_mob_player(), section)
-    inject_mobile_player_selector(alle_spieler, st.session_state.get("global_player_id"))
     page_fortschritt()
 elif section == "⚖️  Vergleich":
     inject_mobile_player_header(_mob_player(), section)
-    inject_mobile_player_selector(alle_spieler, st.session_state.get("global_player_id"))
     page_spieler_vergleich()
 elif section == "👥  Mannschaft":
     page_dashboard()
 elif section == "📄  Dokumente":
     inject_mobile_player_header(_mob_player(), section)
-    inject_mobile_player_selector(alle_spieler, st.session_state.get("global_player_id"))
     page_dokumente()
 elif section == "⚙️  Einstellungen":
     page_einstellungen()
