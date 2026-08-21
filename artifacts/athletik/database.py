@@ -1148,6 +1148,181 @@ def spieler_speichern(vorname, nachname, geburtsdatum, geschlecht,
         return cursor.lastrowid
 
 
+def spieler_import_dubletten_laden(verein_id: int) -> set[tuple[str, str, str]]:
+    """Lädt mandantenbezogene Spieler-Schlüssel für die Import-Vorschau."""
+    if not verein_id:
+        return set()
+    result: set[tuple[str, str, str]] = set()
+    with get_conn() as conn:
+        rows = conn.execute(
+            """SELECT vorname, nachname, name, geburtsdatum
+               FROM spieler WHERE verein_id=?""",
+            (verein_id,),
+        ).fetchall()
+    for row in rows:
+        vorname = (row["vorname"] or "").strip()
+        nachname = (row["nachname"] or "").strip()
+        if not (vorname and nachname):
+            parts = (row["name"] or "").strip().split(maxsplit=1)
+            vorname = vorname or (parts[0] if parts else "")
+            nachname = nachname or (parts[1] if len(parts) > 1 else "")
+        datum = parse_datum_safe(row["geburtsdatum"])
+        if vorname and nachname and datum:
+            result.add((
+                vorname.casefold(),
+                nachname.casefold(),
+                datum.strftime("%d.%m.%Y"),
+            ))
+    return result
+
+
+def _spieler_import_berechtigt(
+    conn: sqlite3.Connection,
+    benutzer_id: int | None,
+    rolle: str,
+    verein_id: int | None,
+) -> bool:
+    """Fail-closed Berechtigung für den Import in einen konkreten Mandanten."""
+    if not verein_id:
+        return False
+    verein = conn.execute(
+        "SELECT id, aktiv FROM vereine WHERE id=?",
+        (verein_id,),
+    ).fetchone()
+    if not verein or not verein["aktiv"]:
+        return False
+    if rolle == "Superadmin":
+        return True
+    if not benutzer_id:
+        return False
+    try:
+        membership = conn.execute(
+            """SELECT 1 FROM trainer_mandanten
+               WHERE benutzer_id=? AND verein_id=? AND aktiv=1""",
+            (benutzer_id, verein_id),
+        ).fetchone()
+        return bool(membership)
+    except sqlite3.OperationalError:
+        # Nur für sehr alte Installationen ohne die Mitgliedschaftstabelle.
+        legacy = conn.execute(
+            "SELECT 1 FROM benutzer WHERE id=? AND verein_id=? AND aktiv=1",
+            (benutzer_id, verein_id),
+        ).fetchone()
+        return bool(legacy)
+
+
+def _spieler_import_limit(conn: sqlite3.Connection, verein_id: int) -> int | None:
+    """Ermittelt das aktuelle Spielerlimit im selben Schreibvorgang."""
+    from license import LIZENZ_TYPEN, normalize_lizenz_typ
+
+    verein = conn.execute("SELECT * FROM vereine WHERE id=?", (verein_id,)).fetchone()
+    if not verein:
+        raise ValueError("Der Zielmandant existiert nicht.")
+    row = dict(verein)
+    lizenztyp = normalize_lizenz_typ(
+        row.get("lizenztyp"),
+        ist_technischer_mandant=row.get("ist_technischer_mandant"),
+    )
+    return LIZENZ_TYPEN[lizenztyp]["max_spieler"]
+
+
+def spieler_import_kapazitaet_laden(verein_id: int) -> dict[str, int | None]:
+    """Lädt belegte und verbleibende Spielerplätze für die Import-Vorschau."""
+    if not verein_id:
+        return {"belegt": 0, "limit": 0, "verbleibend": 0}
+    with get_conn() as conn:
+        belegt = conn.execute(
+            "SELECT COUNT(*) FROM spieler WHERE verein_id=?",
+            (verein_id,),
+        ).fetchone()[0]
+        limit = _spieler_import_limit(conn, verein_id)
+    return {
+        "belegt": belegt,
+        "limit": limit,
+        "verbleibend": None if limit is None else max(0, limit - belegt),
+    }
+
+
+def spieler_importieren(
+    zeilen: list[dict],
+    *,
+    benutzer_id: int | None,
+    rolle: str,
+    verein_id: int | None,
+) -> dict[str, int]:
+    """Importiert geprüfte Stammdaten transaktional in den berechtigten Mandanten.
+
+    Der Mandant kommt ausschließlich aus dem Server-Kontext. Dubletten und das
+    Lizenzlimit werden im selben DB-Vorgang erneut geprüft, damit Vorschauwerte
+    nicht als Autorisierung oder als atomare Zusage missverstanden werden.
+    """
+    result = {"angelegt": 0, "uebersprungen": 0, "limit_blockiert": 0}
+    if not isinstance(zeilen, list) or len(zeilen) > 1_000:
+        raise ValueError("Ungültige Anzahl an Importzeilen.")
+    from spieler_import import validate_write_row
+
+    with get_conn() as conn:
+        if not _spieler_import_berechtigt(conn, benutzer_id, rolle, verein_id):
+            raise PermissionError("Kein berechtigter Zielmandant für den Import.")
+        assert verein_id is not None
+        limit = _spieler_import_limit(conn, verein_id)
+        current_count = conn.execute(
+            "SELECT COUNT(*) FROM spieler WHERE verein_id=?",
+            (verein_id,),
+        ).fetchone()[0]
+
+        existing = spieler_import_dubletten_laden(verein_id)
+        seen = set(existing)
+        for raw in zeilen:
+            # Die Vorschau ist nur Bedienhilfe. Der Schreibpfad validiert jede
+            # Zeile unabhängig erneut gegen die kanonischen Stammdatenwerte.
+            validated = validate_write_row(raw)
+            if validated is None:
+                result["uebersprungen"] += 1
+                continue
+            vorname = validated["vorname"]
+            nachname = validated["nachname"]
+            datum = parse_datum_safe(validated["geburtsdatum"])
+            if datum is None:  # defensiv, validate_write_row garantiert dies bereits
+                result["uebersprungen"] += 1
+                continue
+
+            geburtsdatum = datum.strftime("%d.%m.%Y")
+            key = (vorname.casefold(), nachname.casefold(), geburtsdatum)
+            if key in seen:
+                result["uebersprungen"] += 1
+                continue
+            if limit is not None and current_count + result["angelegt"] >= limit:
+                result["limit_blockiert"] += 1
+                continue
+
+            name = f"{vorname} {nachname}".strip()
+            conn.execute(
+                """INSERT INTO spieler
+                   (name, vorname, nachname, geburtsdatum, geschlecht,
+                    position, hauptposition, nebenposition, altersklasse,
+                    spielbein, leistungsniveau, mannschaft, trainingsstatus,
+                    trainer_id, verein_id)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                (
+                    name, vorname, nachname, geburtsdatum,
+                    validated["geschlecht"],
+                    validated["hauptposition"],
+                    validated["hauptposition"],
+                    validated["nebenposition"],
+                    validated["altersklasse"],
+                    validated["spielbein"],
+                    validated["leistungsniveau"],
+                    validated["mannschaft"],
+                    validated["trainingsstatus"],
+                    benutzer_id, verein_id,
+                ),
+            )
+            seen.add(key)
+            result["angelegt"] += 1
+    return result
+
+
 # ─── Einwilligung / Zweckbestimmung ────────────────────────────────────────
 
 def einwilligung_speichern(version: str, benutzer: str = "Trainer") -> None:

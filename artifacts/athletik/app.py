@@ -52,6 +52,7 @@ from database import (
     init_db,
     spieler_speichern, spieler_laden, spieler_by_id, spieler_loeschen, spieler_aktualisieren,
     spieler_trainer_zuweisen,
+    spieler_import_dubletten_laden, spieler_import_kapazitaet_laden, spieler_importieren,
     berechne_alter, alter_am_datum, altersklasse_vorschlag, parse_datum_safe,
     verletzung_speichern, verletzungen_laden, verletzung_loeschen,
     anthropometrie_speichern, anthropometrie_letzter, anthropometrie_history, anthropometrie_loeschen_letzten,
@@ -188,6 +189,16 @@ from saison import (fussballklasse_info as _fki, testreferenz_caption as _tcap,
 from pdf_anleitung import generate_anleitung_pdf, ALL_TEST_IDS, TEST_LABELS
 from export import kader_excel_bytes, spieler_excel_bytes
 from field_eval import alter_zu_altersgruppe, asymmetrie_badge_html, fms_asymmetrie_badge_html
+from spieler_import import (
+    IMPORT_FIELDS,
+    auto_mapping as spieler_import_auto_mapping,
+    build_preview as spieler_import_build_preview,
+    import_candidates as spieler_import_candidates,
+    read_upload as spieler_import_read_upload,
+    revalidate_preview as spieler_import_revalidate_preview,
+    upload_fingerprint as spieler_import_fingerprint,
+    validate_mapping as spieler_import_validate_mapping,
+)
 
 
 # ─── Anleitung-Download-Button (wiederverwendbar auf jeder Testseite) ─────────
@@ -3817,9 +3828,312 @@ def _render_inline_edit_form(sp: dict) -> None:
     st.markdown("</div>", unsafe_allow_html=True)
 
 
+def _page_spieler_import():
+    """Rendert den bestätigungsbasierten, mandantensicheren Kaderimport."""
+    st.markdown("### Kader importieren")
+    st.caption(
+        "Unterstützt CSV und XLSX. Es werden ausschließlich Spielerstammdaten "
+        "übernommen – keine IDs, Rollen, Trainer- oder Vereinszuordnungen aus der Datei."
+    )
+
+    user = _akt_user()
+    ziel_verein_id = user.get("verein_id")
+    ziel_name = user.get("verein_name") or ""
+    if user.get("rolle") == "Superadmin":
+        _vereine = [v for v in vereine_laden() if v.get("aktiv")]
+        if not _vereine:
+            st.error("Es ist kein aktiver Mandant für den Import vorhanden.")
+            return
+        _verein_options = {f"{v.get('name') or 'Unbenannter Verein'}": v for v in _vereine}
+        _selected_verein = st.selectbox(
+            "Zielmandant",
+            list(_verein_options),
+            help="Der Zielmandant wird serverseitig geprüft und niemals aus der Datei übernommen.",
+            key="spieler_import_superadmin_verein",
+        )
+        _ziel = _verein_options[_selected_verein]
+        ziel_verein_id, ziel_name = _ziel.get("id"), _ziel.get("name") or ""
+
+    if not ziel_verein_id:
+        st.warning("Für den Import muss zuerst ein aktiver Mandant ausgewählt werden.")
+        return
+
+    st.info(f"🏢 Importziel: **{ziel_name or 'Aktiver Mandant'}**")
+    upload = st.file_uploader(
+        "CSV- oder Excel-Datei auswählen",
+        type=["csv", "xlsx"],
+        key="spieler_import_upload",
+        help="Maximal 10 MB, 1.000 Datenzeilen und 40 Spalten. Die Originaldatei wird nicht gespeichert.",
+    )
+    st.download_button(
+        "⬇️ CSV-Vorlage herunterladen",
+        data=(
+            "Vorname;Nachname;Geburtsdatum;Geschlecht;Hauptposition;Mannschaft\n"
+            "Max;Mustermann;15.03.2008;Männlich;Zentrales Mittelfeld;U19\n"
+        ).encode("utf-8-sig"),
+        file_name="spielerimport_vorlage.csv",
+        mime="text/csv",
+        key="spieler_import_vorlage",
+    )
+    if upload is None:
+        st.info("Lade eine Datei hoch, um die Spalten zuzuordnen und die Vorschau zu prüfen.")
+        return
+
+    try:
+        upload_bytes = upload.getvalue()
+        fingerprint = spieler_import_fingerprint(upload_bytes)
+        headers, source_rows = spieler_import_read_upload(upload_bytes, upload.name)
+    except ValueError as exc:
+        st.error(f"❌ {exc}")
+        return
+
+    if st.session_state.get("spieler_import_done_fingerprint") != fingerprint:
+        st.session_state.pop("spieler_import_done_result", None)
+    elif st.session_state.get("spieler_import_done_result"):
+        result = st.session_state["spieler_import_done_result"]
+        st.success(
+            f"Import abgeschlossen — **{result['angelegt']}** neu angelegt, "
+            f"**{result['uebersprungen']}** übersprungen, "
+            f"**{result['limit_blockiert']}** wegen Paketlimit nicht angelegt."
+        )
+        st.caption("Für einen weiteren Import wähle bitte eine andere Datei aus.")
+        return
+
+    if not source_rows:
+        st.warning("Die Datei enthält keine Datenzeilen.")
+        return
+
+    st.markdown("#### 1. Spalten zuordnen")
+    st.caption(f"{len(source_rows)} Datenzeilen erkannt. Pflichtfelder sind mit * markiert.")
+    automatic_mapping = spieler_import_auto_mapping(headers)
+    _no_mapping = "— Nicht übernehmen —"
+    _map_columns = st.columns(2)
+    mapping: dict[str, str | None] = {}
+    for index, (field, label) in enumerate(IMPORT_FIELDS.items()):
+        options = [_no_mapping] + headers
+        proposed = automatic_mapping.get(field)
+        default_index = options.index(proposed) if proposed in options else 0
+        selected = _map_columns[index % 2].selectbox(
+            label,
+            options,
+            index=default_index,
+            key=f"spieler_import_map_{fingerprint}_{field}",
+        )
+        mapping[field] = None if selected == _no_mapping else selected
+
+    mapping_errors = spieler_import_validate_mapping(headers, mapping)
+    if mapping_errors:
+        for error in mapping_errors:
+            st.error(f"❌ {error}")
+        return
+
+    mapping_signature = f"{fingerprint}|{ziel_verein_id}|{tuple(mapping.items())}"
+    existing_keys = spieler_import_dubletten_laden(int(ziel_verein_id))
+    if st.session_state.get("spieler_import_signature") != mapping_signature:
+        st.session_state["spieler_import_preview"] = spieler_import_build_preview(
+            source_rows,
+            mapping,
+            existing_keys,
+            positionen=POSITIONEN,
+            leistungsniveaus=LEISTUNGSNIVEAUS,
+            trainingsstatus=TRAININGSSTATUS,
+        )
+        st.session_state["spieler_import_signature"] = mapping_signature
+        st.session_state.pop("spieler_import_done_fingerprint", None)
+        st.session_state.pop("spieler_import_done_result", None)
+
+    preview = st.session_state.get("spieler_import_preview") or []
+    if not preview:
+        st.warning("Für diese Zuordnung sind keine Vorschauzeilen vorhanden.")
+        return
+
+    st.markdown("#### 2. Vorschau prüfen")
+    _filter = st.radio(
+        "Status filtern",
+        ["Alle", "🟢 Bereit", "🟡 Hinweis", "🔴 Fehler"],
+        horizontal=True,
+        key=f"spieler_import_filter_{mapping_signature}",
+    )
+    displayed = [row for row in preview if _filter == "Alle" or row.get("status") == _filter]
+    if not displayed:
+        st.info("Für diesen Status gibt es keine Zeilen.")
+    else:
+        editor_columns = [
+            "_zeile", "Importieren", "status", "hinweis", "vorname", "nachname",
+            "geburtsdatum", "altersklasse", "geschlecht", "hauptposition",
+            "nebenposition", "spielbein", "leistungsniveau", "mannschaft",
+            "trainingsstatus",
+        ]
+        editor_df = pd.DataFrame(displayed).reindex(columns=editor_columns)
+        edited_df = st.data_editor(
+            editor_df,
+            hide_index=True,
+            use_container_width=True,
+            num_rows="fixed",
+            key=f"spieler_import_editor_{mapping_signature}",
+            disabled=["_zeile", "status", "hinweis", "altersklasse"],
+            column_config={
+                "_zeile": st.column_config.NumberColumn("Zeile", format="%d"),
+                "Importieren": st.column_config.CheckboxColumn("Importieren"),
+                "status": st.column_config.TextColumn("Prüfung"),
+                "hinweis": st.column_config.TextColumn("Hinweis", width="large"),
+                "vorname": st.column_config.TextColumn("Vorname *", required=True),
+                "nachname": st.column_config.TextColumn("Nachname *", required=True),
+                "geburtsdatum": st.column_config.TextColumn("Geburtsdatum *", help="TT.MM.JJJJ"),
+                "altersklasse": st.column_config.TextColumn("Altersklasse (automatisch)"),
+                "geschlecht": st.column_config.SelectboxColumn("Geschlecht", options=["Männlich", "Weiblich", "Divers"]),
+                "hauptposition": st.column_config.SelectboxColumn("Hauptposition", options=POSITIONEN),
+                "nebenposition": st.column_config.SelectboxColumn("Nebenposition", options=[""] + POSITIONEN),
+                "spielbein": st.column_config.SelectboxColumn("Spielbein", options=["Rechts", "Links", "Beidfüßig"]),
+                "leistungsniveau": st.column_config.SelectboxColumn("Leistungsniveau", options=LEISTUNGSNIVEAUS),
+                "mannschaft": st.column_config.TextColumn("Mannschaft"),
+                "trainingsstatus": st.column_config.SelectboxColumn("Trainingsstatus", options=TRAININGSSTATUS),
+            },
+        )
+        by_row = {int(row["_zeile"]): dict(row) for row in preview}
+        for edited in edited_df.to_dict("records"):
+            row_number = int(edited["_zeile"])
+            if row_number not in by_row:
+                continue
+            for field in ("Importieren", *IMPORT_FIELDS):
+                if field in edited:
+                    by_row[row_number][field] = edited[field]
+        preview = spieler_import_revalidate_preview(
+            [by_row[int(row["_zeile"])] for row in preview],
+            existing_keys,
+            positionen=POSITIONEN,
+            leistungsniveaus=LEISTUNGSNIVEAUS,
+            trainingsstatus=TRAININGSSTATUS,
+        )
+        st.session_state["spieler_import_preview"] = preview
+
+    _status_counts = {
+        "bereit": sum(row.get("status") == "🟢 Bereit" for row in preview),
+        "hinweis": sum(row.get("status") == "🟡 Hinweis" for row in preview),
+        "fehler": sum(row.get("status") == "🔴 Fehler" for row in preview),
+    }
+    _metric_cols = st.columns(3)
+    _metric_cols[0].metric("Bereit", _status_counts["bereit"])
+    _metric_cols[1].metric("Mit Hinweis", _status_counts["hinweis"])
+    _metric_cols[2].metric("Fehler", _status_counts["fehler"])
+
+    st.markdown("#### 3. Zeilen gemeinsam bearbeiten")
+    _row_numbers = [int(row["_zeile"]) for row in preview]
+    _bulk_rows = st.multiselect(
+        "Zeilen auswählen",
+        _row_numbers,
+        format_func=lambda value: f"Zeile {value}",
+        key=f"spieler_import_bulk_rows_{mapping_signature}",
+    )
+    _bulk_c1, _bulk_c2, _bulk_c3, _bulk_c4 = st.columns([2, 2, 2, 1])
+    _bulk_mannschaft = _bulk_c1.text_input("Mannschaft setzen", key=f"spieler_import_bulk_team_{mapping_signature}")
+    _bulk_geschlecht = _bulk_c2.selectbox(
+        "Geschlecht setzen",
+        ["Nicht ändern", "Männlich", "Weiblich", "Divers"],
+        key=f"spieler_import_bulk_gender_{mapping_signature}",
+    )
+    _bulk_position = _bulk_c3.selectbox(
+        "Hauptposition setzen",
+        ["Nicht ändern"] + POSITIONEN,
+        key=f"spieler_import_bulk_position_{mapping_signature}",
+    )
+    if _bulk_c4.button("Übernehmen", key=f"spieler_import_bulk_apply_{mapping_signature}", use_container_width=True):
+        if not _bulk_rows:
+            st.warning("Bitte zuerst mindestens eine Zeile auswählen.")
+        else:
+            selected_rows = set(_bulk_rows)
+            for row in preview:
+                if int(row["_zeile"]) not in selected_rows:
+                    continue
+                if _bulk_mannschaft.strip():
+                    row["mannschaft"] = _bulk_mannschaft.strip()
+                if _bulk_geschlecht != "Nicht ändern":
+                    row["geschlecht"] = _bulk_geschlecht
+                if _bulk_position != "Nicht ändern":
+                    row["hauptposition"] = _bulk_position
+            st.session_state["spieler_import_preview"] = spieler_import_revalidate_preview(
+                preview,
+                existing_keys,
+                positionen=POSITIONEN,
+                leistungsniveaus=LEISTUNGSNIVEAUS,
+                trainingsstatus=TRAININGSSTATUS,
+            )
+            st.rerun()
+
+    _remove_rows = st.multiselect(
+        "Einzelne Zeilen aus der Vorschau entfernen",
+        _row_numbers,
+        format_func=lambda value: f"Zeile {value}",
+        key=f"spieler_import_remove_rows_{mapping_signature}",
+    )
+    if st.button("🗑️ Aus Vorschau entfernen", key=f"spieler_import_remove_{mapping_signature}"):
+        if not _remove_rows:
+            st.warning("Bitte wähle mindestens eine Zeile aus.")
+        else:
+            remove_set = set(_remove_rows)
+            st.session_state["spieler_import_preview"] = [
+                row for row in preview if int(row["_zeile"]) not in remove_set
+            ]
+            st.rerun()
+
+    st.markdown("#### 4. Import bestätigen")
+    capacity = spieler_import_kapazitaet_laden(int(ziel_verein_id))
+    _is_duplicate = lambda row: "wird übersprungen" in str(row.get("hinweis", ""))
+    _new_rows = [
+        row for row in preview
+        if row.get("Importieren") and row.get("status") != "🔴 Fehler" and not _is_duplicate(row)
+    ]
+    if capacity["limit"] is None:
+        st.info(f"📦 Paketlimit: unbegrenzt · aktuell {capacity['belegt']} Spieler")
+        over_limit = False
+    else:
+        st.info(
+            f"📦 Paketlimit: {capacity['belegt']} von {capacity['limit']} Spielern belegt · "
+            f"{capacity['verbleibend']} Plätze frei"
+        )
+        over_limit = len(_new_rows) > int(capacity["verbleibend"] or 0)
+        if over_limit:
+            st.error(
+                f"Für die ausgewählten neuen Spieler werden {len(_new_rows)} Plätze benötigt, "
+                f"aber nur {capacity['verbleibend']} sind frei. Entferne oder deaktiviere Zeilen."
+            )
+
+    confirmation = st.checkbox(
+        f"Ich bestätige den Import von maximal {len(_new_rows)} neuen Spielern in „{ziel_name or 'den aktiven Mandanten'}“.",
+        key=f"spieler_import_confirm_{mapping_signature}",
+    )
+    candidates = spieler_import_candidates(preview)
+    if st.button(
+        "✅ Geprüfte Spieler endgültig anlegen",
+        type="primary",
+        use_container_width=True,
+        disabled=not confirmation or not candidates or over_limit,
+        key=f"spieler_import_commit_{mapping_signature}",
+    ):
+        try:
+            result = spieler_importieren(
+                candidates,
+                benutzer_id=user.get("id"),
+                rolle=user.get("rolle") or "Trainer",
+                verein_id=int(ziel_verein_id),
+            )
+        except PermissionError:
+            st.error("❌ Der Zielmandant ist nicht mehr berechtigt. Bitte wähle den Mandanten neu aus.")
+        except ValueError as exc:
+            st.error(f"❌ Import wurde nicht durchgeführt: {exc}")
+        else:
+            st.session_state["spieler_import_done_fingerprint"] = fingerprint
+            st.session_state["spieler_import_done_result"] = result
+            st.success(
+                f"✅ {result['angelegt']} Spieler neu angelegt · "
+                f"{result['uebersprungen']} übersprungen · "
+                f"{result['limit_blockiert']} wegen Paketlimit nicht angelegt."
+            )
+
+
 def page_spieler():
     st.markdown("# 👤 Spielerverwaltung")
-    tab_add, tab_list = st.tabs(["➕ Neu anlegen", "📋 Alle Spieler"])
+    tab_add, tab_import, tab_list = st.tabs(["➕ Neu anlegen", "📥 Importieren", "📋 Alle Spieler"])
 
     # ── Tab 1: Neuen Spieler anlegen ──────────────────────────────────────────
     with tab_add:
@@ -3889,6 +4203,9 @@ def page_spieler():
                     )
                     _save_ok(f"Spieler **{vorname} {nachname}** wurde gespeichert.")
                     st.rerun()
+
+    with tab_import:
+        _page_spieler_import()
 
     # ── Tab 2: Alle Spieler — direkt in der Tabelle bearbeiten ──────────────────
     with tab_list:
@@ -12787,7 +13104,7 @@ with st.sidebar:
     if "_nav_sub_spieler_goto" in st.session_state:
         st.session_state["nav_sub_spieler"] = st.session_state.pop("_nav_sub_spieler_goto")
 
-    # ── Main navigation (mit Übersetzung) ────────────────────────────────────
+    # ── Hierarchische Hauptnavigation ─────────────────────────────────────────
     _NAV_TRANS = {
         "🏠  Startseite":    {"de": "🏠  Startseite",    "en": "🏠  Dashboard",    "tr": "🏠  Ana Sayfa",    "es": "🏠  Inicio",        "fr": "🏠  Accueil",       "pt": "🏠  Início",        "ru": "🏠  Главная",       "ar": "🏠  الرئيسية"},
         "👤  Spieler":       {"de": "👤  Spieler",        "en": "👤  Players",      "tr": "👤  Oyuncular",    "es": "👤  Jugadores",     "fr": "👤  Joueurs",       "pt": "👤  Jogadores",     "ru": "👤  Игроки",        "ar": "👤  اللاعبون"},
@@ -12801,35 +13118,51 @@ with st.sidebar:
         "ℹ️  Über":          {"de": "ℹ️  Über",           "en": "ℹ️  About",        "tr": "ℹ️  Hakkında",    "es": "ℹ️  Acerca de",    "fr": "ℹ️  À propos",      "pt": "ℹ️  Sobre",         "ru": "ℹ️  О программе",   "ar": "ℹ️  حول"},
     }
     _cur_lang = get_lang()
-    section = st.radio(
-        "",
-        _MAIN_SECTIONS,
-        key="nav_section",
-        label_visibility="collapsed",
-        format_func=lambda x: _NAV_TRANS.get(x, {}).get(_cur_lang, x),
-    )
-    inject_scroll_to_top_if_needed(section)
-
-    # ── Sub-navigation ────────────────────────────────────────────────────────
-    sub_map = None
-    sub_key = None
-    if section == "👤  Spieler":
-        sub_map, sub_key = _SUB_SPIELER, "nav_sub_spieler"
-    elif section == "🔬  Diagnostik":
-        sub_map, sub_key = _SUB_DIAGNOSTIK, "nav_sub_diagnostik"
-    elif section == "📅  Training":
-        sub_map, sub_key = _SUB_TRAINING, "nav_sub_training"
+    _subnav_by_section = {
+        "👤  Spieler": (_SUB_SPIELER, "nav_sub_spieler"),
+        "🔬  Diagnostik": (_SUB_DIAGNOSTIK, "nav_sub_diagnostik"),
+        "📅  Training": (_SUB_TRAINING, "nav_sub_training"),
+    }
+    section = st.session_state.get("nav_section")
+    if section not in _MAIN_SECTIONS:
+        section = _MAIN_SECTIONS[0]
+        st.session_state["nav_section"] = section
 
     sub_choice = None
-    if sub_map:
-        st.markdown('<div class="subnav">', unsafe_allow_html=True)
-        sub_choice = st.radio(
-            "",
-            list(sub_map.keys()),
-            key=sub_key,
-            label_visibility="collapsed",
-        )
-        st.markdown('</div>', unsafe_allow_html=True)
+    for _nav_item in _MAIN_SECTIONS:
+        _nav_label = _NAV_TRANS.get(_nav_item, {}).get(_cur_lang, _nav_item)
+        if st.button(
+            _nav_label,
+            key=f"sidebar_nav_{_nav_item}",
+            use_container_width=True,
+            type="primary" if section == _nav_item else "secondary",
+        ):
+            st.session_state["nav_section"] = _nav_item
+            if _nav_item in _subnav_by_section:
+                _map, _key = _subnav_by_section[_nav_item]
+                st.session_state[_key] = next(iter(_map))
+            st.rerun()
+
+        # Unterpunkte werden direkt nach ihrem Hauptbereich gerendert.
+        if _nav_item not in _subnav_by_section or section != _nav_item:
+            continue
+        _map, _key = _subnav_by_section[_nav_item]
+        _active_sub = st.session_state.get(_key)
+        if _active_sub not in _map:
+            _active_sub = next(iter(_map))
+            st.session_state[_key] = _active_sub
+        for _sub_item in _map:
+            if st.button(
+                f"↳ {_sub_item}",
+                key=f"sidebar_subnav_{_key}_{_sub_item}",
+                use_container_width=True,
+                type="primary" if _sub_item == _active_sub else "secondary",
+            ):
+                st.session_state[_key] = _sub_item
+                st.rerun()
+        sub_choice = _active_sub
+
+    inject_scroll_to_top_if_needed(section)
 
     st.markdown(f'<hr style="border-color:{C["surface2"]};margin:10px 0">', unsafe_allow_html=True)
 
