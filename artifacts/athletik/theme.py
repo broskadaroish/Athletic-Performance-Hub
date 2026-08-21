@@ -92,15 +92,39 @@ section[data-testid="stSidebar"] {
     padding-left: 9px !important;
 }
 
-/* Sub-nav (second level radio) */
-.subnav [data-testid="stRadio"] label {
-    font-size: 13px !important;
-    padding: 7px 10px 7px 28px !important;
+/* ── Sidebar sub-navigation ──
+   Streamlit exposes the container key as `st-key-sidebar_subnav_*`.  This
+   scope keeps the compact style limited to the second navigation level. */
+[data-testid="stSidebarContent"] [class*="st-key-sidebar_subnav_"] {
+    margin: -3px 0 6px;
 }
-.subnav [data-testid="stRadio"] label[aria-checked="true"] {
-    color: #58a6ff !important;
+[data-testid="stSidebarContent"] [class*="st-key-sidebar_subnav_"] [data-testid="stElementContainer"] {
+    margin: 0 !important;
+}
+[data-testid="stSidebarContent"] [class*="st-key-sidebar_subnav_"] .stButton > button {
+    min-height: 32px !important;
+    padding: 5px 10px 5px 28px !important;
+    background: transparent !important;
+    border: 1px solid transparent !important;
+    border-radius: 6px !important;
+    color: #8b949e !important;
+    font-size: 12px !important;
+    font-weight: 500 !important;
+    letter-spacing: 0 !important;
+    line-height: 1.25 !important;
+    text-align: left !important;
+    box-shadow: none !important;
+}
+[data-testid="stSidebarContent"] [class*="st-key-sidebar_subnav_"] .stButton > button:hover {
+    background: #161b22 !important;
+    color: #e6edf3 !important;
+    transform: none !important;
+}
+[data-testid="stSidebarContent"] [class*="st-key-sidebar_subnav_"] .stButton > button[kind="primary"] {
     background: #0d2044 !important;
-    border-left: 2px solid #1f6feb;
+    border-left: 3px solid #1f6feb !important;
+    color: #58a6ff !important;
+    font-weight: 650 !important;
     padding-left: 26px !important;
 }
 

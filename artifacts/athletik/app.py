@@ -13151,15 +13151,18 @@ with st.sidebar:
         if _active_sub not in _map:
             _active_sub = next(iter(_map))
             st.session_state[_key] = _active_sub
-        for _sub_item in _map:
-            if st.button(
-                f"↳ {_sub_item}",
-                key=f"sidebar_subnav_{_key}_{_sub_item}",
-                use_container_width=True,
-                type="primary" if _sub_item == _active_sub else "secondary",
-            ):
-                st.session_state[_key] = _sub_item
-                st.rerun()
+        # Der Container dient ausschließlich der kompakten visuellen
+        # Untergliederung; Zustände, Keys und Navigation bleiben unverändert.
+        with st.container(key=f"sidebar_subnav_{_key}"):
+            for _sub_item in _map:
+                if st.button(
+                    _sub_item,
+                    key=f"sidebar_subnav_{_key}_{_sub_item}",
+                    use_container_width=True,
+                    type="primary" if _sub_item == _active_sub else "secondary",
+                ):
+                    st.session_state[_key] = _sub_item
+                    st.rerun()
         sub_choice = _active_sub
 
     inject_scroll_to_top_if_needed(section)
