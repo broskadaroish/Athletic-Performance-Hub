@@ -1,0 +1,111 @@
+APH – ZUG 2: Spielerkader sicher aus Excel/CSV importieren
+
+Setze den in Zug 1 analysierten Import als V1 um.
+
+Ziel: In page_spieler() drei Tabs:
+➕ Neu anlegen | 📥 Importieren | 📋 Alle Spieler
+
+Der Importablauf:
+Datei hochladen → Spalten zuordnen → editierbare Vorschautabelle → Ampelprüfung → Dubletten-/Paketprüfung → Bestätigung → Speicherung → Ergebnisübersicht
+
+Unterstützen:
+
+.xlsx
+.csv
+keine neue Dependency
+Originaldatei nicht dauerhaft speichern
+
+Importierbare Felder:
+
+Vorname
+Nachname
+Geburtsdatum
+Geschlecht
+Hauptposition
+Nebenposition
+Spielbein
+Leistungsniveau
+Mannschaft
+Trainingsstatus
+
+name und position weiterhin nur über bestehende zentrale Logik pflegen.
+
+Technische Felder wie id, verein_id, trainer_id, Rollen, Rechte, Lizenz-/Vertragsdaten dürfen nie aus der Datei übernommen werden.
+
+Ampellogik
+
+🔴: Vorname fehlt, Nachname fehlt, Geburtsdatum fehlt/ungültig/zukünftig, ungelöste Dublette, Paketlimit verhindert Import
+🟡: Geschlecht, Hauptposition, Mannschaft oder andere optionale Stammdaten fehlen
+🟢: vollständig importbereit
+
+Altersklasse aus dem Geburtsdatum über die bestehende APH-Logik ableiten. Eine Excel-Altersklasse nicht blind übernehmen.
+
+Vorschautabelle
+
+mit st.data_editor
+relevante Zellen direkt bearbeitbar
+Ampel nach Änderung neu berechnen
+einzelne Zeilen entfernen
+Mehrfachauswahl und gemeinsame Änderung mindestens für Mannschaft, Geschlecht und Hauptposition
+Filter Alle / Grün / Gelb / Rot
+
+Spaltenzuordnung
+Typische Header automatisch erkennen, z. B.:
+Vorname, Nachname/Name, Geburtsdatum/Geb./Geburtstag, Geschlecht/m-w, Position/Pos., Mannschaft/Team.
+Nicht erkannte Spalten manuell zuordnen oder ignorieren.
+
+Dubletten
+
+nur im aktuell berechtigten Mandanten prüfen
+normalisierter Vorname + Nachname + Geburtsdatum
+kein Fremdmandant darf sichtbar werden
+V1-Aktionen: Überspringen oder bewusst trotzdem neu anlegen
+keine automatische Aktualisierung bestehender Spieler in V1
+
+Mandantenschutz
+
+aktiver Mandant ausschließlich serverseitig bestimmen
+Datei darf niemals technische IDs bestimmen
+Speicherung nur über einen klar abgegrenzten mandantensicheren Import-Service
+keine direkten SQL-Schreibvorgänge aus der UI
+
+Paketlimit
+
+zentrale bestehende Limitlogik wiederverwenden
+Prüfung in der Vorschau
+unmittelbar vor Speicherung erneut prüfen
+None = unbegrenzt
+
+Speicherung
+Erst nach ausdrücklicher Bestätigung.
+Vor dem Schreiben alle Zeilen serverseitig erneut validieren.
+
+Nach Import Ergebnis anzeigen, z. B.:
+23 neu angelegt · 2 übersprungen · 3 mit Warnungen
+
+Optional: APH-Excel-Vorlage herunterladen, falls ohne neue Dependency und mit geringem Aufwand möglich.
+
+Regressionen mindestens:
+
+XLSX + CSV
+automatische und manuelle Spaltenzuordnung
+ungültiges/zukünftiges Datum
+Altersklasse aus Geburtsdatum
+Tabellenbearbeitung
+einzelne Zeile entfernen
+Mehrfachänderung
+Dublette im eigenen Mandanten
+gleichnamiger Spieler in fremdem Mandanten bleibt unsichtbar
+technische IDs aus Datei werden ignoriert
+Paketlimit begrenzt/unbegrenzt
+keine Speicherung vor Bestätigung
+keine automatische Aktualisierung bestehender Spieler
+ungültiges Workbook / Größen- und Zeilenlimit
+
+Keine DB-Migration.
+Keine Produktionsdaten.
+Keine Stripe-Aktion.
+Nicht deployen.
+
+Danach py_compile, relevante Regressionen und git diff --check.
+Kurzer Abschlussbericht und STOPP.

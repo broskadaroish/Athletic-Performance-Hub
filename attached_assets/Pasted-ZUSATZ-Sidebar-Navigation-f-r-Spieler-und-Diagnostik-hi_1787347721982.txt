@@ -1,0 +1,160 @@
+ZUSATZ – Sidebar-Navigation für „Spieler“ und „Diagnostik“ hierarchisch strukturieren
+
+Zusätzlich zum Spielerimport soll die bestehende Sidebar-Navigation bei den Hauptbereichen Spieler und Diagnostik übersichtlicher und klar hierarchisch aufgebaut werden.
+
+Wichtig: Dies ist ausschließlich eine UI-/Navigationsänderung. Keine Seiten, Funktionen, Routen, Berechtigungen, Diagnostiklogik oder Datenbanklogik entfernen oder fachlich verändern.
+
+1. Hauptbereich „Spieler“
+
+Aktuell werden die zugehörigen Unterbereiche weiter unten in der Sidebar als separater Block angezeigt:
+
+Verwaltung
+Profil & Diagnostik
+
+Dadurch wirken sie vom Hauptmenüpunkt Spieler getrennt und teilweise versteckt.
+
+Gewünschtes Zielbild:
+
+👤 Spieler
+
+👥 Spielerverwaltung
+🏃 Profil & Diagnostik
+
+Regeln:
+
+„Verwaltung“ in „Spielerverwaltung“ umbenennen.
+Klick auf Spieler öffnet standardmäßig die Spielerverwaltung.
+Die beiden Unterpunkte sollen direkt unter Spieler eingerückt erscheinen.
+Der aktuell aktive Unterpunkt soll optisch eindeutig markiert sein.
+Innerhalb der Spielerverwaltung bleiben die Tabs:
+➕ Neu anlegen
+📥 Importieren
+📋 Alle Spieler
+Profil & Diagnostik behält seine bestehende Funktion vollständig.
+2. Hauptbereich „Diagnostik“
+
+Aktuell erscheinen die eigentlichen Diagnostikbereiche ebenfalls weiter unten separat und wirken dadurch vom Hauptmenüpunkt Diagnostik getrennt.
+
+Gewünschtes Zielbild:
+
+🔬 Diagnostik
+
+🏠 Übersicht
+📐 Anthropometrie
+📝 FMS
+📏 Y-Balance
+⚡ Sprint
+🦘 Sprung
+🔀 Agilität
+🫁 Ausdauer
+💪 Kraft
+
+Regeln:
+
+Klick auf Diagnostik öffnet standardmäßig Übersicht.
+Alle Diagnostik-Unterpunkte erscheinen direkt unter Diagnostik eingerückt.
+Der aktuell aktive Unterpunkt soll eindeutig markiert sein.
+Bestehende Diagnostikseiten, Funktionen und Testabläufe unverändert weiterverwenden.
+3. Alte untere Navigationsblöcke entfernen
+
+Die bisherigen separaten Untermenü-Blöcke am unteren Ende der Sidebar sollen nach erfolgreicher Umstellung nicht mehr zusätzlich dargestellt werden.
+
+Dabei gilt zwingend:
+
+Keine Seite löschen
+Keine Route löschen
+Keine Funktion entfernen
+alle bisherigen Unterpunkte müssen weiterhin vollständig erreichbar sein
+erst sicherstellen, dass sämtliche Funktionen über die neue hierarchische Navigation erreichbar sind, danach die alte doppelte Darstellung entfernen
+
+Ziel ist nur:
+
+alte Position entfernen → gleiche Funktion an neuer, logisch richtiger Position anzeigen
+
+4. Andere Hauptmenüpunkte unverändert
+
+Andere Hauptbereiche wie:
+
+Training
+Entwicklung
+Vergleich
+Mannschaft
+Dokumente
+Einstellungen
+Mein Profil
+Über
+Benutzerverwaltung
+Vereinsverwaltung
+Lizenzverwaltung
+Kundenverwaltung
+
+sollen funktional und strukturell unverändert bleiben, sofern keine minimale technische Anpassung für die neue Hierarchie nötig ist.
+
+5. Bestehende Navigation wiederverwenden
+
+Vor der Änderung den aktuellen Sidebar-/Routing-Code prüfen.
+
+Keine parallele zweite Navigation neu bauen, wenn die vorhandene Navigationslogik erweitert werden kann.
+
+Die kleinstmögliche saubere Änderung bevorzugen.
+
+Importlogik und Navigationslogik organisatorisch getrennt halten.
+
+6. Desktop und Mobile
+
+Prüfen, dass die neue Struktur sowohl auf Desktop als auch mobil funktioniert.
+
+Insbesondere:
+
+Unterpunkte nicht doppelt anzeigen
+keine abgeschnittenen oder verlorenen Unterpunkte
+aktiver Menüstatus korrekt
+Wechsel Spieler ↔ Diagnostik ↔ andere Hauptbereiche funktioniert
+mobile Navigation bleibt bedienbar
+keine Endlosschleifen oder unerwünschten Redirects
+7. Regressionen / Smoke-Checks
+
+Mindestens prüfen:
+
+Klick auf Spieler → Spielerverwaltung öffnet sich
+Spielerverwaltung ist direkt unter Spieler sichtbar
+Profil & Diagnostik ist direkt unter Spieler sichtbar
+Wechsel Spielerverwaltung ↔ Profil & Diagnostik funktioniert
+Klick auf Diagnostik → Übersicht öffnet sich
+alle Diagnostik-Unterpunkte sind direkt darunter erreichbar
+Wechsel zwischen Übersicht, Anthropometrie, FMS, Y-Balance, Sprint, Sprung, Agilität, Ausdauer und Kraft funktioniert
+alte separate Untermenü-Blöcke werden nicht mehr zusätzlich angezeigt
+andere Hauptmenüpunkte funktionieren weiterhin
+keine Navigation doppelt
+Desktop-Smoke-Test
+Mobile-Smoke-Test
+8. Strikte Abgrenzung
+
+Nicht verändern:
+
+Diagnostikberechnungen
+Testdaten
+Spielerzuordnungen
+Mandantenlogik
+Login/Sessions
+Rollen/Berechtigungen
+Trainingsplan
+Periodisierung
+Datenbankstruktur
+Produktionsdaten
+
+Keine DB-Migration.
+Keine Produktionsdatenänderung.
+Kein Deployment.
+
+Danach relevante Regressionen, py_compile und git diff --check.
+
+Im Abschlussbericht separat ausweisen:
+
+Spielerimport
+Navigation Spieler
+Navigation Diagnostik
+geänderte Dateien
+Testergebnisse
+
+Danach STOPP.
