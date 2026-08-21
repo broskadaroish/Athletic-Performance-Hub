@@ -1,0 +1,81 @@
+APH – SPIRO-/STUFENTEST-BEWERTUNG V2 – UMSETZUNG
+
+Setze die zuvor durchgeführte und dokumentierte wissenschaftliche Analyse jetzt um.
+
+1. Drei Bewertungswege strikt trennen
+
+Bruce-Laufband: Nur bei tatsächlich dokumentiertem Bruce-Protokoll die geprüfte Bruce-spezifische pädiatrische Referenz verwenden. Alter am Testtag und Geschlecht berücksichtigen.
+Fahrradergometer/Cycle: Nur das geprüfte wissenschaftliche Cycle-Modell verwenden, wenn alle dafür erforderlichen Mess- und Anthropometriedaten vorhanden sind. Keine fehlenden Werte schätzen.
+Feld-/Laktat-Stufentest bzw. anderes Laufbandprotokoll: Keine Bruce- oder Cycle-Norm übertragen. Messwerte, 2-/4-mmol-Schwellen, Kurven und Entwicklung weiterhin anzeigen, aber ohne erfundene altersnormierte Bewertung.
+
+2. Direkte Messung schützen
+Direkt gemessene VO₂peak/VO₂max hat Vorrang. Niemals durch eine Schätzung ersetzen. Geschätzte und direkt gemessene VO₂-Werte technisch und in der UI eindeutig unterscheiden.
+
+3. Alte Legacy-Defizite entfernen
+Die pauschalen Grenzen
+
+VO₂ <45
+VO₂ <50
+Schwellen-/Laktatgeschwindigkeit <12 km/h
+
+dürfen bei Spiro/Stufentest nicht mehr automatisch Defizite für Trainingsplan oder Periodisierung erzeugen.
+
+Keine neuen Ersatzgrenzen erfinden.
+
+4. Zentrale Defizitlogik
+Task #256 beibehalten. Trainingsplan und Periodisierung müssen exakt dieselbe strukturierte Spiro-Bewertung verwenden.
+
+Wissenschaftlich nicht bewertbarer Test → kein automatisch erzeugtes Defizit, nicht „schlecht“.
+
+5. Bestehende Normen
+Die alten allgemeinen VO₂-Tabellen in age_norms.py nicht vorschnell löschen, da andere Module sie benötigen könnten. Sie dürfen für Spiro V2 aber nicht als wissenschaftliche protokollspezifische CPET-Norm ausgegeben werden.
+
+6. Historie
+Task #257/#259 vollständig erhalten:
+
+Alter am Testtag
+gespeichertes Gerät/Protokoll
+ID-sichere Messpunktbearbeitung
+Mandantenschutz
+atomare Speicherung/Rollback
+
+Keine historische Massen-Neubewertung durchführen.
+
+7. Wissenschaftliche STOPP-Regel
+Nur Referenzgleichungen/Tabellen implementieren, die aus der bereits geprüften Primärliteratur vollständig reproduzierbar vorliegen.
+
+Falls insbesondere beim Cycle-Modell notwendige Koeffizienten oder Eingangsdaten fehlen: diesen Bewertungsweg nicht improvisieren, sondern neutral „Keine belastbare Referenzbewertung verfügbar“ behandeln und im Abschlussbericht dokumentieren.
+
+Keine eigenen Kategorien, Perzentile, Z-Scores oder Normgrenzen erfinden.
+
+8. Regressionen
+Prüfen:
+
+U-Spieler erhält keine pauschale Erwachsenenbewertung
+<45/<50 erzeugt kein automatisches Spiro-Defizit mehr
+<12 km/h erzeugt kein automatisches Defizit mehr
+Bruce nur bei Bruce-Protokoll
+Bruce nicht auf Cycle/Feldtest anwenden
+Cycle nur bei vollständig unterstütztem Cycle-Modell
+direkte VO₂-Messung bleibt direkte Messung
+nicht wissenschaftlich bewertbarer Test erzeugt kein Defizit
+Trainingsplan = Periodisierung hinsichtlich Spiro-Defizit
+historische Bearbeitung aus #259 weiterhin PASS
+Alter am Testtag weiterhin PASS
+
+Danach relevante bestehende Regressionen, py_compile und git diff --check.
+
+Keine DB-Migration, sofern nicht zwingend erforderlich. Keine Produktionsdaten verändern. NICHT DEPLOYEN.
+
+Im Abschlussbericht genau angeben:
+
+Was tatsächlich wissenschaftlich implementiert wurde
+welche Referenzquelle verwendet wurde
+was bewusst nicht bewertet wird
+welche Legacy-Grenzen entfernt/deaktiviert wurden
+Auswirkungen auf Trainingsplan und Periodisierung
+PASS/FAIL
+DB-Migration ja/nein
+Deployment: NEIN
+
+Danach STOPP.
