@@ -134,6 +134,7 @@ def run() -> None:
     plan_table_widths = []
     plan_row_heights = []
     plan_header_pages = []
+    plan_header_columns = []
     base_report = pdf_report.AthletikReport
 
     class RecordingAthletikReport(base_report):
@@ -150,6 +151,7 @@ def run() -> None:
         def table_header(self, cols, *args, **kwargs):
             if cols and cols[0][0] == "Woche / Tag":
                 plan_header_pages.append(self.page_no())
+                plan_header_columns.append(tuple(label for label, _ in cols))
             return super().table_header(cols, *args, **kwargs)
 
         def table_row_tp_report(self, vals, widths, *args, **kwargs):
@@ -268,7 +270,7 @@ def run() -> None:
         pdf_report.AthletikReport = base_report
 
     pages = _assert_pdf_structure(report)
-    assert pages >= 10, "langer Trainingsplan muss mehrere Planseiten erzeugen"
+    assert pages >= 8, "vollständiger Spielerprofil-Bericht braucht mehrere Seiten"
     assert len(plan_table_widths) == 32, "jede Planübung muss als Tabellenzeile erscheinen"
     assert all(width <= content_width + 0.01 for width, content_width in plan_table_widths), (
         "Trainingsplantabelle darf nicht über die A4-Inhaltsbreite laufen"
@@ -276,6 +278,13 @@ def run() -> None:
     assert len(set(plan_header_pages)) >= 2, (
         "Trainingsplan-Kopf muss auf jeder Folgeseite wiederholt werden"
     )
+    assert plan_header_columns and all(
+        columns == (
+            "Woche / Tag", "Bereich", "Übung", "Sätze", "Wdh. / Dauer",
+            "Pause", "Ausführung", "RPE", "Energiesystem", "Equipment",
+        )
+        for columns in plan_header_columns
+    ), "Spielerprofil-PDF muss die gemeinsame 10-Spalten-Trainingsplantabelle nutzen"
     assert max(plan_row_heights) <= 18.5, (
         "Hinweise dürfen keine unnötig hohen Tabellenzeilen erzeugen"
     )

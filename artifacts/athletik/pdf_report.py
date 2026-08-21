@@ -57,6 +57,22 @@ def _safe(text) -> str:
     return str(text).encode("latin-1", errors="replace").decode("latin-1")
 
 
+_TRAININGSPLAN_TABLE_HEADERS = (
+    "Woche / Tag", "Bereich", "Übung", "Sätze", "Wdh. / Dauer",
+    "Pause", "Ausführung", "RPE", "Energiesystem", "Equipment",
+)
+_TRAININGSPLAN_TABLE_WEIGHTS = (27, 21, 43, 14, 25, 15, 48, 13, 31, 36)
+
+
+def _trainingsplan_table_columns(content_width: float) -> list[tuple[str, float]]:
+    """Gemeinsame A4-Querformat-Spalten für beide Trainingsplan-PDFs."""
+    total_weight = sum(_TRAININGSPLAN_TABLE_WEIGHTS)
+    return [
+        (label, content_width * weight / total_weight)
+        for label, weight in zip(_TRAININGSPLAN_TABLE_HEADERS, _TRAININGSPLAN_TABLE_WEIGHTS)
+    ]
+
+
 # ─── Ampelfarben ──────────────────────────────────────────────────────────────
 GREEN  = (39, 174, 96)
 YELLOW = (230, 126, 34)
@@ -364,10 +380,10 @@ class AthletikReport(FPDF):
         line_h: float = 3.6,
         max_lines: int = 5,
     ) -> float:
-        """Kompakte, vollständig gewrappte Trainingsplanzeile für den Gesamtbericht.
+        """Kompakte, vollständig gewrappte Trainingsplanzeile für beide PDFs.
 
-        Dieser Renderer ist absichtlich getrennt von ``table_row_tp``: Der
-        eigenständige Trainingsplan-PDF-Pfad behält sein bisheriges Layout.
+        Dieser Renderer ist absichtlich getrennt von ``table_row_tp``: Warm-up-
+        und sonstige Bestandstabellen behalten ihr bisheriges Layout.
         """
         self.set_font("Helvetica", "", font_size)
         cell_lines = [
@@ -1413,14 +1429,8 @@ def generate_report(
         except (TypeError, ValueError):
             pass
 
-        # A4 quer: Woche und Tag teilen sich eine feste Spalte. Alle
-        # Trainingsparameter bleiben separat und umbrechen nur in ihrer Zelle.
-        _plan_w = _widths(27, 21, 43, 14, 25, 15, 35, 13, 25, 29, 26)
-        _plan_headers = (
-            "Woche / Tag", "Bereich", "Übung", "Sätze", "Wdh. / Dauer",
-            "Pause", "Ausführung", "RPE", "Energiesystem", "Equipment", "Hinweise / Status",
-        )
-        _plan_header_cols = list(zip(_plan_headers, _plan_w))
+        _plan_header_cols = _trainingsplan_table_columns(pdf.content_width)
+        _plan_w = [width for _, width in _plan_header_cols]
 
         def _render_plan_header():
             pdf.table_header(_plan_header_cols, font_size=6.2)
@@ -1446,31 +1456,14 @@ def generate_report(
                     aph_dauer_min=_wm.get("aph_dauer_min") or 8,
                 )
                 _uebung = "Warm-up: %s" % _wi["titel"]
-            _hint_parts = []
-            if _warmup and _wi.get("hinweis"):
-                _hint_parts.append("Warm-up: %s" % _wi["hinweis"])
-            for _label, _value in (
-                ("Grund", row.get("begruendung")),
-                # Warm-up-Notizen enthalten die maschinenlesbare Auswahl-Metadaten.
-                # Der aufgelöste Hinweis oben ist die sinnvolle Darstellung im PDF.
-                ("Notiz", None if _warmup else row.get("notiz")),
-                ("Trainer", row.get("trainerhinweis")),
-                ("Spieler", row.get("spielerhinweis")),
-            ):
-                if _value:
-                    _compact_value = " ".join(str(_value).split())
-                    if len(_compact_value) > 56:
-                        _compact_value = _compact_value[:53].rstrip() + "..."
-                    _hint_parts.append("%s: %s" % (_label, _compact_value))
-            if row.get("abgehakt"):
-                _hint_parts.append("Status: erledigt")
-            _hinweise = " | ".join(_hint_parts) or "-"
+            _tag_name = _plan_tag_namen.get(
+                int(row.get("tag") or 0), "Tag %s" % (row.get("tag") or "-")
+            )
+            _tag_name = str(_tag_name).split(" - ", 1)[-1]
             vals = [
                 "%s / %s" % (
                     row.get("woche") or "-",
-                    _plan_tag_namen.get(
-                        int(row.get("tag") or 0), "Tag %s" % (row.get("tag") or "-")
-                    ),
+                    _tag_name,
                 ),
                 row.get("bereich") or "-",
                 _uebung,
@@ -1481,7 +1474,6 @@ def generate_report(
                 str(row.get("rpe") or "-"),
                 row.get("energie_system") or "-",
                 row.get("equipment") or "-",
-                _hinweise or "-",
             ]
             pdf.table_row_tp_report(
                 vals, _plan_w, fill, header_fn=_render_plan_header,
@@ -2322,14 +2314,15 @@ def generate_trainingsplan_pdf(
             pdf.set_font("Helvetica", "B", 10)
             pdf.set_text_color(*pdf.MID)
             pdf.cell(0, 5, "HAUPTTEIL:", new_x="LMARGIN", new_y="NEXT")
-            # Spaltenbreiten (Summe = _cw = 273 mm):
-            #   Bereich 12.5 %, Ubung 19 %, Satze 6.2 %,
-            #   Wdh. 9.5 %, Pause 8.8 %, Ausfuhrung ~44 %
-            cols_ueb = [("Bereich", 34), ("Ubung", 52), ("Satze", 17),
-                        ("Wdh./Dauer", 26), ("Pause (s)", 24),
-                        ("Ausfuhrung", _cw - 153)]
-            pdf.table_header(cols_ueb, font_size=9)
+            cols_ueb = _trainingsplan_table_columns(_CW)
+            widths_ueb = [width for _, width in cols_ueb]
+
+            def _render_main_header():
+                pdf.table_header(cols_ueb, font_size=6.2)
+
+            _render_main_header()
             ueb_fill = False
+            table_day = str(tag_label).split(" - ", 1)[-1]
             # Sort by Bereich
             for row in sorted(
                 (row for row in tag_rows if row.get("bereich") != WARMUP_BEREICH),
@@ -2339,15 +2332,18 @@ def generate_trainingsplan_pdf(
                 uebung   = str(row.get("uebung", "-"))
                 saetze   = str(row.get("saetze", "-"))
                 wdh      = str(row.get("wiederholungen", row.get("haeufigkeit", "-")))
-                pause    = str(row.get("pause_sekunden", "-"))
-                # Vollstaendiger Ausfuehrungstext — kein Abschneiden
+                pause    = "%s s" % row["pause_sekunden"] if row.get("pause_sekunden") is not None else "-"
                 ausfuehr = str(row.get("ausfuehrung", "-"))
-                pdf.table_row_tp(
-                    [_safe(bereich), _safe(uebung), _safe(saetze),
-                     _safe(wdh), _safe(pause), _safe(ausfuehr)],
-                    [c[1] for c in cols_ueb],
-                    ueb_fill,
-                    font_size=8.5,
+                pdf.table_row_tp_report(
+                    [
+                        "%s / %s" % (woche_nr, table_day),
+                        bereich, uebung, saetze, wdh, pause, ausfuehr,
+                        str(row.get("rpe") or "-"),
+                        row.get("energie_system") or "-",
+                        row.get("equipment") or "-",
+                    ],
+                    widths_ueb, ueb_fill, header_fn=_render_main_header,
+                    font_size=6.2, line_h=3.5, max_lines=5,
                 )
                 ueb_fill = not ueb_fill
 

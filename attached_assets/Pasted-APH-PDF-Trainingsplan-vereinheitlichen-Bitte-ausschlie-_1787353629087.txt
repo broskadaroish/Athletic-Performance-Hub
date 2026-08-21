@@ -1,0 +1,60 @@
+APH – PDF-Trainingsplan vereinheitlichen
+
+Bitte ausschließlich die PDF-Darstellung des Trainingsplans anpassen. Keine Datenbank-, Trainingsplan-, Generator-, Berechnungs- oder Speicherlogik verändern.
+
+1. SPIELERPROFIL → PROFIL & DIAGNOSTIK → PDF REPORT
+
+Das aktuelle neue Trainingsplan-Layout gefällt und soll grundsätzlich unverändert bleiben.
+
+Einzige Änderung:
+- Spalte „Hinweise / Status“ vollständig aus der Trainingsplantabelle entfernen.
+- Den dadurch frei werdenden Platz sinnvoll auf die verbleibenden Spalten verteilen.
+- Vor allem „Ausführung“ soll mehr Breite erhalten.
+
+Zielspalten:
+Woche/Tag | Bereich | Übung | Sätze | Wdh./Dauer | Pause | Ausführung | RPE | Energiesystem | Equipment
+
+
+2. TRAINING → PLAN ANZEIGEN → PDF
+
+Die bisherige Hauptteil-Tabelle soll optisch und strukturell an die neue Trainingsplantabelle des Spielerprofil-Gesamtberichts angeglichen werden.
+
+Zielspalten ebenfalls:
+Woche/Tag | Bereich | Übung | Sätze | Wdh./Dauer | Pause | Ausführung | RPE | Energiesystem | Equipment
+
+Dabei:
+- gleiche kompakte Tabellenoptik wie im Spielerprofil-PDF
+- feste A4-Querformat-taugliche Spaltenbreiten
+- Text sauber innerhalb der jeweiligen Zelle umbrechen
+- keine überlappenden Texte
+- Tabellenkopf bei Seitenumbruch wiederholen
+- kompakte, aber vollständig lesbare Zeilen
+- keine Spalte „Hinweise / Status“
+
+WICHTIG:
+Der eigenständige Trainingsplan soll seine zusätzlichen Bestandteile behalten:
+- Planüberschrift und Metadaten
+- Wochen-/Tagesstruktur
+- Warm-up
+- Cool-down
+- vorhandene sinnvolle Hinweise außerhalb der Hauptteil-Tabelle
+
+Diese Inhalte nicht entfernen.
+
+Ziel:
+Beide PDFs verwenden für den eigentlichen Trainings-Hauptteil dieselbe APH-Tabellenstruktur und wirken dadurch wie ein einheitliches System.
+
+Bestehende Trainingsdaten und Funktionen dürfen nicht verändert werden.
+
+Bitte anschließend Regressionstests für beide PDF-Wege durchführen und sicherstellen:
+- A4 Querformat
+- keine Textüberlagerungen
+- korrekte Seitenumbrüche
+- wiederholte Tabellenköpfe
+- bestehender Warm-up-/Cool-down-Inhalt weiterhin vorhanden
+- Spielerprofil-Gesamtbericht weiterhin korrekt
+- keine DB-Migration
+- keine Produktionsdatenänderung
+- kein Deployment
+
+STOPP nach Umsetzung und Tests.

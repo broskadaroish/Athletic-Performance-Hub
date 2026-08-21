@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import os
+import re
 import sys
 from pathlib import Path
 from unittest.mock import patch
@@ -95,6 +96,100 @@ def render_case(name: str, rows: list[dict], expected_art: str, expected_dauer: 
           total_dauer == round(main_dauer + expected_dauer + 5, 1))
 
 
+def render_layout_case() -> None:
+    """Prüft die gemeinsame Hauptteil-Tabelle des Standalone-PDFs."""
+    rendered_text = []
+    table_widths = []
+    row_heights = []
+    header_pages = []
+    header_columns = []
+    base_report = pdf_report.AthletikReport
+
+    class RecordingAthletikReport(base_report):
+        def cell(self, *args, **kwargs):
+            text = kwargs.get("text", args[2] if len(args) > 2 else "")
+            rendered_text.append(str(text))
+            return super().cell(*args, **kwargs)
+
+        def multi_cell(self, *args, **kwargs):
+            text = kwargs.get("text", args[2] if len(args) > 2 else "")
+            rendered_text.append(str(text))
+            return super().multi_cell(*args, **kwargs)
+
+        def table_header(self, cols, *args, **kwargs):
+            if cols and cols[0][0] == "Woche / Tag":
+                header_pages.append(self.page_no())
+                header_columns.append(tuple(label for label, _ in cols))
+            return super().table_header(cols, *args, **kwargs)
+
+        def table_row_tp_report(self, vals, widths, *args, **kwargs):
+            table_widths.append((sum(widths), self.content_width))
+            row_height = super().table_row_tp_report(vals, widths, *args, **kwargs)
+            row_heights.append(row_height)
+            return row_height
+
+    plan_rows = [warmup_row(APH_STANDARD, aph_dauer_min=9)]
+    exercises = [
+        ("Nordic Hamstring Curl", "Kraft"),
+        ("Einbeiniger Romanian Deadlift", "Kraft"),
+        ("Copenhagen Plank", "Rumpf"),
+        ("Resisted Sprint Start", "Sprint"),
+    ]
+    for index in range(32):
+        exercise, area = exercises[index % len(exercises)]
+        plan_rows.append({
+            "bereich": area, "uebung": exercise, "saetze": "3",
+            "wiederholungen": "6–8 je Seite", "woche": 1, "tag": 1,
+            "pause_sekunden": 75 + (index % 3) * 15,
+            "ausfuehrung": (
+                "Rumpf stabil halten, Bewegung kontrolliert ausführen und "
+                "bei nachlassender Qualität die Serie beenden."
+            ),
+            "rpe": 6 + index % 3,
+            "energie_system": "ATP-PC / neuromuskulär",
+            "equipment": "Kurzhanteln, Bank und Miniband",
+        })
+
+    pdf_report.AthletikReport = RecordingAthletikReport
+    try:
+        pdf_bytes = generate_trainingsplan_pdf(
+            spieler={"vorname": "Test", "nachname": "Mehrseitenplan", "mannschaft": "U15", "hauptposition": "MF"},
+            plan_rows=plan_rows,
+            plangruppe="U14",
+            plangruppen_config={"label": "Jugend", "max_saetze": 3, "haeuf_cap": "3×/Woche", "pause_offset": 0},
+        )
+    finally:
+        pdf_report.AthletikReport = base_report
+
+    page_count = len(re.findall(rb"/Type\s*/Page\b", pdf_bytes))
+    media_boxes = re.findall(
+        rb"/MediaBox\s*\[\s*0\s+0\s+([0-9.]+)\s+([0-9.]+)\s*\]",
+        pdf_bytes,
+    )
+    expected_columns = (
+        "Woche / Tag", "Bereich", "Übung", "Sätze", "Wdh. / Dauer",
+        "Pause", "Ausführung", "RPE", "Energiesystem", "Equipment",
+    )
+    captured = "\n".join(rendered_text)
+    check("Standalone: A4 Querformat", bool(media_boxes) and all(
+        float(width) > float(height)
+        and abs(float(width) - 841.89) < 1
+        and abs(float(height) - 595.28) < 1
+        for width, height in media_boxes
+    ))
+    check("Standalone: langer Hauptteil erzeugt mehrere Seiten", page_count >= 3)
+    check("Standalone: jede Hauptteil-Zeile bleibt innerhalb der Seitenbreite", bool(table_widths) and all(
+        width <= content_width + 0.01 for width, content_width in table_widths
+    ))
+    check("Standalone: Tabellenkopf wird auf Folgeseiten wiederholt", len(set(header_pages)) >= 2)
+    check("Standalone: gemeinsame 10-Spalten-Struktur ohne Hinweise/Status", bool(header_columns) and all(
+        columns == expected_columns for columns in header_columns
+    ))
+    check("Standalone: kompakte, begrenzte Tabellenzeilen", bool(row_heights) and max(row_heights) <= 18.5)
+    check("Standalone: Warm-up und Cool-down bleiben erhalten",
+          "WARM-UP: APH Standard" in captured and "Cool-Down:" in captured)
+
+
 print("\n=== Trainingsplan-PDF: Warm-up-Auflösung ===")
 app_source = Path(__file__).resolve().parents[1].joinpath("app.py").read_text(encoding="utf-8")
 check(
@@ -117,6 +212,7 @@ render_case(
     16,
 )
 render_case("Kein-Warm-up", [MAIN_ROW, warmup_row(KEIN_WARMUP)], KEIN_WARMUP, 0)
+render_layout_case()
 
 print("\n" + "=" * 60)
 print(f"Ergebnis: {PASS} PASS, {FAIL} FAIL")
