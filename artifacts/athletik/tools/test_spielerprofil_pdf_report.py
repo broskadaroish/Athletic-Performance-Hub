@@ -67,6 +67,63 @@ def _assert_pdf_structure(pdf_bytes: bytes) -> int:
     return len(page_objects)
 
 
+def _long_realistic_plan_rows() -> list[dict]:
+    """Erstellt genug typische Übungen für einen mehrseitigen Spielerplan."""
+    rows = [
+        {
+            "woche": 1, "tag": 1, "position": 0, "bereich": WARMUP_BEREICH,
+            "uebung": "APH Standard", "saetze": "-", "wiederholungen": "8 min",
+            "pause_sekunden": 0, "ausfuehrung": "aktivierend", "rpe": 2,
+            "energie_system": "Aktivierung", "equipment": "Körpergewicht",
+            "notiz": warmup_meta_kodieren("APH Standard", aph_dauer_min=8),
+        },
+        {
+            "woche": 1, "tag": 1, "position": 1, "bereich": "Kraft",
+            "uebung": "Bulgarian Split Squat", "saetze": "3",
+            "wiederholungen": "8 je Seite", "pause_sekunden": 90,
+            "ausfuehrung": "kontrolliert", "rpe": 7, "energie_system": "ATP-PC",
+            "equipment": "Kurzhanteln", "begruendung": "Einbeinige Stabilität",
+            "trainerhinweis": "Knieachse kontrollieren", "spielerhinweis": "beidseitig",
+            "abgehakt": 1,
+        },
+    ]
+    exercises = [
+        ("Nordic Hamstring Curl", "Kraft", "exzentrisch über drei Sekunden absenken, Hüfte stabil halten"),
+        ("Einbeiniger Romanian Deadlift", "Kraft", "Becken waagerecht halten und kontrolliert aufrichten"),
+        ("Copenhagen Plank", "Rumpf", "Körperlinie halten, Abduktion aktiv und ohne Hüftrotation ausführen"),
+        ("Pogos vorwärts", "Plyometrie", "kurze Bodenkontakte, steifer Fuß und aktive Armführung"),
+        ("Resisted Sprint Start", "Sprint", "ersten Schritt explosiv setzen, Rumpf nach vorn ausrichten"),
+        ("Landmine Press", "Kraft", "Rippen unten halten und Schulterblatt kontrolliert nach oben führen"),
+    ]
+    for index in range(2, 32):
+        exercise, area, execution = exercises[(index - 2) % len(exercises)]
+        rows.append({
+            "woche": 1 + index // 10,
+            "tag": 1 + index % 3,
+            "position": index,
+            "bereich": area,
+            "uebung": exercise,
+            "saetze": "3",
+            "wiederholungen": "6–8 je Seite",
+            "pause_sekunden": 75 + (index % 3) * 15,
+            "ausfuehrung": execution,
+            "rpe": 6 + index % 3,
+            "energie_system": "ATP-PC / neuromuskulär",
+            "equipment": "Kurzhanteln, Bank und Miniband",
+            "begruendung": (
+                "Verbessert die für Richtungswechsel relevante einbeinige "
+                "Kraftübertragung und kontrollierte Landestabilität."
+            ),
+            "trainerhinweis": (
+                "Bei Qualitätsverlust Wiederholung beenden und die Technik "
+                "vor der nächsten Serie erneut kurz demonstrieren."
+            ),
+            "spielerhinweis": "Schmerzfrei trainieren und Belastung direkt rückmelden.",
+            "abgehakt": index % 4 == 0,
+        })
+    return rows
+
+
 def run() -> None:
     unicode_text = "Rückkehr – Fußball: Größe, Übung, Straße, 5×6"
     normalized_unicode = pdf_report._safe(unicode_text)
@@ -74,6 +131,9 @@ def run() -> None:
     normalized_unicode.encode("latin-1")
 
     rendered_text = []
+    plan_table_widths = []
+    plan_row_heights = []
+    plan_header_pages = []
     base_report = pdf_report.AthletikReport
 
     class RecordingAthletikReport(base_report):
@@ -86,6 +146,17 @@ def run() -> None:
         def multi_cell(self, *args, **kwargs):
             rendered_text.append(pdf_report._safe(_text_argument(args, kwargs, 2)))
             return super().multi_cell(*args, **kwargs)
+
+        def table_header(self, cols, *args, **kwargs):
+            if cols and cols[0][0] == "Woche / Tag":
+                plan_header_pages.append(self.page_no())
+            return super().table_header(cols, *args, **kwargs)
+
+        def table_row_tp_report(self, vals, widths, *args, **kwargs):
+            plan_table_widths.append((sum(widths), self.content_width))
+            row_height = super().table_row_tp_report(vals, widths, *args, **kwargs)
+            plan_row_heights.append(row_height)
+            return row_height
 
     pdf_report.AthletikReport = RecordingAthletikReport
     try:
@@ -182,24 +253,7 @@ def run() -> None:
         defizite=[{
             "level": "moderat", "bereich": "Rumpfkraft", "text": "Seitliche Stabilität gezielt trainieren.",
         }],
-        plan_rows=[
-            {
-                "woche": 1, "tag": 1, "position": 0, "bereich": WARMUP_BEREICH,
-                "uebung": "APH Standard", "saetze": "-", "wiederholungen": "8 min",
-                "pause_sekunden": 0, "ausfuehrung": "aktivierend", "rpe": 2,
-                "energie_system": "Aktivierung", "equipment": "Körpergewicht",
-                "notiz": warmup_meta_kodieren("APH Standard", aph_dauer_min=8),
-            },
-            {
-                "woche": 1, "tag": 1, "position": 1, "bereich": "Kraft",
-                "uebung": "Bulgarian Split Squat", "saetze": "3",
-                "wiederholungen": "8 je Seite", "pause_sekunden": 90,
-                "ausfuehrung": "kontrolliert", "rpe": 7, "energie_system": "ATP-PC",
-                "equipment": "Kurzhanteln", "begruendung": "Einbeinige Stabilität",
-                "trainerhinweis": "Knieachse kontrollieren", "spielerhinweis": "beidseitig",
-                "abgehakt": 1,
-            },
-        ],
+        plan_rows=_long_realistic_plan_rows(),
         plan_meta={
             "version_nr": 4, "datum": "2026-08-21",
             "modus": "Vereinsbelastung – Fußball",
@@ -214,6 +268,17 @@ def run() -> None:
         pdf_report.AthletikReport = base_report
 
     pages = _assert_pdf_structure(report)
+    assert pages >= 10, "langer Trainingsplan muss mehrere Planseiten erzeugen"
+    assert len(plan_table_widths) == 32, "jede Planübung muss als Tabellenzeile erscheinen"
+    assert all(width <= content_width + 0.01 for width, content_width in plan_table_widths), (
+        "Trainingsplantabelle darf nicht über die A4-Inhaltsbreite laufen"
+    )
+    assert len(set(plan_header_pages)) >= 2, (
+        "Trainingsplan-Kopf muss auf jeder Folgeseite wiederholt werden"
+    )
+    assert max(plan_row_heights) <= 18.5, (
+        "Hinweise dürfen keine unnötig hohen Tabellenzeilen erzeugen"
+    )
     text = "\n".join(rendered_text)
     for expected in (
         "SPIROERGOMETRIE", "STUFENPROTOKOLL", "EINZELVERSUCHE",
@@ -226,7 +291,7 @@ def run() -> None:
 
     print(
         "PASS: vollständiger Spielerprofil-PDF in A4 Querformat "
-        "mit Unicode-Schutz (%d Seiten, ohne pdfinfo)" % pages
+        "mit Unicode-Schutz und Mehrseiten-Plan (%d Seiten, ohne pdfinfo)" % pages
     )
 
 

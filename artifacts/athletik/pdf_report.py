@@ -319,6 +319,92 @@ class AthletikReport(FPDF):
         self.multi_cell(last_w, line_h, last_text, fill=False,
                         new_x="LMARGIN", new_y="NEXT")
 
+    def _wrap_pdf_cell_text(self, text, width: float, max_lines: int = 5) -> list[str]:
+        """Bricht eine Tabellenzelle an Wort- und notfalls Zeichenbreiten um."""
+        text = _safe(text).strip() or "-"
+        lines = []
+        for paragraph in text.splitlines() or ["-"]:
+            words = paragraph.split()
+            current = ""
+            for word in words or ["-"]:
+                candidate = word if not current else current + " " + word
+                if self.get_string_width(candidate) <= width:
+                    current = candidate
+                    continue
+                if current:
+                    lines.append(current)
+                    current = ""
+                while word and self.get_string_width(word) > width:
+                    split_at = len(word)
+                    while split_at > 1 and self.get_string_width(word[:split_at]) > width:
+                        split_at -= 1
+                    lines.append(word[:split_at])
+                    word = word[split_at:]
+                current = word
+            if current:
+                lines.append(current)
+            elif not words:
+                lines.append("-")
+        lines = lines or ["-"]
+        if len(lines) > max_lines:
+            lines = lines[:max_lines]
+            suffix = "..."
+            while self.get_string_width(lines[-1] + suffix) > width and lines[-1]:
+                lines[-1] = lines[-1][:-1]
+            lines[-1] = (lines[-1].rstrip() + suffix).strip()
+        return lines
+
+    def table_row_tp_report(
+        self,
+        vals: list,
+        widths: list,
+        fill: bool = False,
+        header_fn=None,
+        font_size: float = 6.5,
+        line_h: float = 3.6,
+        max_lines: int = 5,
+    ) -> float:
+        """Kompakte, vollständig gewrappte Trainingsplanzeile für den Gesamtbericht.
+
+        Dieser Renderer ist absichtlich getrennt von ``table_row_tp``: Der
+        eigenständige Trainingsplan-PDF-Pfad behält sein bisheriges Layout.
+        """
+        self.set_font("Helvetica", "", font_size)
+        cell_lines = [
+            self._wrap_pdf_cell_text(value, width - 1.4, max_lines=max_lines)
+            for value, width in zip(vals, widths)
+        ]
+        row_h = max(len(lines) for lines in cell_lines) * line_h + 1.0
+
+        if self.get_y() + row_h > self.h - self.b_margin:
+            self.add_page()
+            if header_fn:
+                header_fn()
+
+        x0, y0 = self.get_x(), self.get_y()
+        total_w = sum(widths)
+        self.set_fill_color(*(self.LIGHT if fill else self.WHITE))
+        self.rect(x0, y0, total_w, row_h, "F")
+        self.set_draw_color(220, 224, 232)
+        self.set_line_width(0.15)
+        self.rect(x0, y0, total_w, row_h, "D")
+
+        x = x0
+        for index, (lines, width) in enumerate(zip(cell_lines, widths)):
+            self.set_xy(x, y0)
+            self.set_text_color(*self.DARK)
+            align = "C" if index == 7 else "L"  # RPE
+            self.multi_cell(
+                width, line_h, "\n".join(lines), border=0, fill=False,
+                align=align, new_x="RIGHT", new_y="TOP",
+            )
+            x += width
+            if index < len(widths) - 1:
+                self.line(x, y0, x, y0 + row_h)
+
+        self.set_xy(x0, y0 + row_h)
+        return row_h
+
     def check_page_break(self, needed_mm=30):
         if self.get_y() + needed_mm > self.h - self.b_margin:
             self.add_page()
@@ -1327,12 +1413,20 @@ def generate_report(
         except (TypeError, ValueError):
             pass
 
-        _plan_w = _widths(10, 32, 25, 52, 18, 29, 19, 33, 15, 26, 31, 42)
+        # A4 quer: Woche und Tag teilen sich eine feste Spalte. Alle
+        # Trainingsparameter bleiben separat und umbrechen nur in ihrer Zelle.
+        _plan_w = _widths(27, 21, 43, 14, 25, 15, 35, 13, 25, 29, 26)
         _plan_headers = (
-            "Wo.", "Tag", "Bereich", "Übung", "Sätze", "Wdh. / Dauer",
+            "Woche / Tag", "Bereich", "Übung", "Sätze", "Wdh. / Dauer",
             "Pause", "Ausführung", "RPE", "Energiesystem", "Equipment", "Hinweise / Status",
         )
-        pdf.table_header(list(zip(_plan_headers, _plan_w)), font_size=6.5)
+        _plan_header_cols = list(zip(_plan_headers, _plan_w))
+
+        def _render_plan_header():
+            pdf.table_header(_plan_header_cols, font_size=6.2)
+
+        pdf.check_page_break(12)
+        _render_plan_header()
         fill = False
         plan_display = sorted(
             plan_rows, key=lambda r: (
@@ -1345,13 +1439,6 @@ def generate_report(
         for row in plan_display:
             _warmup = row.get("bereich") == WARMUP_BEREICH
             _uebung = row.get("uebung") or "-"
-            _hinweise = " · ".join(filter(None, [
-                row.get("begruendung") or "",
-                row.get("notiz") or "",
-                row.get("trainerhinweis") or "",
-                row.get("spielerhinweis") or "",
-                "erledigt" if row.get("abgehakt") else "",
-            ]))
             if _warmup:
                 _wm = warmup_meta_lesen(row)
                 _wi = warmup_details(
@@ -1359,10 +1446,32 @@ def generate_report(
                     aph_dauer_min=_wm.get("aph_dauer_min") or 8,
                 )
                 _uebung = "Warm-up: %s" % _wi["titel"]
-                _hinweise = " · ".join(filter(None, [_wi.get("hinweis", ""), _hinweise]))
+            _hint_parts = []
+            if _warmup and _wi.get("hinweis"):
+                _hint_parts.append("Warm-up: %s" % _wi["hinweis"])
+            for _label, _value in (
+                ("Grund", row.get("begruendung")),
+                # Warm-up-Notizen enthalten die maschinenlesbare Auswahl-Metadaten.
+                # Der aufgelöste Hinweis oben ist die sinnvolle Darstellung im PDF.
+                ("Notiz", None if _warmup else row.get("notiz")),
+                ("Trainer", row.get("trainerhinweis")),
+                ("Spieler", row.get("spielerhinweis")),
+            ):
+                if _value:
+                    _compact_value = " ".join(str(_value).split())
+                    if len(_compact_value) > 56:
+                        _compact_value = _compact_value[:53].rstrip() + "..."
+                    _hint_parts.append("%s: %s" % (_label, _compact_value))
+            if row.get("abgehakt"):
+                _hint_parts.append("Status: erledigt")
+            _hinweise = " | ".join(_hint_parts) or "-"
             vals = [
-                str(row.get("woche") or "-"),
-                _plan_tag_namen.get(int(row.get("tag") or 0), "Tag %s" % (row.get("tag") or "-")),
+                "%s / %s" % (
+                    row.get("woche") or "-",
+                    _plan_tag_namen.get(
+                        int(row.get("tag") or 0), "Tag %s" % (row.get("tag") or "-")
+                    ),
+                ),
                 row.get("bereich") or "-",
                 _uebung,
                 row.get("saetze") or "-",
@@ -1374,7 +1483,10 @@ def generate_report(
                 row.get("equipment") or "-",
                 _hinweise or "-",
             ]
-            pdf.table_row_tp(vals, _plan_w, fill, font_size=6.5)
+            pdf.table_row_tp_report(
+                vals, _plan_w, fill, header_fn=_render_plan_header,
+                font_size=6.2, line_h=3.5, max_lines=5,
+            )
             fill = not fill
 
     # ════════════════════════════════════════════════════════════════════════════
