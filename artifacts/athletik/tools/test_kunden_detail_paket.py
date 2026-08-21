@@ -20,7 +20,11 @@ import database
 database.init_db()
 
 from license import LIZENZ_TYPEN
-from modules.kundenverwaltung import _detail_kundennummer, _detail_paket_key
+from modules.kundenverwaltung import (
+    _detail_kundennummer,
+    _detail_limit_label,
+    _detail_paket_key,
+)
 
 
 class TestKundenDetailLegacyPakete(unittest.TestCase):
@@ -42,6 +46,11 @@ class TestKundenDetailLegacyPakete(unittest.TestCase):
     def test_unbekanntes_paket_bleibt_nicht_zugeordnet(self):
         self.assertIsNone(_detail_paket_key("ALT_UNBEKANNT", False))
         self.assertIsNone(_detail_paket_key(None, True))
+
+    def test_unbegrenzte_und_begrenzte_paketlimits_sind_lesbar(self):
+        self.assertEqual(_detail_limit_label(None), "unbegrenzt")
+        self.assertEqual(_detail_limit_label(50), "50")
+        self.assertEqual(_detail_limit_label(2), "2")
 
     def test_vereinsvertrag_und_kundennummer_werden_nicht_vom_benutzer_ueberschrieben(self):
         with database.get_conn() as conn:

@@ -32,6 +32,8 @@ from license import (
     LIZENZ_TYPEN,
     LIZENZ_TYPEN_COMPAT,
     FEATURE_LABELS,
+    get_lizenz_info,
+    invalidate_lizenz_cache,
     normalize_lizenz_typ,
 )
 
@@ -42,6 +44,8 @@ _STATUS_LABELS = {
     "expired":   "🔴 Abgelaufen",
     "suspended": "⛔ Gesperrt",
     "cancelled": "🚫 Gekündigt",
+    "beendet":   "🔴 Beendet",
+    "geloescht": "⚪ Gelöscht",
     "unbekannt": "❓ Unbekannt",
 }
 
@@ -80,6 +84,37 @@ def _detail_kundennummer(verein: dict, benutzer: dict) -> str:
             return verein.get("kundennummer") or benutzer.get("kundennummer") or "—"
         return verein.get("kundennummer") or "—"
     return benutzer.get("kundennummer") or "—"
+
+
+def _detail_lizenzstatus(verein: dict, aktive_benutzer_anzahl: int) -> str:
+    """Liest den wirksamen Vereinsstatus aus der zentralen Lizenzlogik."""
+    lizenzquelle = {
+        **verein,
+        "aktive_benutzer_anzahl": aktive_benutzer_anzahl,
+    }
+    return get_lizenz_info(lizenzquelle)["lizenz_status"]
+
+
+def _detail_limit_label(limit: int | None) -> str:
+    """Formatiert Paketlimits für die Anzeige, ohne sie fachlich zu verändern."""
+    return "unbegrenzt" if limit is None else str(limit)
+
+
+def _detail_lizenz_speichern(
+    entity_id: int,
+    lizenztyp: str,
+    lizenzstatus: str,
+    lizenz_bis: str | None,
+    testphase_bis: str | None,
+    *,
+    vertragspartner_verein: bool,
+) -> None:
+    """Speichert die Detail-Lizenz und verwirft danach nur den betroffenen Cache."""
+    if vertragspartner_verein:
+        lizenz_setzen(entity_id, lizenztyp, lizenzstatus, lizenz_bis, testphase_bis)
+        invalidate_lizenz_cache(entity_id)
+    else:
+        trainer_lizenz_setzen(entity_id, lizenztyp, lizenzstatus, lizenz_bis, testphase_bis)
 
 
 def _kpis(kunden: list[dict]) -> None:
@@ -548,7 +583,16 @@ def _detail_c_lizenz(daten: dict) -> None:
         src.get("lizenztyp"),
         bool(v.get("ist_technischer_mandant")) if v else None,
     )
-    liz_status = src.get("lizenz_status") or "trial"
+    if v:
+        from database import get_conn as _gc_status
+        with _gc_status() as _conn_status:
+            aktive_benutzer_anzahl = _conn_status.execute(
+                "SELECT COUNT(*) FROM benutzer WHERE verein_id=? AND aktiv=1",
+                (v["id"],),
+            ).fetchone()[0]
+        liz_status = _detail_lizenzstatus(v, aktive_benutzer_anzahl)
+    else:
+        liz_status = src.get("lizenz_status") or "trial"
     liz_bis    = src.get("lizenz_bis") or "—"
     testphase  = src.get("testphase_bis") or "—"
     paket_def  = LIZENZ_TYPEN.get(lizenztyp) if lizenztyp else None
@@ -569,8 +613,10 @@ def _detail_c_lizenz(daten: dict) -> None:
                 trainer_anz = _conn.execute(
                     "SELECT COUNT(*) FROM benutzer WHERE verein_id=? AND aktiv=1", (entity_id,)
                 ).fetchone()[0]
-            c1.metric("Spieler",   f"{spieler_anz} / {paket_def.get('max_spieler','∞')}")
-            c2.metric("Trainer",   f"{trainer_anz} / {paket_def.get('max_trainer','∞')}")
+            max_spieler = paket_def.get("max_spieler") if paket_def else None
+            max_trainer = paket_def.get("max_trainer") if paket_def else None
+            c1.metric("Spieler",   f"{spieler_anz} / {_detail_limit_label(max_spieler)}")
+            c2.metric("Trainer",   f"{trainer_anz} / {_detail_limit_label(max_trainer)}")
             c3.metric("Testphase bis", testphase)
         else:
             c3.metric("Testphase bis", testphase)
@@ -664,16 +710,14 @@ def _detail_c_lizenz(daten: dict) -> None:
                     st.session_state.pop(_pk_key, None)
                     st.error(_downgrade_fehler)
                 else:
-                    if ist_verein or hat_mandant:
-                        # Echter Verein UND Trainer mit technischem Mandant: schreibt in vereine
-                        lizenz_setzen(entity_id, neues_paket, neuer_status,
-                                      neue_liz_bis.strip() or None,
-                                      neue_test_bis.strip() or None)
-                    else:
-                        # Standalone-Trainer ohne Mandant: schreibt in benutzer
-                        trainer_lizenz_setzen(entity_id, neues_paket, neuer_status,
-                                              neue_liz_bis.strip() or None,
-                                              neue_test_bis.strip() or None)
+                    _detail_lizenz_speichern(
+                        entity_id,
+                        neues_paket,
+                        neuer_status,
+                        neue_liz_bis.strip() or None,
+                        neue_test_bis.strip() or None,
+                        vertragspartner_verein=bool(ist_verein or hat_mandant),
+                    )
                     audit_log_eintragen(
                         b.get("id"), "paket_geaendert",
                         f"{lizenztyp} → {neues_paket} status={neuer_status}", _sa_id(),

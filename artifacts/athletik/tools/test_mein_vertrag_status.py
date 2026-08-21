@@ -20,6 +20,7 @@ database.init_db()
 
 import streamlit as st
 from license import get_lizenz_info, invalidate_lizenz_cache
+from modules.kundenverwaltung import _detail_lizenz_speichern, _detail_lizenzstatus
 from modules.lizenz_page import _sa_normalize
 from modules.mein_vertrag import _laden
 
@@ -82,6 +83,18 @@ def vertrag_und_admin_status(verein_id: int) -> tuple[dict, str]:
     return vertrag, admin["lizenz_status"]
 
 
+def kunden_detail_status(verein_id: int) -> str:
+    """Liest die Statusquelle, die Abschnitt C der Kundenansicht nutzt."""
+    with database.get_conn() as conn:
+        verein = dict(conn.execute("SELECT * FROM vereine WHERE id=?", (verein_id,)).fetchone())
+        aktive_benutzer = conn.execute(
+            "SELECT COUNT(*) FROM benutzer WHERE verein_id=? AND aktiv=1",
+            (verein_id,),
+        ).fetchone()[0]
+    invalidate_lizenz_cache(verein_id)
+    return _detail_lizenzstatus(verein, aktive_benutzer)
+
+
 st.session_state.clear()
 zukunft = (date.today() + timedelta(days=60)).isoformat()
 vergangenheit = (date.today() - timedelta(days=1)).isoformat()
@@ -91,6 +104,29 @@ aktiv_id = neuer_verein("Aktiv", status="active", lizenz_bis=zukunft, kundennumm
 vertrag, admin_status = vertrag_und_admin_status(aktiv_id)
 check("Aktive Lizenz erscheint im Vertrag als aktiv", vertrag["lizenz_status"] == "active")
 check("Aktive Lizenz stimmt mit Superadmin überein", vertrag["lizenz_status"] == admin_status)
+
+# Nach einer Detail-Speicherung darf kein zuvor gelesener Lizenzstatus aus dem
+# Streamlit-Cache weiter angezeigt werden.
+cache_id = neuer_verein("Cache Status", status="active", lizenz_bis=zukunft, kundennummer="APH-900099")
+check("Detail-Status wird vor dem Speichern zwischengespeichert", kunden_detail_status(cache_id) == "active")
+_detail_lizenz_speichern(
+    cache_id,
+    "VEREIN_PRO",
+    "suspended",
+    zukunft,
+    None,
+    vertragspartner_verein=True,
+)
+with database.get_conn() as conn:
+    cache_row = dict(conn.execute("SELECT * FROM vereine WHERE id=?", (cache_id,)).fetchone())
+    cache_aktive_benutzer = conn.execute(
+        "SELECT COUNT(*) FROM benutzer WHERE verein_id=? AND aktiv=1",
+        (cache_id,),
+    ).fetchone()[0]
+check(
+    "Kunden-Detail zeigt nach Speichern keinen veralteten Lizenzstatus",
+    _detail_lizenzstatus(cache_row, cache_aktive_benutzer) == "suspended",
+)
 
 # Reaktivierung: Flags und lokale Kündigungsdaten werden nur für reguläre Kunden zurückgesetzt.
 reaktiv_id = neuer_verein(
@@ -123,8 +159,14 @@ legacy_id = neuer_verein(
 )
 aktiver_benutzer(legacy_id, "legacy-aktiv-1@test.invalid")
 vertrag, admin_status = vertrag_und_admin_status(legacy_id)
+detail_status = kunden_detail_status(legacy_id)
 check("Legacy-Widerspruch erscheint im Vertrag als aktiv", vertrag["lizenz_status"] == "active")
 check("Legacy-Widerspruch stimmt vor Bereinigung mit Superadmin überein", vertrag["lizenz_status"] == admin_status)
+check("Wirksam aktive Legacy-Lizenz erscheint im Kunden-Detail als aktiv", detail_status == "active")
+check(
+    "Kunden-Detail, Vertrag und Superadmin zeigen denselben Legacy-Status",
+    detail_status == vertrag["lizenz_status"] == admin_status,
+)
 database.lizenz_setzen(legacy_id, "VEREIN_PRO", "active", zukunft)
 with database.get_conn() as conn:
     legacy_row = dict(conn.execute("SELECT * FROM vereine WHERE id=?", (legacy_id,)).fetchone())
@@ -221,9 +263,15 @@ deleted_id = neuer_verein(
     kundennummer="[gelöscht]",
 )
 vertrag, admin_status = vertrag_und_admin_status(deleted_id)
+detail_status = kunden_detail_status(deleted_id)
 check("Anonymisierter Kunde bleibt im Vertrag gelöscht", vertrag["lizenz_status"] == "geloescht")
 check("Anonymisierte Kundennummer bleibt unverändert", vertrag["kundennummer"] == "[gelöscht]")
 check("Anonymisierter Kunde stimmt mit Superadmin überein", vertrag["lizenz_status"] == admin_status)
+check("Echtes Löscharchiv bleibt im Kunden-Detail gelöscht", detail_status == "geloescht")
+check(
+    "Kunden-Detail, Vertrag und Superadmin zeigen denselben Archivstatus",
+    detail_status == vertrag["lizenz_status"] == admin_status,
+)
 try:
     database.lizenz_setzen(deleted_id, "VEREIN_PRO", "active", zukunft)
     reaktivierung_blockiert = False
