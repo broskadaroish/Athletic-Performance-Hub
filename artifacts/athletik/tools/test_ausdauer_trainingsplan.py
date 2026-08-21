@@ -29,6 +29,7 @@ db.init_db()
 from periodisierung import (
     defizit_score,
     trainingsplan_multi_erstellen,
+    zyklus_erstellen,
     _ausdauer_pool_fuer_plangruppe,
     _PLANGRUPPE_ZU_AUSDAUER,
 )
@@ -91,6 +92,8 @@ check("'fußball' ohne aerob → kein Ausdauer", "Ausdauer" not in s3, True)
 
 s4 = defizit_score("Intermittierende Ausdauer kritisch")
 check("'intermittier'-Keyword → Ausdauer", "Ausdauer" in s4, True)
+s5 = defizit_score({"Ausdauer": 3})
+check("Strukturierter Ausdauer-Score bleibt erhalten", s5.get("Ausdauer"), 3)
 
 
 # ── 2. _ausdauer_pool_fuer_plangruppe() ───────────────────────────────────
@@ -153,6 +156,28 @@ aus_ex_sr = [e["uebung"] for e in eintraege_sr if e["bereich"] == "Ausdauer"]
 print(f"    → Ausdauer-Übungen (Senior): {aus_ex_sr[:3]}")
 ga1_in_sr = any("GA1" in u or "Dauerlauf" in u or "RSA" in u or "Intervall" in u for u in aus_ex_sr)
 check("Senior-Plan enthält GA1/Dauerlauf/RSA/Intervall", ga1_in_sr, True)
+
+# Strukturierter Ausdauer-Score muss auch den Periodisierungspfad erreichen.
+sid_structured = _make_spieler("Strukturierte-Ausdauer", alter=10)
+structured_plan = trainingsplan_multi_erstellen(
+    spieler_id=sid_structured,
+    schwerpunkt_text={"Ausdauer": 3},
+    alter=10,
+    wochen=4,
+)
+check("Strukturierter Ausdauer-Plan erstellt", structured_plan > 0, True)
+structured_rows = _plan_uebungen(sid_structured)
+check("Strukturierter Score erzeugt Ausdauer-Block", any(
+    row["bereich"] == "Ausdauer" for row in structured_rows
+), True)
+
+sid_cycle = _make_spieler("Strukturierter-Zyklus", alter=10)
+structured_cycle = zyklus_erstellen(
+    sid_cycle, {"Ausdauer": 3}, wochen=4, alter=10
+)
+check("Strukturierter Ausdauer-Zyklus enthält Ausdauer", any(
+    row["bereich"] == "Ausdauer" for row in structured_cycle
+), True)
 
 
 # ── 4. kein Ausdauer-Defizit → kein Ausdauer-Block ────────────────────────

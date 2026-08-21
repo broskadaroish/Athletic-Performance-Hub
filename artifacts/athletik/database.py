@@ -2385,8 +2385,15 @@ def plan_version_erstellen(spieler_id: int, datum: str, erstellt_von: str = "",
                            modus: str = "Basis", schwerpunkt: str = "",
                            trainingszeit_min: int = 60, notizen: str = "",
                            diagnose_snapshot: str = "",
-                           wochenplanung_json: str | None = None) -> int:
-    """Erstellt eine neue AKTIV-Version und gibt deren ID zurück."""
+                           wochenplanung_json: str | None = None,
+                           status: str = "AKTIV") -> int:
+    """Erstellt eine Planversion und gibt deren ID zurück.
+
+    Entwurfs-Versionen erlauben eine atomare Aktivierung erst nach erfolgreicher
+    Planerzeugung, ohne den bisherigen aktiven Plan vorzeitig zu archivieren.
+    """
+    if status not in {"AKTIV", "ENTWURF"}:
+        raise ValueError("Ungültiger Planversionsstatus")
     with get_conn() as conn:
         max_v = (conn.execute(
             "SELECT COALESCE(MAX(version_nr),0) FROM trainingsplan_versionen WHERE spieler_id=?",
@@ -2397,7 +2404,7 @@ def plan_version_erstellen(spieler_id: int, datum: str, erstellt_von: str = "",
             "(spieler_id,version_nr,datum,erstellt_von,status,modus,schwerpunkt,trainingszeit_min,notizen,"
             "diagnose_snapshot,wochenplanung_json) "
             "VALUES (?,?,?,?,?,?,?,?,?,?,?)",
-            (spieler_id, max_v + 1, datum, erstellt_von, "AKTIV", modus,
+            (spieler_id, max_v + 1, datum, erstellt_von, status, modus,
              schwerpunkt, trainingszeit_min, notizen, diagnose_snapshot, wochenplanung_json),
         )
         return cur.lastrowid
@@ -2410,6 +2417,42 @@ def plan_version_archivieren_aktiv(spieler_id: int):
             "UPDATE trainingsplan_versionen SET status='ARCHIVIERT' WHERE spieler_id=? AND status='AKTIV'",
             (spieler_id,),
         )
+
+
+def plan_version_aktivieren(spieler_id: int, version_id: int) -> bool:
+    """Aktiviert einen erfolgreichen Entwurf und archiviert den bisherigen Plan."""
+    with get_conn() as conn:
+        exists = conn.execute(
+            "SELECT 1 FROM trainingsplan_versionen WHERE id=? AND spieler_id=? AND status='ENTWURF'",
+            (version_id, spieler_id),
+        ).fetchone()
+        if not exists:
+            return False
+        conn.execute(
+            "UPDATE trainingsplan_versionen SET status='ARCHIVIERT' WHERE spieler_id=? AND status='AKTIV'",
+            (spieler_id,),
+        )
+        conn.execute(
+            "UPDATE trainingsplan_versionen SET status='AKTIV' WHERE id=? AND spieler_id=?",
+            (version_id, spieler_id),
+        )
+        return True
+
+
+def plan_version_verwerfen(spieler_id: int, version_id: int) -> bool:
+    """Entfernt einen fehlgeschlagenen Entwurf samt eventuell erzeugter Übungen."""
+    with get_conn() as conn:
+        exists = conn.execute(
+            "SELECT 1 FROM trainingsplan_versionen WHERE id=? AND spieler_id=? AND status='ENTWURF'",
+            (version_id, spieler_id),
+        ).fetchone()
+        if not exists:
+            return False
+        conn.execute("DELETE FROM trainingsplan WHERE spieler_id=? AND plan_id=?",
+                     (spieler_id, version_id))
+        conn.execute("DELETE FROM trainingsplan_versionen WHERE id=? AND spieler_id=?",
+                     (version_id, spieler_id))
+        return True
 
 
 def plan_aktive_version(spieler_id: int) -> dict | None:

@@ -35,3 +35,11 @@ The root bug was `defizit_score()` in periodisierung.py calling `scores.setdefau
 
 **Why:**
 SCHRITT-3 spec required clean separation of NO_DATA from real deficits to prevent false deficit display.
+
+## Central source for plan areas
+
+**Rule:** Der strukturierte Defizitpfad ist für Trainingsplan und Periodisierung führend. Gespeicherte Legacy-Defizittexte dürfen nur dann als Fallback einfließen, wenn für den jeweiligen Test keine verwertbare strukturierte aktuelle Bewertung vorliegt.
+
+**Why:** Unterschiedliche Text- und Schwellenlogik in den beiden Planpfaden konnte dieselben Testdaten gegensätzlich bewerten, insbesondere altersgerecht gute Sprintwerte.
+
+**How to apply:** Neue oder angepasste Trainingsbereiche zuerst aus den strukturierten Defiziten ableiten und an beide Generatoren als Bereichs-Scores übergeben. Anthropometrie bleibt Kontext; bestehende Kraftschwellen werden nicht neu normiert.

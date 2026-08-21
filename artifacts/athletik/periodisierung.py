@@ -1437,14 +1437,24 @@ def _generate_begruendung(
 # Helper functions
 # ─────────────────────────────────────────────────────────────────────────────
 
-def defizit_score(schwerpunkt_text: str) -> dict[str, int]:
+def defizit_score(schwerpunkt_text: str | dict[str, int]) -> dict[str, int]:
     """
-    Parse the combined schwerpunkt text and return a priority score per area.
-    Score: 3 = primary, 2 = secondary, 1 = tertiary.
-    Returns {} for empty/missing input (NO_DATA → Basis-Modus, caller handles).
+    Liefert Prioritäten pro Trainingsbereich.
+
+    Strukturierte Bereichsscores aus analytics.py werden unverändert verwendet.
+    Der Textpfad bleibt nur für bestehende bzw. externe Aufrufer kompatibel.
+    Score: 3 = primär, 2 = sekundär, 1 = tertiär.
     """
     if not schwerpunkt_text:
         return {}  # NO_DATA: keine Defizite, Basis-Modus aktiv
+    if isinstance(schwerpunkt_text, dict):
+        return {
+            bereich: max(1, min(3, int(prioritaet)))
+            for bereich, prioritaet in schwerpunkt_text.items()
+            # Ausdauer nutzt einen eigenen altersgerechten Pool und gehört
+            # deshalb nicht zu den normalen _POOL-Schlüsseln.
+            if (bereich in _POOL or bereich == "Ausdauer") and prioritaet
+        }
     txt = schwerpunkt_text.lower().strip()
     if not txt:
         return {}  # leer nach strip → Basis-Modus
@@ -1671,7 +1681,7 @@ def schaetze_tag_dauer_min(eintraege: list[dict]) -> float:
     ), 1)
 
 
-def trainingsplan_multi_erstellen(spieler_id: int, schwerpunkt_text: str,
+def trainingsplan_multi_erstellen(spieler_id: int, schwerpunkt_text: str | dict[str, int],
                                   wochen: int = 8,
                                   alter: float | None = None,
                                   verletzung_bereiche: set | list | None = None,
@@ -1933,6 +1943,7 @@ _SHORT_PLAN_PHASE = {
 def _woche_eintraege_zyklus(
     woche: int, total_wochen: int, scores: dict[str, int],
     phase_name: str, phase_ziel: str, pool_key: str,
+    plangruppe: str = "Senior",
 ) -> list[dict]:
     """Build one week's entries for zyklus_erstellen (periodisierung table)."""
     pos_in_block = (woche - 1) % 4
@@ -1944,7 +1955,12 @@ def _woche_eintraege_zyklus(
     sorted_areas = sorted(scores.items(), key=lambda x: -x[1])
     for area, score in sorted_areas:
         n = max(0, score - 2) if is_deload else score
-        exercises = _pool_fuer_area(area, pool_key, n, offset=offset)
+        if area == "Ausdauer":
+            exercises = _ausdauer_pool_fuer_plangruppe(
+                plangruppe, pool_key, n, offset=offset
+            )
+        else:
+            exercises = _pool_fuer_area(area, pool_key, n, offset=offset)
         for uebung, saetze, volumen, haeufigkeit in exercises:
             if is_deload:
                 haeufigkeit = haeufigkeit.replace("3×", "2×").replace("4×", "2×")
@@ -1965,7 +1981,7 @@ def _woche_eintraege_zyklus(
     return entries
 
 
-def zyklus_erstellen(spieler_id: int, schwerpunkt_text: str,
+def zyklus_erstellen(spieler_id: int, schwerpunkt_text: str | dict[str, int],
                      wochen: int = 12,
                      alter: float | None = None) -> list[dict]:
     """
@@ -1982,7 +1998,9 @@ def zyklus_erstellen(spieler_id: int, schwerpunkt_text: str,
         for woche_start, woche_end, pool_key, ph_name, ph_ziel in _PHASEN:
             _pk = _max_pool_key(pool_key, cfg["max_pool_key"])
             for w in range(woche_start, woche_end + 1):
-                plan.extend(_woche_eintraege_zyklus(w, wochen, scores, ph_name, ph_ziel, _pk))
+                plan.extend(_woche_eintraege_zyklus(
+                    w, wochen, scores, ph_name, ph_ziel, _pk, plangruppe
+                ))
     else:
         block_size = max(1, wochen // max(1, len(_SHORT_PLAN_PHASE.get(wochen, [(1, "", "", "")]))))
         phase_defs = _SHORT_PLAN_PHASE.get(wochen, [(1, "stabilisation", "Stabilisation", "")])
@@ -1992,7 +2010,9 @@ def zyklus_erstellen(spieler_id: int, schwerpunkt_text: str,
             for week_nr in range(w, w + block_size):
                 if week_nr > wochen:
                     break
-                plan.extend(_woche_eintraege_zyklus(week_nr, wochen, scores, ph_name, ph_ziel, _pk))
+                plan.extend(_woche_eintraege_zyklus(
+                    week_nr, wochen, scores, ph_name, ph_ziel, _pk, plangruppe
+                ))
             w += block_size
 
     # Altersgerechte Übungssubstitution
@@ -2025,7 +2045,7 @@ def zyklus_laden(spieler_id: int) -> list:
 # Public API: Deficit display table
 # ─────────────────────────────────────────────────────────────────────────────
 
-def defizit_tabelle(schwerpunkt_text: str) -> list[dict]:
+def defizit_tabelle(schwerpunkt_text: str | dict[str, int]) -> list[dict]:
     """Return sorted deficit analysis for UI display."""
     scores   = defizit_score(schwerpunkt_text)
     prio_map = {3: "🔴 Primär", 2: "🟡 Sekundär", 1: "🟢 Tertiär"}
@@ -2048,13 +2068,21 @@ _WOCHENTAGE_WP = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Sa
 _WT_IDX_WP = {t: i for i, t in enumerate(_WOCHENTAGE_WP)}
 
 
-def _schwerpunkt_intensitaet_wp(schwerpunkt_text: str) -> int:
+def _schwerpunkt_intensitaet_wp(schwerpunkt_text: str | dict[str, int]) -> int:
     """
     Gibt die Intensitätsstufe des Trainingsschwerpunkts zurück.
     0 = leicht (Mobilität, Stabilität, Korrektiv)
     1 = mittel (Kraft, Hüfte, Knie, Agilität)
     2 = hoch (Sprint, Beschleunigung, Explosivkraft, Power, Schnelligkeit)
     """
+    if isinstance(schwerpunkt_text, dict):
+        bereiche = set(schwerpunkt_text)
+        if bereiche & {"Schnelligkeit", "Explosivität"}:
+            return 2
+        if bereiche & {"Agilität", "Knie", "Hüfte", "Oberschenkel", "Fußball"}:
+            return 1
+        return 0
+
     txt = schwerpunkt_text.lower()
     if any(w in txt for w in ("sprint", "beschleunig", "explosiv", "power", "schnell",
                                "sprung", "maximum", "plyometrie")):
@@ -2165,7 +2193,7 @@ def empfohlene_athletik_tage(
     verein_tage: list[str],
     spiel_tage: list[str],
     alter: float | None = None,
-    schwerpunkt_text: str = "",
+    schwerpunkt_text: str | dict[str, int] = "",
 ) -> list[str]:
     """
     Schlägt geeignete Wochentage für Athletikeinheiten vor.
@@ -2177,7 +2205,8 @@ def empfohlene_athletik_tage(
         verein_tage: z.B. ["Dienstag", "Donnerstag"]
         spiel_tage: z.B. ["Samstag"] — leer wenn kein Spiel.
         alter: Spieleralter (für zukünftige Erweiterungen).
-        schwerpunkt_text: Trainingsinhalt-Text zur Intensitätseinschätzung.
+        schwerpunkt_text: Trainingsinhalt-Text oder strukturierte Bereichsscores
+            zur Intensitätseinschätzung.
 
     Returns:
         Sortierte Liste von Wochentagsnamen.

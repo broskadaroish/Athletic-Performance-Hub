@@ -58,7 +58,8 @@ from database import (
     fms_speichern, fms_letzter, fms_history, fms_history_full,
     y_balance_speichern, y_balance_letzter, y_balance_history, y_balance_history_full,
     trainingsplan_loeschen, trainingsplan_eintrag_speichern, trainingsplan_laden,
-    plan_version_erstellen, plan_version_archivieren_aktiv, plan_aktive_version,
+    plan_version_erstellen, plan_version_archivieren_aktiv, plan_version_aktivieren,
+    plan_version_verwerfen, plan_aktive_version,
     plan_aktive_version_id, plan_versionen_laden, plan_laden_nach_version,
     plan_eintrag_loeschen, plan_eintrag_aktualisieren, plan_eintraege_position_tauschen,
     plan_notizen_speichern, plan_trainingszeit_setzen, plan_duplizieren,
@@ -157,7 +158,7 @@ from y_balance import YBalanceResult
 from kraft import KraftErgebnis as _KraftErgebnis, epley_1rm as _epley_1rm
 from analytics import (
     risiko_score, risiko_label, athletik_score, athletik_sub_scores,
-    defizite_ermitteln, schwerpunkt_sammeln, testdaten_uebersicht,
+    defizite_ermitteln, trainingsbereich_scores_ermitteln, schwerpunkt_sammeln, testdaten_uebersicht,
     ist_unauffaellig, ERHALTUNGS_SCHWERPUNKT, ERHALTUNGS_BEGRUENDUNG,
 )
 from periodisierung import (zyklus_erstellen, zyklus_laden, trainingsplan_multi_erstellen,
@@ -3847,7 +3848,7 @@ def page_spieler_profil():
     label, level = risiko_label(rs)
     _spiro_p = spiro_test_letzter(sid)
     ascore   = athletik_score(fms, y, sprint, sprung, agil, aus, spiro_row=_spiro_p)
-    defizite = defizite_ermitteln(fms, y, sprint, sprung, agil, aus, anthro, spiro_row=_spiro_p,
+    defizite = defizite_ermitteln(fms, y, sprint, sprung, agil, aus, anthro, kraft_row=kraft, spiro_row=_spiro_p,
                                   geschlecht=auswahl.get("geschlecht", "Männlich"))
     schwerpunkt = schwerpunkt_sammeln(fms, y, sprint, sprung, agil, aus,
                                       kraft_row=kraft_letzter(sid), spiro_row=_spiro_p)
@@ -4361,19 +4362,22 @@ def page_trainingsplan():
     sprung  = sprung_letzter(sid)
     agil    = agilitaet_letzter(sid)
     aus     = ausdauer_letzter(sid)
+    kraft   = kraft_letzter(sid)
     spiro   = spiro_test_letzter(sid)
 
     # ── SCHRITT 3: Datenstatus + Defiziterkennung (NO_DATA ≠ DEFIZIT) ────────
-    _tests_vorhanden  = any([fms, y, sprint, sprung, agil, aus, spiro])
-    defizite_valide   = defizite_ermitteln(fms, y, sprint, sprung, agil, aus, spiro_row=spiro,
+    _tests_vorhanden  = any([fms, y, sprint, sprung, agil, aus, kraft, spiro])
+    defizite_valide   = defizite_ermitteln(fms, y, sprint, sprung, agil, aus, kraft_row=kraft, spiro_row=spiro,
                                             geschlecht=auswahl.get("geschlecht", "Männlich"))
     _anzahl_defizite  = len(defizite_valide)   # nur echte, datenbasierte Defizite zählen
 
-    schwerpunkt = schwerpunkt_sammeln(fms, y, sprint, sprung, agil, aus,
-                                      kraft_row=kraft_letzter(sid), spiro_row=spiro)
+    schwerpunkt = trainingsbereich_scores_ermitteln(
+        fms, y, sprint, sprung, agil, aus, kraft_row=kraft, spiro_row=spiro,
+        geschlecht=auswahl.get("geschlecht", "Männlich"),
+    )
 
     # Planmodus bestimmen: Basis / Erhaltung / Diagnostik
-    _tp_unauffaellig = ist_unauffaellig(fms, y, sprint, sprung, agil, aus, spiro_row=spiro)
+    _tp_unauffaellig = _tests_vorhanden and not schwerpunkt
     if not _tests_vorhanden:
         _plan_modus = "Basis"       # Fall A: kein Test → kein Defizit, Basis-Modus
     elif _tp_unauffaellig:
@@ -4381,6 +4385,14 @@ def page_trainingsplan():
         schwerpunkt = ERHALTUNGS_SCHWERPUNKT
     else:
         _plan_modus = "Diagnostik"  # echte Defizite erkannt
+
+    _schwerpunkt_historie = (
+        ", ".join(
+            f"{bereich} (Priorität {prioritaet})"
+            for bereich, prioritaet in sorted(schwerpunkt.items(), key=lambda item: -item[1])
+        )
+        if isinstance(schwerpunkt, dict) else str(schwerpunkt or "")
+    )
 
     tab_auto, tab_manual, tab_view = st.tabs(["🤖 Automatisch generieren", "✍️ Manuell hinzufügen", "📋 Plan anzeigen"])
 
@@ -4867,17 +4879,6 @@ def page_trainingsplan():
         else:
             if st.button("⚡ Trainingsplan erstellen", use_container_width=True,
                          key="auto_gen_btn", type="primary"):
-                # Bisherige Version archivieren + neue erstellen
-                plan_version_archivieren_aktiv(sid)
-                _new_pid = plan_version_erstellen(
-                    sid, str(date.today()),
-                    erstellt_von=st.session_state.get("username", ""),
-                    modus=_plan_modus,
-                    schwerpunkt=schwerpunkt[:500] if schwerpunkt else "",
-                    trainingszeit_min=trainingszeit_min,
-                    wochenplanung_json=_wochenplanung_json,
-                )
-                _philosophie_speichern(sid, selected_philosophie_key)
                 # VB-Modus: gewaehlte_athletik_anzahl an Generator übergeben —
                 # begrenzt tatsächlich erzeugte APH-Einheiten pro Woche.
                 _gen_vb_anzahl: int | None = None
@@ -4890,24 +4891,46 @@ def page_trainingsplan():
                     except Exception:
                         _gen_vb_anzahl = None
 
-                n = trainingsplan_multi_erstellen(
-                    sid, schwerpunkt,
-                    wochen=plan_laenge,
-                    alter=_tp_alter,
-                    verletzung_bereiche=_aktive_bereiche,
-                    saison_phase=saison_phase,
-                    verfuegbares_equipment=verfuegbares_equipment,
-                    philosophie_key=selected_philosophie_key,
-                    trainingszeit_min=trainingszeit_min,
-                    plan_id=_new_pid,
-                    vb_anzahl=_gen_vb_anzahl,
-                )
-                st.session_state.pop(_confirm_key, None)
-                _phase_hinweis   = f" ({saison_phase})" if saison_phase != "Normal" else ""
-                _verletz_hinweis = f" · {len(_aktive_bereiche)} Bereich(e) ausgeschlossen" if _aktive_bereiche else ""
-                _equip_hinweis   = f" · {', '.join(verfuegbares_equipment[:3])}{'…' if len(verfuegbares_equipment)>3 else ''}" if verfuegbares_equipment else ""
-                _save_ok(f"Trainingsplan erstellt — {n} Übungen, {plan_laenge} Wochen, {trainingszeit_min} min/Einheit ({_tp_pg}){_phase_hinweis}{_verletz_hinweis}.")
-                st.rerun()
+                _new_pid: int | None = None
+                try:
+                    _new_pid = plan_version_erstellen(
+                        sid, str(date.today()),
+                        erstellt_von=st.session_state.get("username", ""),
+                        modus=_plan_modus,
+                        schwerpunkt=_schwerpunkt_historie[:500],
+                        trainingszeit_min=trainingszeit_min,
+                        wochenplanung_json=_wochenplanung_json,
+                        status="ENTWURF",
+                    )
+                    n = trainingsplan_multi_erstellen(
+                        sid, schwerpunkt,
+                        wochen=plan_laenge,
+                        alter=_tp_alter,
+                        verletzung_bereiche=_aktive_bereiche,
+                        saison_phase=saison_phase,
+                        verfuegbares_equipment=verfuegbares_equipment,
+                        philosophie_key=selected_philosophie_key,
+                        trainingszeit_min=trainingszeit_min,
+                        plan_id=_new_pid,
+                        vb_anzahl=_gen_vb_anzahl,
+                    )
+                    if n <= 0:
+                        raise RuntimeError("Der Plan enthält keine passenden Übungen.")
+                    if not plan_version_aktivieren(sid, _new_pid):
+                        raise RuntimeError("Die erzeugte Planversion konnte nicht aktiviert werden.")
+                except Exception as _plan_error:
+                    if _new_pid is not None:
+                        plan_version_verwerfen(sid, _new_pid)
+                    _log.exception("Automatische Planerstellung fehlgeschlagen")
+                    st.error(f"Trainingsplan konnte nicht erstellt werden: {_plan_error}")
+                else:
+                    _philosophie_speichern(sid, selected_philosophie_key)
+                    st.session_state.pop(_confirm_key, None)
+                    _phase_hinweis   = f" ({saison_phase})" if saison_phase != "Normal" else ""
+                    _verletz_hinweis = f" · {len(_aktive_bereiche)} Bereich(e) ausgeschlossen" if _aktive_bereiche else ""
+                    _equip_hinweis   = f" · {', '.join(verfuegbares_equipment[:3])}{'…' if len(verfuegbares_equipment)>3 else ''}" if verfuegbares_equipment else ""
+                    _save_ok(f"Trainingsplan erstellt — {n} Übungen, {plan_laenge} Wochen, {trainingszeit_min} min/Einheit ({_tp_pg}){_phase_hinweis}{_verletz_hinweis}.")
+                    st.rerun()
 
     with tab_manual:
         st.markdown("### Übung manuell hinzufügen")
@@ -5853,13 +5876,16 @@ def page_periodisierung():
     sprung = sprung_letzter(sid)
     agil   = agilitaet_letzter(sid)
     aus    = ausdauer_letzter(sid)
+    kraft  = kraft_letzter(sid)
     _spiro_perio = spiro_test_letzter(sid)
-    schwerpunkt  = schwerpunkt_sammeln(fms, y, sprint, sprung, agil, aus,
-                                       kraft_row=kraft_letzter(sid),
-                                       spiro_row=_spiro_perio)
+    schwerpunkt  = trainingsbereich_scores_ermitteln(
+        fms, y, sprint, sprung, agil, aus, kraft_row=kraft,
+        spiro_row=_spiro_perio, geschlecht=auswahl.get("geschlecht", "Männlich"),
+    )
 
     # Erhaltungstraining-Modus: Tests vorhanden, keine Defizite → ERHALTUNGS_SCHWERPUNKT
-    if ist_unauffaellig(fms, y, sprint, sprung, agil, aus, spiro_row=_spiro_perio) and not schwerpunkt.strip():
+    _perio_tests_vorhanden = any([fms, y, sprint, sprung, agil, aus, kraft, _spiro_perio])
+    if _perio_tests_vorhanden and not schwerpunkt:
         schwerpunkt = ERHALTUNGS_SCHWERPUNKT
         st.markdown(
             f'<div style="background:#0d2415;border:1px solid #3fb950;border-radius:10px;'

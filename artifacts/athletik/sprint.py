@@ -118,11 +118,11 @@ class SprintErgebnis:
 
     @property
     def defizite(self) -> list[str]:
-        """Gibt Trainingsbereiche zurück, die auf Optimierungsbedarf hinweisen."""
+        """Gibt nur aus der aktuellen altersgerechten Bewertung abgeleitete Hinweise zurück."""
         d = []
-        if self.beste_10m and self.beste_10m > REFERENZ_ZEITEN["10m"]["Leistungssport"] * (1.05 if self.geschlecht == "Männlich" else 1.05):
+        if self.bewertung_10m in ("Mittel (Breitensport)", "Verbesserungsbedarf"):
             d.append("Linearbeschleunigung (0–10 m)")
-        if self.beste_30m and self.beste_30m > REFERENZ_ZEITEN["30m"]["Leistungssport"] * (1.05 if self.geschlecht == "Männlich" else 1.05):
+        if self.bewertung_30m in ("Mittel (Breitensport)", "Verbesserungsbedarf"):
             d.append("Maximalgeschwindigkeit (20–30 m)")
         if self.beschl_index and self.beschl_index > 0.60:
             d.append("Startexplosivität (Beschleunigungsindex)")

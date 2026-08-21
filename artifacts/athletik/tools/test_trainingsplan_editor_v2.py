@@ -24,11 +24,16 @@ from database import (
     plan_eintrag_aktualisieren,
     plan_eintrag_verteilen,
     plan_laden_nach_version,
+    plan_aktive_version,
+    plan_version_aktivieren,
     plan_version_erstellen,
+    plan_version_verwerfen,
+    plan_versionen_laden,
     plan_warmup_speichern,
     trainingsplan_eintrag_speichern,
 )
 from pdf_report import generate_trainingsplan_pdf
+from periodisierung import empfohlene_athletik_tage, trainingsplan_multi_erstellen
 from warmup import (
     APH_STANDARD,
     FIFA_INDIVIDUELL,
@@ -133,5 +138,53 @@ pdf = generate_trainingsplan_pdf(
     legacy_warmup_min=10,
 )
 check("E32 PDF für gespeicherte Warm-ups erzeugbar", pdf.startswith(b"%PDF") and len(pdf) > 1000)
+
+# F: Strukturierte Defizit-Scores bleiben im Plan- und Vereinsbelastungspfad nutzbar.
+with get_conn() as conn:
+    p3 = conn.execute(
+        "INSERT INTO spieler (name,vorname,nachname) VALUES ('Test Drei','Test','Drei')"
+    ).lastrowid
+
+scores = {"Schnelligkeit": 3, "Rumpf": 2}
+tage = empfohlene_athletik_tage(
+    anzahl=1,
+    verein_tage=["Dienstag", "Donnerstag"],
+    spiel_tage=["Samstag"],
+    alter=15,
+    schwerpunkt_text=scores,
+)
+check("F33 Vereinsbelastung akzeptiert strukturierte Scores", len(tage) == 1)
+
+dict_version = plan_version_erstellen(p3, "2026-08-21", "test", "Diagnostik")
+dict_plan_count = trainingsplan_multi_erstellen(
+    p3, scores, wochen=4, alter=15, plan_id=dict_version
+)
+dict_plan = plan_laden_nach_version(dict_version)
+check("F34 Planerstellung akzeptiert strukturierte Scores", dict_plan_count > 0 and len(dict_plan) > 0)
+check("F35 strukturierte Schnelligkeit erreicht den Plan", any(
+    row["bereich"] == "Schnelligkeit" for row in dict_plan
+))
+
+# G: Neue Versionen bleiben bis zur erfolgreichen Planerzeugung ein Entwurf.
+with get_conn() as conn:
+    p4 = conn.execute(
+        "INSERT INTO spieler (name,vorname,nachname) VALUES ('Test Vier','Test','Vier')"
+    ).lastrowid
+
+old_version = plan_version_erstellen(p4, "2026-08-21", "test", "Basis")
+draft_version = plan_version_erstellen(
+    p4, "2026-08-21", "test", "Diagnostik", status="ENTWURF"
+)
+check("G36 Entwurf ersetzt den aktiven Plan noch nicht", plan_aktive_version(p4)["id"] == old_version)
+check("G37 erfolgreicher Entwurf wird atomar aktiviert", plan_version_aktivieren(p4, draft_version))
+check("G38 Aktivierung archiviert erst dann den alten Plan", plan_aktive_version(p4)["id"] == draft_version)
+
+failed_draft = plan_version_erstellen(
+    p4, "2026-08-21", "test", "Diagnostik", status="ENTWURF"
+)
+check("G39 fehlgeschlagener Entwurf wird verworfen", plan_version_verwerfen(p4, failed_draft))
+check("G40 verworfener Entwurf bleibt nicht in der Historie", all(
+    version["id"] != failed_draft for version in plan_versionen_laden(p4)
+))
 
 print("\nGesamt: PASS")

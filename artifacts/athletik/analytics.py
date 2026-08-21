@@ -282,6 +282,7 @@ def defizite_ermitteln(
     agil_row=None,
     aus_row=None,
     anthro_row=None,
+    kraft_row=None,
     spiro_row=None,
     geschlecht: str = "Männlich",
 ) -> list[dict]:
@@ -360,19 +361,38 @@ def defizite_ermitteln(
 
     # ── Sprint ────────────────────────────────────────────────────────────────
     if sprint_row:
-        defizit_text = str(sprint_row.get("defizite") or "")
         bew10  = str(sprint_row.get("bewertung_10m") or "")
         bew30  = str(sprint_row.get("bewertung_30m") or "")
+        beschl_idx = sprint_row.get("beschl_index") or 0
         _d     = sprint_row.get("datum") or sprint_row.get("erstellt_am")
+        _hat_bew10 = bool(bew10 and bew10 != "—")
+        _hat_bew30 = bool(bew30 and bew30 != "—")
+        _legacy_defizite = str(sprint_row.get("defizite") or "").lower()
+
         if bew10 == "Verbesserungsbedarf":
             add("kritisch", "Lineargeschwindigkeit", "10-m-Sprintzeit unter Referenzwert — Beschleunigung verbessern.", "Sprint", _d)
-        elif bew10 in ("Mittel (Breitensport)",):
+        elif bew10 == "Mittel (Breitensport)":
             add("warnung", "Lineargeschwindigkeit", "10-m-Sprintzeit im mittleren Bereich.", "Sprint", _d)
+        elif not _hat_bew10 and any(
+            kw in _legacy_defizite for kw in ("linearbeschleunigung", "antrittsschnelligkeit")
+        ):
+            add("warnung", "Lineargeschwindigkeit", "Historischer Sprintbefund weist auf Beschleunigungsbedarf hin.", "Sprint", _d)
+
         if bew30 == "Verbesserungsbedarf":
             add("kritisch", "Maximalgeschwindigkeit", "30-m-Sprintzeit unter Referenzwert — Maximalgeschwindigkeit verbessern.", "Sprint", _d)
         elif bew30 == "Mittel (Breitensport)":
             add("warnung", "Maximalgeschwindigkeit", "30-m-Sprintzeit im mittleren Bereich.", "Sprint", _d)
-        if "Startexplosivität" in defizit_text:
+        elif not _hat_bew30 and (
+            "maximalgeschwindigkeit" in _legacy_defizite
+            or ("schnelligkeit" in _legacy_defizite and "antrittsschnelligkeit" not in _legacy_defizite)
+        ):
+            add("warnung", "Maximalgeschwindigkeit", "Historischer Sprintbefund weist auf Maximalgeschwindigkeitsbedarf hin.", "Sprint", _d)
+
+        if not beschl_idx and "startexplosivität" in _legacy_defizite:
+            add("warnung", "Startexplosivität", "Historischer Sprintbefund weist auf einen auffälligen Beschleunigungsindex hin.", "Sprint", _d)
+        # Der Beschleunigungsindex ist ein strukturierter aktueller Wert und
+        # bleibt unabhängig von 10-/30-m-Bewertungen maßgeblich.
+        if beschl_idx and float(beschl_idx) > 0.60:
             add("warnung", "Startexplosivität", "Beschleunigungsindex erhöht — Reaktivkraft fördern.", "Sprint", _d)
 
     # ── Sprung ────────────────────────────────────────────────────────────────
@@ -472,6 +492,21 @@ def defizite_ermitteln(
             add("warnung", "Wachstum / Belastungssteuerung",
                 "Spieler befindet sich im oder vor dem Wachstumsschub — Belastung anpassen.", "Anthropometrie", _d)
 
+    # ── Kraftdiagnostik ───────────────────────────────────────────────────────
+    if kraft_row:
+        _d = kraft_row.get("datum") or kraft_row.get("erstellt_am")
+        rel = kraft_row.get("relative_kraft_direkt") or kraft_row.get("relative_kraft_geschaetzt") or 0
+        ventral = kraft_row.get("ventral_sekunden") or 0
+        lateral_asym = kraft_row.get("lateral_asymmetrie_pct") or 0
+        # Bereits bestehende Schwellen aus schwerpunkt_sammeln() unverändert nutzen.
+        if rel and float(rel) < 1.0:
+            add("warnung", "Rumpfkraft", "Relative Kraft unter bestehender Trainingsschwelle.", "Kraft", _d)
+        if ventral and float(ventral) < 90:
+            add("warnung", "Rumpfkraft", "Rumpfkraftausdauer unter bestehender Trainingsschwelle.", "Kraft", _d)
+        if lateral_asym and float(lateral_asym) > 10:
+            add("warnung", "Hüfte", "Laterale Kraftasymmetrie über bestehender Trainingsschwelle.", "Kraft", _d)
+            add("warnung", "Rumpfkraft", "Laterale Kraftasymmetrie erfordert Rumpfstabilisierung.", "Kraft", _d)
+
     # ── Spiroergometrie / Stufentest ──────────────────────────────────────────
     if spiro_row:
         vo2    = spiro_row.get("vo2_peak") or spiro_row.get("vo2_max") or spiro_row.get("geschaetzte_vo2max")
@@ -490,6 +525,62 @@ def defizite_ermitteln(
                 f"Schwellengeschwindigkeit {float(schw_v):.1f} km/h — Schwellentraining empfohlen.", "Stufentest", _d)
 
     return defizite
+
+
+# ─── Zentrale Defizit-zu-Trainingsbereich-Abbildung ───────────────────────────
+
+_DEFIZIT_TRAININGSBEREICH = {
+    "Ganzkörperstabilität": "Rumpf",
+    "Core / Rumpf": "Rumpf",
+    "Rumpfkraft": "Rumpf",
+    "Schulter": "Rumpf",
+    "Hüfte": "Hüfte",
+    "Knie": "Knie",
+    "Sprunggelenk": "Sprunggelenk",
+    "Lineargeschwindigkeit": "Schnelligkeit",
+    "Maximalgeschwindigkeit": "Schnelligkeit",
+    "Startexplosivität": "Schnelligkeit",
+    "Explosivkraft": "Explosivität",
+    "Horizontalexplosivkraft": "Explosivität",
+    "Reaktivkraft": "Explosivität",
+    "Sprungasymmetrie": "Knie",
+    "Mehrdirektionale Agilität": "Agilität",
+    "Richtungswechsel": "Agilität",
+    "Gesamtagilität": "Agilität",
+    "Richtungswechsel-Asymmetrie": "Agilität",
+    "Intermittierende Ausdauer": "Ausdauer",
+    "Aerobe Kapazität": "Ausdauer",
+    "Laktatschwelle": "Ausdauer",
+}
+
+
+def trainingsbereich_scores_ermitteln(
+    fms_row=None,
+    y_row=None,
+    sprint_row=None,
+    sprung_row=None,
+    agil_row=None,
+    aus_row=None,
+    anthro_row=None,
+    kraft_row=None,
+    spiro_row=None,
+    geschlecht: str = "Männlich",
+) -> dict[str, int]:
+    """Leitet Planbereiche ausschließlich aus strukturierten Defiziten ab.
+
+    Anthropometrie bleibt absichtlich ein sichtbarer Kontext-/Hinweisbereich:
+    Für BMI und Reifestatus wird ohne neue medizinische Interpretation kein
+    Trainingsbereich erzeugt.
+    """
+    scores: dict[str, int] = {}
+    for defizit in defizite_ermitteln(
+        fms_row, y_row, sprint_row, sprung_row, agil_row, aus_row,
+        anthro_row, kraft_row, spiro_row, geschlecht,
+    ):
+        bereich = _DEFIZIT_TRAININGSBEREICH.get(defizit["bereich"])
+        if bereich:
+            scores[bereich] = max(scores.get(bereich, 0), int(defizit["prioritaet"]))
+    return scores
 
 
 # ─── Schwerpunkt-Text ─────────────────────────────────────────────────────────
@@ -671,60 +762,21 @@ def schwerpunkt_sammeln(
     kraft_row=None,
     spiro_row=None,
 ) -> str:
-    """Combine schwerpunkt/deficit texts from all modules for training recommendations."""
-    parts = []
-    if fms_row and fms_row.get("schwerpunkt"):
-        parts.append(str(fms_row["schwerpunkt"]))
-    if y_row and y_row.get("schwerpunkt"):
-        parts.append(str(y_row["schwerpunkt"]))
-    if sprint_row:
-        defizite = str(sprint_row.get("defizite") or "")
-        if defizite:
-            parts.append(defizite)
-        bew10 = str(sprint_row.get("bewertung_10m") or "")
-        bew30 = str(sprint_row.get("bewertung_30m") or "")
-        if "Verbesserungsbedarf" in bew10 or "Mittel (Breitensport)" in bew10:
-            parts.append("sprint beschleunigung")
-        if "Verbesserungsbedarf" in bew30 or "Mittel (Breitensport)" in bew30:
-            parts.append("sprint schnelligkeit")
-    if sprung_row:
-        bew = str(sprung_row.get("bewertung_cmj") or "")
-        if "Verbesserungsbedarf" in bew:
-            parts.append("explosivkraft sprung")
-        asym = sprung_row.get("cmj_asymmetrie") or 0
-        if asym and float(asym) > 10:
-            parts.append("sprungasymmetrie knie")
-    if agil_row:
-        bew = str(agil_row.get("bew_t_test") or "")
-        if "Verbesserungsbedarf" in bew:
-            parts.append("agilität richtungswechsel")
-        asym = agil_row.get("asym_505") or 0
-        if asym and float(asym) > 10:
-            parts.append("hüfte seitenasymmetrie")
-    if aus_row:
-        bew = str(aus_row.get("bewertung") or "")
-        if bew == "Verbesserungsbedarf":
-            parts.append("ausdauer intermittierend")
-    if kraft_row:
-        # Relative Kraft auswerten
-        rel = kraft_row.get("relative_kraft_direkt") or kraft_row.get("relative_kraft_geschaetzt") or 0
-        if rel and float(rel) < 1.0:
-            parts.append("kraftdefizit bankdruecken rumpf")
-        # Rumpfkraftausdauer
-        ventral = kraft_row.get("ventral_sekunden") or 0
-        if ventral and float(ventral) < 90:
-            parts.append("rumpf stabilisation")
-        lateral_asym = kraft_row.get("lateral_asymmetrie_pct") or 0
-        if lateral_asym and float(lateral_asym) > 10:
-            parts.append("hüfte seitenasymmetrie rumpf")
-    if spiro_row:
-        vo2 = spiro_row.get("vo2_peak") or spiro_row.get("vo2_max") or spiro_row.get("geschaetzte_vo2max")
-        if vo2 and float(vo2) < 50:
-            parts.append("ausdauer aerob grundlage")
-        schw = spiro_row.get("schwelle_geschwindigkeit")
-        if schw and float(schw) < 12:
-            parts.append("ausdauer schwellentraining")
-    return " ".join(parts)
+    """Kompatibler Textadapter über die zentrale strukturierte Defizitquelle.
+
+    Neue Aufrufer sollen ``trainingsbereich_scores_ermitteln()`` direkt nutzen.
+    Der Text bleibt für bestehende Schnittstellen erhalten und enthält bewusst
+    nur kanonische Planbereiche, nicht mehr abweichende Modul-Keywords.
+    """
+    scores = trainingsbereich_scores_ermitteln(
+        fms_row, y_row, sprint_row, sprung_row, agil_row, aus_row,
+        kraft_row=kraft_row, spiro_row=spiro_row,
+    )
+    return " ".join(
+        bereich.lower()
+        for bereich, prioritaet in scores.items()
+        for _ in range(prioritaet)
+    )
 
 
 # ── Erhaltungstraining ─────────────────────────────────────────────────────────
@@ -786,7 +838,7 @@ def ist_unauffaellig(
     tests_vorhanden = any([fms_row, y_row, sprint_row, sprung_row, agil_row, aus_row, spiro_row])
     if not tests_vorhanden:
         return False
-    sw = schwerpunkt_sammeln(
+    scores = trainingsbereich_scores_ermitteln(
         fms_row, y_row, sprint_row, sprung_row, agil_row, aus_row, spiro_row=spiro_row
     )
-    return not sw.strip()
+    return not scores
