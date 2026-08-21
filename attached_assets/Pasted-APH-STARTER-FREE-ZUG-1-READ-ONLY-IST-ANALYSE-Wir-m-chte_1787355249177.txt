@@ -1,0 +1,111 @@
+APH – STARTER FREE – ZUG 1: READ-ONLY IST-ANALYSE
+
+Wir möchten zusätzlich zu den bestehenden Paketen
+
+- Einzeltrainer Basic – 9,99 €/Monat / 99 €/Jahr
+- Einzeltrainer Pro – 14,99 €/Monat / 149 €/Jahr
+- Verein Basic – 24,99 €/Monat / 249 €/Jahr
+- Verein Pro – 39,99 €/Monat / 399 €/Jahr
+
+ein dauerhaft kostenloses Paket ergänzen:
+
+STARTER FREE
+- 0 €
+- 1 Trainer
+- maximal 5 Spieler
+- grundlegende Diagnostik verfügbar
+- Test-/Entwicklungsverlauf: letzte 30 Tage sichtbar
+- ältere Daten NICHT löschen
+- 1 aktiver Trainingsplan je Spieler
+- maximal 2 Wochen
+- maximal 2 Trainingstage pro Woche
+- kein Excel-/CSV-Spielerimport
+- kein Stripe-Abonnement erforderlich
+
+Von Starter Free soll später ein Upgrade möglich sein auf:
+- Einzeltrainer Basic
+- Einzeltrainer Pro
+- Verein Basic
+- Verein Pro
+
+WICHTIG:
+Noch NICHTS ändern.
+
+Bitte zuerst die bestehende Architektur vollständig prüfen:
+
+1. Wo sind aktuell alle Lizenztypen, Preise, Spieler-/Trainerlimits und Paketnamen definiert?
+
+2. Wie funktionieren aktuell:
+   - Registrierung
+   - 30-Tage-Testphase
+   - Paketwahl
+   - Mein Vertrag
+   - Paketwechsel
+   - Stripe Checkout
+   - Stripe Webhooks
+   - Lizenzstatus
+   - Spielerlimit
+   - Trainerlimit
+   - Funktionssperren?
+
+3. Prüfen, wie STARTER_FREE ergänzt werden kann, ohne bestehende vier Pakete oder Bestandskunden zu verändern.
+
+4. Prüfen, wie ein Free-Account ohne Stripe Customer/Subscription sauber als gültiger Account behandelt werden kann.
+
+5. Prüfen, wie Upgrade funktioniert:
+   STARTER_FREE → TRAINER_BASIC
+   STARTER_FREE → TRAINER_PRO
+   STARTER_FREE → VEREIN_BASIC
+   STARTER_FREE → VEREIN_PRO
+
+6. Besonders Free → Verein prüfen:
+   - technischer Mandant
+   - echter Vereinsmandant
+   - trainer_mandanten
+   - bestehende Spieler
+   - Benutzerrolle
+   - Vertragspartner-Klassifikation
+   Es dürfen keine doppelten Kunden/Mandanten entstehen.
+
+7. Prüfen, wie die 30-Tage-Verlaufsgrenze umgesetzt werden kann:
+   Ältere Tests bleiben vollständig in der DB.
+   Sie werden in STARTER_FREE lediglich nicht angezeigt.
+   Nach Upgrade sind sie sofort wieder sichtbar.
+
+8. Prüfen, wo Trainingsplan-Limits sicher serverseitig umgesetzt werden müssen:
+   - 1 aktiver Plan je Spieler
+   - max. 2 Wochen
+   - max. 2 Trainingstage/Woche
+   UI-Sperren allein reichen nicht.
+
+9. Prüfen, wie Excel/CSV-Import für STARTER_FREE sauber gesperrt werden kann.
+
+10. Bestehende 30-Tage-Testphase analysieren:
+    Noch keine Änderung vornehmen.
+    Empfehlung abgeben, ob künftig
+    a) STARTER_FREE sofort,
+    oder
+    b) zuerst 30 Tage Pro-Test und danach STARTER_FREE
+    technisch und fachlich sauberer ist.
+
+11. Prüfen, welche DB-Migration überhaupt notwendig wäre.
+    Wenn STARTER_FREE mit bestehender Lizenzstruktur ohne Migration möglich ist, ausdrücklich nennen.
+
+12. Sicherheitsprüfung:
+    Ein Benutzer darf Free-Limits weder über URL/UI noch über direkten Funktionsaufruf umgehen.
+
+Am Ende liefern:
+- betroffene Dateien/Funktionen
+- aktueller Datenfluss
+- notwendige Änderungen
+- Risiken
+- kleinste sichere Umsetzung
+- benötigte Regressionstests
+- Vorschlag für ZUG 2
+
+KEINE Änderungen.
+KEINE Migration.
+KEINE Stripe-Aktion.
+KEIN Deployment.
+
+Danach STOPP.
