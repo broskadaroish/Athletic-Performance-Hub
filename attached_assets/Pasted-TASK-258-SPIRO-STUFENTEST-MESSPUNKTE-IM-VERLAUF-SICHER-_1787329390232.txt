@@ -1,0 +1,107 @@
+TASK #258 – SPIRO-/STUFENTEST-MESSPUNKTE IM VERLAUF SICHER BEARBEITEN
+
+Wichtig: Nur diese Folgeaufgabe umsetzen.
+Keine Änderung der Spiro-Normwerte oder Defizitgrenzen.
+Keine DB-Migration.
+Keine Produktionsdaten verändern.
+Nicht deployen.
+
+Ziel: Bei historischen Spiro-/Stufentests sollen nicht nur die Haupttestdaten, sondern auch die gespeicherten Belastungsstufen/Messpunkte und Nachbelastungswerte direkt im Verlauf bearbeitet, korrigiert und gespeichert werden können.
+
+Dabei bestehende sichere Logik aus Task #257 und dem Testtag-Hotfix wiederverwenden:
+
+immer per eindeutiger Test-ID / Stufen-ID / Nachbelastungs-ID arbeiten
+Spieler-ID und Mandantenzugriff serverseitig prüfen
+keine reine ID-Mutation ohne Berechtigungsprüfung
+historische Tests müssen testtaggenau bleiben
+
+Für Spiro-Stufen sollen die tatsächlich gespeicherten Felder vorbefüllt und korrigierbar sein, z. B.:
+
+Stufennummer
+Geschwindigkeit
+Steigung
+Dauer
+Strecke
+End-HF
+Durchschnitts-HF
+VO₂ absolut/relativ
+VCO₂
+VE
+RER
+Atemfrequenz
+Sauerstoffpuls
+Laktat
+RPE
+Vollständigkeit/Probenvalidität
+Bemerkung
+
+Für Nachbelastung sollen die vorhandenen Werte korrigierbar sein:
+
+Zeitpunkt
+HF
+Laktat
+Bemerkung
+
+Nach erfolgreicher Änderung:
+
+Verlauf aktualisieren
+Kurven/Tabellen aktualisieren
+maximale Geschwindigkeit/HF neu ableiten, wenn sie aus Stufen bestimmt werden
+2-/4-mmol-Laktatinterpolation aus den korrigierten Messpunkten neu berechnen
+Trainingsbereiche aus VT1/VT2 bzw. Schwellenwerten weiterhin korrekt darstellen
+
+Wichtig:
+Eine direkt gemessene VO₂peak/VO₂max nicht durch irgendeine neue Schätzung ersetzen.
+
+Keine neue Bewertungslogik bauen.
+Die aktuell noch vorhandenen Spiro-Grenzen <45, <50, <12 km/h in diesem Task ausdrücklich NICHT verändern.
+
+Beim Löschen einer einzelnen Stufe/Nachbelastung:
+
+Bestätigung
+nur genau diesen Datensatz löschen
+Haupttest nicht löschen
+andere Stufen nicht verändern
+danach abgeleitete Kurven/Kennwerte aktualisieren
+
+Wenn fachlich notwendige Werte nach dem Löschen nicht mehr berechenbar sind:
+
+sauber None / nicht verfügbar anzeigen
+nichts erfinden oder extrapolieren
+
+Pflicht-Regressionen:
+
+einzelne Spiro-Stufe bearbeiten
+nur die gewählte Stufen-ID verändert
+fremder Spieler blockiert
+falscher Mandant blockiert
+Geschwindigkeit ändern → Kurve/Maximalwert aktualisiert
+Laktat ändern → 2-/4-mmol-Interpolation aktualisiert
+Nachbelastungs-HF ändern → Verlauf aktualisiert
+Nachbelastungs-Laktat ändern → Verlauf aktualisiert
+einzelne Stufe löschen → andere bleiben erhalten
+einzelne Nachbelastung löschen → andere bleiben erhalten
+keine Extrapolation bei fehlender Laktatbasis
+direkt gemessene VO₂peak/VO₂max bleibt erhalten
+historische Testtaglogik bleibt unverändert
+Task-#256-Defizitlogik bleibt unverändert
+
+Danach:
+
+gezielte Regressionen
+py_compile aller geänderten Dateien
+git diff --check
+
+Abschlussbericht mit:
+
+geänderte Dateien
+welche Stufenfelder editierbar sind
+welche Nachbelastungsfelder editierbar sind
+wie Berechtigungsprüfung erfolgt
+welche abgeleiteten Werte neu berechnet werden
+Löschen-Verhalten
+Tests PASS/FAIL
+DB-Migration ja/nein
+Bestätigung: nicht deployed
+
+Danach STOPP.
