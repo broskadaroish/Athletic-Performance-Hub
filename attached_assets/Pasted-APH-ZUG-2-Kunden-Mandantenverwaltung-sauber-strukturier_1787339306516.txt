@@ -1,0 +1,118 @@
+APH – ZUG 2: Kunden-/Mandantenverwaltung sauber strukturieren
+
+Setze jetzt ausschließlich die im Read-only-Check bestätigte Kunden-/Mandantenstruktur um. Kein großer Architekturumbau.
+
+Ziel: In Superadmin-Kundenverwaltung und Lizenzverwaltung sollen Vertragspartner/Kunden dargestellt werden – nicht Benutzer und technische Mandanten mehrfach als eigenständige Kunden.
+
+1. Echte Vereine
+Ein echter Verein erscheint genau einmal als Kunde.
+Mehrere Vereinsadmins dürfen keine doppelten Kundenzeilen erzeugen.
+Ansprechpartner deterministisch auswählen.
+Zugehörige aktive Vereinsadmins und Trainer werden unter dem Verein bzw. in dessen Detailansicht angezeigt.
+Für aktuelle Trainerzugehörigkeiten trainer_mandanten verwenden; benutzer.verein_id nicht als alleinige aktuelle Mitgliedschaftsquelle verwenden.
+
+Gewünschte Darstellung sinngemäß:
+
+🏢 Verein A
+Verein Pro · Aktiv · 5 Trainer · 42 Spieler
+
+Detail:
+Trainer & Benutzer
+- Max Mustermann – Vereinsadmin
+- Peter Müller – Trainer
+
+2. Einzeltrainer
+Ein selbstständiger Einzeltrainer mit eigener Trainerlizenz erscheint genau einmal als Kunde.
+Sein technischer Mandant darf nicht zusätzlich als Verein erscheinen.
+Technischer Mandant + Trainerbenutzer bilden fachlich einen Vertragspartner.
+Vorhandene IDs, Stripe-Zuordnungen, Kundennummern und Vertragsdaten nicht migrieren oder automatisch zusammenführen.
+3. Multi-Mandant-Trainer
+Vereinsmitgliedschaften erzeugen keine zusätzlichen Kundeneinträge.
+Ein Trainer darf nur dann zusätzlich als Einzeltrainerkunde erscheinen, wenn tatsächlich eine eigene lizenztragende Trainerinstanz vorhanden ist.
+Eine historische benutzer.kundennummer allein reicht dafür nicht.
+trainer_mandanten für aktuelle Vereinszugehörigkeiten verwenden.
+4. Verwaiste Mandanten
+
+Erkenne Mandanten, die fachlich nicht mehr als normale Kunden behandelt werden sollten, z. B.:
+
+keine aktiven Benutzer,
+keine Spieler,
+aber noch Lizenz-/Vertrags-/Stripe-Daten.
+
+Diese nicht löschen, nicht verändern und nicht automatisch zusammenführen.
+
+Stattdessen in der Superadmin-Oberfläche separat unter:
+
+⚠️ Datenprüfung / Verwaiste Mandanten
+
+anzeigen.
+
+Dort nur die vorhandenen Informationen darstellen, z. B. Mandantenname, Kundennummer, Lizenzstatus, Benutzeranzahl, Spieleranzahl und ob Stripe-/Vertragsdaten vorhanden sind.
+
+Keine automatische Bereinigung oder Stripe-Aktion.
+
+5. Gemeinsame Klassifikation
+
+Kundenverwaltung und Superadmin-Lizenzverwaltung dürfen nicht mehr unterschiedliche Regeln dafür verwenden, was ein Kunde ist.
+
+Erstelle dafür möglichst einen kleinen gemeinsamen Helper / eine gemeinsame Klassifikation:
+
+verein
+einzeltrainer
+verwaist
+
+Beide Listen sollen dieselbe Klassifikation verwenden.
+
+Keine große neue Architektur und keine unnötigen neuen Module, wenn ein kleiner zentraler Helper in der bestehenden Struktur ausreicht.
+
+6. Produktionsdaten beachten
+
+Die echten Kunden-/Accountdaten befinden sich auf dem Produktionsserver und nicht in der Replit-Entwicklungsdatenbank.
+
+Deshalb:
+
+keine konkreten Namen oder IDs hartcodieren,
+keine Annahmen über bestimmte Produktionsaccounts,
+ausschließlich allgemeine relationale Regeln implementieren,
+Tests nur mit künstlichen Testdaten.
+7. Bestehende Funktionen schützen
+
+Unverändert erhalten:
+
+Login und Sessions
+Mandantenschutz
+Spielerzuordnungen
+bestehende Stripe-Verträge
+Kündigungslogik
+Lizenzaktivierung/-deaktivierung
+Rechnungen
+historische Daten
+
+Insbesondere keine Stripe-Customer- oder Subscription-Zuordnung automatisch verschieben.
+
+Regressionen
+
+Gezielt testen:
+
+Verein mit mehreren Vereinsadmins → genau 1 Kunde
+Verein mit mehreren Trainern → genau 1 Kunde, Trainer darunter
+Einzeltrainer + technischer Mandant → genau 1 Einzeltrainerkunde
+Multi-Mandant-Trainer ohne eigene Trainerlizenz → kein zusätzlicher Kunde
+Multi-Mandant-Trainer mit echter eigener Trainerlizenz → genau 1 zusätzlicher Einzeltrainerkunde
+technische Mandanten → nicht als Vereinskunden
+verwaister Mandant ohne Benutzer/Spieler mit Vertrags-/Stripe-Daten → Bereich „Datenprüfung“
+normaler aktiver Verein → bleibt normale Kundenanzeige
+Kundenverwaltung und Lizenzverwaltung → gleiche Vertragspartner-Klassifikation
+
+Danach bestehende relevante Kunden-/Lizenztests, py_compile und git diff --check.
+
+Keine DB-Migration. Keine Produktionsdaten ändern. Keine Stripe-Aktion. NICHT DEPLOYEN.
+
+Im Abschlussbericht nur kurz nennen:
+
+geänderte Dateien
+zentrale Klassifikationsregel
+Ergebnis der Regressionen
+ob bestehende Vertrags-/Stripe-Daten unangetastet geblieben sind
+
+Danach STOPP.
