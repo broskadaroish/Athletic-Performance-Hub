@@ -2116,7 +2116,10 @@ def _render_anthro_edit(spieler_id: int) -> None:
                 return
             from anthropometrie import bmi_berechnen, bmi_kategorie, phv_offset_berechnen, reifestatus_text
             sp_r = spieler_by_id(spieler_id)
-            alter_r = berechne_alter(sp_r.get("geburtsdatum","") if sp_r else None) or 0
+            alter_r = alter_am_datum(
+                sp_r.get("geburtsdatum", "") if sp_r else "",
+                new_datum.strftime("%d.%m.%Y"),
+            ) or 0
             geschl_r = sp_r.get("geschlecht", "Männlich") if sp_r else "Männlich"
             new_bmi = bmi_berechnen(new_gewicht, new_groesse) if new_groesse > 0 and new_gewicht > 0 else None
             new_bmi_kat = bmi_kategorie(new_bmi) if new_bmi else None
@@ -2194,7 +2197,10 @@ def _render_fms_edit(spieler_id: int) -> None:
             if not _history_mandant_ok(spieler_id):
                 st.error("❌ Zugriff verweigert."); return
             sp_r = spieler_by_id(spieler_id)
-            alter_r = berechne_alter(sp_r.get("geburtsdatum","") if sp_r else None)
+            alter_r = alter_am_datum(
+                sp_r.get("geburtsdatum", "") if sp_r else "",
+                new_datum.strftime("%d.%m.%Y"),
+            )
             ok = fms_update(
                 rid, spieler_id, new_datum.strftime("%d.%m.%Y"),
                 vals["deep_squat"], vals["hurdle_links"], vals["hurdle_rechts"],
@@ -2227,7 +2233,10 @@ def _render_fms_edit(spieler_id: int) -> None:
 
 def _render_ybalance_edit(spieler_id: int) -> None:
     """Edit/Delete-Bereich für Y-Balance-Verlauf."""
-    from database import y_balance_history_edit, y_balance_update, y_balance_loeschen
+    from database import (
+        y_balance_history_edit, y_balance_update, y_balance_loeschen,
+        anthropometrie_history_edit, anthropometrie_beinlaengen_zum_testdatum,
+    )
     records = y_balance_history_edit(spieler_id)
     if not records:
         st.info("Noch keine Y-Balance-Tests vorhanden.")
@@ -2237,6 +2246,7 @@ def _render_ybalance_edit(spieler_id: int) -> None:
     if rec is None:
         return
     rid = rec["id"]
+    historische_anthro = anthropometrie_history_edit(spieler_id)
 
     with st.form(f"yb_edit_form_{spieler_id}_{rid}"):
         st.markdown(f"**Y-Balance bearbeiten — ID {rid}**")
@@ -2250,23 +2260,45 @@ def _render_ybalance_edit(spieler_id: int) -> None:
         pm_l  = c2.number_input("Posteromedial Links (cm)",  0.0, 200.0, float(rec.get("posteromedial_links")  or 0), 0.1, key=f"yb_pml_{rid}")
         pl_r  = c1.number_input("Posterolateral Rechts (cm)", 0.0, 200.0, float(rec.get("posterolateral_rechts") or 0), 0.1, key=f"yb_plr_{rid}")
         pl_l  = c2.number_input("Posterolateral Links (cm)",  0.0, 200.0, float(rec.get("posterolateral_links")  or 0), 0.1, key=f"yb_pll_{rid}")
-        st.caption("Beinlänge (cm) — für Composite-Score-Berechnung benötigt")
-        cb1, cb2 = st.columns(2)
-        # Y-Balance speichert keine Beinlänge in der Tabelle — aus Anthropometrie laden
-        _anthro_r = anthropometrie_letzter(spieler_id)
-        _bl_default = float(_anthro_r.get("beinlaenge") or 90.0) if _anthro_r else 90.0
-        bl_r = cb1.number_input("Beinlänge Rechts (cm)", 1.0, 130.0, _bl_default, 0.1, key=f"yb_blr_{rid}")
-        bl_l = cb2.number_input("Beinlänge Links (cm)",  1.0, 130.0, _bl_default, 0.1, key=f"yb_bll_{rid}")
+        _beinlaengen_basis = anthropometrie_beinlaengen_zum_testdatum(
+            historische_anthro, datum_val.strftime("%d.%m.%Y"),
+        )
+        if _beinlaengen_basis:
+            st.caption(
+                "Beinlängen für den Composite-Score: "
+                f"R {_beinlaengen_basis['beinlaenge_r']:.1f} cm · "
+                f"L {_beinlaengen_basis['beinlaenge_l']:.1f} cm "
+                f"(Anthropometrie vom {_beinlaengen_basis['datum']})."
+            )
+        else:
+            st.error(
+                "Keine dokumentierte Beinlänge am oder vor diesem Testdatum. "
+                "Der Y-Balance-Test kann nicht sicher neu berechnet werden."
+            )
         submitted = st.form_submit_button("💾 Speichern", type="primary")
         if submitted:
             if not _history_mandant_ok(spieler_id):
                 st.error("❌ Zugriff verweigert."); return
             sp_r = spieler_by_id(spieler_id)
-            alter_r = berechne_alter(sp_r.get("geburtsdatum","") if sp_r else None)
+            _datum_text = new_datum.strftime("%d.%m.%Y")
+            _beinlaengen_basis = anthropometrie_beinlaengen_zum_testdatum(
+                historische_anthro, _datum_text,
+            )
+            if not _beinlaengen_basis:
+                st.error(
+                    "❌ Keine dokumentierte Beinlänge am oder vor dem gewählten Testdatum. "
+                    "Der Eintrag wurde nicht verändert."
+                )
+                return
+            alter_r = alter_am_datum(
+                sp_r.get("geburtsdatum", "") if sp_r else "", _datum_text,
+            )
             ok = y_balance_update(
-                rid, spieler_id, new_datum.strftime("%d.%m.%Y"),
+                rid, spieler_id, _datum_text,
                 ant_r, ant_l, pm_r, pm_l, pl_r, pl_l,
-                bl_r, bl_l, alter=alter_r,
+                _beinlaengen_basis["beinlaenge_r"],
+                _beinlaengen_basis["beinlaenge_l"],
+                alter=alter_r,
             )
             if ok:
                 _save_ok("Y-Balance-Test aktualisiert.")
@@ -2340,7 +2372,10 @@ def _render_sprint_edit(spieler_id: int) -> None:
             sp_r = spieler_by_id(spieler_id)
             _geschl = sp_r.get("geschlecht","Männlich") if sp_r else "Männlich"
             _niveau = sp_r.get("leistungsniveau","Leistungssport") if sp_r else "Leistungssport"
-            _alter  = berechne_alter(sp_r.get("geburtsdatum","") if sp_r else None)
+            _alter  = alter_am_datum(
+                sp_r.get("geburtsdatum", "") if sp_r else "",
+                new_datum.strftime("%d.%m.%Y"),
+            )
             ok = sprint_update(
                 rid, spieler_id, new_datum.strftime("%d.%m.%Y"),
                 v1_5 or None, v2_5 or None, v3_5 or None,
@@ -2408,7 +2443,9 @@ def _render_sprung_edit(spieler_id: int) -> None:
             sp_r = spieler_by_id(spieler_id)
             _geschl = sp_r.get("geschlecht","Männlich") if sp_r else "Männlich"
             _niveau = sp_r.get("leistungsniveau","Leistungssport") if sp_r else "Leistungssport"
-            _alter  = berechne_alter(sp_r.get("geburtsdatum","") if sp_r else None)
+            _alter  = alter_am_datum(
+                sp_r.get("geburtsdatum", "") if sp_r else "", _datum_text,
+            )
             ok = sprung_update(
                 rid, spieler_id, _datum_text,
                 cmj_b or None, cmj_r or None, cmj_l or None,
@@ -2478,7 +2515,9 @@ def _render_agilitaet_edit(spieler_id: int) -> None:
             sp_r = spieler_by_id(spieler_id)
             _geschl = sp_r.get("geschlecht","Männlich") if sp_r else "Männlich"
             _niveau = sp_r.get("leistungsniveau","Leistungssport") if sp_r else "Leistungssport"
-            _alter  = berechne_alter(sp_r.get("geburtsdatum","") if sp_r else None)
+            _alter  = alter_am_datum(
+                sp_r.get("geburtsdatum", "") if sp_r else "", _datum_text,
+            )
             ok = agilitaet_update(
                 rid, spieler_id, _datum_text,
                 t505_r or None, t505_l or None, t5_10_5 or None, t_test or None, illinois or None,
@@ -2549,19 +2588,28 @@ def _render_ausdauer_edit(spieler_id: int) -> None:
         _rpe_def = int(rec.get("rpe") or 15)
         _rpe_idx = _rpe_opts.index(_rpe_def) if _rpe_def in _rpe_opts else 9
         new_rpe  = c4.selectbox("RPE (Borg 6–20)", _rpe_opts, index=_rpe_idx, key=f"ause_rpe_{rid}")
-        _ag_def  = rec.get("altersgruppe","Senioren")
-        _ag_idx  = ALTERSGRUPPEN_YO.index(_ag_def) if _ag_def in ALTERSGRUPPEN_YO else len(ALTERSGRUPPEN_YO)-1
-        new_ag   = c5.selectbox("Altersgruppe", ALTERSGRUPPEN_YO, index=_ag_idx, key=f"ause_ag_{rid}")
+        c5.caption(
+            "Die Yo-Yo-Altersgruppe wird beim Speichern aus dem gewählten "
+            "Testdatum und der Fußballklasse abgeleitet."
+        )
         submitted = st.form_submit_button("💾 Speichern", type="primary")
         if submitted:
             if not _history_mandant_ok(spieler_id):
                 st.error("❌ Zugriff verweigert."); return
             sp_r = spieler_by_id(spieler_id)
             _geschl = sp_r.get("geschlecht","Männlich") if sp_r else "Männlich"
+            _datum_text = new_datum.strftime("%d.%m.%Y")
+            _alter_td = alter_am_datum(
+                sp_r.get("geburtsdatum", "") if sp_r else "", _datum_text,
+            )
+            _fk_td = _fk_aus_datum(
+                sp_r.get("geburtsdatum", "") if sp_r else "", stichtag=new_datum,
+            ) if sp_r and sp_r.get("geburtsdatum") else None
+            _altersgruppe_td = _fk_zu_yoyo(_fk_td, _alter_td)
             ok = ausdauer_update(
-                rid, spieler_id, new_datum.strftime("%d.%m.%Y"),
+                rid, spieler_id, _datum_text,
                 new_typ, float(new_dist), new_hf or None, new_rpe or None,
-                altersgruppe=new_ag, geschlecht=_geschl,
+                altersgruppe=_altersgruppe_td, geschlecht=_geschl,
             )
             if ok:
                 _save_ok("Ausdauer-Test aktualisiert.")

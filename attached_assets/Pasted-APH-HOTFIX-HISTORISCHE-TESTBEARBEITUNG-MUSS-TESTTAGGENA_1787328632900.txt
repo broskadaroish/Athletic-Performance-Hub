@@ -1,0 +1,69 @@
+APH HOTFIX – HISTORISCHE TESTBEARBEITUNG MUSS TESTTAGGENAU BLEIBEN
+
+WICHTIG: Nur diesen Fehler korrigieren. Keine Spiro-Normen ändern, keine DB-Migration, nicht deployen.
+
+Beim Read-only Audit wurde festgestellt, dass mehrere historische Testeditoren beim erneuten Speichern teilweise das heutige Alter statt des Alters am Testtag für die Neubewertung verwenden.
+
+Zusätzlich kann Y-Balance bei historischen Änderungen aktuelle Beinlängen statt der für den damaligen Test gespeicherten bzw. testbezogenen Werte verwenden.
+
+Ziel: Das Bearbeiten eines historischen Tests darf dessen fachlichen Kontext nicht auf „heute“ verschieben.
+
+Prüfe alle gerade implementierten Editoren für:
+
+FMS
+Y-Balance
+Sprint
+Sprung
+Agilität
+Ausdauer
+Kraft
+Anthropometrie
+Spiro-Haupttest
+
+Für jede Neubewertung muss gelten:
+
+Alter = alter_am_datum(geburtsdatum, testdatum)
+
+und NICHT:
+
+berechne_alter(geburtsdatum) bezogen auf heute.
+
+Bestehende zentrale Funktion alter_am_datum(...) wiederverwenden.
+
+Wenn das Testdatum im Editor geändert wird, muss anschließend mit dem neuen Testdatum neu bewertet werden.
+
+Y-Balance besonders prüfen:
+
+Historische Composite-/Asymmetrie-Berechnungen dürfen nicht unbemerkt mit einer heutigen oder später geänderten Beinlänge neu berechnet werden, wenn der historische Test bereits eine eigene relevante Messgrundlage enthält.
+
+Zuerst feststellen, welche Beinlängeninformation beim historischen Y-Balance-Test tatsächlich gespeichert ist.
+
+Wenn historische Beinlänge im Testdatensatz vorhanden ist → diese verwenden.
+Wenn nur aktuelle Spieler-Beinlänge vorhanden ist und keine historische Messgrundlage gespeichert wurde → NICHT raten oder DB migrieren. Bestehendes Verhalten dokumentieren und für diesen Sonderfall STOPP melden.
+
+Keine historischen Datensätze massenhaft neu berechnen.
+Nur ein explizit bearbeiteter Test wird neu bewertet.
+
+Pflichttests:
+
+Geb. 26.08.2016, Test 20.08.2026 → Neubewertung mit Alter 9.
+Test 26.08.2026 → Alter 10.
+Ein späterer Geburtstag verändert einen unbearbeiteten historischen Test nicht.
+Historischen Sprint bearbeiten → Altersnorm des Testtags.
+Historischen Sprung bearbeiten → Altersnorm des Testtags.
+Historische Agilität bearbeiten → Altersnorm des Testtags.
+Historische Ausdauer bearbeiten → Altersnorm des Testtags.
+Y-Balance verwendet die korrekte historische Messgrundlage bzw. meldet sauber, falls diese nicht gespeichert ist.
+Task-#256-Defizitlogik bleibt konsistent.
+
+Danach gezielte Regressionen und py_compile.
+
+Kurz berichten:
+
+welche Editoren betroffen waren
+welche korrigiert wurden
+Y-Balance-Befund
+PASS/FAIL
+DB-Migration ja/nein
+
+NICHT DEPLOYEN. STOPP.

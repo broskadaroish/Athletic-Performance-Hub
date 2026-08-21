@@ -16,6 +16,7 @@ import py_compile
 from datetime import date
 
 from database import alter_am_datum, berechne_alter
+from database import anthropometrie_beinlaengen_zum_testdatum
 from age_norms import alter_zu_normgruppe, normgruppe_label
 from saison import testreferenz_caption
 
@@ -116,9 +117,34 @@ check("Test B: alter = 10 (korrekt)", alter_B, 10)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# §3  alter_am_datum vs. berechne_alter: Unterschied erkennbar
+# §3  Y-Balance: keine spätere Anthropometrie als historische Grundlage
 # ═══════════════════════════════════════════════════════════════════════════════
-print("\n══ §3 alter_am_datum vs. berechne_alter ══")
+print("\n══ §3 Y-Balance — historische Beinlänge ══")
+
+_anthro_verlauf = [
+    {"id": 1, "datum": "01.08.2025", "beinlaenge": 80.0},
+    {"id": 2, "datum": "22.08.2026", "beinlaenge": 92.0},
+]
+_yb_vor_geb = anthropometrie_beinlaengen_zum_testdatum(
+    _anthro_verlauf, "20.08.2026",
+)
+check("Y-Balance vor späterer Anthropometrie nutzt 2025er Beinlänge",
+      _yb_vor_geb["beinlaenge_r"] if _yb_vor_geb else None, 80.0)
+check("Y-Balance vor späterer Anthropometrie nutzt nicht den aktuellen Wert",
+      _yb_vor_geb["beinlaenge_r"] if _yb_vor_geb else None, 80.0)
+_yb_nach_geb = anthropometrie_beinlaengen_zum_testdatum(
+    _anthro_verlauf, "26.08.2026",
+)
+check("Y-Balance nach der Messung nutzt die testzeitnahe Beinlänge",
+      _yb_nach_geb["beinlaenge_r"] if _yb_nach_geb else None, 92.0)
+check("Y-Balance ohne historische Beinlänge wird nicht geschätzt",
+      anthropometrie_beinlaengen_zum_testdatum([], "20.08.2026"), None)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# §4  alter_am_datum vs. berechne_alter: Unterschied erkennbar
+# ═══════════════════════════════════════════════════════════════════════════════
+print("\n══ §4 alter_am_datum vs. berechne_alter ══")
 
 # Für JG2016 am heutigen Tag (16.08.2026) ist alter=9 (noch nicht 10)
 alter_heute = berechne_alter(GEB)
@@ -135,9 +161,9 @@ ok("alter_am_datum ist unabhängig vom heutigen Datum ✓")
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# §4  Vollständige Altersmatrix am Testdatum (Stichtag 16.08.2026)
+# §5  Vollständige Altersmatrix am Testdatum (Stichtag 16.08.2026)
 # ═══════════════════════════════════════════════════════════════════════════════
-print("\n══ §4 Vollständige Altersmatrix (Testdatum 16.08.2026) ══")
+print("\n══ §5 Vollständige Altersmatrix (Testdatum 16.08.2026) ══")
 
 TESTDATUM = "16.08.2026"
 
@@ -168,9 +194,9 @@ check("JG2016 (26.08.2016), Test 16.08.2026 → noch 9 (Geburtstag noch nicht)",
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# §5  Sprint-Bewertung: alter_am_datum-basiert (kein heutiges Alter)
+# §6  Sprint-Bewertung: alter_am_datum-basiert (kein heutiges Alter)
 # ═══════════════════════════════════════════════════════════════════════════════
-print("\n══ §5 Sprint-Normbewertung mit alter_am_datum ══")
+print("\n══ §6 Sprint-Normbewertung mit alter_am_datum ══")
 
 from sprint import bewertung_sprint, SprintErgebnis
 
@@ -190,9 +216,9 @@ check("U7 (alter=7): Sprint-Bewertung = '—' (kein falsches Defizit)", _bew_u7,
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# §6  testreferenz_caption mit Testtag-Alter
+# §7  testreferenz_caption mit Testtag-Alter
 # ═══════════════════════════════════════════════════════════════════════════════
-print("\n══ §6 testreferenz_caption mit Testtag-Alter ══")
+print("\n══ §7 testreferenz_caption mit Testtag-Alter ══")
 
 # JG2016, Test 20.08.2026 → Alter 9 → Testreferenz U10 (Alter 9–10)
 cap_testA = testreferenz_caption(9, "26.08.2016")
@@ -209,9 +235,45 @@ print(f"  Caption Test C (alter=10): {cap_testC!r}")
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# §7  py_compile aller geänderten Dateien
+# §8  Historische Editoren verwenden das gewählte Testdatum
 # ═══════════════════════════════════════════════════════════════════════════════
-print("\n══ §7 py_compile ══")
+print("\n══ §8 Historische Editoren — Testtag-Kontext ══")
+_app_source = open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "app.py"),
+                   encoding="utf-8").read()
+_editor_names = [
+    "_render_anthro_edit", "_render_fms_edit", "_render_ybalance_edit",
+    "_render_sprint_edit", "_render_sprung_edit", "_render_agilitaet_edit",
+]
+for _editor_name in _editor_names:
+    _start = _app_source.index(f"def {_editor_name}(")
+    _next = _app_source.find("\ndef ", _start + 1)
+    _editor_source = _app_source[_start:_next if _next != -1 else None]
+    check(f"{_editor_name}: nutzt alter_am_datum", "alter_am_datum(" in _editor_source, True)
+    check(f"{_editor_name}: kein heutiges berechne_alter", "berechne_alter(" in _editor_source, False)
+
+_aus_start = _app_source.index("def _render_ausdauer_edit(")
+_aus_end = _app_source.find("\ndef ", _aus_start + 1)
+_aus_editor_source = _app_source[_aus_start:_aus_end]
+check("Ausdauer-Editor: leitet Alter am Testtag ab", "alter_am_datum(" in _aus_editor_source, True)
+check("Ausdauer-Editor: leitet Yo-Yo-Gruppe aus Testtag ab", "_fk_zu_yoyo(" in _aus_editor_source, True)
+check("Y-Balance-Editor: nutzt keine aktuelle Anthropometrie", "anthropometrie_letzter(" in _app_source[
+    _app_source.index("def _render_ybalance_edit("):_app_source.index("def _render_sprint_edit(")
+], False)
+for _editor_name in ["_render_kraft_edit", "_render_spiro_edit"]:
+    _start = _app_source.index(f"def {_editor_name}(")
+    _next = _app_source.find("\ndef ", _start + 1)
+    _editor_source = _app_source[_start:_next if _next != -1 else None]
+    check(
+        f"{_editor_name}: keine heutige Altersneubewertung",
+        "berechne_alter(" in _editor_source,
+        False,
+    )
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# §9  py_compile aller geänderten Dateien
+# ═══════════════════════════════════════════════════════════════════════════════
+print("\n══ §9 py_compile ══")
 
 CHANGED = [
     "database.py",
@@ -235,9 +297,9 @@ for fname in CHANGED:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# §8  Block-B Regression
+# §10  Block-B Regression
 # ═══════════════════════════════════════════════════════════════════════════════
-print("\n══ §8 Block-B Regression ══")
+print("\n══ §10 Block-B Regression ══")
 import subprocess
 result = subprocess.run(
     [sys.executable, "tools/test_block_b.py"],

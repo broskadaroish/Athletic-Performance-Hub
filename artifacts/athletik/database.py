@@ -2096,6 +2096,46 @@ def anthropometrie_history_edit(spieler_id: int) -> list[dict]:
         ).fetchall())
 
 
+def anthropometrie_beinlaengen_zum_testdatum(
+    records: list[dict], testdatum: str,
+) -> dict | None:
+    """Gibt die jüngste dokumentierte Beinlänge am oder vor einem Testtag zurück.
+
+    Y-Balance speichert Beinlängen nicht im eigenen Datensatz. Damit eine
+    nachträgliche Bearbeitung nicht mit einer später gemessenen Körpergröße
+    arbeitet, wird ausschließlich eine zeitlich passende Anthropometrie-
+    Messung verwendet. Gibt ``None`` zurück, wenn diese Grundlage fehlt.
+    """
+    ziel_datum = parse_datum_safe(testdatum)
+    if not ziel_datum:
+        return None
+
+    passende_messungen = []
+    for record in records:
+        mess_datum = parse_datum_safe(record.get("datum"))
+        if not mess_datum or mess_datum > ziel_datum:
+            continue
+
+        basis = float(record.get("beinlaenge") or 0)
+        beinlaenge_r = float(record.get("beinlaenge_r") or 0) or basis
+        beinlaenge_l = float(record.get("beinlaenge_l") or 0) or basis
+        if beinlaenge_r <= 0 or beinlaenge_l <= 0:
+            continue
+        passende_messungen.append((
+            mess_datum,
+            int(record.get("id") or 0),
+            {
+                "datum": record.get("datum"),
+                "beinlaenge_r": beinlaenge_r,
+                "beinlaenge_l": beinlaenge_l,
+            },
+        ))
+
+    if not passende_messungen:
+        return None
+    return max(passende_messungen, key=lambda eintrag: (eintrag[0], eintrag[1]))[2]
+
+
 def anthropometrie_update(
     record_id: int,
     spieler_id: int,
