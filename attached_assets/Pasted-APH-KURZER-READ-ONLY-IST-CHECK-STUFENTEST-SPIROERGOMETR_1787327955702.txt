@@ -1,0 +1,224 @@
+APH – KURZER READ-ONLY IST-CHECK
+STUFENTEST / SPIROERGOMETRIE – ALTERSGERECHTE BEWERTUNG
+
+WICHTIG:
+NUR ANALYSIEREN.
+NICHTS ändern.
+Keine Dateien bearbeiten.
+Keine neuen Tests schreiben.
+Keine DB-Migration.
+Nicht deployen.
+
+AUSGANGSLAGE:
+Der Verlauf für Tests wurde bereits um Bearbeiten/Löschen erweitert.
+Beim Stufentest/Spiro sollen Messpunkte später ebenfalls direkt korrigierbar sein.
+
+Bevor weitere Änderungen erfolgen, soll geprüft werden, wie die aktuelle
+Spiro-/Stufentest-Bewertung fachlich und technisch aufgebaut ist.
+
+ZIEL:
+APH soll bei Kindern und Jugendlichen keine pauschalen Erwachsenen-Grenzen
+verwenden, wenn wissenschaftlich belastbare alters-/geschlechtsspezifische
+Referenzen sinnvoller sind.
+
+NOCH NICHT UMSETZEN.
+
+==================================================
+1. TESTARTEN / PROTOKOLLE
+==================================================
+
+Prüfe, welche Testverfahren aktuell vorhanden sind:
+
+- Spiroergometrie
+- Stufentest
+- Laufband
+- Fahrradergometer
+- Stufentest ohne Atemgasanalyse
+- weitere tatsächlich vorhandene Varianten
+
+Für jedes Verfahren:
+- wo es im Code definiert ist
+- welche Daten gespeichert werden
+- welche Bewertungslogik verwendet wird
+
+==================================================
+2. ROHWERTE
+==================================================
+
+Liste die tatsächlich gespeicherten Rohwerte auf, z. B.:
+
+- VO₂peak / VO₂max
+- ml/kg/min
+- Herzfrequenz
+- Geschwindigkeit
+- Watt
+- RER
+- Laktat
+- Schwellenwerte
+- Stufen
+- Dauer
+- Nachbelastungswerte
+- weitere vorhandene Messgrößen
+
+Bitte klar unterscheiden:
+
+A) direkt gemessene Werte
+B) von APH berechnete / geschätzte Werte
+
+==================================================
+3. AKTUELLE BEWERTUNGSLOGIK
+==================================================
+
+Prüfe exakt:
+
+- welche Schwellenwerte verwendet werden
+- wo sie im Code stehen
+- ob feste Grenzen wie <45 / <50 vorkommen
+- ob Schwellen-Geschwindigkeit <12 oder ähnliche feste Werte genutzt werden
+- welche Labels daraus entstehen
+  z. B. Gut / Mittel / Verbesserungsbedarf
+
+==================================================
+4. ALTER / GESCHLECHT / TESTPROTOKOLL
+==================================================
+
+Prüfe, ob aktuell berücksichtigt werden:
+
+- Alter am Testtag
+- Geschlecht
+- Körpergewicht
+- Körpergröße
+- Fußballklasse / U-Gruppe
+- Laufband vs. Fahrrad
+- Testprotokoll
+- Trainingsstatus
+
+Ergebnis jeweils:
+JA / NEIN / TEILWEISE
+
+==================================================
+5. KINDER / JUGENDLICHE
+==================================================
+
+Prüfe ausdrücklich:
+
+Werden Kinder/Jugendliche aktuell mit denselben VO₂-/Schwellenwerten
+bewertet wie Erwachsene?
+
+Wenn ja:
+- welche Werte
+- an welcher Stelle
+- welche Spielergruppen betroffen wären
+
+Noch keine neuen Normwerte einbauen.
+
+==================================================
+6. TASK #256 / ZENTRALE DEFIZITLOGIK
+==================================================
+
+Prüfe, wie Stufentest/Spiro aktuell in die zentrale Defizitlogik aus
+Task #256 eingebunden ist.
+
+Insbesondere:
+
+- Trainingsplan
+- automatische Übungsauswahl
+- Periodisierung
+
+verwenden sie jetzt dieselbe strukturierte Defizitquelle?
+
+Oder gibt es bei Stufentest/Spiro noch eigene Schwellenpfade?
+
+==================================================
+7. VERLAUF / MESSPUNKTE
+==================================================
+
+Prüfe die aktuelle Datenstruktur für:
+
+- Haupttest
+- Stufen/Messpunkte
+- Nachbelastungswerte
+
+Bitte nennen:
+
+- Tabellen
+- IDs
+- Fremdschlüssel
+- wie sie zusammenhängen
+- ob historische Messpunkte eindeutig bearbeitbar sind
+- ob nach einer Korrektur abgeleitete Werte neu berechnet werden können
+
+==================================================
+8. WISSENSCHAFTLICHE ZIELRICHTUNG
+==================================================
+
+Noch NICHT implementieren.
+
+Nur beurteilen, welche Referenzlogik technisch sinnvoll wäre.
+
+Grundregeln für eine spätere Umsetzung:
+
+- echte Spiroergometrie:
+  direkt gemessenes VO₂peak/VO₂max bevorzugen
+- keine Feldtest-Schätzformel verwenden, wenn direkter Messwert vorhanden ist
+- Kinder/Jugendliche altersgerecht bewerten
+- Geschlecht berücksichtigen, wenn die wissenschaftliche Referenz dies vorsieht
+- Testprotokoll berücksichtigen, wenn Referenzwerte protokollspezifisch sind
+- Laufband und Fahrradergometer nicht ungeprüft gleichsetzen
+- medizinische Referenzwerte und Leistungssport-Vergleichswerte trennen
+- keine erfundenen Normen
+
+==================================================
+9. SPÄTERE UI-LOGIK
+==================================================
+
+Nur konzeptionell prüfen:
+
+Wäre folgende Auswahl mit der bestehenden Struktur möglich?
+
+Testverfahren:
+- Spiroergometrie Laufband
+- Spiroergometrie Fahrrad
+- Stufentest ohne Atemgasanalyse
+
+Danach jeweils nur passende Eingabefelder und passende Bewertung.
+
+NICHT umsetzen.
+
+==================================================
+10. KLEINSTER SINNVOLLER FOLGEAUFTRAG
+==================================================
+
+Am Ende sagen, ob sich folgende zwei Punkte sinnvoll in EINEM späteren
+Umsetzungstask kombinieren lassen:
+
+A) Stufentest-/Spiro-Messpunkte im Verlauf korrigieren
+B) alters-/geschlechts-/protokollgerechte Bewertung
+
+Oder ob diese besser getrennt werden sollten.
+
+==================================================
+11. ABSCHLUSSBERICHT
+==================================================
+
+Bitte kompakt berichten:
+
+1. vorhandene Testverfahren
+2. gespeicherte Rohwerte
+3. berechnete Werte
+4. aktuelle Bewertungslogik
+5. aktuelle Grenzwerte
+6. Alter berücksichtigt: ja/nein
+7. Geschlecht berücksichtigt: ja/nein
+8. Testprotokoll berücksichtigt: ja/nein
+9. mögliche Erwachsenen-Normen bei Kindern
+10. Einbindung in Task #256
+11. Tabellen/IDs für Messpunkte
+12. historische Messpunkte sicher bearbeitbar: ja/nein
+13. welche wissenschaftlichen Referenzdaten technisch benötigt würden
+14. kleinster sinnvoller Folgeauftrag
+15. betroffene Dateien
+
+Danach STOPP.
+
+NICHTS UMSETZEN.

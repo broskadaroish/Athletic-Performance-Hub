@@ -1,0 +1,125 @@
+APH – KURZER IST-CHECK
+STUFENTEST / SPIROERGOMETRIE – ALTERSGERECHTE BEWERTUNG
+
+WICHTIG:
+NUR ANALYSIEREN.
+NICHTS ändern.
+Keine Dateien bearbeiten.
+Keine Tests neu schreiben.
+Keine DB-Migration.
+Nicht deployen.
+
+ZIEL:
+Bevor die bereits geplante Erweiterung
+„Stufentest-Messpunkte direkt im Verlauf korrigieren“
+umgesetzt wird, soll geprüft werden, wie Stufentest/Spiroergometrie
+aktuell in APH technisch und fachlich aufgebaut ist.
+
+Bitte gezielt prüfen:
+
+1. Welche Testarten/Protokolle sind aktuell vorhanden?
+   - Spiroergometrie?
+   - Laufband?
+   - Fahrradergometer?
+   - Stufentest ohne Atemgasanalyse?
+   - weitere?
+
+2. Welche Rohwerte werden tatsächlich eingegeben und gespeichert?
+
+3. Welche Werte werden berechnet?
+   Insbesondere:
+   - VO₂peak / VO₂max
+   - ml/kg/min
+   - Herzfrequenz
+   - Schwelle
+   - Geschwindigkeit
+   - Watt
+   - RER
+   - weitere vorhandene Parameter
+
+4. Welche Werte stammen direkt aus einer Spiroergometrie und welche
+   werden von APH geschätzt/berechnet?
+
+5. Wie wird aktuell bewertet?
+   Suche insbesondere nach festen Grenzen wie:
+   - <45
+   - <50
+   - VO₂max-Schwellen
+   - Schwellen-Geschwindigkeit <12
+   - „Gut“, „Mittel“, „Verbesserungsbedarf“ usw.
+
+6. Wo befinden sich diese Normwerte/Schwellen im Code?
+
+7. Wird aktuell berücksichtigt:
+   - Alter am Testtag?
+   - Geschlecht?
+   - Körpergewicht?
+   - Körpergröße?
+   - U-Altersklasse?
+   - Testprotokoll?
+   - Laufband vs. Fahrradergometer?
+
+8. Prüfe insbesondere, ob Kinder/Jugendliche momentan mit
+   Erwachsenen-Grenzwerten bewertet werden.
+
+9. Prüfe, wie Stufentest/Spiro aktuell in die zentrale Defizitlogik
+   aus Task #256 eingeht.
+
+10. Prüfe:
+   Trainingsplan und Periodisierung – verwenden beide für
+   Stufentest/Spiro inzwischen dieselbe strukturierte Defizitquelle?
+
+11. Prüfe die Datenbankstruktur:
+   - Haupttest-ID
+   - Stufen/Messpunkte
+   - Nachbelastungswerte
+   - Verknüpfung zum Haupttest
+   - ob alle notwendigen Rohdaten vorhanden sind, um einen
+     historischen Test vollständig neu zu bewerten.
+
+12. Prüfe die bereits vorbereitete Folgeaufgabe
+   „Stufentest-Messpunkte direkt im Verlauf korrigieren“:
+   Welche Teile könnten zusammen mit einer altersgerechten Bewertung
+   in EINEM kleinen Umsetzungsschritt erledigt werden?
+
+WICHTIGE FACHLICHE ZIELRICHTUNG FÜR DIE SPÄTERE UMSETZUNG:
+
+APH soll NICHT einfach eine pauschale Erwachsenen-Grenze für
+Kinder und Jugendliche verwenden.
+
+Bei echter Spiroergometrie soll ein direkt gemessenes VO₂peak/VO₂max
+nicht durch eine Feldtest-Schätzformel ersetzt werden.
+
+Eine spätere Bewertung soll – soweit es die vorhandenen Daten und
+wissenschaftlichen Referenzen erlauben – Testverfahren, Alter am
+Testtag und Geschlecht berücksichtigen.
+
+Gesundheits-/Populationsreferenz und sportartspezifischer
+Leistungsvergleich dürfen nicht miteinander verwechselt werden.
+
+Noch KEINE neuen Normtabellen erfinden oder implementieren.
+
+ABSCHLUSSBERICHT:
+
+Bitte nur berichten:
+
+1. vorhandene Testverfahren
+2. gespeicherte Rohwerte
+3. berechnete Werte
+4. aktuelle Bewertungslogik
+5. aktuell verwendete Grenzwerte
+6. Alter berücksichtigt: ja/nein
+7. Geschlecht berücksichtigt: ja/nein
+8. Testprotokoll berücksichtigt: ja/nein
+9. mögliche Erwachsenen-Normen bei Kindern
+10. Einbindung in Task #256
+11. Datenstruktur Messpunkte/Stufen
+12. welche wissenschaftlichen Referenzdaten technisch benötigt würden
+13. kleinster sinnvoller gemeinsamer Umsetzungsschritt für:
+    a) altersgerechte Bewertung
+    b) Messpunkte im Verlauf korrigieren
+14. betroffene Dateien
+
+Danach STOPP.
+
+NICHTS UMSETZEN.
