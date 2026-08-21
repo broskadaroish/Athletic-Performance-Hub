@@ -85,6 +85,39 @@ class AthletikReport(FPDF):
     MID     = (80, 90, 110)
     WHITE   = (255, 255, 255)
 
+    @staticmethod
+    def _safe_text_arguments(args, kwargs, text_index: int):
+        """Normalisiert das Textargument einer fpdf2-Ausgabemethode zentral."""
+        safe_args = list(args)
+        safe_kwargs = dict(kwargs)
+        if "text" in safe_kwargs:
+            safe_kwargs["text"] = _safe(safe_kwargs["text"])
+        elif "txt" in safe_kwargs:
+            safe_kwargs["txt"] = _safe(safe_kwargs["txt"])
+        elif len(safe_args) > text_index:
+            safe_args[text_index] = _safe(safe_args[text_index])
+        return safe_args, safe_kwargs
+
+    def cell(self, *args, **kwargs):
+        """Gibt auch dynamische Texte bei Helvetica immer Latin-1-sicher aus."""
+        args, kwargs = self._safe_text_arguments(args, kwargs, text_index=2)
+        return super().cell(*args, **kwargs)
+
+    def multi_cell(self, *args, **kwargs):
+        """Gibt mehrzeilige dynamische Texte bei Helvetica immer sicher aus."""
+        args, kwargs = self._safe_text_arguments(args, kwargs, text_index=2)
+        return super().multi_cell(*args, **kwargs)
+
+    def text(self, *args, **kwargs):
+        """Sichert absolute Textausgaben ab, falls sie künftig verwendet werden."""
+        args, kwargs = self._safe_text_arguments(args, kwargs, text_index=2)
+        return super().text(*args, **kwargs)
+
+    def write(self, *args, **kwargs):
+        """Sichert Fließtextausgaben ab, falls sie künftig verwendet werden."""
+        args, kwargs = self._safe_text_arguments(args, kwargs, text_index=1)
+        return super().write(*args, **kwargs)
+
     @property
     def content_width(self) -> float:
         """Aktuell nutzbare Breite – funktioniert in Hoch- und Querformat."""

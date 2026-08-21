@@ -1,25 +1,95 @@
 """Regressionstest für den vollständigen Spielerprofil-PDF-Report.
 
 Verwendet ausschließlich synthetische In-Memory-Daten. Der Test schützt das
-Querformat, die aktuellen Datenquellen sowie die vollständige Planansicht.
+Querformat, Unicode-sichere Textausgabe, die aktuellen Datenquellen sowie die
+vollständige Planansicht – ohne externe Systemkommandos oder PDF-Tools.
 """
 
 from __future__ import annotations
 
 import re
-import subprocess
 import sys
-import tempfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from pdf_report import generate_report
+import pdf_report
 from warmup import WARMUP_BEREICH, warmup_meta_kodieren
 
 
+def _text_argument(args, kwargs, index: int) -> str:
+    """Liest das Textargument aus einem fpdf2-Aufruf für die Inhalts-Regression."""
+    if "text" in kwargs:
+        return str(kwargs["text"])
+    if "txt" in kwargs:
+        return str(kwargs["txt"])
+    return str(args[index]) if len(args) > index else ""
+
+
+def _assert_pdf_structure(pdf_bytes: bytes) -> int:
+    """Prüft Seiten und A4-Querformat direkt an der PDF-Struktur."""
+    assert pdf_bytes.startswith(b"%PDF-"), "PDF-Kopf fehlt"
+    objects = {
+        int(match.group(1)): match.group(2)
+        for match in re.finditer(
+            rb"(\d+)\s+0\s+obj\s*(.*?)\s*endobj", pdf_bytes, re.DOTALL
+        )
+    }
+    page_objects = [
+        body for body in objects.values()
+        if re.search(rb"/Type\s*/Page\b", body)
+    ]
+    assert len(page_objects) >= 4, "vollständiger Bericht braucht mehrere Seiten"
+
+    # FPDF schreibt die MediaBox auf dem Pages-Knoten; alle Blattseiten erben sie.
+    media_boxes = re.findall(
+        rb"/MediaBox\s*\[\s*0\s+0\s+([0-9.]+)\s+([0-9.]+)\s*\]",
+        pdf_bytes,
+    )
+    assert media_boxes, "Seitengröße fehlt im PDF"
+    for width_raw, height_raw in media_boxes:
+        width, height = float(width_raw), float(height_raw)
+        assert width > height, "PDF muss A4 Querformat sein"
+        assert abs(width - 841.89) < 1 and abs(height - 595.28) < 1, (
+            "PDF muss A4-Maße im Querformat verwenden"
+        )
+
+    # Jede Page verweist auf einen nicht leeren Content-Stream: Schutz vor
+    # unerwarteten Leerseiten ohne pdftotext/pdfinfo-Abhängigkeit.
+    for page_number, page in enumerate(page_objects, start=1):
+        content_ref = re.search(rb"/Contents\s+(\d+)\s+0\s+R", page)
+        assert content_ref, "Content-Referenz fehlt auf Seite %d" % page_number
+        content = objects.get(int(content_ref.group(1)), b"")
+        stream = re.search(rb"stream\r?\n(.*?)\r?\nendstream", content, re.DOTALL)
+        assert stream and len(stream.group(1)) > 40, (
+            "unerwartete Leerseite: %d" % page_number
+        )
+    return len(page_objects)
+
+
 def run() -> None:
-    report = generate_report(
+    unicode_text = "Rückkehr – Fußball: Größe, Übung, Straße, 5×6"
+    normalized_unicode = pdf_report._safe(unicode_text)
+    assert normalized_unicode == "Rückkehr - Fußball: Größe, Übung, Straße, 5x6"
+    normalized_unicode.encode("latin-1")
+
+    rendered_text = []
+    base_report = pdf_report.AthletikReport
+
+    class RecordingAthletikReport(base_report):
+        """Erfasst die zentral normalisierten Ausgabetexte ohne PDF-Parser."""
+
+        def cell(self, *args, **kwargs):
+            rendered_text.append(pdf_report._safe(_text_argument(args, kwargs, 2)))
+            return super().cell(*args, **kwargs)
+
+        def multi_cell(self, *args, **kwargs):
+            rendered_text.append(pdf_report._safe(_text_argument(args, kwargs, 2)))
+            return super().multi_cell(*args, **kwargs)
+
+    pdf_report.AthletikReport = RecordingAthletikReport
+    try:
+        report = pdf_report.generate_report(
         spieler={
             "vorname": "Mara", "nachname": "Mustermann",
             "geburtsdatum": "2010-05-10", "hauptposition": "Zentrales Mittelfeld",
@@ -131,59 +201,33 @@ def run() -> None:
             },
         ],
         plan_meta={
-            "version_nr": 4, "datum": "2026-08-21", "modus": "Vereinsbelastung",
+            "version_nr": 4, "datum": "2026-08-21",
+            "modus": "Vereinsbelastung – Fußball",
             "schwerpunkt": "Rumpfkraft und Stabilität", "trainingszeit_min": 55,
-            "notizen": "Belastung nach dem Punktspiel anpassen.",
+            "notizen": "Rückkehr – Fußball: Größe, Übung und Straße berücksichtigen.",
             "wochenplanung_json": '{"planungsmodus":"vereinsbelastung","gewaehlte_athletik_tage":["Dienstag"]}',
         },
         athletik_score=72, risiko_label="Handlungsbedarf moderat",
         vereinsname="Testverein", saison="2026/27", trainer_name="Trainerin A",
-    )
-
-    with tempfile.TemporaryDirectory(prefix="spielerprofil-pdf-") as tmp:
-        pdf_path = Path(tmp) / "report.pdf"
-        text_path = Path(tmp) / "report.txt"
-        pdf_path.write_bytes(report)
-        info = subprocess.run(
-            ["pdfinfo", str(pdf_path)], check=True, capture_output=True, text=True
-        ).stdout
-        pages_match = re.search(r"^Pages:\s+(\d+)", info, re.MULTILINE)
-        pages = int(pages_match.group(1)) if pages_match else 0
-        assert pages >= 4, "vollständiger Bericht braucht mehrere Seiten"
-        page_texts = []
-        for page_number in range(1, pages + 1):
-            page_info = subprocess.run(
-                ["pdfinfo", "-f", str(page_number), "-l", str(page_number), str(pdf_path)],
-                check=True, capture_output=True, text=True,
-            ).stdout
-            size_match = re.search(
-                r"^Page.*?size:\s+([0-9.]+) x ([0-9.]+) pts",
-                page_info, re.MULTILINE | re.IGNORECASE,
-            )
-            assert size_match, "Seitengröße fehlt auf Seite %d" % page_number
-            width, height = map(float, size_match.groups())
-            assert width > height, "Seite %d muss A4 Querformat sein" % page_number
-            page_text = subprocess.run(
-                ["pdftotext", "-enc", "UTF-8", "-f", str(page_number), "-l",
-                 str(page_number), str(pdf_path), "-"],
-                check=True, capture_output=True, text=True,
-            ).stdout
-            assert len(page_text.strip()) > 40, "unerwartete Leerseite: %d" % page_number
-            page_texts.append(page_text)
-        subprocess.run(
-            ["pdftotext", "-enc", "UTF-8", str(pdf_path), str(text_path)],
-            check=True, capture_output=True, text=True,
         )
-        text = text_path.read_text(encoding="utf-8") + "\n".join(page_texts)
+    finally:
+        pdf_report.AthletikReport = base_report
+
+    pages = _assert_pdf_structure(report)
+    text = "\n".join(rendered_text)
     for expected in (
         "SPIROERGOMETRIE", "STUFENPROTOKOLL", "EINZELVERSUCHE",
         "INDIVIDUELLER TRAININGSPLAN", "Version 4", "Bulgarian Split Squat",
         "Warm-up:", "APH Standard", "TRAINERBEOBACHTUNGEN", "10.5 km/h",
-        "6.8 mmol/l", "Dienstag",
+        "6.8 mmol/l", "Dienstag", "Vereinsbelastung - Fußball",
+        "Rückkehr - Fußball: Größe, Übung und Straße berücksichtigen.",
     ):
         assert expected in text, "PDF-Inhalt fehlt: %s" % expected
 
-    print("PASS: vollständiger Spielerprofil-PDF im Querformat (%d Seiten)" % pages)
+    print(
+        "PASS: vollständiger Spielerprofil-PDF in A4 Querformat "
+        "mit Unicode-Schutz (%d Seiten, ohne pdfinfo)" % pages
+    )
 
 
 if __name__ == "__main__":
