@@ -1,0 +1,87 @@
+Ja, das ist wieder dieselbe Inkonsistenz wie vorher bei Diagnostik.
+
+**Diagnostik** nutzt bereits den neuen Inline-Spielerwechsel mit Suche und bleibt auf derselben Seite.
+**Training, Entwicklung, Vergleich und Dokumente** verwenden offenbar noch den alten Button, der zur Spielerverwaltung navigiert.
+
+Ich würde das jetzt **einmal zentral vereinheitlichen**, damit du nicht auf vier Seiten vier verschiedene Spielerwechsel-Logiken hast.
+
+Gib Replit am besten diesen kleinen Auftrag:
+
+> **APH HOTFIX – Spielerwechsel auf allen Hauptseiten vereinheitlichen**
+>
+> Aktuelles Verhalten:
+>
+> * **Diagnostik**: „👤 Spieler wechseln“ funktioniert korrekt.
+>   → Suchbereich öffnet direkt auf derselben Seite
+>   → Spieler suchen
+>   → auswählen + bestätigen
+>   → `st.session_state["global_player_id"]` wird aktualisiert
+>   → Suchbox schließt
+>   → Seite bleibt geöffnet
+>   → Inhalte laden für den neuen aktiven Spieler
+>
+> * **Training**
+>
+> * **Entwicklung**
+>
+> * **Vergleich**
+>
+> * **Dokumente**
+>
+> verwenden noch das alte Verhalten und navigieren beim Klick auf „Spieler wechseln“ zur Spielerverwaltung.
+>
+> **Ziel:**
+>
+> Alle diese Seiten sollen exakt denselben Inline-Spielerwechsel wie Diagnostik verwenden.
+>
+> Anforderungen:
+>
+> 1. Bestehende Diagnostik-Spielerwechsel-Logik wiederverwenden.
+> 2. Keine zweite Suchlogik bauen.
+> 3. Wenn technisch sinnvoll, die vorhandene Logik in einen kleinen gemeinsamen Helper auslagern und auf allen Seiten wiederverwenden.
+> 4. Nach Klick auf „Spieler wechseln“:
+>
+>    * Suchfeld direkt auf der aktuellen Seite öffnen
+>    * nur berechtigte Spieler anzeigen
+>    * Teilstring-Suche Vorname/Nachname/Vollname
+>    * Auswahl erst nach Bestätigung übernehmen
+>    * `global_player_id` aktualisieren
+>    * Suchbereich schließen
+>    * `st.rerun()`
+>    * aktuelle Seite beibehalten
+> 5. Das gilt für:
+>
+>    * Diagnostik
+>    * Training
+>    * Entwicklung
+>    * Vergleich
+>    * Dokumente
+> 6. Sidebar-Spielersuche und Seiten-Spielerwechsel dürfen sich nicht gegenseitig behindern.
+> 7. Beide verwenden denselben globalen aktiven Spieler:
+>    `st.session_state["global_player_id"]`
+> 8. Bestehenden Mandantenschutz vollständig erhalten.
+>
+>    * keine fremden Spieler
+>    * kein globales ungefiltertes Laden
+>    * aktive Mandantenzuordnung weiter beachten
+> 9. Keine Navigation zur Spielerverwaltung mehr aus diesen „Spieler wechseln“-Buttons.
+> 10. Keine Änderungen an Diagnostik-, Trainingsplan-, Defizit-, Periodisierungs- oder Datenbanklogik.
+>
+> **Regressionstests:**
+>
+> * Diagnostik bleibt nach Wechsel auf Diagnostik
+> * Training bleibt nach Wechsel auf Training
+> * Entwicklung bleibt nach Wechsel auf Entwicklung
+> * Vergleich bleibt nach Wechsel auf Vergleich
+> * Dokumente bleibt nach Wechsel auf Dokumente
+> * `global_player_id` wird überall identisch aktualisiert
+> * Sidebar zeigt danach denselben aktiven Spieler
+> * fremde Spieler bleiben unsichtbar
+>
+> Danach `py_compile` für geänderte Dateien und `git diff --check`.
+>
+> **Keine DB-Migration. Keine Produktionsdaten ändern. NICHT DEPLOYEN.**
+>
+> Danach kurzer Abschlussbericht und STOPP.
+
+Das ist ein **kleiner bis mittlerer UX-Fix**, aber sehr sinnvoll, weil der Spielerwechsel dann auf allen Hauptseiten gleich funktioniert.
