@@ -28,7 +28,12 @@ from database import (
     db_backup_erstellen,
     rechnungen_laden,
 )
-from license import LIZENZ_TYPEN, FEATURE_LABELS
+from license import (
+    LIZENZ_TYPEN,
+    LIZENZ_TYPEN_COMPAT,
+    FEATURE_LABELS,
+    normalize_lizenz_typ,
+)
 
 
 _STATUS_LABELS = {
@@ -50,6 +55,31 @@ def _badge(text: str, color: str = "#30363d") -> str:
         f'<span style="background:{color};color:#e6edf3;padding:2px 8px;'
         f'border-radius:4px;font-size:11px;font-weight:600">{text}</span>'
     )
+
+
+def _detail_paket_key(
+    raw_lizenztyp: str | None,
+    ist_technischer_mandant: bool | None,
+) -> str | None:
+    """Normalisiert das Detail-Paket mit Vertragspartner-Kontext.
+
+    Unbekannte Werte bleiben bewusst nicht zugeordnet, statt still ein
+    beliebiges Paket (historisch TRAINER_BASIC) anzuzeigen.
+    """
+    raw = str(raw_lizenztyp or "").strip().upper()
+    if not raw or (raw not in LIZENZ_TYPEN and raw not in LIZENZ_TYPEN_COMPAT):
+        return None
+    normalized = normalize_lizenz_typ(raw, ist_technischer_mandant)
+    return normalized if normalized in LIZENZ_TYPEN else None
+
+
+def _detail_kundennummer(verein: dict, benutzer: dict) -> str:
+    """Liest die Kundennummer vom Vertragspartner, nie vom Vereinsbenutzer."""
+    if verein:
+        if verein.get("ist_technischer_mandant"):
+            return verein.get("kundennummer") or benutzer.get("kundennummer") or "—"
+        return verein.get("kundennummer") or "—"
+    return benutzer.get("kundennummer") or "—"
 
 
 def _kpis(kunden: list[dict]) -> None:
@@ -171,6 +201,7 @@ def _detail_a_kundenkonto(daten: dict) -> None:
     b = daten.get("benutzer") or {}
     v = daten.get("verein") or {}
     kundentyp = "Verein" if v else "Einzeltrainer"
+    kundennummer = _detail_kundennummer(v, b)
 
     # ── Kernunterscheidung: Vertragspartner vs. Benutzerkonto ────────────────
     _benutzer_id  = b.get("id")                        # None wenn kein Vereinsadmin
@@ -189,7 +220,7 @@ def _detail_a_kundenkonto(daten: dict) -> None:
 
         # ── Stammdaten-Anzeige ────────────────────────────────────────────────
         c1, c2 = st.columns(2)
-        c1.markdown(f"**Kundennummer:** `{v.get('kundennummer') or b.get('kundennummer') or '—'}`")
+        c1.markdown(f"**Kundennummer:** `{kundennummer}`")
         c2.markdown(f"**Kundentyp:** {kundentyp}")
         if kundentyp == "Verein":
             c1.markdown(f"**Vereinsname:** {v.get('name','—')}")
@@ -513,15 +544,18 @@ def _detail_c_lizenz(daten: dict) -> None:
     entity_id  = v["id"] if (ist_verein or hat_mandant) else b["id"]
     key_pfx    = f"v{entity_id}" if (ist_verein or hat_mandant) else f"b{entity_id}"
 
-    lizenztyp  = (src.get("lizenztyp") or "BASIC").upper()
+    lizenztyp  = _detail_paket_key(
+        src.get("lizenztyp"),
+        bool(v.get("ist_technischer_mandant")) if v else None,
+    )
     liz_status = src.get("lizenz_status") or "trial"
     liz_bis    = src.get("lizenz_bis") or "—"
     testphase  = src.get("testphase_bis") or "—"
-    paket_def  = LIZENZ_TYPEN.get(lizenztyp) or next(iter(LIZENZ_TYPEN.values()), {})
+    paket_def  = LIZENZ_TYPEN.get(lizenztyp) if lizenztyp else None
 
     with st.expander("**C — Lizenz / Paket**", expanded=False):
         c1, c2, c3 = st.columns(3)
-        c1.metric("Paket",         paket_def.get("label", lizenztyp))
+        c1.metric("Paket",         paket_def.get("label") if paket_def else "Nicht zugeordnet")
         c2.metric("Lizenzstatus",  _STATUS_LABELS.get(liz_status, liz_status))
         c3.metric("Lizenz bis",    liz_bis)
 
@@ -1153,11 +1187,10 @@ def _kunde_detail(verein_id: int | None, benutzer_id: int | None) -> None:
     # Technischer Mandant: ist Einzeltrainer-Konto — Kundennummer liegt auf benutzer
     _ist_tech_mandant = bool(v) and bool(v.get("ist_technischer_mandant"))
     if _ist_tech_mandant:
-        kn  = b.get("kundennummer") or v.get("kundennummer") or "—"
         typ = "Einzeltrainer"
     else:
-        kn  = v.get("kundennummer") or b.get("kundennummer") or "—"
         typ = "Verein" if v else "Einzeltrainer"
+    kn = _detail_kundennummer(v, b)
     tit = (None if _ist_tech_mandant else v.get("name")) or f"{b.get('vorname','')} {b.get('nachname','')}".strip() or "Unbekannt"
 
     st.markdown(
