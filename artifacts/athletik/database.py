@@ -2054,6 +2054,850 @@ def ausdauer_history(spieler_id):
         ).fetchall())
 
 
+# ─── Task #257: ID-basierte History-Loader und Update/Delete-Funktionen ───────
+#
+# Alle History-Loader geben jetzt die Zeilen-ID zurück (für Bearbeitung/Löschen).
+# Alle Mutations-Funktionen validieren Zeilenbesitz atomar per WHERE id=? AND spieler_id=?.
+# Abgeleitete Felder werden aus den Rohdaten + Spieler-Alter/Geschlecht/Niveau neu berechnet.
+
+_HISTORY_DATE_TABLES = {
+    "sprung": "sprung_test",
+    "agilitaet": "agilitaet_test",
+}
+
+
+def testverlauf_datum_kollision(modul: str, record_id: int, spieler_id: int, datum: str) -> bool:
+    """True, wenn ein anderer historischer Test dieses Spielers dasselbe Datum nutzt."""
+    table = _HISTORY_DATE_TABLES.get(modul)
+    if not table:
+        raise ValueError(f"Unbekanntes Testmodul: {modul}")
+    with get_conn() as conn:
+        return conn.execute(
+            f"SELECT 1 FROM {table} WHERE spieler_id=? AND datum=? AND id<>? LIMIT 1",
+            (spieler_id, datum, record_id),
+        ).fetchone() is not None
+
+# ── Anthropometrie ──────────────────────────────────────────────────────────
+
+def anthropometrie_history_edit(spieler_id: int) -> list[dict]:
+    """History-Loader für die Bearbeitungsansicht: gibt id + alle Rohfelder zurück."""
+    with get_conn() as conn:
+        return _rows(conn.execute(
+            """SELECT id, datum, groesse, gewicht, sitzhoehe, beinlaenge,
+                      armspannweite, koerperfett, muskelmasse, bmi, bmi_kategorie,
+                      phv_offset, reifestatus,
+                      COALESCE(beinlaenge_r, 0) AS beinlaenge_r,
+                      COALESCE(beinlaenge_l, 0) AS beinlaenge_l,
+                      koerperfett_methode
+               FROM anthropometrie
+               WHERE spieler_id=?
+               ORDER BY datum, id""",
+            (spieler_id,),
+        ).fetchall())
+
+
+def anthropometrie_update(
+    record_id: int,
+    spieler_id: int,
+    datum: str,
+    groesse: float | None,
+    gewicht: float | None,
+    sitzhoehe: float | None,
+    beinlaenge: float | None,
+    armspannweite: float | None,
+    koerperfett: float | None,
+    muskelmasse: float | None,
+    bmi: float | None,
+    bmi_kat: str | None,
+    phv_offset: float | None,
+    reifestatus: str | None,
+    beinlaenge_r: float | None = None,
+    beinlaenge_l: float | None = None,
+    koerperfett_methode: str | None = None,
+) -> bool:
+    """Aktualisiert einen Anthropometrie-Datensatz (nur wenn spieler_id übereinstimmt).
+
+    Gibt True zurück wenn genau eine Zeile geändert wurde.
+    """
+    with get_conn() as conn:
+        try:
+            cur = conn.execute(
+            """UPDATE anthropometrie SET
+                   datum=?, groesse=?, gewicht=?, sitzhoehe=?, beinlaenge=?,
+                   armspannweite=?, koerperfett=?, muskelmasse=?, bmi=?,
+                   bmi_kategorie=?, phv_offset=?, reifestatus=?,
+                   beinlaenge_r=?, beinlaenge_l=?, koerperfett_methode=?
+               WHERE id=? AND spieler_id=?""",
+            (datum, groesse, gewicht, sitzhoehe, beinlaenge,
+             armspannweite, koerperfett, muskelmasse, bmi,
+             bmi_kat, phv_offset, reifestatus,
+             beinlaenge_r, beinlaenge_l, koerperfett_methode,
+             record_id, spieler_id),
+            )
+        except sqlite3.IntegrityError:
+            return False
+        return cur.rowcount == 1
+
+
+def anthropometrie_loeschen(record_id: int, spieler_id: int) -> bool:
+    """Löscht einen Anthropometrie-Datensatz (nur wenn spieler_id übereinstimmt).
+
+    Gibt True zurück wenn genau eine Zeile gelöscht wurde.
+    """
+    with get_conn() as conn:
+        try:
+            cur = conn.execute(
+            "DELETE FROM anthropometrie WHERE id=? AND spieler_id=?",
+            (record_id, spieler_id),
+            )
+        except sqlite3.IntegrityError:
+            return False
+        return cur.rowcount == 1
+
+
+# ── FMS ──────────────────────────────────────────────────────────────────────
+
+def fms_history_edit(spieler_id: int) -> list[dict]:
+    """History-Loader für die Bearbeitungsansicht: gibt id + alle Rohfelder zurück."""
+    with get_conn() as conn:
+        return _rows(conn.execute(
+            """SELECT id, datum,
+                      deep_squat, hurdle_links, hurdle_rechts,
+                      inline_links, inline_rechts,
+                      shoulder_links, shoulder_rechts,
+                      aslr_links, aslr_rechts,
+                      trunk, rotary_links, rotary_rechts,
+                      score, bewertung, asymmetrie, schwerpunkt
+               FROM fms_test
+               WHERE spieler_id=?
+               ORDER BY datum, id""",
+            (spieler_id,),
+        ).fetchall())
+
+
+def fms_update(
+    record_id: int,
+    spieler_id: int,
+    datum: str,
+    deep: int, hurdle_l: int, hurdle_r: int,
+    inline_l: int, inline_r: int,
+    shoulder_l: int, shoulder_r: int,
+    aslr_l: int, aslr_r: int,
+    trunk: int, rotary_l: int, rotary_r: int,
+    alter: float | None = None,
+) -> bool:
+    """Aktualisiert einen FMS-Datensatz und berechnet abgeleitete Werte neu.
+
+    Gibt True zurück wenn genau eine Zeile geändert wurde.
+    """
+    from fms import FMSResult
+    res = FMSResult(
+        deep_squat=deep, hurdle_l=hurdle_l, hurdle_r=hurdle_r,
+        inline_l=inline_l, inline_r=inline_r,
+        shoulder_l=shoulder_l, shoulder_r=shoulder_r,
+        aslr_l=aslr_l, aslr_r=aslr_r,
+        trunk=trunk, rotary_l=rotary_l, rotary_r=rotary_r,
+        alter=alter,
+    )
+    with get_conn() as conn:
+        cur = conn.execute(
+            """UPDATE fms_test SET
+                   datum=?,
+                   deep_squat=?, hurdle_links=?, hurdle_rechts=?,
+                   inline_links=?, inline_rechts=?,
+                   shoulder_links=?, shoulder_rechts=?,
+                   aslr_links=?, aslr_rechts=?,
+                   trunk=?, rotary_links=?, rotary_rechts=?,
+                   score=?, bewertung=?, asymmetrie=?, schwerpunkt=?
+               WHERE id=? AND spieler_id=?""",
+            (datum, deep, hurdle_l, hurdle_r, inline_l, inline_r,
+             shoulder_l, shoulder_r, aslr_l, aslr_r, trunk, rotary_l, rotary_r,
+             res.score, res.bewertung, res.asymmetrie, res.schwerpunkt,
+             record_id, spieler_id),
+        )
+        return cur.rowcount == 1
+
+
+def fms_loeschen(record_id: int, spieler_id: int) -> bool:
+    """Löscht einen FMS-Datensatz (nur wenn spieler_id übereinstimmt)."""
+    with get_conn() as conn:
+        cur = conn.execute(
+            "DELETE FROM fms_test WHERE id=? AND spieler_id=?",
+            (record_id, spieler_id),
+        )
+        return cur.rowcount == 1
+
+
+# ── Y-Balance ────────────────────────────────────────────────────────────────
+
+def y_balance_history_edit(spieler_id: int) -> list[dict]:
+    """History-Loader für die Bearbeitungsansicht: gibt id + alle Rohfelder zurück."""
+    with get_conn() as conn:
+        return _rows(conn.execute(
+            """SELECT id, datum,
+                      anterior_rechts, anterior_links,
+                      posteromedial_rechts, posteromedial_links,
+                      posterolateral_rechts, posterolateral_links,
+                      diff_anterior, diff_posteromedial, diff_posterolateral,
+                      composite_rechts, composite_links,
+                      asymmetrie, schwerpunkt
+               FROM y_balance_test
+               WHERE spieler_id=?
+               ORDER BY datum, id""",
+            (spieler_id,),
+        ).fetchall())
+
+
+def y_balance_update(
+    record_id: int,
+    spieler_id: int,
+    datum: str,
+    ant_r: float, ant_l: float,
+    pm_r: float, pm_l: float,
+    pl_r: float, pl_l: float,
+    beinlaenge_r: float,
+    beinlaenge_l: float,
+    alter: float | None = None,
+) -> bool:
+    """Aktualisiert einen Y-Balance-Datensatz und berechnet abgeleitete Werte neu.
+
+    beinlaenge_r/l werden zur Berechnung der Composite-Scores benötigt,
+    aber nicht in der Tabelle gespeichert (nutze aktuell gespeicherte Beinlänge
+    aus anthropometrie oder übergib direkt).
+    Gibt True zurück wenn genau eine Zeile geändert wurde.
+    """
+    from y_balance import YBalanceResult
+    res = YBalanceResult(
+        anterior_r=ant_r, anterior_l=ant_l,
+        posteromedial_r=pm_r, posteromedial_l=pm_l,
+        posterolateral_r=pl_r, posterolateral_l=pl_l,
+        beinlaenge_r=beinlaenge_r if beinlaenge_r > 0 else 1,
+        beinlaenge_l=beinlaenge_l if beinlaenge_l > 0 else 1,
+        alter=alter,
+    )
+    diff_a, diff_pm, diff_pl, comp_r, comp_l, asym_text, schwerpunkt = res.as_db_tuple()
+    with get_conn() as conn:
+        cur = conn.execute(
+            """UPDATE y_balance_test SET
+                   datum=?,
+                   anterior_rechts=?, anterior_links=?,
+                   posteromedial_rechts=?, posteromedial_links=?,
+                   posterolateral_rechts=?, posterolateral_links=?,
+                   diff_anterior=?, diff_posteromedial=?, diff_posterolateral=?,
+                   composite_rechts=?, composite_links=?,
+                   asymmetrie=?, schwerpunkt=?
+               WHERE id=? AND spieler_id=?""",
+            (datum, ant_r, ant_l, pm_r, pm_l, pl_r, pl_l,
+             diff_a, diff_pm, diff_pl, comp_r, comp_l, asym_text, schwerpunkt,
+             record_id, spieler_id),
+        )
+        return cur.rowcount == 1
+
+
+def y_balance_loeschen(record_id: int, spieler_id: int) -> bool:
+    """Löscht einen Y-Balance-Datensatz (nur wenn spieler_id übereinstimmt)."""
+    with get_conn() as conn:
+        cur = conn.execute(
+            "DELETE FROM y_balance_test WHERE id=? AND spieler_id=?",
+            (record_id, spieler_id),
+        )
+        return cur.rowcount == 1
+
+
+# ── Sprint ───────────────────────────────────────────────────────────────────
+
+def sprint_history_edit(spieler_id: int) -> list[dict]:
+    """History-Loader für die Bearbeitungsansicht: gibt id + alle Rohfelder zurück."""
+    with get_conn() as conn:
+        return _rows(conn.execute(
+            """SELECT id, datum,
+                      v1_5m, v2_5m, v3_5m, beste_5m,
+                      v1_10m, v2_10m, v3_10m, beste_10m,
+                      v1_20m, v2_20m, v3_20m, beste_20m,
+                      v1_30m, v2_30m, v3_30m, beste_30m,
+                      COALESCE(v1_40m, 0) AS v1_40m,
+                      COALESCE(v2_40m, 0) AS v2_40m,
+                      COALESCE(v3_40m, 0) AS v3_40m,
+                      COALESCE(beste_40m, 0) AS beste_40m,
+                      beschl_index, bewertung_10m, bewertung_30m, defizite
+               FROM sprint_test
+               WHERE spieler_id=?
+               ORDER BY datum, id""",
+            (spieler_id,),
+        ).fetchall())
+
+
+def sprint_update(
+    record_id: int,
+    spieler_id: int,
+    datum: str,
+    v1_5: float | None, v2_5: float | None, v3_5: float | None,
+    v1_10: float | None, v2_10: float | None, v3_10: float | None,
+    v1_20: float | None, v2_20: float | None, v3_20: float | None,
+    v1_30: float | None, v2_30: float | None, v3_30: float | None,
+    geschlecht: str = "Männlich",
+    niveau: str = "Leistungssport",
+    alter: float | None = None,
+    v1_40: float | None = None, v2_40: float | None = None, v3_40: float | None = None,
+) -> bool:
+    """Aktualisiert einen Sprint-Datensatz und berechnet abgeleitete Werte neu."""
+    from sprint import SprintErgebnis, _bester, beschleunigungsindex
+    import json
+
+    def _best(vals):
+        valide = [v for v in vals if v and v > 0]
+        return round(min(valide), 3) if valide else None
+
+    b5  = _best([v1_5, v2_5, v3_5])
+    b10 = _best([v1_10, v2_10, v3_10])
+    b20 = _best([v1_20, v2_20, v3_20])
+    b30 = _best([v1_30, v2_30, v3_30])
+    b40 = _best([v1_40, v2_40, v3_40])
+
+    erg = SprintErgebnis(
+        beste_5m=b5, beste_10m=b10, beste_20m=b20, beste_30m=b30,
+        geschlecht=geschlecht, niveau=niveau, alter=alter,
+    )
+    defizite_json = json.dumps(erg.defizite, ensure_ascii=False)
+
+    with get_conn() as conn:
+        cur = conn.execute(
+            """UPDATE sprint_test SET
+                   datum=?,
+                   v1_5m=?, v2_5m=?, v3_5m=?, beste_5m=?,
+                   v1_10m=?, v2_10m=?, v3_10m=?, beste_10m=?,
+                   v1_20m=?, v2_20m=?, v3_20m=?, beste_20m=?,
+                   v1_30m=?, v2_30m=?, v3_30m=?, beste_30m=?,
+                   v1_40m=?, v2_40m=?, v3_40m=?, beste_40m=?,
+                   beschl_index=?, bewertung_10m=?, bewertung_30m=?, defizite=?
+               WHERE id=? AND spieler_id=?""",
+            (datum,
+             v1_5, v2_5, v3_5, b5,
+             v1_10, v2_10, v3_10, b10,
+             v1_20, v2_20, v3_20, b20,
+             v1_30, v2_30, v3_30, b30,
+             v1_40, v2_40, v3_40, b40 or 0,
+             erg.beschl_index, erg.bewertung_10m, erg.bewertung_30m, defizite_json,
+             record_id, spieler_id),
+        )
+        return cur.rowcount == 1
+
+
+def sprint_loeschen(record_id: int, spieler_id: int) -> bool:
+    """Löscht einen Sprint-Datensatz (nur wenn spieler_id übereinstimmt)."""
+    with get_conn() as conn:
+        cur = conn.execute(
+            "DELETE FROM sprint_test WHERE id=? AND spieler_id=?",
+            (record_id, spieler_id),
+        )
+        return cur.rowcount == 1
+
+
+# ── Sprung ───────────────────────────────────────────────────────────────────
+
+def sprung_history_edit(spieler_id: int) -> list[dict]:
+    """History-Loader für die Bearbeitungsansicht: gibt id + alle Rohfelder zurück."""
+    with get_conn() as conn:
+        return _rows(conn.execute(
+            """SELECT id, datum,
+                      cmj_beid, cmj_rechts, cmj_links, cmj_asymmetrie,
+                      squat_jump, drop_jump_hoehe, drop_jump_kz, rsi,
+                      standweit, bewertung_cmj, defizite,
+                      v1_cmj_beid, v2_cmj_beid, v3_cmj_beid,
+                      v1_cmj_r, v2_cmj_r, v3_cmj_r,
+                      v1_cmj_l, v2_cmj_l, v3_cmj_l,
+                      v1_squat, v2_squat, v3_squat,
+                      v1_dj_h, v2_dj_h, v3_dj_h,
+                      v1_dj_kz, v2_dj_kz, v3_dj_kz,
+                      v1_swj, v2_swj, v3_swj
+               FROM sprung_test
+               WHERE spieler_id=?
+               ORDER BY datum, id""",
+            (spieler_id,),
+        ).fetchall())
+
+
+def sprung_update(
+    record_id: int,
+    spieler_id: int,
+    datum: str,
+    cmj_beid: float | None, cmj_rechts: float | None, cmj_links: float | None,
+    squat_jump: float | None, dj_hoehe: float | None, dj_kz: float | None,
+    standweit: float | None,
+    geschlecht: str = "Männlich",
+    niveau: str = "Leistungssport",
+    alter: float | None = None,
+    v1_cmj_beid: float | None = None, v2_cmj_beid: float | None = None, v3_cmj_beid: float | None = None,
+    v1_cmj_r: float | None = None, v2_cmj_r: float | None = None, v3_cmj_r: float | None = None,
+    v1_cmj_l: float | None = None, v2_cmj_l: float | None = None, v3_cmj_l: float | None = None,
+    v1_squat: float | None = None, v2_squat: float | None = None, v3_squat: float | None = None,
+    v1_dj_h: float | None = None, v2_dj_h: float | None = None, v3_dj_h: float | None = None,
+    v1_dj_kz: float | None = None, v2_dj_kz: float | None = None, v3_dj_kz: float | None = None,
+    v1_swj: float | None = None, v2_swj: float | None = None, v3_swj: float | None = None,
+) -> bool:
+    """Aktualisiert einen Sprung-Datensatz und berechnet abgeleitete Werte neu."""
+    from sprung import SprungErgebnis
+    import json
+
+    erg = SprungErgebnis(
+        cmj_beid=cmj_beid, cmj_rechts=cmj_rechts, cmj_links=cmj_links,
+        squat_jump=squat_jump, drop_jump_hoehe=dj_hoehe, drop_jump_kz=dj_kz,
+        standweit=standweit, geschlecht=geschlecht, niveau=niveau, alter=alter,
+    )
+    defizite_json = json.dumps(erg.defizite, ensure_ascii=False)
+
+    with get_conn() as conn:
+        try:
+            cur = conn.execute(
+            """UPDATE sprung_test SET
+                   datum=?,
+                   cmj_beid=?, cmj_rechts=?, cmj_links=?, cmj_asymmetrie=?,
+                   squat_jump=?, drop_jump_hoehe=?, drop_jump_kz=?, rsi=?,
+                   standweit=?, bewertung_cmj=?, defizite=?,
+                   v1_cmj_beid=COALESCE(?, v1_cmj_beid), v2_cmj_beid=COALESCE(?, v2_cmj_beid), v3_cmj_beid=COALESCE(?, v3_cmj_beid),
+                   v1_cmj_r=COALESCE(?, v1_cmj_r), v2_cmj_r=COALESCE(?, v2_cmj_r), v3_cmj_r=COALESCE(?, v3_cmj_r),
+                   v1_cmj_l=COALESCE(?, v1_cmj_l), v2_cmj_l=COALESCE(?, v2_cmj_l), v3_cmj_l=COALESCE(?, v3_cmj_l),
+                   v1_squat=COALESCE(?, v1_squat), v2_squat=COALESCE(?, v2_squat), v3_squat=COALESCE(?, v3_squat),
+                   v1_dj_h=COALESCE(?, v1_dj_h), v2_dj_h=COALESCE(?, v2_dj_h), v3_dj_h=COALESCE(?, v3_dj_h),
+                   v1_dj_kz=COALESCE(?, v1_dj_kz), v2_dj_kz=COALESCE(?, v2_dj_kz), v3_dj_kz=COALESCE(?, v3_dj_kz),
+                   v1_swj=COALESCE(?, v1_swj), v2_swj=COALESCE(?, v2_swj), v3_swj=COALESCE(?, v3_swj)
+               WHERE id=? AND spieler_id=?""",
+                (datum,
+             cmj_beid, cmj_rechts, cmj_links, erg.cmj_asymmetrie,
+             squat_jump, dj_hoehe, dj_kz, erg.rsi,
+             standweit, erg.bewertung_cmj, defizite_json,
+             v1_cmj_beid, v2_cmj_beid, v3_cmj_beid,
+             v1_cmj_r, v2_cmj_r, v3_cmj_r,
+             v1_cmj_l, v2_cmj_l, v3_cmj_l,
+             v1_squat, v2_squat, v3_squat,
+             v1_dj_h, v2_dj_h, v3_dj_h,
+             v1_dj_kz, v2_dj_kz, v3_dj_kz,
+             v1_swj, v2_swj, v3_swj,
+                 record_id, spieler_id),
+            )
+        except sqlite3.IntegrityError:
+            return False
+        return cur.rowcount == 1
+
+
+def sprung_loeschen(record_id: int, spieler_id: int) -> bool:
+    """Löscht einen Sprung-Datensatz (nur wenn spieler_id übereinstimmt)."""
+    with get_conn() as conn:
+        cur = conn.execute(
+            "DELETE FROM sprung_test WHERE id=? AND spieler_id=?",
+            (record_id, spieler_id),
+        )
+        return cur.rowcount == 1
+
+
+# ── Agilität ─────────────────────────────────────────────────────────────────
+
+def agilitaet_history_edit(spieler_id: int) -> list[dict]:
+    """History-Loader für die Bearbeitungsansicht: gibt id + alle Rohfelder zurück."""
+    with get_conn() as conn:
+        return _rows(conn.execute(
+            """SELECT id, datum,
+                      t505_r, t505_l, asym_505, t5_10_5, t_test, illinois,
+                      bew_505, bew_t_test, bew_illinois, defizite,
+                      v1_t505_r, v2_t505_r, v3_t505_r,
+                      v1_t505_l, v2_t505_l, v3_t505_l,
+                      v1_t5_10_5, v2_t5_10_5, v3_t5_10_5,
+                      v1_t_test, v2_t_test, v3_t_test,
+                      v1_illinois, v2_illinois, v3_illinois,
+                      COALESCE(modified_t_test, 0) AS modified_t_test,
+                      COALESCE(pro_agility, 0) AS pro_agility,
+                      COALESCE(arrowhead_r, 0) AS arrowhead_r,
+                      COALESCE(arrowhead_l, 0) AS arrowhead_l,
+                      COALESCE(zigzag, 0) AS zigzag,
+                      COALESCE(balsom, 0) AS balsom,
+                      v1_modified_t_test, v2_modified_t_test, v3_modified_t_test,
+                      v1_pro_agility, v2_pro_agility, v3_pro_agility,
+                      v1_arrowhead_r, v2_arrowhead_r, v3_arrowhead_r,
+                      v1_arrowhead_l, v2_arrowhead_l, v3_arrowhead_l,
+                      v1_zigzag, v2_zigzag, v3_zigzag,
+                      v1_balsom, v2_balsom, v3_balsom
+               FROM agilitaet_test
+               WHERE spieler_id=?
+               ORDER BY datum, id""",
+            (spieler_id,),
+        ).fetchall())
+
+
+def agilitaet_update(
+    record_id: int,
+    spieler_id: int,
+    datum: str,
+    t505_r: float | None, t505_l: float | None,
+    t5_10_5: float | None, t_test: float | None, illinois: float | None,
+    geschlecht: str = "Männlich",
+    niveau: str = "Leistungssport",
+    alter: float | None = None,
+    v1_t505_r: float | None = None, v2_t505_r: float | None = None, v3_t505_r: float | None = None,
+    v1_t505_l: float | None = None, v2_t505_l: float | None = None, v3_t505_l: float | None = None,
+    v1_t5_10_5: float | None = None, v2_t5_10_5: float | None = None, v3_t5_10_5: float | None = None,
+    v1_t_test: float | None = None, v2_t_test: float | None = None, v3_t_test: float | None = None,
+    v1_illinois: float | None = None, v2_illinois: float | None = None, v3_illinois: float | None = None,
+    modified_t_test: float | None = None, pro_agility: float | None = None,
+    arrowhead_r: float | None = None, arrowhead_l: float | None = None,
+    zigzag: float | None = None, balsom: float | None = None,
+    v1_modified_t_test: float | None = None, v2_modified_t_test: float | None = None, v3_modified_t_test: float | None = None,
+    v1_pro_agility: float | None = None, v2_pro_agility: float | None = None, v3_pro_agility: float | None = None,
+    v1_arrowhead_r: float | None = None, v2_arrowhead_r: float | None = None, v3_arrowhead_r: float | None = None,
+    v1_arrowhead_l: float | None = None, v2_arrowhead_l: float | None = None, v3_arrowhead_l: float | None = None,
+    v1_zigzag: float | None = None, v2_zigzag: float | None = None, v3_zigzag: float | None = None,
+    v1_balsom: float | None = None, v2_balsom: float | None = None, v3_balsom: float | None = None,
+) -> bool:
+    """Aktualisiert einen Agilität-Datensatz und berechnet abgeleitete Werte neu."""
+    from agilitaet import AgilitaetErgebnis
+    import json
+
+    erg = AgilitaetErgebnis(
+        t505_r=t505_r, t505_l=t505_l, t5_10_5=t5_10_5,
+        t_test=t_test, illinois=illinois,
+        geschlecht=geschlecht, niveau=niveau, alter=alter,
+    )
+    defizite_json = json.dumps(erg.defizite, ensure_ascii=False)
+
+    with get_conn() as conn:
+        try:
+            cur = conn.execute(
+            """UPDATE agilitaet_test SET
+                   datum=?,
+                   t505_r=?, t505_l=?, asym_505=?, t5_10_5=?, t_test=?, illinois=?,
+                   bew_505=?, bew_t_test=?, bew_illinois=?, defizite=?,
+                   v1_t505_r=COALESCE(?, v1_t505_r), v2_t505_r=COALESCE(?, v2_t505_r), v3_t505_r=COALESCE(?, v3_t505_r),
+                   v1_t505_l=COALESCE(?, v1_t505_l), v2_t505_l=COALESCE(?, v2_t505_l), v3_t505_l=COALESCE(?, v3_t505_l),
+                   v1_t5_10_5=COALESCE(?, v1_t5_10_5), v2_t5_10_5=COALESCE(?, v2_t5_10_5), v3_t5_10_5=COALESCE(?, v3_t5_10_5),
+                   v1_t_test=COALESCE(?, v1_t_test), v2_t_test=COALESCE(?, v2_t_test), v3_t_test=COALESCE(?, v3_t_test),
+                   v1_illinois=COALESCE(?, v1_illinois), v2_illinois=COALESCE(?, v2_illinois), v3_illinois=COALESCE(?, v3_illinois),
+                   modified_t_test=COALESCE(?, modified_t_test), pro_agility=COALESCE(?, pro_agility),
+                   arrowhead_r=COALESCE(?, arrowhead_r), arrowhead_l=COALESCE(?, arrowhead_l), zigzag=COALESCE(?, zigzag), balsom=COALESCE(?, balsom),
+                   v1_modified_t_test=COALESCE(?, v1_modified_t_test), v2_modified_t_test=COALESCE(?, v2_modified_t_test), v3_modified_t_test=COALESCE(?, v3_modified_t_test),
+                   v1_pro_agility=COALESCE(?, v1_pro_agility), v2_pro_agility=COALESCE(?, v2_pro_agility), v3_pro_agility=COALESCE(?, v3_pro_agility),
+                   v1_arrowhead_r=COALESCE(?, v1_arrowhead_r), v2_arrowhead_r=COALESCE(?, v2_arrowhead_r), v3_arrowhead_r=COALESCE(?, v3_arrowhead_r),
+                   v1_arrowhead_l=COALESCE(?, v1_arrowhead_l), v2_arrowhead_l=COALESCE(?, v2_arrowhead_l), v3_arrowhead_l=COALESCE(?, v3_arrowhead_l),
+                   v1_zigzag=COALESCE(?, v1_zigzag), v2_zigzag=COALESCE(?, v2_zigzag), v3_zigzag=COALESCE(?, v3_zigzag),
+                   v1_balsom=COALESCE(?, v1_balsom), v2_balsom=COALESCE(?, v2_balsom), v3_balsom=COALESCE(?, v3_balsom)
+               WHERE id=? AND spieler_id=?""",
+                (datum,
+             t505_r, t505_l, erg.asym_505, t5_10_5, t_test, illinois,
+             erg.bew_505, erg.bew_t_test, erg.bew_illinois, defizite_json,
+             v1_t505_r, v2_t505_r, v3_t505_r,
+             v1_t505_l, v2_t505_l, v3_t505_l,
+             v1_t5_10_5, v2_t5_10_5, v3_t5_10_5,
+             v1_t_test, v2_t_test, v3_t_test,
+             v1_illinois, v2_illinois, v3_illinois,
+              modified_t_test, pro_agility,
+              arrowhead_r, arrowhead_l, zigzag, balsom,
+             v1_modified_t_test, v2_modified_t_test, v3_modified_t_test,
+             v1_pro_agility, v2_pro_agility, v3_pro_agility,
+             v1_arrowhead_r, v2_arrowhead_r, v3_arrowhead_r,
+             v1_arrowhead_l, v2_arrowhead_l, v3_arrowhead_l,
+             v1_zigzag, v2_zigzag, v3_zigzag,
+             v1_balsom, v2_balsom, v3_balsom,
+                 record_id, spieler_id),
+            )
+        except sqlite3.IntegrityError:
+            return False
+        return cur.rowcount == 1
+
+
+def agilitaet_loeschen(record_id: int, spieler_id: int) -> bool:
+    """Löscht einen Agilität-Datensatz (nur wenn spieler_id übereinstimmt)."""
+    with get_conn() as conn:
+        cur = conn.execute(
+            "DELETE FROM agilitaet_test WHERE id=? AND spieler_id=?",
+            (record_id, spieler_id),
+        )
+        return cur.rowcount == 1
+
+
+# ── Ausdauer ─────────────────────────────────────────────────────────────────
+
+def ausdauer_history_edit(spieler_id: int) -> list[dict]:
+    """History-Loader für die Bearbeitungsansicht: gibt id + alle Rohfelder zurück."""
+    with get_conn() as conn:
+        return _rows(conn.execute(
+            """SELECT id, datum, test_typ, distanz_m, hf_max, rpe,
+                      vo2max, bewertung, altersgruppe, defizite
+               FROM ausdauer_test
+               WHERE spieler_id=?
+               ORDER BY datum, id""",
+            (spieler_id,),
+        ).fetchall())
+
+
+def ausdauer_update(
+    record_id: int,
+    spieler_id: int,
+    datum: str,
+    test_typ: str,
+    distanz_m: float,
+    hf_max: float | None,
+    rpe: int | None,
+    altersgruppe: str = "Senioren",
+    geschlecht: str = "Männlich",
+) -> bool:
+    """Aktualisiert einen Ausdauer-Datensatz und berechnet abgeleitete Werte neu."""
+    from ausdauer import AusdauerErgebnis
+    import json
+
+    erg = AusdauerErgebnis(
+        test_typ=test_typ, distanz_m=distanz_m, hf_max=hf_max, rpe=rpe,
+        geschlecht=geschlecht, altersgruppe=altersgruppe,
+    )
+    defizite_json = json.dumps(erg.defizite, ensure_ascii=False)
+
+    with get_conn() as conn:
+        cur = conn.execute(
+            """UPDATE ausdauer_test SET
+                   datum=?, test_typ=?, distanz_m=?, hf_max=?, rpe=?,
+                   vo2max=?, bewertung=?, altersgruppe=?, defizite=?
+               WHERE id=? AND spieler_id=?""",
+            (datum, test_typ, distanz_m, hf_max, rpe,
+             erg.vo2max, erg.bewertung, altersgruppe, defizite_json,
+             record_id, spieler_id),
+        )
+        return cur.rowcount == 1
+
+
+def ausdauer_loeschen(record_id: int, spieler_id: int) -> bool:
+    """Löscht einen Ausdauer-Datensatz (nur wenn spieler_id übereinstimmt)."""
+    with get_conn() as conn:
+        cur = conn.execute(
+            "DELETE FROM ausdauer_test WHERE id=? AND spieler_id=?",
+            (record_id, spieler_id),
+        )
+        return cur.rowcount == 1
+
+
+# ── Kraft ─────────────────────────────────────────────────────────────────────
+
+def kraft_history_edit(spieler_id: int) -> list[dict]:
+    """History-Loader für die Bearbeitungsansicht: gibt id + alle Rohfelder zurück."""
+    with get_conn() as conn:
+        return _rows(conn.execute(
+            """SELECT id, datum,
+                      koerpergewicht, direktes_1rm, geschaetztes_1rm,
+                      verwendete_formel,
+                      relative_kraft_direkt, relative_kraft_geschaetzt,
+                      sicherheit_bestaetigt,
+                      ventral_variante, ventral_sekunden, ventral_versuch2,
+                      lateral_rechts_variante, lateral_rechts_sekunden,
+                      lateral_links_variante, lateral_links_sekunden,
+                      dorsal_variante, dorsal_sekunden,
+                      rumpf_gesamt_sekunden, lateral_differenz_sekunden,
+                      lateral_asymmetrie_prozent,
+                      ratio_ventral_dorsal, ratio_lateral_r_dorsal, ratio_lateral_l_dorsal,
+                      abbruchgrund, bemerkung
+               FROM kraft_test
+               WHERE spieler_id=?
+               ORDER BY datum, id""",
+            (spieler_id,),
+        ).fetchall())
+
+
+def kraft_update(
+    record_id: int,
+    spieler_id: int,
+    datum: str,
+    koerpergewicht: float | None,
+    direktes_1rm: float | None,
+    geschaetztes_1rm: float | None,
+    relative_kraft_direkt: float | None,
+    relative_kraft_geschaetzt: float | None,
+    sicherheit_bestaetigt: int,
+    ventral_sekunden: float | None,
+    ventral_versuch2: float | None,
+    lateral_rechts_sekunden: float | None,
+    lateral_links_sekunden: float | None,
+    dorsal_sekunden: float | None,
+    rumpf_gesamt_sekunden: float | None,
+    lateral_differenz_sekunden: float | None,
+    lateral_asymmetrie_prozent: float | None,
+    ratio_ventral_dorsal: float | None,
+    ratio_lateral_r_dorsal: float | None,
+    ratio_lateral_l_dorsal: float | None,
+    abbruchgrund: str | None = None,
+    bemerkung: str | None = None,
+    ventral_variante: str | None = None,
+    lateral_rechts_variante: str | None = None,
+    lateral_links_variante: str | None = None,
+    dorsal_variante: str | None = None,
+) -> bool:
+    """Aktualisiert einen Kraft-Datensatz (nur wenn spieler_id übereinstimmt).
+
+    Abgeleitete Felder (relative_kraft_*, lateral_asymmetrie_prozent, ratios)
+    werden vom Aufrufer übergeben (diese werden in kraft_speichern auch so gehandhabt).
+    Gibt True zurück wenn genau eine Zeile geändert wurde.
+    """
+    with get_conn() as conn:
+        cur = conn.execute(
+            """UPDATE kraft_test SET
+                   datum=?,
+                   koerpergewicht=?, direktes_1rm=?, geschaetztes_1rm=?,
+                   relative_kraft_direkt=?, relative_kraft_geschaetzt=?,
+                   sicherheit_bestaetigt=?,
+                   ventral_variante=?, ventral_sekunden=?, ventral_versuch2=?,
+                   lateral_rechts_variante=?, lateral_rechts_sekunden=?,
+                   lateral_links_variante=?, lateral_links_sekunden=?,
+                   dorsal_variante=?, dorsal_sekunden=?,
+                   rumpf_gesamt_sekunden=?, lateral_differenz_sekunden=?,
+                   lateral_asymmetrie_prozent=?,
+                   ratio_ventral_dorsal=?, ratio_lateral_r_dorsal=?, ratio_lateral_l_dorsal=?,
+                   abbruchgrund=?, bemerkung=?, updated_at=datetime('now')
+               WHERE id=? AND spieler_id=?""",
+            (datum,
+             koerpergewicht, direktes_1rm, geschaetztes_1rm,
+             relative_kraft_direkt, relative_kraft_geschaetzt,
+             sicherheit_bestaetigt,
+             ventral_variante, ventral_sekunden, ventral_versuch2,
+             lateral_rechts_variante, lateral_rechts_sekunden,
+             lateral_links_variante, lateral_links_sekunden,
+             dorsal_variante, dorsal_sekunden,
+             rumpf_gesamt_sekunden, lateral_differenz_sekunden,
+             lateral_asymmetrie_prozent,
+             ratio_ventral_dorsal, ratio_lateral_r_dorsal, ratio_lateral_l_dorsal,
+             abbruchgrund, bemerkung,
+             record_id, spieler_id),
+        )
+        return cur.rowcount == 1
+
+
+def kraft_loeschen(record_id: int, spieler_id: int) -> bool:
+    """Löscht einen Kraft-Test inkl. Versuche per CASCADE (nur wenn spieler_id übereinstimmt)."""
+    with get_conn() as conn:
+        cur = conn.execute(
+            "DELETE FROM kraft_test WHERE id=? AND spieler_id=?",
+            (record_id, spieler_id),
+        )
+        return cur.rowcount == 1
+
+
+# ── Spiroergometrie (History-Loader + sicheres Update/Delete) ─────────────────
+
+def spiro_history_edit(spieler_id: int) -> list[dict]:
+    """History-Loader für die Bearbeitungsansicht: alle Spiro-Tests eines Spielers.
+
+    Gibt id + alle Hauptfelder zurück, keine Stufen-Daten (die werden separat geladen).
+    Stufen und Nachbelastungs-Daten per spiro_stufen_laden(test_id) /
+    spiro_nachbelastung_laden(test_id) abrufen.
+    """
+    with get_conn() as conn:
+        return _rows(conn.execute(
+            """SELECT t.id, t.datum, t.testtyp, t.geraeteart, t.protokoll_id,
+                      t.testort, t.tester, t.mit_spiro, t.mit_laktat,
+                      t.raumtemperatur, t.letzte_mahlzeit, t.letzte_intensive_einheit,
+                      t.akute_beschwerden, t.koerpergewicht,
+                      t.maximale_geschwindigkeit, t.maximale_herzfrequenz,
+                      t.vo2_peak, t.vo2_max, t.geschaetzte_vo2max,
+                      t.vt1_geschwindigkeit, t.vt1_herzfrequenz,
+                      t.vt2_geschwindigkeit, t.vt2_herzfrequenz,
+                      t.laktatschwelle_methode, t.schwelle_geschwindigkeit,
+                      t.schwelle_herzfrequenz, t.schwelle_laktat,
+                      t.ruhelaktat, t.laktat_blutentnahmeort, t.laktat_messgeraet,
+                      t.rpe_max, t.abbruchgrund, t.bemerkung, t.created_at,
+                      p.name AS protokoll_name
+               FROM spiro_test t
+               LEFT JOIN spiro_protokoll p ON t.protokoll_id = p.id
+               WHERE t.spieler_id=?
+               ORDER BY t.datum, t.id""",
+            (spieler_id,),
+        ).fetchall())
+
+
+def spiro_test_update(
+    test_id: int,
+    spieler_id: int,
+    datum: str,
+    testtyp: str,
+    geraeteart: str | None = None,
+    protokoll_id: int | None = None,
+    testort: str | None = None,
+    tester: str | None = None,
+    mit_spiro: int = 0,
+    mit_laktat: int = 0,
+    raumtemperatur: float | None = None,
+    letzte_mahlzeit: str | None = None,
+    letzte_intensive_einheit: str | None = None,
+    akute_beschwerden: str | None = None,
+    koerpergewicht: float | None = None,
+    maximale_geschwindigkeit: float | None = None,
+    maximale_herzfrequenz: float | None = None,
+    vo2_peak: float | None = None,
+    vo2_max: float | None = None,
+    geschaetzte_vo2max: float | None = None,
+    vt1_geschwindigkeit: float | None = None,
+    vt1_herzfrequenz: float | None = None,
+    vt2_geschwindigkeit: float | None = None,
+    vt2_herzfrequenz: float | None = None,
+    laktatschwelle_methode: str | None = None,
+    schwelle_geschwindigkeit: float | None = None,
+    schwelle_herzfrequenz: float | None = None,
+    schwelle_laktat: float | None = None,
+    ruhelaktat: float | None = None,
+    laktat_blutentnahmeort: str | None = None,
+    laktat_messgeraet: str | None = None,
+    rpe_max: int | None = None,
+    abbruchgrund: str | None = None,
+    bemerkung: str | None = None,
+) -> bool:
+    """Aktualisiert den Haupt-Datensatz eines Spiro-Tests (nur wenn spieler_id übereinstimmt).
+
+    Stufen und Nachbelastungs-Daten werden NICHT verändert — diese separat über
+    spiro_stufen_speichern() / spiro_nachbelastung_speichern() aktualisieren.
+    Gibt True zurück wenn genau eine Zeile geändert wurde.
+    """
+    with get_conn() as conn:
+        cur = conn.execute(
+            """UPDATE spiro_test SET
+                   datum=?, testtyp=?, geraeteart=?, protokoll_id=?,
+                   testort=?, tester=?, mit_spiro=?, mit_laktat=?,
+                   raumtemperatur=?, letzte_mahlzeit=?, letzte_intensive_einheit=?,
+                   akute_beschwerden=?, koerpergewicht=?,
+                   maximale_geschwindigkeit=?, maximale_herzfrequenz=?,
+                   vo2_peak=?, vo2_max=?, geschaetzte_vo2max=?,
+                   vt1_geschwindigkeit=?, vt1_herzfrequenz=?,
+                   vt2_geschwindigkeit=?, vt2_herzfrequenz=?,
+                   laktatschwelle_methode=?, schwelle_geschwindigkeit=?,
+                   schwelle_herzfrequenz=?, schwelle_laktat=?,
+                   ruhelaktat=?, laktat_blutentnahmeort=?, laktat_messgeraet=?,
+                   rpe_max=?, abbruchgrund=?, bemerkung=?
+               WHERE id=? AND spieler_id=?""",
+            (datum, testtyp, geraeteart, protokoll_id,
+             testort, tester, mit_spiro, mit_laktat,
+             raumtemperatur, letzte_mahlzeit, letzte_intensive_einheit,
+             akute_beschwerden, koerpergewicht,
+             maximale_geschwindigkeit, maximale_herzfrequenz,
+             vo2_peak, vo2_max, geschaetzte_vo2max,
+             vt1_geschwindigkeit, vt1_herzfrequenz,
+             vt2_geschwindigkeit, vt2_herzfrequenz,
+             laktatschwelle_methode, schwelle_geschwindigkeit,
+             schwelle_herzfrequenz, schwelle_laktat,
+             ruhelaktat, laktat_blutentnahmeort, laktat_messgeraet,
+             rpe_max, abbruchgrund, bemerkung,
+             test_id, spieler_id),
+        )
+        return cur.rowcount == 1
+
+
+def spiro_test_loeschen_sicher(test_id: int, spieler_id: int) -> bool:
+    """Löscht einen Spiro-Test inkl. Stufen/Nachbelastung per CASCADE.
+
+    Validiert Zeilenbesitz atomar (WHERE id=? AND spieler_id=?).
+    Gibt True zurück wenn genau eine Zeile gelöscht wurde.
+    """
+    with get_conn() as conn:
+        cur = conn.execute(
+            "DELETE FROM spiro_test WHERE id=? AND spieler_id=?",
+            (test_id, spieler_id),
+        )
+        return cur.rowcount == 1
+
+
+# ─── Ende Task #257 Ergänzungen ────────────────────────────────────────────────
+
+
 # ─── Spiroergometrie ───────────────────────────────────────────────────────
 
 def spiro_protokoll_alle() -> list[dict]:

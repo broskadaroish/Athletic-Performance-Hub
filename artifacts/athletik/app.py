@@ -2039,6 +2039,741 @@ def _pb_trend_cards(df: "pd.DataFrame", metrics: list, key: str = "") -> None:
         )
 
 
+# ─── Task #257: History-Edit/Delete Helpers ───────────────────────────────────
+
+def _history_mandant_ok(spieler_id: int) -> bool:
+    """Prüft Mandantenzugehörigkeit des Spielers für den aktiven Benutzer."""
+    u = _akt_user()
+    return spieler_mandant_pruefen(spieler_id, u.get("id"), u.get("rolle", ""), u.get("verein_id"))
+
+
+def _datum_zu_date(datum_str: str | None) -> "date":
+    """Konvertiert gespeichertes Datum (DD.MM.YYYY oder YYYY-MM-DD) in date-Objekt."""
+    if not datum_str:
+        return date.today()
+    d = parse_datum_safe(datum_str)
+    if d:
+        return d
+    for fmt in ("%d.%m.%Y", "%Y-%m-%d", "%d.%m.%Y (%H:%M)"):
+        try:
+            return datetime.strptime(datum_str.split(" (")[0], fmt).date()
+        except Exception:
+            pass
+    return date.today()
+
+
+def _edit_select_box(records: list[dict], module_key: str) -> dict | None:
+    """Zeigt eine Selectbox mit Datum + ID für einen History-Datensatz. Gibt den gewählten Record zurück."""
+    if not records:
+        st.info("Keine Einträge zum Bearbeiten vorhanden.")
+        return None
+    options = [f"{r.get('datum','?')} [ID {r.get('id','?')}]" for r in records]
+    idx = st.selectbox("Eintrag auswählen", range(len(options)),
+                       format_func=lambda i: options[i],
+                       key=f"hist_edit_sel_{module_key}")
+    return records[idx]
+
+
+# ─── Anthropometrie ───────────────────────────────────────────────────────────
+
+def _render_anthro_edit(spieler_id: int) -> None:
+    """Edit/Delete-Bereich für Anthropometrie-Verlauf."""
+    from database import anthropometrie_history_edit, anthropometrie_update, anthropometrie_loeschen
+    records = anthropometrie_history_edit(spieler_id)
+    if not records:
+        st.info("Noch keine Messungen vorhanden.")
+        return
+
+    rec = _edit_select_box(records, f"anthro_{spieler_id}")
+    if rec is None:
+        return
+    rid = rec["id"]
+
+    with st.form(f"anthro_edit_form_{spieler_id}_{rid}"):
+        st.markdown(f"**Messung bearbeiten — ID {rid}**")
+        datum_val = _datum_zu_date(rec.get("datum"))
+        d_col, g_col, gew_col = st.columns(3)
+        new_datum  = d_col.date_input("Datum", value=datum_val, key=f"ae_datum_{rid}")
+        new_groesse = g_col.number_input("Größe (cm)", 0.0, 250.0,
+                                          float(rec.get("groesse") or 0), 0.1, key=f"ae_gr_{rid}")
+        new_gewicht = gew_col.number_input("Gewicht (kg)", 0.0, 200.0,
+                                            float(rec.get("gewicht") or 0), 0.1, key=f"ae_gw_{rid}")
+        c1, c2, c3 = st.columns(3)
+        new_sh  = c1.number_input("Sitzhöhe (cm)",    0.0, 150.0, float(rec.get("sitzhoehe") or 0),    0.1, key=f"ae_sh_{rid}")
+        new_bl  = c2.number_input("Beinlänge (cm)",   0.0, 130.0, float(rec.get("beinlaenge") or 0),   0.1, key=f"ae_bl_{rid}")
+        new_arm = c3.number_input("Armspannweite (cm)", 0.0, 250.0, float(rec.get("armspannweite") or 0), 0.1, key=f"ae_arm_{rid}")
+        c4, c5 = st.columns(2)
+        new_kf  = c4.number_input("Körperfett (%)",  0.0, 60.0, float(rec.get("koerperfett") or 0),   0.1, key=f"ae_kf_{rid}")
+        new_mm  = c5.number_input("Muskelmasse (kg)", 0.0, 100.0, float(rec.get("muskelmasse") or 0),  0.1, key=f"ae_mm_{rid}")
+        c6, c7 = st.columns(2)
+        new_bl_r = c6.number_input("Beinlänge R (cm)", 0.0, 130.0, float(rec.get("beinlaenge_r") or 0), 0.1, key=f"ae_blr_{rid}")
+        new_bl_l = c7.number_input("Beinlänge L (cm)", 0.0, 130.0, float(rec.get("beinlaenge_l") or 0), 0.1, key=f"ae_bll_{rid}")
+
+        submitted = st.form_submit_button("💾 Speichern", type="primary")
+        if submitted:
+            if not _history_mandant_ok(spieler_id):
+                st.error("❌ Zugriff verweigert — Spieler gehört nicht zu Ihrem Mandanten.")
+                return
+            from anthropometrie import bmi_berechnen, bmi_kategorie, phv_offset_berechnen, reifestatus_text
+            sp_r = spieler_by_id(spieler_id)
+            alter_r = berechne_alter(sp_r.get("geburtsdatum","") if sp_r else None) or 0
+            geschl_r = sp_r.get("geschlecht", "Männlich") if sp_r else "Männlich"
+            new_bmi = bmi_berechnen(new_gewicht, new_groesse) if new_groesse > 0 and new_gewicht > 0 else None
+            new_bmi_kat = bmi_kategorie(new_bmi) if new_bmi else None
+            new_phv = phv_offset_berechnen(alter_r, new_groesse, new_gewicht, new_sh, new_bl, geschl_r)
+            new_reife = reifestatus_text(new_phv)
+            ok = anthropometrie_update(
+                rid, spieler_id, new_datum.strftime("%d.%m.%Y"),
+                new_groesse or None, new_gewicht or None,
+                new_sh or None, new_bl or None, new_arm or None,
+                new_kf or None, new_mm or None,
+                new_bmi, new_bmi_kat, new_phv, new_reife,
+                new_bl_r or None, new_bl_l or None,
+                rec.get("koerperfett_methode"),
+            )
+            if ok:
+                _save_ok("Anthropometrie-Messung aktualisiert.")
+                st.rerun()
+            else:
+                st.error("❌ Aktualisierung fehlgeschlagen.")
+
+    st.markdown("---")
+    if _confirm_loeschen(f"anthro_hist_del_{spieler_id}_{rid}",
+                          was=f"Messung vom {rec.get('datum','?')} (ID {rid})",
+                          btn_label="🗑️ Eintrag löschen"):
+        if not _history_mandant_ok(spieler_id):
+            st.error("❌ Zugriff verweigert.")
+            return
+        if anthropometrie_loeschen(rid, spieler_id):
+            _save_ok("Messung gelöscht.")
+            st.rerun()
+        else:
+            st.error("❌ Löschen fehlgeschlagen.")
+
+
+# ─── FMS ──────────────────────────────────────────────────────────────────────
+
+def _render_fms_edit(spieler_id: int) -> None:
+    """Edit/Delete-Bereich für FMS-Verlauf."""
+    from database import fms_history_edit, fms_update, fms_loeschen
+    records = fms_history_edit(spieler_id)
+    if not records:
+        st.info("Noch keine FMS-Tests vorhanden.")
+        return
+
+    rec = _edit_select_box(records, f"fms_{spieler_id}")
+    if rec is None:
+        return
+    rid = rec["id"]
+
+    _FMS_FELDER = [
+        ("Deep Squat",   "deep_squat",    f"fe_ds_{rid}"),
+        ("Hurdle L",     "hurdle_links",  f"fe_hl_{rid}"),
+        ("Hurdle R",     "hurdle_rechts", f"fe_hr_{rid}"),
+        ("Inline L",     "inline_links",  f"fe_il_{rid}"),
+        ("Inline R",     "inline_rechts", f"fe_ir_{rid}"),
+        ("Shoulder L",   "shoulder_links",f"fe_sl_{rid}"),
+        ("Shoulder R",   "shoulder_rechts",f"fe_sr_{rid}"),
+        ("ASLR L",       "aslr_links",    f"fe_al_{rid}"),
+        ("ASLR R",       "aslr_rechts",   f"fe_ar_{rid}"),
+        ("Trunk",        "trunk",         f"fe_tr_{rid}"),
+        ("Rotary L",     "rotary_links",  f"fe_rl_{rid}"),
+        ("Rotary R",     "rotary_rechts", f"fe_rr_{rid}"),
+    ]
+
+    with st.form(f"fms_edit_form_{spieler_id}_{rid}"):
+        st.markdown(f"**FMS bearbeiten — ID {rid}**")
+        datum_val = _datum_zu_date(rec.get("datum"))
+        new_datum = st.date_input("Datum", value=datum_val, key=f"fe_datum_{rid}")
+        cols = st.columns(4)
+        vals = {}
+        for i, (lbl, fld, key) in enumerate(_FMS_FELDER):
+            vals[fld] = cols[i % 4].number_input(lbl, 0, 3, int(rec.get(fld) or 0), key=key)
+        submitted = st.form_submit_button("💾 Speichern", type="primary")
+        if submitted:
+            if not _history_mandant_ok(spieler_id):
+                st.error("❌ Zugriff verweigert."); return
+            sp_r = spieler_by_id(spieler_id)
+            alter_r = berechne_alter(sp_r.get("geburtsdatum","") if sp_r else None)
+            ok = fms_update(
+                rid, spieler_id, new_datum.strftime("%d.%m.%Y"),
+                vals["deep_squat"], vals["hurdle_links"], vals["hurdle_rechts"],
+                vals["inline_links"], vals["inline_rechts"],
+                vals["shoulder_links"], vals["shoulder_rechts"],
+                vals["aslr_links"], vals["aslr_rechts"],
+                vals["trunk"], vals["rotary_links"], vals["rotary_rechts"],
+                alter=alter_r,
+            )
+            if ok:
+                _save_ok("FMS-Test aktualisiert.")
+                st.rerun()
+            else:
+                st.error("❌ Aktualisierung fehlgeschlagen.")
+
+    st.markdown("---")
+    if _confirm_loeschen(f"fms_hist_del_{spieler_id}_{rid}",
+                          was=f"FMS-Test vom {rec.get('datum','?')} (ID {rid})",
+                          btn_label="🗑️ FMS-Test löschen"):
+        if not _history_mandant_ok(spieler_id):
+            st.error("❌ Zugriff verweigert."); return
+        if fms_loeschen(rid, spieler_id):
+            _save_ok("FMS-Test gelöscht.")
+            st.rerun()
+        else:
+            st.error("❌ Löschen fehlgeschlagen.")
+
+
+# ─── Y-Balance ────────────────────────────────────────────────────────────────
+
+def _render_ybalance_edit(spieler_id: int) -> None:
+    """Edit/Delete-Bereich für Y-Balance-Verlauf."""
+    from database import y_balance_history_edit, y_balance_update, y_balance_loeschen
+    records = y_balance_history_edit(spieler_id)
+    if not records:
+        st.info("Noch keine Y-Balance-Tests vorhanden.")
+        return
+
+    rec = _edit_select_box(records, f"yb_{spieler_id}")
+    if rec is None:
+        return
+    rid = rec["id"]
+
+    with st.form(f"yb_edit_form_{spieler_id}_{rid}"):
+        st.markdown(f"**Y-Balance bearbeiten — ID {rid}**")
+        datum_val = _datum_zu_date(rec.get("datum"))
+        new_datum = st.date_input("Datum", value=datum_val, key=f"yb_datum_{rid}")
+        st.caption("Messwerte (cm) — Composite-Scores werden neu berechnet.")
+        c1, c2 = st.columns(2)
+        ant_r = c1.number_input("Anterior Rechts (cm)", 0.0, 200.0, float(rec.get("anterior_rechts") or 0), 0.1, key=f"yb_ar_{rid}")
+        ant_l = c2.number_input("Anterior Links (cm)",  0.0, 200.0, float(rec.get("anterior_links")  or 0), 0.1, key=f"yb_al_{rid}")
+        pm_r  = c1.number_input("Posteromedial Rechts (cm)", 0.0, 200.0, float(rec.get("posteromedial_rechts") or 0), 0.1, key=f"yb_pmr_{rid}")
+        pm_l  = c2.number_input("Posteromedial Links (cm)",  0.0, 200.0, float(rec.get("posteromedial_links")  or 0), 0.1, key=f"yb_pml_{rid}")
+        pl_r  = c1.number_input("Posterolateral Rechts (cm)", 0.0, 200.0, float(rec.get("posterolateral_rechts") or 0), 0.1, key=f"yb_plr_{rid}")
+        pl_l  = c2.number_input("Posterolateral Links (cm)",  0.0, 200.0, float(rec.get("posterolateral_links")  or 0), 0.1, key=f"yb_pll_{rid}")
+        st.caption("Beinlänge (cm) — für Composite-Score-Berechnung benötigt")
+        cb1, cb2 = st.columns(2)
+        # Y-Balance speichert keine Beinlänge in der Tabelle — aus Anthropometrie laden
+        _anthro_r = anthropometrie_letzter(spieler_id)
+        _bl_default = float(_anthro_r.get("beinlaenge") or 90.0) if _anthro_r else 90.0
+        bl_r = cb1.number_input("Beinlänge Rechts (cm)", 1.0, 130.0, _bl_default, 0.1, key=f"yb_blr_{rid}")
+        bl_l = cb2.number_input("Beinlänge Links (cm)",  1.0, 130.0, _bl_default, 0.1, key=f"yb_bll_{rid}")
+        submitted = st.form_submit_button("💾 Speichern", type="primary")
+        if submitted:
+            if not _history_mandant_ok(spieler_id):
+                st.error("❌ Zugriff verweigert."); return
+            sp_r = spieler_by_id(spieler_id)
+            alter_r = berechne_alter(sp_r.get("geburtsdatum","") if sp_r else None)
+            ok = y_balance_update(
+                rid, spieler_id, new_datum.strftime("%d.%m.%Y"),
+                ant_r, ant_l, pm_r, pm_l, pl_r, pl_l,
+                bl_r, bl_l, alter=alter_r,
+            )
+            if ok:
+                _save_ok("Y-Balance-Test aktualisiert.")
+                st.rerun()
+            else:
+                st.error("❌ Aktualisierung fehlgeschlagen.")
+
+    st.markdown("---")
+    if _confirm_loeschen(f"yb_hist_del_{spieler_id}_{rid}",
+                          was=f"Y-Balance-Test vom {rec.get('datum','?')} (ID {rid})",
+                          btn_label="🗑️ Y-Balance löschen"):
+        if not _history_mandant_ok(spieler_id):
+            st.error("❌ Zugriff verweigert."); return
+        if y_balance_loeschen(rid, spieler_id):
+            _save_ok("Y-Balance-Test gelöscht.")
+            st.rerun()
+        else:
+            st.error("❌ Löschen fehlgeschlagen.")
+
+
+# ─── Sprint ───────────────────────────────────────────────────────────────────
+
+def _render_sprint_edit(spieler_id: int) -> None:
+    """Edit/Delete-Bereich für Sprint-Verlauf."""
+    from database import sprint_history_edit, sprint_update, sprint_loeschen
+    records = sprint_history_edit(spieler_id)
+    if not records:
+        st.info("Noch keine Sprint-Tests vorhanden.")
+        return
+
+    rec = _edit_select_box(records, f"spr_{spieler_id}")
+    if rec is None:
+        return
+    rid = rec["id"]
+
+    with st.form(f"sprint_edit_form_{spieler_id}_{rid}"):
+        st.markdown(f"**Sprint bearbeiten — ID {rid}**")
+        st.caption("Zeiten in Sekunden (0 = nicht gemessen). Bester Versuch + abgeleitete Werte werden neu berechnet.")
+        datum_val = _datum_zu_date(rec.get("datum"))
+        new_datum = st.date_input("Datum", value=datum_val, key=f"se_datum_{rid}")
+        st.caption("Versuch 1 | Versuch 2 | Versuch 3 (Sekunden, 0 = nicht gemessen)")
+        cols_5 = st.columns(4)
+        cols_5[0].markdown("**5 m**")
+        v1_5  = cols_5[1].number_input("V1", 0.0, 20.0, float(rec.get("v1_5m")  or 0), 0.01, format="%.2f", key=f"se_5v1_{rid}", label_visibility="collapsed")
+        v2_5  = cols_5[2].number_input("V2", 0.0, 20.0, float(rec.get("v2_5m")  or 0), 0.01, format="%.2f", key=f"se_5v2_{rid}", label_visibility="collapsed")
+        v3_5  = cols_5[3].number_input("V3", 0.0, 20.0, float(rec.get("v3_5m")  or 0), 0.01, format="%.2f", key=f"se_5v3_{rid}", label_visibility="collapsed")
+        cols_10 = st.columns(4)
+        cols_10[0].markdown("**10 m**")
+        v1_10 = cols_10[1].number_input("V1",0.0,20.0,float(rec.get("v1_10m") or 0),0.01,format="%.2f",key=f"se_10v1_{rid}",label_visibility="collapsed")
+        v2_10 = cols_10[2].number_input("V2",0.0,20.0,float(rec.get("v2_10m") or 0),0.01,format="%.2f",key=f"se_10v2_{rid}",label_visibility="collapsed")
+        v3_10 = cols_10[3].number_input("V3",0.0,20.0,float(rec.get("v3_10m") or 0),0.01,format="%.2f",key=f"se_10v3_{rid}",label_visibility="collapsed")
+        cols_20 = st.columns(4)
+        cols_20[0].markdown("**20 m**")
+        v1_20 = cols_20[1].number_input("V1",0.0,20.0,float(rec.get("v1_20m") or 0),0.01,format="%.2f",key=f"se_20v1_{rid}",label_visibility="collapsed")
+        v2_20 = cols_20[2].number_input("V2",0.0,20.0,float(rec.get("v2_20m") or 0),0.01,format="%.2f",key=f"se_20v2_{rid}",label_visibility="collapsed")
+        v3_20 = cols_20[3].number_input("V3",0.0,20.0,float(rec.get("v3_20m") or 0),0.01,format="%.2f",key=f"se_20v3_{rid}",label_visibility="collapsed")
+        cols_30 = st.columns(4)
+        cols_30[0].markdown("**30 m**")
+        v1_30 = cols_30[1].number_input("V1",0.0,20.0,float(rec.get("v1_30m") or 0),0.01,format="%.2f",key=f"se_30v1_{rid}",label_visibility="collapsed")
+        v2_30 = cols_30[2].number_input("V2",0.0,20.0,float(rec.get("v2_30m") or 0),0.01,format="%.2f",key=f"se_30v2_{rid}",label_visibility="collapsed")
+        v3_30 = cols_30[3].number_input("V3",0.0,20.0,float(rec.get("v3_30m") or 0),0.01,format="%.2f",key=f"se_30v3_{rid}",label_visibility="collapsed")
+        cols_40 = st.columns(4)
+        cols_40[0].markdown("**40 m**")
+        v1_40 = cols_40[1].number_input("V1",0.0,20.0,float(rec.get("v1_40m") or 0),0.01,format="%.2f",key=f"se_40v1_{rid}",label_visibility="collapsed")
+        v2_40 = cols_40[2].number_input("V2",0.0,20.0,float(rec.get("v2_40m") or 0),0.01,format="%.2f",key=f"se_40v2_{rid}",label_visibility="collapsed")
+        v3_40 = cols_40[3].number_input("V3",0.0,20.0,float(rec.get("v3_40m") or 0),0.01,format="%.2f",key=f"se_40v3_{rid}",label_visibility="collapsed")
+        submitted = st.form_submit_button("💾 Speichern", type="primary")
+        if submitted:
+            if not _history_mandant_ok(spieler_id):
+                st.error("❌ Zugriff verweigert."); return
+            sp_r = spieler_by_id(spieler_id)
+            _geschl = sp_r.get("geschlecht","Männlich") if sp_r else "Männlich"
+            _niveau = sp_r.get("leistungsniveau","Leistungssport") if sp_r else "Leistungssport"
+            _alter  = berechne_alter(sp_r.get("geburtsdatum","") if sp_r else None)
+            ok = sprint_update(
+                rid, spieler_id, new_datum.strftime("%d.%m.%Y"),
+                v1_5 or None, v2_5 or None, v3_5 or None,
+                v1_10 or None, v2_10 or None, v3_10 or None,
+                v1_20 or None, v2_20 or None, v3_20 or None,
+                v1_30 or None, v2_30 or None, v3_30 or None,
+                geschlecht=_geschl, niveau=_niveau, alter=_alter,
+                v1_40=v1_40 or None, v2_40=v2_40 or None, v3_40=v3_40 or None,
+            )
+            if ok:
+                _save_ok("Sprint-Test aktualisiert.")
+                st.rerun()
+            else:
+                st.error("❌ Aktualisierung fehlgeschlagen.")
+
+    st.markdown("---")
+    if _confirm_loeschen(f"spr_hist_del_{spieler_id}_{rid}",
+                          was=f"Sprint-Test vom {rec.get('datum','?')} (ID {rid})",
+                          btn_label="🗑️ Sprint-Test löschen"):
+        if not _history_mandant_ok(spieler_id):
+            st.error("❌ Zugriff verweigert."); return
+        if sprint_loeschen(rid, spieler_id):
+            _save_ok("Sprint-Test gelöscht.")
+            st.rerun()
+        else:
+            st.error("❌ Löschen fehlgeschlagen.")
+
+
+# ─── Sprung ───────────────────────────────────────────────────────────────────
+
+def _render_sprung_edit(spieler_id: int) -> None:
+    """Edit/Delete-Bereich für Sprung-Verlauf."""
+    from database import sprung_history_edit, sprung_update, sprung_loeschen, testverlauf_datum_kollision
+    records = sprung_history_edit(spieler_id)
+    if not records:
+        st.info("Noch keine Sprung-Tests vorhanden.")
+        return
+
+    rec = _edit_select_box(records, f"spg_{spieler_id}")
+    if rec is None:
+        return
+    rid = rec["id"]
+
+    with st.form(f"sprung_edit_form_{spieler_id}_{rid}"):
+        st.markdown(f"**Sprung bearbeiten — ID {rid}**")
+        st.caption("Bestleistungswerte (cm / s). Abgeleitete Werte werden neu berechnet.")
+        datum_val = _datum_zu_date(rec.get("datum"))
+        new_datum = st.date_input("Datum", value=datum_val, key=f"spge_datum_{rid}")
+        c1, c2 = st.columns(2)
+        cmj_b = c1.number_input("CMJ beidbeinig (cm)", 0.0, 120.0, float(rec.get("cmj_beid") or 0), 0.1, key=f"spge_cb_{rid}")
+        cmj_r = c1.number_input("CMJ einbeinig rechts (cm)", 0.0, 100.0, float(rec.get("cmj_rechts") or 0), 0.1, key=f"spge_cr_{rid}")
+        cmj_l = c1.number_input("CMJ einbeinig links (cm)", 0.0, 100.0, float(rec.get("cmj_links") or 0), 0.1, key=f"spge_cl_{rid}")
+        squat = c1.number_input("Squat Jump (cm)", 0.0, 120.0, float(rec.get("squat_jump") or 0), 0.1, key=f"spge_sq_{rid}")
+        dj_h  = c2.number_input("Drop Jump Höhe (cm)", 0.0, 100.0, float(rec.get("drop_jump_hoehe") or 0), 0.1, key=f"spge_dh_{rid}")
+        dj_kz = c2.number_input("Drop Jump KZ (s)", 0.0, 2.0, float(rec.get("drop_jump_kz") or 0), 0.01, format="%.3f", key=f"spge_dk_{rid}")
+        swj   = c2.number_input("Standweitsprung (cm)", 0.0, 400.0, float(rec.get("standweit") or 0), 1.0, key=f"spge_sw_{rid}")
+        submitted = st.form_submit_button("💾 Speichern", type="primary")
+        if submitted:
+            if not _history_mandant_ok(spieler_id):
+                st.error("❌ Zugriff verweigert."); return
+            _datum_text = new_datum.strftime("%d.%m.%Y")
+            if testverlauf_datum_kollision("sprung", rid, spieler_id, _datum_text):
+                st.error("❌ Für dieses Datum existiert bereits ein anderer Sprung-Test. Bitte Datum anpassen.")
+                return
+            sp_r = spieler_by_id(spieler_id)
+            _geschl = sp_r.get("geschlecht","Männlich") if sp_r else "Männlich"
+            _niveau = sp_r.get("leistungsniveau","Leistungssport") if sp_r else "Leistungssport"
+            _alter  = berechne_alter(sp_r.get("geburtsdatum","") if sp_r else None)
+            ok = sprung_update(
+                rid, spieler_id, _datum_text,
+                cmj_b or None, cmj_r or None, cmj_l or None,
+                squat or None, dj_h or None, dj_kz or None, swj or None,
+                geschlecht=_geschl, niveau=_niveau, alter=_alter,
+                v1_cmj_beid=rec.get("v1_cmj_beid"), v2_cmj_beid=rec.get("v2_cmj_beid"), v3_cmj_beid=rec.get("v3_cmj_beid"),
+                v1_cmj_r=rec.get("v1_cmj_r"), v2_cmj_r=rec.get("v2_cmj_r"), v3_cmj_r=rec.get("v3_cmj_r"),
+                v1_cmj_l=rec.get("v1_cmj_l"), v2_cmj_l=rec.get("v2_cmj_l"), v3_cmj_l=rec.get("v3_cmj_l"),
+                v1_squat=rec.get("v1_squat"), v2_squat=rec.get("v2_squat"), v3_squat=rec.get("v3_squat"),
+                v1_dj_h=rec.get("v1_dj_h"), v2_dj_h=rec.get("v2_dj_h"), v3_dj_h=rec.get("v3_dj_h"),
+                v1_dj_kz=rec.get("v1_dj_kz"), v2_dj_kz=rec.get("v2_dj_kz"), v3_dj_kz=rec.get("v3_dj_kz"),
+                v1_swj=rec.get("v1_swj"), v2_swj=rec.get("v2_swj"), v3_swj=rec.get("v3_swj"),
+            )
+            if ok:
+                _save_ok("Sprung-Test aktualisiert.")
+                st.rerun()
+            else:
+                st.error("❌ Aktualisierung fehlgeschlagen.")
+
+    st.markdown("---")
+    if _confirm_loeschen(f"spg_hist_del_{spieler_id}_{rid}",
+                          was=f"Sprung-Test vom {rec.get('datum','?')} (ID {rid})",
+                          btn_label="🗑️ Sprung-Test löschen"):
+        if not _history_mandant_ok(spieler_id):
+            st.error("❌ Zugriff verweigert."); return
+        if sprung_loeschen(rid, spieler_id):
+            _save_ok("Sprung-Test gelöscht.")
+            st.rerun()
+        else:
+            st.error("❌ Löschen fehlgeschlagen.")
+
+
+# ─── Agilität ─────────────────────────────────────────────────────────────────
+
+def _render_agilitaet_edit(spieler_id: int) -> None:
+    """Edit/Delete-Bereich für Agilität-Verlauf."""
+    from database import agilitaet_history_edit, agilitaet_update, agilitaet_loeschen, testverlauf_datum_kollision
+    records = agilitaet_history_edit(spieler_id)
+    if not records:
+        st.info("Noch keine Agilität-Tests vorhanden.")
+        return
+
+    rec = _edit_select_box(records, f"agil_{spieler_id}")
+    if rec is None:
+        return
+    rid = rec["id"]
+
+    with st.form(f"agil_edit_form_{spieler_id}_{rid}"):
+        st.markdown(f"**Agilität bearbeiten — ID {rid}**")
+        st.caption("Bestzeiten in Sekunden (0 = nicht gemessen). Abgeleitete Werte werden neu berechnet.")
+        datum_val = _datum_zu_date(rec.get("datum"))
+        new_datum = st.date_input("Datum", value=datum_val, key=f"ae2_datum_{rid}")
+        c1, c2 = st.columns(2)
+        t505_r  = c1.number_input("505-Test rechts (s)", 0.0, 20.0, float(rec.get("t505_r")  or 0), 0.01, format="%.2f", key=f"ae2_505r_{rid}")
+        t505_l  = c1.number_input("505-Test links (s)",  0.0, 20.0, float(rec.get("t505_l")  or 0), 0.01, format="%.2f", key=f"ae2_505l_{rid}")
+        t5_10_5 = c1.number_input("5-10-5 Shuttle (s)", 0.0, 20.0, float(rec.get("t5_10_5") or 0), 0.01, format="%.2f", key=f"ae2_5105_{rid}")
+        t_test  = c2.number_input("T-Test (s)",          0.0, 30.0, float(rec.get("t_test")  or 0), 0.01, format="%.2f", key=f"ae2_tt_{rid}")
+        illinois= c2.number_input("Illinois (s)",        0.0, 30.0, float(rec.get("illinois") or 0), 0.01, format="%.2f", key=f"ae2_ill_{rid}")
+        submitted = st.form_submit_button("💾 Speichern", type="primary")
+        if submitted:
+            if not _history_mandant_ok(spieler_id):
+                st.error("❌ Zugriff verweigert."); return
+            _datum_text = new_datum.strftime("%d.%m.%Y")
+            if testverlauf_datum_kollision("agilitaet", rid, spieler_id, _datum_text):
+                st.error("❌ Für dieses Datum existiert bereits ein anderer Agilität-Test. Bitte Datum anpassen.")
+                return
+            sp_r = spieler_by_id(spieler_id)
+            _geschl = sp_r.get("geschlecht","Männlich") if sp_r else "Männlich"
+            _niveau = sp_r.get("leistungsniveau","Leistungssport") if sp_r else "Leistungssport"
+            _alter  = berechne_alter(sp_r.get("geburtsdatum","") if sp_r else None)
+            ok = agilitaet_update(
+                rid, spieler_id, _datum_text,
+                t505_r or None, t505_l or None, t5_10_5 or None, t_test or None, illinois or None,
+                geschlecht=_geschl, niveau=_niveau, alter=_alter,
+                v1_t505_r=rec.get("v1_t505_r"), v2_t505_r=rec.get("v2_t505_r"), v3_t505_r=rec.get("v3_t505_r"),
+                v1_t505_l=rec.get("v1_t505_l"), v2_t505_l=rec.get("v2_t505_l"), v3_t505_l=rec.get("v3_t505_l"),
+                v1_t5_10_5=rec.get("v1_t5_10_5"), v2_t5_10_5=rec.get("v2_t5_10_5"), v3_t5_10_5=rec.get("v3_t5_10_5"),
+                v1_t_test=rec.get("v1_t_test"), v2_t_test=rec.get("v2_t_test"), v3_t_test=rec.get("v3_t_test"),
+                v1_illinois=rec.get("v1_illinois"), v2_illinois=rec.get("v2_illinois"), v3_illinois=rec.get("v3_illinois"),
+                modified_t_test=rec.get("modified_t_test") or None,
+                pro_agility=rec.get("pro_agility") or None,
+                arrowhead_r=rec.get("arrowhead_r") or None,
+                arrowhead_l=rec.get("arrowhead_l") or None,
+                zigzag=rec.get("zigzag") or None,
+                balsom=rec.get("balsom") or None,
+                 v1_modified_t_test=rec.get("v1_modified_t_test"), v2_modified_t_test=rec.get("v2_modified_t_test"), v3_modified_t_test=rec.get("v3_modified_t_test"),
+                 v1_pro_agility=rec.get("v1_pro_agility"), v2_pro_agility=rec.get("v2_pro_agility"), v3_pro_agility=rec.get("v3_pro_agility"),
+                 v1_arrowhead_r=rec.get("v1_arrowhead_r"), v2_arrowhead_r=rec.get("v2_arrowhead_r"), v3_arrowhead_r=rec.get("v3_arrowhead_r"),
+                 v1_arrowhead_l=rec.get("v1_arrowhead_l"), v2_arrowhead_l=rec.get("v2_arrowhead_l"), v3_arrowhead_l=rec.get("v3_arrowhead_l"),
+                 v1_zigzag=rec.get("v1_zigzag"), v2_zigzag=rec.get("v2_zigzag"), v3_zigzag=rec.get("v3_zigzag"),
+                 v1_balsom=rec.get("v1_balsom"), v2_balsom=rec.get("v2_balsom"), v3_balsom=rec.get("v3_balsom"),
+            )
+            if ok:
+                _save_ok("Agilität-Test aktualisiert.")
+                st.rerun()
+            else:
+                st.error("❌ Aktualisierung fehlgeschlagen.")
+
+    st.markdown("---")
+    if _confirm_loeschen(f"agil_hist_del_{spieler_id}_{rid}",
+                          was=f"Agilität-Test vom {rec.get('datum','?')} (ID {rid})",
+                          btn_label="🗑️ Agilität-Test löschen"):
+        if not _history_mandant_ok(spieler_id):
+            st.error("❌ Zugriff verweigert."); return
+        if agilitaet_loeschen(rid, spieler_id):
+            _save_ok("Agilität-Test gelöscht.")
+            st.rerun()
+        else:
+            st.error("❌ Löschen fehlgeschlagen.")
+
+
+# ─── Ausdauer ─────────────────────────────────────────────────────────────────
+
+def _render_ausdauer_edit(spieler_id: int) -> None:
+    """Edit/Delete-Bereich für Ausdauer-Verlauf (Yo-Yo)."""
+    from database import ausdauer_history_edit, ausdauer_update, ausdauer_loeschen
+    records = ausdauer_history_edit(spieler_id)
+    if not records:
+        st.info("Noch keine Ausdauer-Tests vorhanden.")
+        return
+
+    rec = _edit_select_box(records, f"aus_{spieler_id}")
+    if rec is None:
+        return
+    rid = rec["id"]
+
+    with st.form(f"aus_edit_form_{spieler_id}_{rid}"):
+        st.markdown(f"**Ausdauer bearbeiten — ID {rid}**")
+        datum_val = _datum_zu_date(rec.get("datum"))
+        new_datum = st.date_input("Datum", value=datum_val, key=f"ause_datum_{rid}")
+        c1, c2, c3 = st.columns(3)
+        _typ_idx = 0 if rec.get("test_typ","IR1") == "IR1" else 1
+        new_typ  = c1.selectbox("Test-Typ", ["IR1","IR2"], index=_typ_idx, key=f"ause_typ_{rid}")
+        new_dist = c2.number_input("Distanz (m)", 0, 10000, int(rec.get("distanz_m") or 0), 40, key=f"ause_dist_{rid}")
+        new_hf   = c3.number_input("HF max (bpm)", 0, 230, int(rec.get("hf_max") or 0), 1, key=f"ause_hf_{rid}")
+        c4, c5 = st.columns(2)
+        _rpe_opts = list(range(6,21))
+        _rpe_def = int(rec.get("rpe") or 15)
+        _rpe_idx = _rpe_opts.index(_rpe_def) if _rpe_def in _rpe_opts else 9
+        new_rpe  = c4.selectbox("RPE (Borg 6–20)", _rpe_opts, index=_rpe_idx, key=f"ause_rpe_{rid}")
+        _ag_def  = rec.get("altersgruppe","Senioren")
+        _ag_idx  = ALTERSGRUPPEN_YO.index(_ag_def) if _ag_def in ALTERSGRUPPEN_YO else len(ALTERSGRUPPEN_YO)-1
+        new_ag   = c5.selectbox("Altersgruppe", ALTERSGRUPPEN_YO, index=_ag_idx, key=f"ause_ag_{rid}")
+        submitted = st.form_submit_button("💾 Speichern", type="primary")
+        if submitted:
+            if not _history_mandant_ok(spieler_id):
+                st.error("❌ Zugriff verweigert."); return
+            sp_r = spieler_by_id(spieler_id)
+            _geschl = sp_r.get("geschlecht","Männlich") if sp_r else "Männlich"
+            ok = ausdauer_update(
+                rid, spieler_id, new_datum.strftime("%d.%m.%Y"),
+                new_typ, float(new_dist), new_hf or None, new_rpe or None,
+                altersgruppe=new_ag, geschlecht=_geschl,
+            )
+            if ok:
+                _save_ok("Ausdauer-Test aktualisiert.")
+                st.rerun()
+            else:
+                st.error("❌ Aktualisierung fehlgeschlagen.")
+
+    st.markdown("---")
+    if _confirm_loeschen(f"aus_hist_del_{spieler_id}_{rid}",
+                          was=f"Ausdauer-Test vom {rec.get('datum','?')} (ID {rid})",
+                          btn_label="🗑️ Ausdauer-Test löschen"):
+        if not _history_mandant_ok(spieler_id):
+            st.error("❌ Zugriff verweigert."); return
+        if ausdauer_loeschen(rid, spieler_id):
+            _save_ok("Ausdauer-Test gelöscht.")
+            st.rerun()
+        else:
+            st.error("❌ Löschen fehlgeschlagen.")
+
+
+# ─── Kraft ────────────────────────────────────────────────────────────────────
+
+def _render_kraft_edit(spieler_id: int) -> None:
+    """Edit/Delete-Bereich für Kraft-Verlauf."""
+    from database import kraft_history_edit, kraft_update, kraft_loeschen
+    from kraft import lateral_asymmetrie, rumpf_ratio, relative_kraft_berechnen, epley_1rm as _ep1rm
+    records = kraft_history_edit(spieler_id)
+    if not records:
+        st.info("Noch keine Kraft-Tests vorhanden.")
+        return
+
+    rec = _edit_select_box(records, f"kr_{spieler_id}")
+    if rec is None:
+        return
+    rid = rec["id"]
+
+    with st.form(f"kraft_edit_form_{spieler_id}_{rid}"):
+        st.markdown(f"**Kraft bearbeiten — ID {rid}**")
+        datum_val = _datum_zu_date(rec.get("datum"))
+        new_datum = st.date_input("Datum", value=datum_val, key=f"kre_datum_{rid}")
+        c1, c2 = st.columns(2)
+        new_kgew   = c1.number_input("Körpergewicht (kg)", 0.0, 200.0, float(rec.get("koerpergewicht") or 75.0), 0.5, key=f"kre_kgew_{rid}")
+        new_d1rm   = c2.number_input("Direktes 1RM (kg)",  0.0, 300.0, float(rec.get("direktes_1rm") or 0), 2.5, key=f"kre_d1rm_{rid}")
+        new_g1rm   = c1.number_input("Geschätztes 1RM (kg)", 0.0, 300.0, float(rec.get("geschaetztes_1rm") or 0), 2.5, key=f"kre_g1rm_{rid}")
+        st.caption("Rumpfkraftausdauer (Sekunden)")
+        r1, r2, r3, r4 = st.columns(4)
+        new_vent_v1 = r1.number_input("Ventral V1 (s)", 0.0, 600.0, float(rec.get("ventral_sekunden") or 0), 1.0, key=f"kre_vv1_{rid}")
+        new_vent_v2 = r2.number_input("Ventral V2 (s)", 0.0, 600.0, float(rec.get("ventral_versuch2") or 0), 1.0, key=f"kre_vv2_{rid}")
+        new_lat_r   = r3.number_input("Lateral R (s)", 0.0, 600.0, float(rec.get("lateral_rechts_sekunden") or 0), 1.0, key=f"kre_lr_{rid}")
+        new_lat_l   = r4.number_input("Lateral L (s)", 0.0, 600.0, float(rec.get("lateral_links_sekunden") or 0), 1.0, key=f"kre_ll_{rid}")
+        new_dorsal  = st.number_input("Dorsal (s)", 0.0, 600.0, float(rec.get("dorsal_sekunden") or 0), 1.0, key=f"kre_dors_{rid}")
+        submitted = st.form_submit_button("💾 Speichern", type="primary")
+        if submitted:
+            if not _history_mandant_ok(spieler_id):
+                st.error("❌ Zugriff verweigert."); return
+            # Abgeleitete Werte berechnen
+            _kgew = new_kgew if new_kgew > 0 else None
+            _rel_d = relative_kraft_berechnen(new_d1rm or None, new_kgew) if new_d1rm else None
+            _rel_g = relative_kraft_berechnen(new_g1rm or None, new_kgew) if new_g1rm else None
+            _vent_best = max([v for v in [new_vent_v1 or 0, new_vent_v2 or 0] if v > 0], default=None)
+            _lat_diff = abs((new_lat_r or 0) - (new_lat_l or 0)) if new_lat_r and new_lat_l else None
+            _lat_asym = lateral_asymmetrie(new_lat_r or None, new_lat_l or None)
+            _rumpf_ges = sum([v for v in [_vent_best or 0, new_lat_r or 0, new_lat_l or 0, new_dorsal or 0] if v > 0]) or None
+            _r_vd = rumpf_ratio(_vent_best, new_dorsal or None)
+            _r_rd = rumpf_ratio(new_lat_r or None, new_dorsal or None)
+            _r_ld = rumpf_ratio(new_lat_l or None, new_dorsal or None)
+            ok = kraft_update(
+                rid, spieler_id, new_datum.strftime("%d.%m.%Y"),
+                _kgew, new_d1rm or None, new_g1rm or None,
+                _rel_d, _rel_g, int(rec.get("sicherheit_bestaetigt") or 0),
+                new_vent_v1 or None, new_vent_v2 or None,
+                new_lat_r or None, new_lat_l or None, new_dorsal or None,
+                _rumpf_ges, _lat_diff, _lat_asym,
+                _r_vd, _r_rd, _r_ld,
+                abbruchgrund=rec.get("abbruchgrund"),
+                bemerkung=rec.get("bemerkung"),
+                ventral_variante=rec.get("ventral_variante"),
+                lateral_rechts_variante=rec.get("lateral_rechts_variante"),
+                lateral_links_variante=rec.get("lateral_links_variante"),
+                dorsal_variante=rec.get("dorsal_variante"),
+            )
+            if ok:
+                _save_ok("Kraft-Test aktualisiert.")
+                st.rerun()
+            else:
+                st.error("❌ Aktualisierung fehlgeschlagen.")
+
+    st.markdown("---")
+    if _confirm_loeschen(f"kr_hist_del_{spieler_id}_{rid}",
+                          was=f"Kraft-Test vom {rec.get('datum','?')} (ID {rid})",
+                          btn_label="🗑️ Kraft-Test löschen"):
+        if not _history_mandant_ok(spieler_id):
+            st.error("❌ Zugriff verweigert."); return
+        if kraft_loeschen(rid, spieler_id):
+            _save_ok("Kraft-Test gelöscht.")
+            st.rerun()
+        else:
+            st.error("❌ Löschen fehlgeschlagen.")
+
+
+# ─── Spiroergometrie ──────────────────────────────────────────────────────────
+
+def _render_spiro_edit(spieler_id: int) -> None:
+    """Edit/Delete-Bereich für Spiro-Verlauf (nur Hauptfelder, keine Stufen/Nachbelastung)."""
+    from database import spiro_history_edit, spiro_test_update, spiro_test_loeschen_sicher
+    from spiro import GERAETEARTEN, SCHWELLENMETHODEN
+    records = spiro_history_edit(spieler_id)
+    if not records:
+        st.info("Noch keine Spiro-Tests vorhanden.")
+        return
+
+    rec = _edit_select_box(records, f"spiro_{spieler_id}")
+    if rec is None:
+        return
+    rid = rec["id"]
+
+    st.caption(
+        "ℹ️ Bearbeitbar: Datum, Metadaten, Ergebniskennwerte. "
+        "Stufendaten und Nachbelastungswerte bleiben unverändert — bei Bedarf neuen Test anlegen."
+    )
+
+    with st.form(f"spiro_edit_form_{spieler_id}_{rid}"):
+        st.markdown(f"**Spiro bearbeiten — ID {rid}**")
+        datum_val = _datum_zu_date(rec.get("datum"))
+        new_datum = st.date_input("Datum", value=datum_val, key=f"sp_e_datum_{rid}")
+        _gd_idx = GERAETEARTEN.index(rec.get("geraeteart","Laufband")) if rec.get("geraeteart") in GERAETEARTEN else 0
+        new_geraet = st.selectbox("Geräteart", GERAETEARTEN, index=_gd_idx, key=f"sp_e_gd_{rid}")
+        c1, c2 = st.columns(2)
+        new_testort = c1.text_input("Testort", value=rec.get("testort") or "", key=f"sp_e_to_{rid}")
+        new_tester  = c2.text_input("Tester", value=rec.get("tester") or "", key=f"sp_e_tr_{rid}")
+        new_kgew = c1.number_input("Körpergewicht (kg)", 0.0, 200.0, float(rec.get("koerpergewicht") or 0), 0.5, key=f"sp_e_kg_{rid}")
+        st.markdown("##### Ergebniskennwerte")
+        rc1, rc2, rc3 = st.columns(3)
+        new_vmax   = rc1.number_input("V max (km/h)", 0.0, 40.0, float(rec.get("maximale_geschwindigkeit") or 0), 0.1, key=f"sp_e_vm_{rid}")
+        new_hfmax  = rc2.number_input("HF max (bpm)",  0.0, 250.0, float(rec.get("maximale_herzfrequenz") or 0), 1.0, key=f"sp_e_hfm_{rid}")
+        new_rpe    = rc3.number_input("RPE max", 0, 20, int(rec.get("rpe_max") or 0), 1, key=f"sp_e_rpe_{rid}")
+        rc4, rc5 = st.columns(2)
+        new_vo2pk  = rc4.number_input("VO₂ peak (ml/kg/min)", 0.0, 100.0, float(rec.get("vo2_peak") or 0), 0.1, key=f"sp_e_vo2pk_{rid}")
+        new_vo2max = rc5.number_input("VO₂max (ml/kg/min)",   0.0, 100.0, float(rec.get("vo2_max") or 0),   0.1, key=f"sp_e_vo2mx_{rid}")
+        st.markdown("##### Schwellenwerte")
+        sc1, sc2, sc3 = st.columns(3)
+        new_vt1v  = sc1.number_input("VT1 Geschw. (km/h)", 0.0, 30.0, float(rec.get("vt1_geschwindigkeit") or 0), 0.1, key=f"sp_e_vt1v_{rid}")
+        new_vt1hf = sc2.number_input("VT1 HF (bpm)", 0.0, 250.0, float(rec.get("vt1_herzfrequenz") or 0), 1.0, key=f"sp_e_vt1h_{rid}")
+        new_vt2v  = sc3.number_input("VT2 Geschw. (km/h)", 0.0, 30.0, float(rec.get("vt2_geschwindigkeit") or 0), 0.1, key=f"sp_e_vt2v_{rid}")
+        sc4, sc5 = st.columns(2)
+        new_vt2hf = sc4.number_input("VT2 HF (bpm)", 0.0, 250.0, float(rec.get("vt2_herzfrequenz") or 0), 1.0, key=f"sp_e_vt2h_{rid}")
+        _sm_opts = ["—"] + SCHWELLENMETHODEN
+        _sm_def  = rec.get("laktatschwelle_methode") or "—"
+        _sm_idx  = _sm_opts.index(_sm_def) if _sm_def in _sm_opts else 0
+        new_schw_meth = sc5.selectbox("Schwellenmethode", _sm_opts, index=_sm_idx, key=f"sp_e_sm_{rid}")
+        sc6, sc7, sc8 = st.columns(3)
+        new_schw_v  = sc6.number_input("Schwelle Geschw. (km/h)", 0.0, 30.0, float(rec.get("schwelle_geschwindigkeit") or 0), 0.1, key=f"sp_e_sv_{rid}")
+        new_schw_hf = sc7.number_input("Schwelle HF (bpm)", 0.0, 250.0, float(rec.get("schwelle_herzfrequenz") or 0), 1.0, key=f"sp_e_shf_{rid}")
+        new_schw_lak = sc8.number_input("Schwelle Laktat (mmol/l)", 0.0, 20.0, float(rec.get("schwelle_laktat") or 0), 0.1, key=f"sp_e_slak_{rid}")
+        new_bemerkung = st.text_area("Bemerkung", value=rec.get("bemerkung") or "", key=f"sp_e_bem_{rid}", height=60)
+        submitted = st.form_submit_button("💾 Speichern", type="primary")
+        if submitted:
+            if not _history_mandant_ok(spieler_id):
+                st.error("❌ Zugriff verweigert."); return
+            _testtyp = rec.get("testtyp","spiro_laufband")
+            ok = spiro_test_update(
+                rid, spieler_id, new_datum.strftime("%Y-%m-%d"), _testtyp,
+                geraeteart=new_geraet,
+                protokoll_id=rec.get("protokoll_id"),
+                testort=new_testort or None,
+                tester=new_tester or None,
+                mit_spiro=int(rec.get("mit_spiro") or 0),
+                mit_laktat=int(rec.get("mit_laktat") or 0),
+                raumtemperatur=rec.get("raumtemperatur"),
+                letzte_mahlzeit=rec.get("letzte_mahlzeit"),
+                letzte_intensive_einheit=rec.get("letzte_intensive_einheit"),
+                akute_beschwerden=rec.get("akute_beschwerden"),
+                koerpergewicht=new_kgew or None,
+                maximale_geschwindigkeit=new_vmax or None,
+                maximale_herzfrequenz=new_hfmax or None,
+                vo2_peak=new_vo2pk or None,
+                vo2_max=new_vo2max or None,
+                geschaetzte_vo2max=rec.get("geschaetzte_vo2max"),
+                vt1_geschwindigkeit=new_vt1v or None,
+                vt1_herzfrequenz=new_vt1hf or None,
+                vt2_geschwindigkeit=new_vt2v or None,
+                vt2_herzfrequenz=new_vt2hf or None,
+                laktatschwelle_methode=new_schw_meth if new_schw_meth != "—" else None,
+                schwelle_geschwindigkeit=new_schw_v or None,
+                schwelle_herzfrequenz=new_schw_hf or None,
+                schwelle_laktat=new_schw_lak or None,
+                ruhelaktat=rec.get("ruhelaktat"),
+                laktat_blutentnahmeort=rec.get("laktat_blutentnahmeort"),
+                laktat_messgeraet=rec.get("laktat_messgeraet"),
+                rpe_max=new_rpe or None,
+                abbruchgrund=rec.get("abbruchgrund"),
+                bemerkung=new_bemerkung or None,
+            )
+            if ok:
+                _save_ok("Spiro-Test aktualisiert.")
+                st.rerun()
+            else:
+                st.error("❌ Aktualisierung fehlgeschlagen.")
+
+    st.markdown("---")
+    if _confirm_loeschen(f"spiro_hist_del_{spieler_id}_{rid}",
+                          was=f"Stufentest vom {rec.get('datum','?')} (ID {rid}) inkl. Stufen und Nachbelastung",
+                          btn_label="🗑️ Stufentest löschen"):
+        if not _history_mandant_ok(spieler_id):
+            st.error("❌ Zugriff verweigert."); return
+        if spiro_test_loeschen_sicher(rid, spieler_id):
+            _save_ok("Stufentest gelöscht.")
+            st.rerun()
+        else:
+            st.error("❌ Löschen fehlgeschlagen.")
+
+
 def _player_selector(key_suffix="") -> dict | None:
     """Returns the globally selected player (no per-page dropdown rendered).
     The selector lives in the sidebar; all pages share the same active player."""
@@ -3577,6 +4312,10 @@ def page_fms():
                         "Shoulder L","Shoulder R","ASLR L","ASLR R","Trunk","Rotary L","Rotary R"]},
                 },
             )
+            # ── Bearbeiten / Löschen ──────────────────────────────────────────
+            st.markdown("---")
+            with st.expander("✏️ Eintrag bearbeiten / löschen"):
+                _render_fms_edit(spieler_id)
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -3820,6 +4559,10 @@ def page_ybalance():
                        for c in ["Ant R","Ant L","PM R","PM L","PL R","PL L"]},
                 },
             )
+            # ── Bearbeiten / Löschen ──────────────────────────────────────────
+            st.markdown("---")
+            with st.expander("✏️ Eintrag bearbeiten / löschen"):
+                _render_ybalance_edit(spieler_id)
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -6749,6 +7492,11 @@ def page_anthropometrie():
                 if rows_an:
                     st.dataframe(pd.DataFrame(rows_an), use_container_width=True, hide_index=True)
 
+        # ── Bearbeiten / Löschen ──────────────────────────────────────────────
+        st.markdown("---")
+        with st.expander("✏️ Messung bearbeiten / löschen"):
+            _render_anthro_edit(sid)
+
 
 # ──────────────────────────────────────────────────────────────────────────────
 
@@ -7065,6 +7813,11 @@ def page_sprint():
                 if rows_cmp:
                     st.dataframe(pd.DataFrame(rows_cmp), use_container_width=True, hide_index=True)
                     st.caption("Differenz: negativ = schneller, positiv = langsamer")
+
+        # ── Bearbeiten / Löschen ──────────────────────────────────────────────
+        st.markdown("---")
+        with st.expander("✏️ Eintrag bearbeiten / löschen"):
+            _render_sprint_edit(sid)
 
     # ── Sprint-Analyse Tab (Spec §3, §4, §6, §22, §23, §24, §34) ────────────
     with tab_analyse:
@@ -7418,6 +8171,11 @@ def page_sprung():
                     st.dataframe(pd.DataFrame(rows_sp), use_container_width=True, hide_index=True)
                     st.caption("Differenz: positiv = höher/weiter, negativ = niedriger/kürzer")
 
+        # ── Bearbeiten / Löschen ──────────────────────────────────────────────
+        st.markdown("---")
+        with st.expander("✏️ Eintrag bearbeiten / löschen"):
+            _render_sprung_edit(sid)
+
 
 # ──────────────────────────────────────────────────────────────────────────────
 
@@ -7735,6 +8493,11 @@ def page_agilitaet():
                     if rows_a:
                         st.dataframe(pd.DataFrame(rows_a), use_container_width=True, hide_index=True)
                         st.caption("Differenz: negativ = schneller, positiv = langsamer")
+
+            # ── Bearbeiten / Löschen ──────────────────────────────────────────
+            st.markdown("---")
+            with st.expander("✏️ Eintrag bearbeiten / löschen"):
+                _render_agilitaet_edit(sid)
 
     with tab_info:
         # ── Standardtests mit Normbewertung ──────────────────────────────────
@@ -8380,6 +9143,11 @@ def _page_spiro():
             })
             st.dataframe(df_ov, use_container_width=True, hide_index=True)
 
+            # ── Bearbeiten / Löschen ──────────────────────────────────────────
+            st.markdown("---")
+            with st.expander("✏️ Test bearbeiten / löschen"):
+                _render_spiro_edit(sid)
+
             if len(alle_tests) < 2:
                 st.info("Mindestens 2 Tests für den Vergleich erforderlich.")
                 return
@@ -8749,6 +9517,11 @@ def page_ausdauer():
                     st.dataframe(pd.DataFrame(rows_au), use_container_width=True, hide_index=True)
                     st.caption("Differenz: positiv = besser (mehr Distanz / höherer VO₂max)")
 
+        # ── Bearbeiten / Löschen ──────────────────────────────────────────────
+        st.markdown("---")
+        with st.expander("✏️ Eintrag bearbeiten / löschen"):
+            _render_ausdauer_edit(sid)
+
 
 # ──────────────────────────────────────────────────────────────────────────────
 
@@ -9090,6 +9863,11 @@ def page_kraft():
                                        "Differenz": f"{diff_k:+.2f}" if isinstance(diff_k, float) else diff_k})
                 if rows_k:
                     st.dataframe(pd.DataFrame(rows_k), use_container_width=True, hide_index=True)
+
+        # ── Bearbeiten / Löschen ──────────────────────────────────────────────
+        st.markdown("---")
+        with st.expander("✏️ Eintrag bearbeiten / löschen"):
+            _render_kraft_edit(sid)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
