@@ -1286,6 +1286,33 @@ def _equip_verfuegbar(uebung: str, equip_exp: set | None) -> bool:
     return bool(tags & equip_exp)
 
 
+def katalog_uebungen_fuer_bereich(
+    bereich: str,
+    plangruppe: str,
+    verfuegbares_equipment: list[str] | set[str] | None = None,
+) -> list[str]:
+    """Liefert die zentralen Katalogübungen eines Bereichs ohne Duplikate.
+
+    Ausdauer bleibt dabei altersgerecht; optionales Equipment filtert denselben
+    Pool wie beim manuellen Hinzufügen und beim Übungstausch.
+    """
+    equip_exp = (
+        _equip_expanded(set(verfuegbares_equipment))
+        if verfuegbares_equipment
+        else None
+    )
+    katalog: list[str] = []
+    for pool_key in ("stabilisation", "kraft", "power"):
+        if bereich == "Ausdauer":
+            pool = _ausdauer_pool_fuer_plangruppe(plangruppe, pool_key, 99)
+        else:
+            pool = _POOL.get(bereich, {}).get(pool_key, [])
+        for uebung, *_ in pool:
+            if uebung not in katalog and _equip_verfuegbar(uebung, equip_exp):
+                katalog.append(uebung)
+    return katalog
+
+
 def _olympic_geeignet(plangruppe: str, pool_key: str, verletzt: set) -> bool:
     """
     Olympisches Gewichtheben nur wenn (Spec §6):

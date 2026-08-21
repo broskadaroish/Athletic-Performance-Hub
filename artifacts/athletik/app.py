@@ -168,7 +168,7 @@ from periodisierung import (zyklus_erstellen, zyklus_laden, trainingsplan_multi_
                              schaetze_tag_dauer_min, _ZEITBUDGET_CONFIG,
                              empfohlene_athletik_einheiten, empfohlene_athletik_tage,
                               _WOCHENTAGE_WP, _ausdauer_pool_fuer_plangruppe,
-                              _pause_und_ausfuehrung)
+                               _pause_und_ausfuehrung, katalog_uebungen_fuer_bereich)
 from trainingsphilosophie import (
     PHILOSOPHIEN, empfehle_philosophie, philosophie_erklaerung,
 )
@@ -5913,22 +5913,10 @@ def page_trainingsplan():
                  "Leer lassen = alle Übungen zeigen.",
         )
 
-        # Übungskatalog aus Pool für gewählten Bereich (ohne Duplikate, alle Phasen)
-        _manual_equip_exp = _equip_expanded(set(_manual_equip)) if _manual_equip else None
-        _katalog: list[str] = []
+        # Zentraler Katalog: gleiche Pool-/Equipment-Logik wie Austausch und Editor.
         _m_alter = berechne_alter(auswahl.get("geburtsdatum"))
         _m_pg    = _alter_zu_plangruppe(_m_alter)
-        if bereich == "Ausdauer":
-            # Altersgerechten Ausdauer-Pool aus bestehender Logik ableiten (Single Source of Truth)
-            for _pk in ["stabilisation", "kraft", "power"]:
-                for _u, *_ in _ausdauer_pool_fuer_plangruppe(_m_pg, _pk, 99):
-                    if _u not in _katalog and _equip_verfuegbar(_u, _manual_equip_exp):
-                        _katalog.append(_u)
-        else:
-            for _pk in ["stabilisation", "kraft", "power"]:
-                for _u, *_ in _POOL.get(bereich, {}).get(_pk, []):
-                    if _u not in _katalog and _equip_verfuegbar(_u, _manual_equip_exp):
-                        _katalog.append(_u)
+        _katalog = katalog_uebungen_fuer_bereich(bereich, _m_pg, _manual_equip)
         _EIGENE_OPT = "✏️ Eigene Übung eingeben..."
         _katalog_opts = _katalog + [_EIGENE_OPT]
 
@@ -6278,7 +6266,7 @@ def page_trainingsplan():
         except Exception:
             pass  # Fallback: Standard-Zuordnung bleibt
         _BEREICHE_ALL = ["Sprunggelenk","Knie","Hüfte","Rumpf","Oberschenkel",
-                         "Schnelligkeit","Explosivität","Agilität","Fußball"]
+                         "Schnelligkeit","Explosivität","Agilität","Ausdauer","Fußball"]
         # ── Übungsplan mit interaktiver Bearbeitung ───────────────────────────
         alle_wochen = sorted(set(r["woche"] for r in plan))
         for woche_nr in alle_wochen:
@@ -6490,14 +6478,51 @@ def page_trainingsplan():
 
                             # ── Bearbeitungsformular ───────────────────────────
                             elif st.session_state.get(_edit_key):
-                                with st.form(f"form_edit_{eid}", border=True):
-                                    _ef1, _ef2 = st.columns(2)
-                                    _e_uebung = _ef1.text_input("Übungsname", value=entry["uebung"])
-                                    _e_bereich = _ef2.selectbox(
-                                        "Bereich",
-                                        _BEREICHE_ALL,
-                                        index=_BEREICHE_ALL.index(breich) if breich in _BEREICHE_ALL else 0,
+                                _EIGENE_EDIT = "✏️ Eigene Übung eingeben..."
+                                _e_bereich_key = f"edit_bereich_{eid}"
+                                _e_uebung_key = f"edit_uebung_{eid}"
+                                _e_custom_key = f"edit_uebung_custom_{eid}"
+                                if _e_bereich_key not in st.session_state:
+                                    st.session_state[_e_bereich_key] = (
+                                        breich if breich in _BEREICHE_ALL else _BEREICHE_ALL[0]
                                     )
+                                if _e_custom_key not in st.session_state:
+                                    st.session_state[_e_custom_key] = str(entry["uebung"])
+
+                                # Außerhalb des Forms, damit ein Bereichswechsel den
+                                # Katalog sofort aktualisiert und noch nichts speichert.
+                                _ef1, _ef2 = st.columns(2)
+                                _e_bereich = _ef1.selectbox(
+                                    "Bereich",
+                                    _BEREICHE_ALL,
+                                    key=_e_bereich_key,
+                                )
+                                _e_katalog = katalog_uebungen_fuer_bereich(_e_bereich, _tv_pg)
+                                _e_optionen = _e_katalog + [_EIGENE_EDIT]
+                                if _e_uebung_key not in st.session_state:
+                                    st.session_state[_e_uebung_key] = (
+                                        entry["uebung"]
+                                        if entry["uebung"] in _e_katalog
+                                        else _EIGENE_EDIT
+                                    )
+                                elif st.session_state[_e_uebung_key] not in _e_optionen:
+                                    st.session_state[_e_uebung_key] = _EIGENE_EDIT
+                                _e_auswahl = _ef2.selectbox(
+                                    "Übungsname",
+                                    _e_optionen,
+                                    key=_e_uebung_key,
+                                    help="Katalogübungen passen sich dem gewählten Bereich an.",
+                                )
+                                if _e_auswahl == _EIGENE_EDIT:
+                                    _e_uebung = st.text_input(
+                                        "Eigene Übung eingeben",
+                                        key=_e_custom_key,
+                                        placeholder="z. B. Reverse Lunge mit Rotation",
+                                    )
+                                else:
+                                    _e_uebung = _e_auswahl
+
+                                with st.form(f"form_edit_{eid}", border=True):
                                     _ef3, _ef4, _ef5 = st.columns(3)
                                     _e_saetze = _ef3.text_input("Sätze", value=str(entry["saetze"]))
                                     _e_wdh    = _ef4.text_input("Wdh. / Dauer", value=str(entry["wiederholungen"]))
@@ -6545,11 +6570,15 @@ def page_trainingsplan():
                                             notiz=_e_notiz,
                                         )
                                         st.session_state.pop(_edit_key, None)
+                                        for _e_state_key in (_e_bereich_key, _e_uebung_key, _e_custom_key):
+                                            st.session_state.pop(_e_state_key, None)
                                         _save_ok(f"Übung '{_e_uebung}' aktualisiert.")
                                         st.rerun()
                                     if _fe_cancel.form_submit_button("✕ Abbrechen",
                                                                       use_container_width=True):
                                         st.session_state.pop(_edit_key, None)
+                                        for _e_state_key in (_e_bereich_key, _e_uebung_key, _e_custom_key):
+                                            st.session_state.pop(_e_state_key, None)
                                         st.rerun()
 
                             # ── Übung einplanen / verteilen ─────────────────────
@@ -6646,12 +6675,9 @@ def page_trainingsplan():
                                     key=f"swap_equip_{eid}",
                                     help="Nur Übungen mit passendem Equipment anzeigen. Leer = alle.",
                                 )
-                                _swap_equip_exp = _equip_expanded(set(_swap_equip)) if _swap_equip else None
-                                _sw_pool: list[str] = []
-                                for _pk in ["stabilisation","kraft","power"]:
-                                    for _u, *_ in _POOL.get(_sw_b_sel,{}).get(_pk,[]):
-                                        if _u not in _sw_pool and _equip_verfuegbar(_u, _swap_equip_exp):
-                                            _sw_pool.append(_u)
+                                _sw_pool = katalog_uebungen_fuer_bereich(
+                                    _sw_b_sel, _tv_pg, _swap_equip
+                                )
                                 _EIGENE_SW = "✏️ Eigene Übung eingeben…"
                                 _sw_sel = st.selectbox(
                                     "Alternative auswählen", _sw_pool + [_EIGENE_SW],

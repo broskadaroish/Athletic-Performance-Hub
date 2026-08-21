@@ -1,0 +1,47 @@
+APH HOTFIX – Übungsauswahl beim Bearbeiten eines Trainingsplaneintrags
+
+Im Trainingsplan unter „Plan anzeigen“ → Übung bearbeiten funktioniert die Parameterbearbeitung bereits.
+
+Aktuelles Problem:
+
+„Bereich“ ist als Dropdown auswählbar.
+„Übungsname“ ist jedoch nur ein freies Textfeld.
+Dadurch kann ich beim Bearbeiten nicht komfortabel eine vorhandene Übung aus dem APH-Übungskatalog auswählen.
+
+Gewünschtes Verhalten:
+
+Beim Bearbeiten einer bestehenden Übung soll „Bereich“ weiterhin auswählbar sein.
+Direkt darunter bzw. daneben soll „Übungsname“ als Dropdown/Selectbox angeboten werden.
+Die angebotenen Übungen müssen aus dem bereits vorhandenen zentralen APH-Übungskatalog stammen.
+Die Übungsliste muss vom ausgewählten Bereich abhängen:
+Agilität → Agilitätsübungen
+Kraft → Kraftübungen
+Rumpf/Core → entsprechende Übungen
+Schnelligkeit → entsprechende Übungen
+Fußball → Fußballübungen
+Ausdauer → Ausdauerübungen
+usw. entsprechend den bereits vorhandenen Bereichen.
+Keine zweite oder neue Übungsdatenbank/-liste erstellen. Bestehende Katalogfunktionen wiederverwenden, die auch beim manuellen Hinzufügen bzw. Ersetzen von Übungen genutzt werden.
+Die aktuell gespeicherte Übung muss beim Öffnen des Editors vorausgewählt sein, sofern sie im Katalog vorhanden ist.
+Ist die bestehende Übung nicht im Katalog, darf sie nicht verloren gehen. In diesem Fall bestehende Bezeichnung erhalten und eine freie Eingabe ermöglichen.
+Zusätzlich eine Option wie „✍️ Eigene Übung“ anbieten. Bei Auswahl erscheint ein Textfeld zur freien Eingabe.
+Wenn der Bereich geändert wird, soll die Übungsauswahl auf den neuen Bereich reagieren. Dabei nicht ungefragt eine andere Übung speichern – gespeichert wird erst über den bestehenden Speichern-Button.
+Alle übrigen Felder wie Sätze, Wdh./Dauer, Häufigkeit, Pause, RPE, Equipment, Ausführung, Woche und Trainingstag unverändert erhalten.
+Bestehende Speicher-, Verteilungs-, Lösch- und Duplizierungslogik nicht verändern.
+
+Wichtig: Prüfe vorher kurz, welche bestehende Katalog-/Filterfunktion bereits bei „Manuell hinzufügen“ und beim Ersetzen einer Übung verwendet wird, und verwende diese auch hier.
+
+Regressionen mindestens:
+
+bestehende Katalogübung wird vorausgewählt
+Bereichswechsel aktualisiert Übungsauswahl
+Auswahl einer anderen Katalogübung wird korrekt gespeichert
+freie eigene Übung funktioniert
+bestehende unbekannte/freie Übung geht beim Öffnen nicht verloren
+Abbrechen/kein Speichern verändert den Eintrag nicht
+
+Danach relevante Tests, py_compile und git diff --check.
+
+Keine DB-Migration. Keine Produktionsdaten ändern. NICHT DEPLOYEN.
+
+Danach kurzer Abschlussbericht und STOPP.
