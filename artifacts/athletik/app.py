@@ -3418,15 +3418,12 @@ def page_dashboard():
     with tab_warn:
         RETEST_TAGE = 56  # 8 Wochen
 
-        from age_norms import vo2_bewertung_alter as _v2bw_dash
-
         warns_risiko     = [d for d in player_data if d["level"] == "hoch"]
         warns_retest     = [d for d in player_data
                             if (_days_since(d["last_test_date"]) or 999) > RETEST_TAGE]
         warns_wachstum   = []
         warns_eingeschr  = []
         warns_bmi        = []   # Anthropometrie: BMI auffällig
-        warns_vo2        = []   # Spiro: VO₂ unter altersbasierter Norm
 
         for d in player_data:
             # Growth spurt: PHV-related reifestatus
@@ -3447,20 +3444,6 @@ def page_dashboard():
                     bmi_f = float(bmi)
                     if bmi_f >= 25 or (0 < bmi_f < 18.5):
                         warns_bmi.append(d)
-            # Spiro-VO₂ unter Norm
-            if d["spiro"]:
-                _sp = d["spiro"]
-                _vo2 = _sp.get("vo2_peak") or _sp.get("vo2_max") or _sp.get("geschaetzte_vo2max")
-                if _vo2:
-                    # Alter am Testdatum — nicht heutiges Alter (Spec §3)
-                    _alter_p  = (alter_am_datum(d["p"].get("geburtsdatum", ""),
-                                               _sp.get("datum", ""))
-                                 or berechne_alter(d["p"].get("geburtsdatum")))
-                    _gesch_p  = d["p"].get("geschlecht", "Männlich")
-                    _stufe, _ = _v2bw_dash(float(_vo2), _alter_p, _gesch_p)
-                    if _stufe in ("Verbesserungsbedarf", "Kritisch"):
-                        warns_vo2.append(d)
-
         def _warn_block(title: str, icon: str, color: str, items: list,
                         detail_fn) -> None:
             if not items:
@@ -3511,14 +3494,6 @@ def page_dashboard():
                 f"BMI {float(d['anthro']['bmi']):.1f} — "
                 + ("Übergewicht" if float(d['anthro']['bmi']) >= 25 else "Untergewicht")
                 + (f" · {d['anthro'].get('bmi_kategorie') or ''}")
-            )
-        )
-        _warn_block(
-            "Aerobe Kapazität unter Norm (Spiro)",
-            "🫁", C["red"], warns_vo2,
-            lambda d: (
-                f"VO₂peak {float(d['spiro'].get('vo2_peak') or d['spiro'].get('vo2_max') or d['spiro'].get('geschaetzte_vo2max')):.1f} ml·kg⁻¹·min⁻¹ "
-                f"— unter altersbasierter Norm · Datum: {_fmt_date(d['spiro'].get('datum'))}"
             )
         )
         _warn_block(
@@ -3609,10 +3584,13 @@ def page_dashboard():
                 ),
                 "CMJ (cm)":       sprung["cmj_beid"] if sprung and sprung.get("cmj_beid") else None,
                 "VO₂max (Yo-Yo)": aus["vo2max"] if aus and aus.get("vo2max") else None,
-                "VO₂peak (Spiro)": (
-                    d["spiro"].get("vo2_peak") or d["spiro"].get("vo2_max")
-                    or d["spiro"].get("geschaetzte_vo2max")
-                    if d.get("spiro") else None
+                "VO₂ (Spiro)": (
+                    f"{float(d['spiro']['vo2_peak']):.1f} (direkt)"
+                    if d.get("spiro") and d["spiro"].get("vo2_peak") else
+                    f"{float(d['spiro']['vo2_max']):.1f} (direkt)"
+                    if d.get("spiro") and d["spiro"].get("vo2_max") else
+                    f"{float(d['spiro']['geschaetzte_vo2max']):.1f} (geschätzt)"
+                    if d.get("spiro") and d["spiro"].get("geschaetzte_vo2max") else None
                 ),
                 "BMI":            (
                     float(d["anthro"]["bmi"]) if d.get("anthro") and d["anthro"].get("bmi")
@@ -3634,7 +3612,7 @@ def page_dashboard():
                     "Sprint 10m (s)":   st.column_config.NumberColumn("Sprint 10m (s)", format="%.2f s"),
                     "CMJ (cm)":         st.column_config.NumberColumn("CMJ (cm)", format="%.0f cm"),
                     "VO₂max (Yo-Yo)":   st.column_config.NumberColumn("VO₂max Yo-Yo", format="%.1f"),
-                    "VO₂peak (Spiro)":  st.column_config.NumberColumn("VO₂peak Spiro", format="%.1f"),
+                    "VO₂ (Spiro)":      st.column_config.TextColumn("VO₂ Spiro"),
                     "BMI":              st.column_config.NumberColumn("BMI", format="%.1f"),
                 },
             )
@@ -4967,17 +4945,16 @@ def page_spieler_profil():
         ))
         st.plotly_chart(fig_ah, use_container_width=True)
 
-    # ── Stufentest-Kachel (Ampelfarbe) ────────────────────────────────────
-    _spiro_vo2_p = (_spiro_p.get("vo2_peak") or _spiro_p.get("vo2_max")) if _spiro_p else None
-    if _spiro_vo2_p:
-        _svp = float(_spiro_vo2_p)
-        _spiro_rating_p = (
-            f"Gut — VO₂peak {_svp:.1f} ml·kg⁻¹·min⁻¹"               if _svp >= 55 else
-            f"Durchschnittlich — VO₂peak {_svp:.1f} ml·kg⁻¹·min⁻¹"  if _svp >= 48 else
-            f"Verbesserungsbedarf — VO₂peak {_svp:.1f} ml·kg⁻¹·min⁻¹"
-        )
-    elif _spiro_p and _spiro_p.get("schwelle_geschwindigkeit"):
-        _spiro_rating_p = f"Schwelle: {float(_spiro_p['schwelle_geschwindigkeit']):.1f} km/h"
+    # ── Stufentest-Kachel: nur protokollspezifische V2-Aussage ──────────────
+    if _spiro_p:
+        from spiro import spiro_bewertung_v2 as _spiro_bewertung_v2
+        _spiro_alter_p = alter_am_datum(auswahl.get("geburtsdatum", ""), _spiro_p.get("datum", "")) or alter
+        _spiro_rating_p = _spiro_bewertung_v2(
+            _spiro_p,
+            alter_testtag=_spiro_alter_p,
+            geschlecht=auswahl.get("geschlecht", "Männlich"),
+            stufen=spiro_stufen_laden(_spiro_p["id"]),
+        )["text"]
     else:
         _spiro_rating_p = None
 
@@ -5213,6 +5190,18 @@ def page_spieler_profil():
                 return daten if _selection.get(key) else None
 
             _verein_pdf = verein_by_id(_akt_user().get("verein_id") or 0) or {}
+            _spiro_pdf_row = _m("pdf_m_spiro", spiro_pdf)
+            _spiro_bewertung_pdf = None
+            if _spiro_pdf_row:
+                from spiro import spiro_bewertung_v2 as _spiro_bewertung_v2
+                _spiro_bewertung_pdf = _spiro_bewertung_v2(
+                    _spiro_pdf_row,
+                    alter_testtag=alter_am_datum(
+                        auswahl.get("geburtsdatum", ""), _spiro_pdf_row.get("datum", "")
+                    ) or alter,
+                    geschlecht=auswahl.get("geschlecht", "Männlich"),
+                    stufen=spiro_stufen_laden(_spiro_pdf_row["id"]),
+                )
             pdf_bytes = generate_report(
                 spieler=auswahl,
                 fms_row=       _m("pdf_m_fms",      fms),
@@ -5223,7 +5212,8 @@ def page_spieler_profil():
                 agil_row=      _m("pdf_m_agil",     agil_row),
                 aus_row=       _m("pdf_m_ausdauer", aus_row),
                 kraft_row=     _m("pdf_m_kraft",    kraft_pdf),
-                spiro_row=     _m("pdf_m_spiro",    spiro_pdf),
+                spiro_row=     _spiro_pdf_row,
+                spiro_bewertung=_spiro_bewertung_pdf,
                 verletzungen=  _m("pdf_m_verletz",  verletzungen_pdf) or [],
                 athletik_score=ascore,
                 risiko_label=label,
@@ -8764,7 +8754,8 @@ def _page_spiro():
         protokolle_vergleichbar as _pv,
         schwellenvergleich_tabelle as _svt,
         trainingsbereiche_aus_schwellen as _tbs,
-        GERAETEARTEN, SCHWELLENMETHODEN,
+        spiro_bewertung_v2 as _spiro_bewertung_v2,
+        BRUCE_STUFEN, GERAETEARTEN, SCHWELLENMETHODEN,
     )
 
     st.markdown(
@@ -8893,12 +8884,12 @@ def _page_spiro():
 
         # Spalten je nach Testumfang
         base_stufen_cols = [
-            "Stufe", "Geschw. (km/h)", "Steigung (%)", "HF Ende (bpm)", "RPE (0–10)",
+            "Stufe", "Geschw. (km/h)", "Steigung (%)", "Dauer (s)", "HF Ende (bpm)", "RPE (0–10)",
             "✓ vollst.", "Bemerkung",
         ]
         base_stufen_keys = [
             "stufennummer", "geschwindigkeit_kmh", "steigung_prozent",
-            "herzfrequenz_bpm", "rpe", "stufe_vollstaendig", "bemerkung",
+            "dauer_sekunden", "herzfrequenz_bpm", "rpe", "stufe_vollstaendig", "bemerkung",
         ]
         if mit_laktat_cb:
             base_stufen_cols += ["Laktat (mmol/l)", "Probe ✓"]
@@ -8911,13 +8902,29 @@ def _page_spiro():
         if st.button("🔄 Stufen aus Protokoll befüllen", key="spiro_fill_prot",
                      disabled=(prot_id is None)):
             p_data = next((p for p in alle_protokolle if p["id"] == prot_id), None)
-            if p_data and p_data.get("startgeschwindigkeit") and p_data.get("steigerung"):
+            if p_data:
                 n_max = int(p_data.get("max_stufen") or 10)
+                _ist_bruce_fill = (
+                    p_data.get("geraeteart") == "Laufband"
+                    and "bruce" in str(p_data.get("name") or "").lower()
+                )
+                if _ist_bruce_fill:
+                    n_max = min(n_max, len(BRUCE_STUFEN))
+                if not _ist_bruce_fill and (
+                    not p_data.get("startgeschwindigkeit") or not p_data.get("steigerung")
+                ):
+                    st.warning("⚠️ Für dieses Protokoll fehlen Startgeschwindigkeit oder Steigerung.")
+                    n_max = 0
                 rows = []
                 for i in range(n_max):
-                    v_kmh = round(p_data["startgeschwindigkeit"] + i * p_data["steigerung"], 1)
+                    if _ist_bruce_fill and i < len(BRUCE_STUFEN):
+                        v_kmh, _steigung, _dauer_s = BRUCE_STUFEN[i]
+                    else:
+                        v_kmh = round(p_data["startgeschwindigkeit"] + i * p_data["steigerung"], 1)
+                        _steigung = p_data.get("steigung", 0)
+                        _dauer_s = float(p_data.get("stufendauer") or 0) * 60
                     row   = dict(zip(base_stufen_cols,
-                                    [i+1, v_kmh, p_data.get("steigung", 0),
+                                    [i+1, v_kmh, _steigung, _dauer_s,
                                      None, None, True, ""] +
                                     ([None, True] if mit_laktat_cb else []) +
                                     ([None, None, None] if mit_spiro_cb else [])))
@@ -8933,6 +8940,7 @@ def _page_spiro():
             "Stufe":            st.column_config.NumberColumn(min_value=1, step=1, format="%d"),
             "Geschw. (km/h)":   st.column_config.NumberColumn(min_value=0, step=0.5, format="%.1f"),
             "Steigung (%)":     st.column_config.NumberColumn(min_value=0, step=0.5, format="%.1f"),
+            "Dauer (s)":        st.column_config.NumberColumn(min_value=1, step=1, format="%d"),
             "HF Ende (bpm)":    st.column_config.NumberColumn(min_value=0, max_value=250, step=1),
             "RPE (0–10)":       st.column_config.NumberColumn(min_value=0, max_value=10,  step=1),
             "✓ vollst.":        st.column_config.CheckboxColumn(default=True),
@@ -9185,6 +9193,13 @@ def _page_spiro():
             test_a  = alle_tests[ausw_idx]
             stufen_a = spiro_stufen_laden(test_a["id"])
             nb_a     = spiro_nachbelastung_laden(test_a["id"])
+            _spiro_alter_a = alter_am_datum(auswahl.get("geburtsdatum", ""), test_a.get("datum", ""))
+            _spiro_v2_a = _spiro_bewertung_v2(
+                test_a,
+                alter_testtag=_spiro_alter_a,
+                geschlecht=auswahl.get("geschlecht", "Männlich"),
+                stufen=stufen_a,
+            )
 
             # Kennzahlen-Header
             aw1, aw2, aw3, aw4 = st.columns(4)
@@ -9196,9 +9211,15 @@ def _page_spiro():
             vo2_val = test_a.get("vo2_peak") or test_a.get("vo2_max")
             if vo2_lbl and vo2_val:
                 aw3.metric(f"{vo2_lbl} (gemessen)", f"{vo2_val:.1f} ml/kg/min")
+            elif test_a.get("geschaetzte_vo2max"):
+                aw3.metric("VO₂max (geschätzt)", f"{test_a['geschaetzte_vo2max']:.1f} ml/kg/min")
             if test_a.get("schwelle_geschwindigkeit"):
                 meth_s = (test_a.get("laktatschwelle_methode") or "Schwelle")[:14]
                 aw4.metric(f"V bei {meth_s}", f"{test_a['schwelle_geschwindigkeit']:.1f} km/h")
+            if _spiro_v2_a["status"] == "bruce_referenzvergleich":
+                st.info(f"ℹ️ {_spiro_v2_a['text']}")
+            else:
+                st.caption(f"ℹ️ {_spiro_v2_a['text']}")
 
             if stufen_a:
                 df_st_a = pd.DataFrame(stufen_a)
@@ -10226,23 +10247,15 @@ def page_startseite():
     else:
         _anthro_rating_s = None
 
-    # Stufentest-Beurteilung für Startseite — altersbasiert via vo2_bewertung_alter()
-    from age_norms import vo2_bewertung_alter as _vo2bew_s
+    # Stufentest-Beurteilung für Startseite — ausschließlich protokollspezifisch.
+    from spiro import spiro_bewertung_v2 as _spiro_bewertung_v2
     _geschl_s = auswahl.get("geschlecht", "Männlich")
-    _spiro_vo2_s = (
-        _spiro_s.get("vo2_peak") or _spiro_s.get("vo2_max") or _spiro_s.get("geschaetzte_vo2max")
-    ) if _spiro_s else None
-    if _spiro_vo2_s:
-        _, _spiro_rating_s = _vo2bew_s(float(_spiro_vo2_s), alter, _geschl_s)
-    elif _spiro_s and _spiro_s.get("schwelle_geschwindigkeit"):
-        _sw = float(_spiro_s["schwelle_geschwindigkeit"])
-        _spiro_rating_s = (
-            f"Gut — Schwelle {_sw:.1f} km/h"               if _sw >= 14 else
-            f"Durchschnittlich — Schwelle {_sw:.1f} km/h"  if _sw >= 12 else
-            f"Verbesserungsbedarf — Schwelle {_sw:.1f} km/h"
-        )
-    else:
-        _spiro_rating_s = None
+    _spiro_rating_s = _spiro_bewertung_v2(
+        _spiro_s,
+        alter_testtag=alter_am_datum(auswahl.get("geburtsdatum", ""), _spiro_s.get("datum", "")) or alter,
+        geschlecht=_geschl_s,
+        stufen=spiro_stufen_laden(_spiro_s["id"]),
+    )["text"] if _spiro_s else None
 
     cards = [
         ("Anthropometrie", "📐", anthro, _anthro_rating_s,    anthro["datum"] if anthro else None),
@@ -11946,27 +11959,16 @@ def page_diagnostik_overview() -> None:
     def _spiro_beurteilung(spiro):
         if not spiro:
             return None
-        from age_norms import vo2_bewertung_alter as _v2bw
-        vo2 = spiro.get("vo2_peak") or spiro.get("vo2_max") or spiro.get("geschaetzte_vo2max")
-        schw = spiro.get("schwelle_geschwindigkeit")
-        if vo2:
-            # Alter am Testdatum verwenden — nicht heutiges Alter (Spec §3)
-            _sp_alter = (alter_am_datum(sp_ov.get("geburtsdatum", "") if sp_ov else "",
-                                        spiro.get("datum", "")) or _alter_ov)
-            stufe, _ = _v2bw(float(vo2), _sp_alter, _geschl_ov)
-            return f"{stufe} — VO₂peak {float(vo2):.1f} ml·kg⁻¹·min⁻¹"
-        elif schw:
-            v = float(schw)
-            # Schwellen-Beurteilung als Fallback (grob, geschlechtsneutral)
-            if v >= 14:
-                stufe = "Gut"
-            elif v >= 12:
-                stufe = "Durchschnittlich"
-            else:
-                stufe = "Verbesserungsbedarf"
-            return f"{stufe} — Schwelle {v:.1f} km/h"
-        else:
-            return None
+        from spiro import spiro_bewertung_v2 as _spiro_bewertung_v2
+        _sp_alter = alter_am_datum(
+            sp_ov.get("geburtsdatum", "") if sp_ov else "", spiro.get("datum", "")
+        ) or _alter_ov
+        return _spiro_bewertung_v2(
+            spiro,
+            alter_testtag=_sp_alter,
+            geschlecht=_geschl_ov,
+            stufen=spiro_stufen_laden(spiro["id"]),
+        )["text"]
 
     anthro_metric, anthro_rating = _anthro_metric_rating()
 

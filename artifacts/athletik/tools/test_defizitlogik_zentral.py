@@ -125,7 +125,7 @@ check("Laterale Kraftasymmetrie ergänzt Hüfte", scores.get("Hüfte"), 2)
 
 spiro = {"vo2_peak": 42, "schwelle_geschwindigkeit": 11}
 scores = trainingsbereich_scores_ermitteln(spiro_row=spiro)
-check("Stufentest unter bestehender Schwelle priorisiert Ausdauer", scores.get("Ausdauer"), 3)
+check("Spiro mit niedriger VO₂/Schwelle erzeugt kein Legacy-Defizit", "Ausdauer" in scores, False)
 
 
 print("\n=== 5. Anthropometrie bleibt Kontext ===")

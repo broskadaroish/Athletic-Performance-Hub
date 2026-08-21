@@ -179,13 +179,6 @@ def athletik_score(
                 s = min(100, s + 5)
             sub_scores["aus"] = s
 
-    # ── Spiroergometrie (VO₂peak) ─────────────────────────────────────────────
-    if spiro_row:
-        vo2 = spiro_row.get("vo2_peak") or spiro_row.get("vo2_max")
-        if vo2:
-            # Linear map: 35 ml/kg/min → 0, 65 ml/kg/min → 100
-            sub_scores["spiro"] = round(min(100, max(0, (float(vo2) - 35) / 30 * 100)))
-
     if not sub_scores:
         return 0  # no data at all
 
@@ -263,11 +256,6 @@ def athletik_sub_scores(
             if vo2 and float(vo2) >= 55:
                 s = min(100, s + 5)
             scores["Ausdauer"] = s
-
-    if spiro_row:
-        vo2 = spiro_row.get("vo2_peak") or spiro_row.get("vo2_max")
-        if vo2:
-            scores["Spiro"] = round(min(100, max(0, (float(vo2) - 35) / 30 * 100)))
 
     return scores
 
@@ -506,23 +494,6 @@ def defizite_ermitteln(
         if lateral_asym and float(lateral_asym) > 10:
             add("warnung", "Hüfte", "Laterale Kraftasymmetrie über bestehender Trainingsschwelle.", "Kraft", _d)
             add("warnung", "Rumpfkraft", "Laterale Kraftasymmetrie erfordert Rumpfstabilisierung.", "Kraft", _d)
-
-    # ── Spiroergometrie / Stufentest ──────────────────────────────────────────
-    if spiro_row:
-        vo2    = spiro_row.get("vo2_peak") or spiro_row.get("vo2_max") or spiro_row.get("geschaetzte_vo2max")
-        schw_v = spiro_row.get("schwelle_geschwindigkeit")
-        _d     = spiro_row.get("datum") or spiro_row.get("erstellt_am")
-        if vo2:
-            v = float(vo2)
-            if v < 45:
-                add("kritisch", "Aerobe Kapazität",
-                    f"VO₂peak {v:.1f} ml·kg⁻¹·min⁻¹ — aerobe Basis dringend stärken (Stufentest).", "Stufentest", _d)
-            elif v < 50:
-                add("warnung", "Aerobe Kapazität",
-                    f"VO₂peak {v:.1f} ml·kg⁻¹·min⁻¹ — Ausdauertraining intensivieren.", "Stufentest", _d)
-        if schw_v and float(schw_v) < 12:
-            add("warnung", "Laktatschwelle",
-                f"Schwellengeschwindigkeit {float(schw_v):.1f} km/h — Schwellentraining empfohlen.", "Stufentest", _d)
 
     return defizite
 

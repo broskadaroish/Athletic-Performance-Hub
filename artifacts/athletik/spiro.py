@@ -20,6 +20,176 @@ GERAETEARTEN = [
     "Fahrradergometer (nicht fußballspezifisch)",
 ]
 
+# Standard Bruce-Protokoll: Geschwindigkeit in km/h, Steigung in Prozent,
+# Dauer in Sekunden.
+# Es dient ausschließlich zur Plausibilisierung eines als Bruce gespeicherten Tests.
+BRUCE_STUFEN = (
+    (2.7, 10.0, 180), (4.0, 12.0, 180), (5.5, 14.0, 180),
+    (6.8, 16.0, 180), (8.0, 18.0, 180), (8.8, 20.0, 180),
+    (9.7, 22.0, 180), (10.5, 24.0, 180), (11.3, 26.0, 180),
+    (12.1, 28.0, 180),
+)
+
+
+# ─── Wissenschaftliche Referenzbewertung V2 ───────────────────────────────────
+
+def spiro_vo2_messwert(spiro_row: dict | None) -> dict:
+    """Kennzeichnet den verfügbaren VO₂-Wert ohne direkte und geschätzte Werte zu vermischen."""
+    row = spiro_row or {}
+    for feld, label in (
+        ("vo2_peak", "VO₂peak (direkt gemessen)"),
+        ("vo2_max", "VO₂max (direkt gemessen)"),
+        ("geschaetzte_vo2max", "VO₂max (geschätzt)"),
+    ):
+        wert = row.get(feld)
+        if wert is not None and float(wert) > 0:
+            return {
+                "wert": float(wert),
+                "feld": feld,
+                "label": label,
+                "direkt_gemessen": feld != "geschaetzte_vo2max",
+            }
+    return {"wert": None, "feld": None, "label": None, "direkt_gemessen": False}
+
+
+def _bruce_testdauer_minuten(stufen: list[dict] | None) -> float | None:
+    """Liefert nur die vollständig dokumentierte Belastungsdauer in Minuten."""
+    if not stufen:
+        return None
+    dauern = []
+    for stufe in stufen:
+        if stufe.get("stufe_vollstaendig") in (False, 0):
+            return None
+        dauer = stufe.get("dauer_sekunden")
+        if dauer is None or float(dauer) <= 0:
+            return None
+        dauern.append(float(dauer))
+    return sum(dauern) / 60 if dauern else None
+
+
+def _bruce_rer_max(stufen: list[dict] | None) -> float | None:
+    if not stufen:
+        return None
+    werte = [float(s["rer"]) for s in stufen if s.get("rer") is not None]
+    return max(werte) if werte else None
+
+
+def ist_dokumentiertes_bruce_protokoll(spiro_row: dict | None, stufen: list[dict] | None) -> bool:
+    """Prüft, ob die gespeicherten Protokoll- und Stufendaten dem Bruce-Test entsprechen."""
+    row = spiro_row or {}
+    if (
+        not row.get("protokoll_id")
+        or str(row.get("geraeteart") or "").strip() != "Laufband"
+        or str(row.get("protokoll_geraeteart") or "").strip() != "Laufband"
+        or "bruce" not in str(row.get("protokoll_name") or "").lower()
+        or not stufen
+        or len(stufen) > len(BRUCE_STUFEN)
+    ):
+        return False
+    for index, stufe in enumerate(stufen, start=1):
+        if stufe.get("stufennummer") != index:
+            return False
+        speed = stufe.get("geschwindigkeit_kmh")
+        grade = stufe.get("steigung_prozent")
+        dauer = stufe.get("dauer_sekunden")
+        if speed is None or grade is None or dauer is None:
+            return False
+        expected_speed, expected_grade, expected_dauer = BRUCE_STUFEN[index - 1]
+        if (
+            abs(float(speed) - expected_speed) > 0.15
+            or abs(float(grade) - expected_grade) > 0.5
+            or abs(float(dauer) - expected_dauer) > 1
+        ):
+            return False
+    return True
+
+
+def spiro_bewertung_v2(
+    spiro_row: dict | None,
+    *,
+    alter_testtag: float | None = None,
+    geschlecht: str = "Männlich",
+    stufen: list[dict] | None = None,
+) -> dict:
+    """Erstellt eine protokollspezifische, nicht diagnostische Spirobewertung.
+
+    Der einzige automatisch berechnete Referenzvergleich basiert auf Griffith
+    et al. (Am J Cardiol 2024, PMID 38042265) und gilt ausschließlich für
+    dokumentierte Bruce-Laufbandtests bei 6- bis 18-Jährigen. Es werden bewusst
+    keine Kategorien, Perzentile oder Defizite aus einem Abweichungswert
+    abgeleitet. Cycle- und Feld-/Laktat-Tests bleiben neutral, solange ihre
+    vollständigen Eingangsdaten bzw. reproduzierbaren Gleichungen nicht vorliegen.
+    """
+    row = spiro_row or {}
+    messwert = spiro_vo2_messwert(row)
+    geraet = str(row.get("geraeteart") or "").strip()
+    ist_bruce = ist_dokumentiertes_bruce_protokoll(row, stufen)
+
+    def neutral(begruendung: str) -> dict:
+        if messwert["wert"] is not None:
+            prefix = f"{messwert['label']}: {messwert['wert']:.1f} ml·kg⁻¹·min⁻¹"
+            text = f"{prefix} — keine belastbare Referenzbewertung verfügbar ({begruendung})."
+        elif row.get("schwelle_geschwindigkeit") is not None:
+            text = (
+                f"Schwellengeschwindigkeit: {float(row['schwelle_geschwindigkeit']):.1f} km/h "
+                f"— keine belastbare Referenzbewertung verfügbar ({begruendung})."
+            )
+        else:
+            text = f"Keine belastbare Referenzbewertung verfügbar ({begruendung})."
+        return {
+            "status": "keine_belastbare_referenz",
+            "text": text,
+            "messwert": messwert,
+            "referenzwert": None,
+            "abweichung": None,
+            "quelle": None,
+        }
+
+    if not ist_bruce:
+        if "fahrrad" in geraet.lower():
+            return neutral(
+                "für das Cycle-Modell fehlen die vollständig erforderlichen "
+                "testtagsbezogenen Eingangsdaten"
+            )
+        return neutral("kein vollständig dokumentiertes Bruce-Laufbandprotokoll")
+    if not messwert["direkt_gemessen"]:
+        return neutral("eine VO₂-Schätzung darf nicht als direkter Bruce-Messwert bewertet werden")
+    if alter_testtag is None or not 6 <= float(alter_testtag) <= 18:
+        return neutral("Bruce-Referenz gilt nur für das dokumentierte Alter von 6 bis 18 Jahren")
+
+    gewicht = row.get("koerpergewicht")
+    dauer_min = _bruce_testdauer_minuten(stufen)
+    rer_max = _bruce_rer_max(stufen)
+    if gewicht is None or float(gewicht) <= 0:
+        return neutral("Körpergewicht am Testtag fehlt")
+    if dauer_min is None:
+        return neutral("vollständige Stufendauer fehlt")
+    if rer_max is None or rer_max < 1.00:
+        return neutral("dokumentierter maximaler RER von mindestens 1,00 fehlt")
+
+    weiblich = "w" in geschlecht.lower() or "f" in geschlecht.lower()
+    referenz = (
+        16.411
+        + 3.423 * dauer_min
+        - 5.145 * (1 if weiblich else 0)
+        - 0.121 * float(gewicht)
+        + 0.179 * float(alter_testtag)
+    )
+    abweichung = messwert["wert"] - referenz
+    return {
+        "status": "bruce_referenzvergleich",
+        "text": (
+            f"{messwert['label']}: {messwert['wert']:.1f} ml·kg⁻¹·min⁻¹ — "
+            f"Bruce-Referenzwert nach Griffith et al.: {referenz:.1f} ml·kg⁻¹·min⁻¹ "
+            f"(Δ {abweichung:+.1f}). Kein automatisches Trainingsdefizit."
+        ),
+        "messwert": messwert,
+        "referenzwert": round(referenz, 1),
+        "abweichung": round(abweichung, 1),
+        "quelle": "Griffith et al., Am J Cardiol 2024, PMID 38042265",
+    }
+
+
 SCHWELLENMETHODEN = [
     "Fixer Wert 2 mmol/l",
     "Fixer Wert 4 mmol/l",

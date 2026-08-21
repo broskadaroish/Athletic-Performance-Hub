@@ -464,6 +464,7 @@ def generate_report(
     aus_row=None,
     kraft_row=None,
     spiro_row=None,
+    spiro_bewertung: dict | None = None,
     verletzungen=None,
     athletik_score: int = 0,
     risiko_label: str = "-",
@@ -888,13 +889,26 @@ def generate_report(
         vo2_max  = spiro_row.get("vo2_max")
         vo2_sch  = spiro_row.get("geschaetzte_vo2max")
         if vo2_peak:
-            v_col = GREEN if vo2_peak >= 55 else YELLOW if vo2_peak >= 45 else RED
-            pdf.kv_color("VO2peak", "%.1f ml/kg/min" % vo2_peak, v_col)
+            pdf.kv_color("VO2peak (direkt gemessen)", "%.1f ml/kg/min" % vo2_peak, GREY)
         if vo2_max:
-            v_col2 = GREEN if vo2_max >= 55 else YELLOW if vo2_max >= 45 else RED
-            pdf.kv_color("VO2max (gemessen)", "%.1f ml/kg/min" % vo2_max, v_col2)
+            pdf.kv_color("VO2max (direkt gemessen)", "%.1f ml/kg/min" % vo2_max, GREY)
         if vo2_sch and not vo2_peak and not vo2_max:
-            pdf.kv("VO2max (Schaetzung)", "%.1f ml/kg/min" % vo2_sch)
+            pdf.kv_color("VO2max (geschätzt)", "%.1f ml/kg/min" % vo2_sch, GREY)
+        if spiro_bewertung and spiro_bewertung.get("status") == "bruce_referenzvergleich":
+            pdf.kv_color(
+                "Bruce-Referenzvergleich",
+                "Referenz %.1f ml/kg/min · Δ %+.1f (keine Defizit-Ampel)" % (
+                    spiro_bewertung["referenzwert"], spiro_bewertung["abweichung"]
+                ),
+                GREY,
+            )
+            pdf.kv("Quelle", spiro_bewertung.get("quelle") or "-")
+        else:
+            pdf.kv_color(
+                "Referenzbewertung",
+                "Keine belastbare Referenzbewertung verfügbar",
+                GREY,
+            )
 
         # Maximale Leistung
         v_max = spiro_row.get("maximale_geschwindigkeit")
@@ -1137,8 +1151,15 @@ def generate_report(
          lambda r: ampel(r.get("bew_t_test","") or r.get("bew_505",""))),
         ("Ausdauer",        aus_row,     lambda r: "Distanz: %d m / VO2max: %.1f" % (int(r.get("distanz_m",0)), r.get("vo2max") or 0),
          lambda r: ampel(r.get("bewertung",""))),
-        ("Spiroergometrie", spiro_row,   lambda r: "VO2peak: %.1f ml/kg/min" % r.get("vo2_peak",0) if r.get("vo2_peak") else ("V max: %.1f km/h" % r.get("maximale_geschwindigkeit",0) if r.get("maximale_geschwindigkeit") else "-"),
-         lambda r: GREEN if (r.get("vo2_peak") or 0) >= 55 else YELLOW if (r.get("vo2_peak") or 0) >= 45 else (GREY if not r.get("vo2_peak") else RED)),
+        ("Spiroergometrie", spiro_row,
+         lambda r: (
+             "VO2peak (direkt): %.1f ml/kg/min" % r["vo2_peak"] if r.get("vo2_peak")
+             else "VO2max (direkt): %.1f ml/kg/min" % r["vo2_max"] if r.get("vo2_max")
+             else "VO2max (geschätzt): %.1f ml/kg/min" % r["geschaetzte_vo2max"] if r.get("geschaetzte_vo2max")
+             else "V max: %.1f km/h" % r["maximale_geschwindigkeit"] if r.get("maximale_geschwindigkeit")
+             else "-"
+         ),
+         lambda r: GREY),
         ("Kraftdiagnostik", kraft_row,   lambda r: "1RM: %.1f kg" % (r.get("direktes_1rm") or r.get("geschaetztes_1rm") or 0),
          lambda r: GREEN if (r.get("relative_kraft_direkt") or r.get("relative_kraft_geschaetzt") or 0) >= 1.5 else YELLOW),
     ]

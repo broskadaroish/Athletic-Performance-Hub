@@ -2837,7 +2837,7 @@ def spiro_history_edit(spieler_id: int) -> list[dict]:
                       t.schwelle_herzfrequenz, t.schwelle_laktat,
                       t.ruhelaktat, t.laktat_blutentnahmeort, t.laktat_messgeraet,
                       t.rpe_max, t.abbruchgrund, t.bemerkung, t.created_at,
-                      p.name AS protokoll_name
+                      p.name AS protokoll_name, p.geraeteart AS protokoll_geraeteart
                FROM spiro_test t
                LEFT JOIN spiro_protokoll p ON t.protokoll_id = p.id
                WHERE t.spieler_id=?
@@ -3545,7 +3545,11 @@ def spiro_nachbelastung_laden(spiro_test_id: int) -> list[dict]:
 def spiro_test_letzter(spieler_id: int) -> dict | None:
     with get_conn() as conn:
         return _row(conn.execute(
-            "SELECT * FROM spiro_test WHERE spieler_id=? ORDER BY id DESC LIMIT 1",
+            """SELECT t.*, p.name AS protokoll_name, p.geraeteart AS protokoll_geraeteart
+               FROM spiro_test t
+               LEFT JOIN spiro_protokoll p ON t.protokoll_id = p.id
+               WHERE t.spieler_id=?
+               ORDER BY t.id DESC LIMIT 1""",
             (spieler_id,),
         ).fetchone())
 
@@ -3553,7 +3557,7 @@ def spiro_test_letzter(spieler_id: int) -> dict | None:
 def spiro_test_alle(spieler_id: int) -> list[dict]:
     with get_conn() as conn:
         return _rows(conn.execute(
-            """SELECT t.*, p.name as protokoll_name
+            """SELECT t.*, p.name as protokoll_name, p.geraeteart AS protokoll_geraeteart
                FROM spiro_test t
                LEFT JOIN spiro_protokoll p ON t.protokoll_id = p.id
                WHERE t.spieler_id=?
