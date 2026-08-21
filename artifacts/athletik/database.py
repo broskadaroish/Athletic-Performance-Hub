@@ -3097,6 +3097,412 @@ def spiro_nachbelastung_speichern(spiro_test_id: int, eintraege: list[dict]) -> 
     with get_conn() as conn:
         _spiro_nachbelastung_speichern_ausfuehren(conn, spiro_test_id, eintraege)
 
+
+_SPIRO_STUFEN_MUTATIONSFELDER = (
+    "stufennummer", "geschwindigkeit_kmh", "steigung_prozent", "dauer_sekunden",
+    "strecke_meter", "herzfrequenz_bpm", "hf_durchschnitt", "vo2_absolut",
+    "vo2_relativ", "vco2", "ve", "rer", "atemfrequenz", "sauerstoffpuls",
+    "laktat_mmol_l", "rpe", "stufe_vollstaendig", "blutprobe_gueltig", "bemerkung",
+)
+_SPIRO_NACHBELASTUNG_MUTATIONSFELDER = (
+    "zeitpunkt_minuten", "herzfrequenz_bpm", "laktat_mmol_l", "bemerkung",
+)
+
+
+class _SpiroMutationAbbruch(Exception):
+    """Interner Abbruch, damit eine zusammengesetzte Messpunktaktion rollt zurück."""
+
+
+def _spiro_messpunkt_berechtigt(
+    conn,
+    kind_tabelle: str,
+    messpunkt_id: int,
+    test_id: int,
+    spieler_id: int,
+    benutzer_id: int | None = None,
+    rolle: str | None = None,
+    verein_id: int | None = None,
+) -> bool:
+    """Prüft Kind-ID, Haupttest, Spieler und optional den aktiven Mandanten atomar."""
+    if kind_tabelle not in ("spiro_stufe", "spiro_nachbelastung"):
+        return False
+    row = conn.execute(
+        f"""SELECT p.trainer_id, p.verein_id
+            FROM {kind_tabelle} k
+            JOIN spiro_test t ON t.id=k.spiro_test_id
+            JOIN spieler p ON p.id=t.spieler_id
+            WHERE k.id=? AND k.spiro_test_id=? AND t.spieler_id=?""",
+        (messpunkt_id, test_id, spieler_id),
+    ).fetchone()
+    if not row:
+        return False
+
+    # Öffentliche Mutationen benötigen stets den aktiven Benutzerkontext. Nur
+    # damit ist neben Test- und Spielerbesitz auch die Mandantengrenze geprüft.
+    if rolle is None:
+        return False
+    if rolle == "Superadmin":
+        return True
+    if rolle == "Vereinsadmin":
+        return verein_id is not None and row["verein_id"] == verein_id
+    return row["trainer_id"] == benutzer_id or (
+        verein_id is not None and row["verein_id"] == verein_id
+    )
+
+
+def _spiro_stufen_maximum(stufen: list[dict], feld: str) -> float | None:
+    werte = [s.get(feld) for s in stufen if s.get(feld) is not None]
+    return float(max(werte)) if werte else None
+
+
+def _spiro_schwellenziel(methode: str | None) -> float | None:
+    if methode == "Fixer Wert 2 mmol/l":
+        return 2.0
+    if methode == "Fixer Wert 4 mmol/l":
+        return 4.0
+    return None
+
+
+def _spiro_bei_laktat(stufen: list[dict], ziel: float, feld: str) -> float | None:
+    """Interpoliert ein Messfeld bei Laktat ohne Extrapolation."""
+    gueltig = [
+        s for s in stufen
+        if s.get("geschwindigkeit_kmh") is not None
+        and s.get("laktat_mmol_l") is not None
+        and s.get(feld) is not None
+        and s.get("blutprobe_gueltig", True) is not False
+    ]
+    gueltig.sort(key=lambda s: s["geschwindigkeit_kmh"])
+    if len(gueltig) < 2:
+        return None
+    laktate = [s["laktat_mmol_l"] for s in gueltig]
+    if ziel < min(laktate) or ziel > max(laktate):
+        return None
+    for links, rechts in zip(gueltig, gueltig[1:]):
+        l1, l2 = links["laktat_mmol_l"], rechts["laktat_mmol_l"]
+        if min(l1, l2) <= ziel <= max(l1, l2):
+            y1, y2 = links[feld], rechts[feld]
+            if l1 == l2:
+                return round(float(y1), 2)
+            anteil = (ziel - l1) / (l2 - l1)
+            return round(float(y1) + anteil * (float(y2) - float(y1)), 2)
+    return None
+
+
+def _spiro_ableitungen_aktualisieren(
+    conn,
+    test_id: int,
+    vorherige_stufen: list[dict],
+    vorheriger_test: dict,
+) -> None:
+    """Aktualisiert ausschließlich eindeutig stufenbasierte Kennwerte nach einer Mutation."""
+    aktuelle_stufen = _rows(conn.execute(
+        "SELECT * FROM spiro_stufe WHERE spiro_test_id=? ORDER BY stufennummer, id",
+        (test_id,),
+    ).fetchall())
+    alt_vmax = _spiro_stufen_maximum(vorherige_stufen, "geschwindigkeit_kmh")
+    alt_hfmax = _spiro_stufen_maximum(vorherige_stufen, "herzfrequenz_bpm")
+    neu_vmax = _spiro_stufen_maximum(aktuelle_stufen, "geschwindigkeit_kmh")
+    neu_hfmax = _spiro_stufen_maximum(aktuelle_stufen, "herzfrequenz_bpm")
+
+    updates: dict[str, float | None] = {}
+    # Hauptwerte werden nur ersetzt, wenn sie vorher erkennbar aus den Stufen
+    # abgeleitet waren (oder noch nicht gesetzt waren). Manuell dokumentierte
+    # Werte bleiben damit unangetastet.
+    if vorheriger_test.get("maximale_geschwindigkeit") is None or (
+        alt_vmax is not None
+        and float(vorheriger_test["maximale_geschwindigkeit"]) == alt_vmax
+    ):
+        updates["maximale_geschwindigkeit"] = neu_vmax
+    if vorheriger_test.get("maximale_herzfrequenz") is None or (
+        alt_hfmax is not None
+        and float(vorheriger_test["maximale_herzfrequenz"]) == alt_hfmax
+    ):
+        updates["maximale_herzfrequenz"] = neu_hfmax
+
+    ziel = _spiro_schwellenziel(vorheriger_test.get("laktatschwelle_methode"))
+    if ziel is not None:
+        updates["schwelle_geschwindigkeit"] = _spiro_bei_laktat(
+            aktuelle_stufen, ziel, "geschwindigkeit_kmh"
+        )
+        updates["schwelle_herzfrequenz"] = _spiro_bei_laktat(
+            aktuelle_stufen, ziel, "herzfrequenz_bpm"
+        )
+        updates["schwelle_laktat"] = ziel if updates["schwelle_geschwindigkeit"] is not None else None
+
+    if updates:
+        assignments = ", ".join(f"{feld}=?" for feld in updates)
+        conn.execute(
+            f"UPDATE spiro_test SET {assignments} WHERE id=?",
+            (*updates.values(), test_id),
+        )
+
+
+def _spiro_stufe_aktualisieren_ausfuehren(
+    conn,
+    stufe_id: int,
+    test_id: int,
+    spieler_id: int,
+    werte: dict,
+    *,
+    benutzer_id: int | None = None,
+    rolle: str | None = None,
+    verein_id: int | None = None,
+    ableitungen_aktualisieren: bool = True,
+) -> bool:
+    if not _spiro_messpunkt_berechtigt(
+        conn, "spiro_stufe", stufe_id, test_id, spieler_id,
+        benutzer_id, rolle, verein_id,
+    ):
+        return False
+    unbekannt = set(werte) - set(_SPIRO_STUFEN_MUTATIONSFELDER)
+    if unbekannt:
+        raise ValueError(f"Unbekannte Stufenfelder: {sorted(unbekannt)}")
+    vorherige_stufen = _rows(conn.execute(
+        "SELECT * FROM spiro_stufe WHERE spiro_test_id=? ORDER BY stufennummer, id",
+        (test_id,),
+    ).fetchall())
+    vorheriger_test = _row(conn.execute(
+        "SELECT * FROM spiro_test WHERE id=? AND spieler_id=?",
+        (test_id, spieler_id),
+    ).fetchone())
+    if not vorheriger_test:
+        return False
+    assignments = ", ".join(f"{feld}=?" for feld in werte)
+    cur = conn.execute(
+        f"UPDATE spiro_stufe SET {assignments} WHERE id=? AND spiro_test_id=?",
+        (*werte.values(), stufe_id, test_id),
+    )
+    if cur.rowcount != 1:
+        return False
+    if ableitungen_aktualisieren:
+        _spiro_ableitungen_aktualisieren(conn, test_id, vorherige_stufen, vorheriger_test)
+    return True
+
+
+def spiro_stufe_aktualisieren(
+    stufe_id: int,
+    test_id: int,
+    spieler_id: int,
+    werte: dict,
+    *,
+    benutzer_id: int | None = None,
+    rolle: str | None = None,
+    verein_id: int | None = None,
+) -> bool:
+    """Aktualisiert genau eine gespeicherte Spiro-Stufe per eigener ID."""
+    with get_conn() as conn:
+        return _spiro_stufe_aktualisieren_ausfuehren(
+            conn, stufe_id, test_id, spieler_id, werte,
+            benutzer_id=benutzer_id, rolle=rolle, verein_id=verein_id,
+        )
+
+
+def spiro_stufe_loeschen(
+    stufe_id: int,
+    test_id: int,
+    spieler_id: int,
+    *,
+    benutzer_id: int | None = None,
+    rolle: str | None = None,
+    verein_id: int | None = None,
+) -> bool:
+    """Löscht genau eine Stufe und aktualisiert danach nur ihre stufenbasierten Kennwerte."""
+    with get_conn() as conn:
+        if not _spiro_messpunkt_berechtigt(
+            conn, "spiro_stufe", stufe_id, test_id, spieler_id,
+            benutzer_id, rolle, verein_id,
+        ):
+            return False
+        vorherige_stufen = _rows(conn.execute(
+            "SELECT * FROM spiro_stufe WHERE spiro_test_id=? ORDER BY stufennummer, id",
+            (test_id,),
+        ).fetchall())
+        vorheriger_test = _row(conn.execute(
+            "SELECT * FROM spiro_test WHERE id=? AND spieler_id=?",
+            (test_id, spieler_id),
+        ).fetchone())
+        cur = conn.execute(
+            "DELETE FROM spiro_stufe WHERE id=? AND spiro_test_id=?",
+            (stufe_id, test_id),
+        )
+        if cur.rowcount != 1 or not vorheriger_test:
+            return False
+        _spiro_ableitungen_aktualisieren(conn, test_id, vorherige_stufen, vorheriger_test)
+        return True
+
+
+def spiro_nachbelastung_aktualisieren(
+    nachbelastung_id: int,
+    test_id: int,
+    spieler_id: int,
+    werte: dict,
+    *,
+    benutzer_id: int | None = None,
+    rolle: str | None = None,
+    verein_id: int | None = None,
+) -> bool:
+    """Aktualisiert genau einen Nachbelastungswert per eigener ID."""
+    unbekannt = set(werte) - set(_SPIRO_NACHBELASTUNG_MUTATIONSFELDER)
+    if unbekannt:
+        raise ValueError(f"Unbekannte Nachbelastungsfelder: {sorted(unbekannt)}")
+    with get_conn() as conn:
+        if not _spiro_messpunkt_berechtigt(
+            conn, "spiro_nachbelastung", nachbelastung_id, test_id, spieler_id,
+            benutzer_id, rolle, verein_id,
+        ):
+            return False
+        assignments = ", ".join(f"{feld}=?" for feld in werte)
+        cur = conn.execute(
+            f"UPDATE spiro_nachbelastung SET {assignments} WHERE id=? AND spiro_test_id=?",
+            (*werte.values(), nachbelastung_id, test_id),
+        )
+        return cur.rowcount == 1
+
+
+def spiro_nachbelastung_loeschen(
+    nachbelastung_id: int,
+    test_id: int,
+    spieler_id: int,
+    *,
+    benutzer_id: int | None = None,
+    rolle: str | None = None,
+    verein_id: int | None = None,
+) -> bool:
+    """Löscht genau einen Nachbelastungswert, nicht jedoch den Haupttest."""
+    with get_conn() as conn:
+        if not _spiro_messpunkt_berechtigt(
+            conn, "spiro_nachbelastung", nachbelastung_id, test_id, spieler_id,
+            benutzer_id, rolle, verein_id,
+        ):
+            return False
+        cur = conn.execute(
+            "DELETE FROM spiro_nachbelastung WHERE id=? AND spiro_test_id=?",
+            (nachbelastung_id, test_id),
+        )
+        return cur.rowcount == 1
+
+
+def _spiro_test_berechtigt(
+    conn,
+    test_id: int,
+    spieler_id: int,
+    benutzer_id: int | None,
+    rolle: str | None,
+    verein_id: int | None,
+) -> bool:
+    """Prüft den Besitz des Haupttests einschließlich der Mandantengrenze."""
+    if rolle is None:
+        return False
+    row = conn.execute(
+        """SELECT p.trainer_id, p.verein_id
+           FROM spiro_test t
+           JOIN spieler p ON p.id=t.spieler_id
+           WHERE t.id=? AND t.spieler_id=?""",
+        (test_id, spieler_id),
+    ).fetchone()
+    if not row:
+        return False
+    if rolle == "Superadmin":
+        return True
+    if rolle == "Vereinsadmin":
+        return verein_id is not None and row["verein_id"] == verein_id
+    return row["trainer_id"] == benutzer_id or (
+        verein_id is not None and row["verein_id"] == verein_id
+    )
+
+
+def spiro_test_update_mit_einzelmesspunkten(
+    test_id: int,
+    spieler_id: int,
+    datum: str,
+    testtyp: str,
+    stufen: list[dict],
+    nachbelastung: list[dict],
+    *,
+    benutzer_id: int | None,
+    rolle: str | None,
+    verein_id: int | None,
+    **hauptwerte,
+) -> bool:
+    """Aktualisiert Haupttest und bestehende Messpunkte in einer Transaktion.
+
+    Jede Kindzeile muss ihre gespeicherte ``id`` enthalten. Vor der ersten
+    Mutation werden alle IDs mit Haupttest, Spieler und Mandant validiert;
+    danach werden stufenbasierte Kennwerte einmal aus dem finalen Datensatz
+    abgeleitet. Ein Fehler rollt die gesamte Aktion zurück.
+    """
+    try:
+        with get_conn() as conn:
+            if not _spiro_test_berechtigt(
+                conn, test_id, spieler_id, benutzer_id, rolle, verein_id,
+            ):
+                return False
+            vorherige_stufen = _rows(conn.execute(
+                "SELECT * FROM spiro_stufe WHERE spiro_test_id=? ORDER BY stufennummer, id",
+                (test_id,),
+            ).fetchall())
+            vorheriger_test = _row(conn.execute(
+                "SELECT * FROM spiro_test WHERE id=? AND spieler_id=?",
+                (test_id, spieler_id),
+            ).fetchone())
+            if not vorheriger_test:
+                return False
+
+            stufen = [dict(stufe) for stufe in stufen]
+            nachbelastung = [dict(nachwert) for nachwert in nachbelastung]
+            for stufe in stufen:
+                stufe_id = stufe.get("id")
+                if stufe_id is None or not _spiro_messpunkt_berechtigt(
+                    conn, "spiro_stufe", int(stufe_id), test_id, spieler_id,
+                    benutzer_id, rolle, verein_id,
+                ):
+                    return False
+            for nachwert in nachbelastung:
+                nachwert_id = nachwert.get("id")
+                if nachwert_id is None or not _spiro_messpunkt_berechtigt(
+                    conn, "spiro_nachbelastung", int(nachwert_id), test_id, spieler_id,
+                    benutzer_id, rolle, verein_id,
+                ):
+                    return False
+
+            if not _spiro_test_update_ausfuehren(
+                conn, test_id, spieler_id, datum, testtyp, **hauptwerte,
+            ):
+                raise _SpiroMutationAbbruch()
+            for stufe in stufen:
+                stufe_id = int(stufe.pop("id"))
+                if not _spiro_stufe_aktualisieren_ausfuehren(
+                    conn, stufe_id, test_id, spieler_id, stufe,
+                    benutzer_id=benutzer_id, rolle=rolle, verein_id=verein_id,
+                    ableitungen_aktualisieren=False,
+                ):
+                    raise _SpiroMutationAbbruch()
+            for nachwert in nachbelastung:
+                nachwert_id = int(nachwert.pop("id"))
+                werte = {feld: wert for feld, wert in nachwert.items()
+                         if feld in _SPIRO_NACHBELASTUNG_MUTATIONSFELDER}
+                assignments = ", ".join(f"{feld}=?" for feld in werte)
+                cur = conn.execute(
+                    f"UPDATE spiro_nachbelastung SET {assignments} "
+                    "WHERE id=? AND spiro_test_id=?",
+                    (*werte.values(), nachwert_id, test_id),
+                )
+                if cur.rowcount != 1:
+                    raise _SpiroMutationAbbruch()
+
+            # Die neue Schwellenmethode ist ein Eingabewert der selben Aktion und
+            # muss daher als Grundlage der anschließenden Interpolation gelten.
+            vorheriger_test = dict(vorheriger_test)
+            vorheriger_test["laktatschwelle_methode"] = hauptwerte.get(
+                "laktatschwelle_methode", vorheriger_test.get("laktatschwelle_methode"),
+            )
+            _spiro_ableitungen_aktualisieren(conn, test_id, vorherige_stufen, vorheriger_test)
+            return True
+    except (_SpiroMutationAbbruch, sqlite3.Error, ValueError):
+        return False
+
+
 def spiro_test_update_mit_messpunkten(
     test_id: int,
     spieler_id: int,

@@ -2715,8 +2715,9 @@ def _render_kraft_edit(spieler_id: int) -> None:
 def _render_spiro_edit(spieler_id: int) -> None:
     """Edit/Delete-Bereich für Spiro-Verlauf inklusive Stufen und Nachbelastung."""
     from database import (
-        spiro_history_edit, spiro_test_update_mit_messpunkten,
+        spiro_history_edit, spiro_test_update_mit_einzelmesspunkten,
         spiro_test_loeschen_sicher, spiro_stufen_laden, spiro_nachbelastung_laden,
+        spiro_stufe_loeschen, spiro_nachbelastung_loeschen,
     )
     from spiro import GERAETEARTEN, SCHWELLENMETHODEN
     records = spiro_history_edit(spieler_id)
@@ -2767,7 +2768,7 @@ def _render_spiro_edit(spieler_id: int) -> None:
         new_bemerkung = st.text_area("Bemerkung", value=rec.get("bemerkung") or "", key=f"sp_e_bem_{rid}", height=60)
 
         st.markdown("##### Belastungsstufen")
-        st.caption("Fehlende Messwerte leer lassen. Beim Speichern werden alle Messpunkte gemeinsam mit dem Haupttest aktualisiert.")
+        st.caption("Fehlende Messwerte leer lassen. Jeder gespeicherte Messpunkt wird per eigener ID aktualisiert; andere Stufen bleiben unverändert.")
         stufen_felder = [
             ("Stufe", "stufennummer"), ("Geschw. (km/h)", "geschwindigkeit_kmh"),
             ("Steigung (%)", "steigung_prozent"), ("Dauer (s)", "dauer_sekunden"),
@@ -2782,13 +2783,17 @@ def _render_spiro_edit(spieler_id: int) -> None:
         stufen_bool_felder = {"stufe_vollstaendig", "blutprobe_gueltig"}
         stufen_vorbelegt = []
         for s in spiro_stufen_laden(rid):
-            row = {}
+            row = {"Messpunkt-ID": s["id"]}
             for label, feld in stufen_felder:
                 wert = s.get(feld)
                 row[label] = bool(wert) if feld in stufen_bool_felder else wert
             stufen_vorbelegt.append(row)
-        stufen_df = pd.DataFrame(stufen_vorbelegt, columns=[label for label, _ in stufen_felder])
+        stufen_df = pd.DataFrame(
+            stufen_vorbelegt,
+            columns=["Messpunkt-ID"] + [label for label, _ in stufen_felder],
+        )
         stufen_cfg = {
+            "Messpunkt-ID": st.column_config.NumberColumn("Messpunkt-ID", disabled=True),
             "Stufe": st.column_config.NumberColumn(min_value=1, step=1, format="%d"),
             "Geschw. (km/h)": st.column_config.NumberColumn(min_value=0, step=0.1, format="%.1f"),
             "Steigung (%)": st.column_config.NumberColumn(min_value=0, step=0.1, format="%.1f"),
@@ -2809,8 +2814,8 @@ def _render_spiro_edit(spieler_id: int) -> None:
             "Probe ✓": st.column_config.CheckboxColumn(default=True),
         }
         edited_stufen = st.data_editor(
-            stufen_df, num_rows="dynamic", use_container_width=True,
-            key=f"sp_e_stufen_{rid}", column_config=stufen_cfg,
+            stufen_df, num_rows="fixed", use_container_width=True,
+            key=f"sp_e_stufen_{rid}", column_config=stufen_cfg, disabled=["Messpunkt-ID"],
         )
 
         st.markdown("##### Nachbelastungswerte")
@@ -2819,17 +2824,22 @@ def _render_spiro_edit(spieler_id: int) -> None:
             ("Laktat (mmol/l)", "laktat_mmol_l"), ("Bemerkung", "bemerkung"),
         ]
         nb_vorbelegt = [
-            {label: e.get(feld) for label, feld in nb_felder}
+            {"Messpunkt-ID": e["id"], **{label: e.get(feld) for label, feld in nb_felder}}
             for e in spiro_nachbelastung_laden(rid)
         ]
-        nb_df = pd.DataFrame(nb_vorbelegt, columns=[label for label, _ in nb_felder])
+        nb_df = pd.DataFrame(
+            nb_vorbelegt,
+            columns=["Messpunkt-ID"] + [label for label, _ in nb_felder],
+        )
         edited_nb = st.data_editor(
-            nb_df, num_rows="dynamic", use_container_width=True, key=f"sp_e_nb_{rid}",
+            nb_df, num_rows="fixed", use_container_width=True, key=f"sp_e_nb_{rid}",
             column_config={
+                "Messpunkt-ID": st.column_config.NumberColumn("Messpunkt-ID", disabled=True),
                 "Zeit (min)": st.column_config.NumberColumn(min_value=0, step=1),
                 "HF (bpm)": st.column_config.NumberColumn(min_value=0, max_value=250, step=1),
                 "Laktat (mmol/l)": st.column_config.NumberColumn(min_value=0, step=0.1, format="%.1f"),
             },
+            disabled=["Messpunkt-ID"],
         )
         submitted = st.form_submit_button("💾 Speichern", type="primary")
         if submitted:
@@ -2841,28 +2851,35 @@ def _render_spiro_edit(spieler_id: int) -> None:
 
             neue_stufen = []
             for _, row in edited_stufen.iterrows():
-                stufennummer = _wert(row, "Stufe")
-                if stufennummer is None:
-                    continue
-                neue_stufen.append({
+                stufen_id = _wert(row, "Messpunkt-ID")
+                if stufen_id is None:
+                    neue_stufen = []
+                    break
+                stufen_werte = {
                     feld: (
                         bool(row.get(label, True)) if feld in stufen_bool_felder
                         else _wert(row, label)
                     )
                     for label, feld in stufen_felder
-                })
+                }
+                neue_stufen.append({"id": int(stufen_id), **stufen_werte})
             neue_nachbelastung = []
             for _, row in edited_nb.iterrows():
-                zeitpunkt = _wert(row, "Zeit (min)")
-                if zeitpunkt is None:
-                    continue
-                neue_nachbelastung.append({
+                nachbelastung_id = _wert(row, "Messpunkt-ID")
+                if nachbelastung_id is None:
+                    neue_nachbelastung = []
+                    break
+                nachbelastung_werte = {
                     feld: _wert(row, label) for label, feld in nb_felder
-                })
+                }
+                neue_nachbelastung.append({"id": int(nachbelastung_id), **nachbelastung_werte})
             _testtyp = rec.get("testtyp","spiro_laufband")
-            ok = spiro_test_update_mit_messpunkten(
+            akt_user = _akt_user()
+            ok = spiro_test_update_mit_einzelmesspunkten(
                 rid, spieler_id, new_datum.strftime("%Y-%m-%d"), _testtyp,
                 neue_stufen, neue_nachbelastung,
+                benutzer_id=akt_user.get("id"), rolle=akt_user.get("rolle"),
+                verein_id=akt_user.get("verein_id"),
                 geraeteart=new_geraet,
                 protokoll_id=rec.get("protokoll_id"),
                 testort=new_testort or None,
@@ -2895,10 +2912,54 @@ def _render_spiro_edit(spieler_id: int) -> None:
                 bemerkung=new_bemerkung or None,
             )
             if ok:
-                _save_ok("Spiro-Test aktualisiert.")
+                _save_ok("Spiro-Test und gespeicherte Messpunkte aktualisiert.")
                 st.rerun()
             else:
-                st.error("❌ Aktualisierung fehlgeschlagen.")
+                st.error("❌ Aktualisierung fehlgeschlagen oder Zugriff verweigert.")
+
+    st.markdown("##### Einzelne Messpunkte löschen")
+    st.caption("Das Löschen betrifft immer nur den gewählten Messpunkt. Haupttest und übrige Messwerte bleiben erhalten.")
+    for stufe in spiro_stufen_laden(rid):
+        stufen_id = stufe["id"]
+        if _confirm_loeschen(
+            f"spiro_stage_del_{rid}_{stufen_id}",
+            was=f"Belastungsstufe {stufe.get('stufennummer', '?')} (Messpunkt-ID {stufen_id})",
+            btn_label=f"🗑️ Stufe {stufe.get('stufennummer', '?')} löschen",
+        ):
+            if not _history_mandant_ok(spieler_id):
+                st.error("❌ Zugriff verweigert.")
+                return
+            akt_user = _akt_user()
+            if spiro_stufe_loeschen(
+                stufen_id, rid, spieler_id,
+                benutzer_id=akt_user.get("id"), rolle=akt_user.get("rolle"),
+                verein_id=akt_user.get("verein_id"),
+            ):
+                _save_ok("Belastungsstufe gelöscht. Stufenbasierte Kennwerte wurden aktualisiert.")
+                st.rerun()
+            else:
+                st.error("❌ Löschen fehlgeschlagen oder Zugriff verweigert.")
+
+    for nachbelastung in spiro_nachbelastung_laden(rid):
+        nachbelastung_id = nachbelastung["id"]
+        if _confirm_loeschen(
+            f"spiro_after_del_{rid}_{nachbelastung_id}",
+            was=f"Nachbelastungswert bei {nachbelastung.get('zeitpunkt_minuten', '?')} min (Messpunkt-ID {nachbelastung_id})",
+            btn_label=f"🗑️ Nachbelastung {nachbelastung.get('zeitpunkt_minuten', '?')} min löschen",
+        ):
+            if not _history_mandant_ok(spieler_id):
+                st.error("❌ Zugriff verweigert.")
+                return
+            akt_user = _akt_user()
+            if spiro_nachbelastung_loeschen(
+                nachbelastung_id, rid, spieler_id,
+                benutzer_id=akt_user.get("id"), rolle=akt_user.get("rolle"),
+                verein_id=akt_user.get("verein_id"),
+            ):
+                _save_ok("Nachbelastungswert gelöscht.")
+                st.rerun()
+            else:
+                st.error("❌ Löschen fehlgeschlagen oder Zugriff verweigert.")
 
     st.markdown("---")
     if _confirm_loeschen(f"spiro_hist_del_{spieler_id}_{rid}",
