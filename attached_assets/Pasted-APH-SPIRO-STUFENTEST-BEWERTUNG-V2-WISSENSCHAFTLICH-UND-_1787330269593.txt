@@ -1,0 +1,194 @@
+APH – SPIRO/STUFENTEST BEWERTUNG V2 – WISSENSCHAFTLICH UND ALTERSGERECHT
+
+WICHTIG: Bestehende Task-#256-Defizitlogik, Task-#257/#259-Historienbearbeitung und Mandantenschutz nicht beschädigen. Keine DB-Migration, sofern technisch nicht zwingend erforderlich. Keine Produktionsdaten verändern. Nicht deployen.
+
+ZIEL: Die Spiro-/Stufentest-Bewertung muss fachlich konsistent werden. Insbesondere dürfen bei Kindern/Jugendlichen die pauschalen Erwachsenen-Grenzen VO₂ <45, VO₂ <50 und Schwellengeschwindigkeit <12 km/h nicht mehr ungeprüft als Defizit verwendet werden.
+
+1. ZUERST BESTEHENDE NORMEN PRÜFEN
+
+APH besitzt bereits vo2_bewertung_alter() und alters-/geschlechtsspezifische Werte in age_norms.py.
+
+Vor Änderung prüfen:
+
+Herkunft/Quelle dieser bestehenden Normtabellen
+ob sie wissenschaftlich dokumentiert sind
+welche Altersgruppen sie abdecken
+ob Laufband/Fahrrad/Feldtest unterschieden werden
+
+Nicht belegte bestehende Werte NICHT einfach als wissenschaftliche Referenz deklarieren.
+
+2. TESTVERFAHREN TRENNEN
+
+Die vorhandenen Gerätearten beibehalten:
+
+Laufband
+Fahrradergometer
+laufbasierter Feld-/Stufentest
+
+Diese Verfahren dürfen bei der Normbewertung nicht automatisch dieselbe Referenz verwenden.
+
+3. ECHTE SPIROERGOMETRIE
+
+Wenn eine direkt gemessene VO₂peak/VO₂max vorhanden ist:
+
+diesen Messwert verwenden
+keine Feldtest-Schätzformel darüberlegen
+Alter am TESTTAG verwenden
+Geschlecht berücksichtigen
+Geräte-/Protokolltyp berücksichtigen, soweit die verwendete Referenz dies unterstützt
+
+4. WISSENSCHAFTLICHE REFERENZEN
+
+Für die Implementierung ausschließlich nachvollziehbare publizierte Referenzmodelle verwenden.
+
+Als Ausgangsquellen prüfen:
+
+Laufband / Bruce-Protokoll
+Griffith et al., J Pediatr 2024
+PMID 37802386
+DOI 10.1016/j.jpeds.2023.113770
+
+sowie:
+
+Griffith et al., Am J Cardiol 2024
+PMID 38042265
+DOI 10.1016/j.amjcard.2023.11.061
+
+Fahrradergometer / Ramp-Cycle
+Burstein et al., J Pediatr 2021
+PMID 32926876
+DOI 10.1016/j.jpeds.2020.09.018
+
+Ergänzend für pädiatrische Cycle-CPET-Z-Scores:
+PMID 37528295
+DOI 10.1186/s40798-023-00622-3
+
+Methodische Einordnung:
+
+Updated systematic review pediatric CPET reference values 2026
+PMID 41861073
+DOI 10.1093/eurjpc/zwag168
+
+ERS Technical Standard 2026
+PMID 41786497
+DOI 10.1183/13993003.02463-2025
+
+WICHTIG: Wenn die vollständigen Gleichungen/Tabellen einer Publikation aus den verfügbaren Quellen nicht eindeutig reproduzierbar sind, KEINE Werte erfinden oder aus dem Abstract ableiten.
+
+In diesem Fall STOPP für diese konkrete Referenz und im Abschlussbericht melden, welche Daten/Gleichungen noch benötigt werden.
+
+5. BEWERTUNG
+
+Gesundheits-/Populationsreferenz und sportliche Leistungsbewertung klar trennen.
+
+Keine Bezeichnung wie „Profi-Niveau“ aus einer allgemeinen pädiatrischen Gesundheitsreferenz ableiten.
+
+Wenn wissenschaftlich möglich, bevorzugt eine kontinuierliche Einordnung wie:
+
+Z-Score / Perzentil / %Soll
+
+und daraus eine verständliche APH-Anzeige ableiten.
+
+Die genaue Kategorienbildung darf NICHT frei erfunden werden. Bestehende Kategorien nur übernehmen, wenn ihre Grenzziehung fachlich begründet werden kann.
+
+6. FUSSBALL-LEISTUNGSVERGLEICH
+
+Noch keine allgemeinen Fußball-Leistungssportnormen erfinden.
+
+Falls APH später sportartspezifische Vergleichsdaten verwendet, diese separat anzeigen:
+
+Pädiatrische Referenz
+
+und
+
+Fußballspezifischer Leistungsvergleich
+
+dürfen niemals dieselbe Kennzahl vortäuschen.
+
+7. STUFENTEST OHNE ATEMGASANALYSE
+
+Wenn keine direkte VO₂-Messung vorhanden ist:
+
+nicht als gemessene VO₂peak ausgeben
+vorhandene Leistungsparameter separat beurteilen
+keine Spiro-Referenz auf einen nicht gemessenen VO₂-Wert anwenden
+geschätzte Werte ausdrücklich als „geschätzt“ kennzeichnen, sofern überhaupt eine wissenschaftlich validierte Formel vorhanden ist
+
+8. SCHWELLENGESCHWINDIGKEIT
+
+Die pauschale <12 km/h = Defizit-Regel kritisch entfernen bzw. deaktivieren, wenn keine alters-, geschlechts- und protokollgerechte wissenschaftliche Grundlage vorhanden ist.
+
+Keine Ersatzgrenze erfinden.
+
+VT1, VT2 und Laktatschwellen weiterhin dokumentieren und für Trainingsbereiche verwenden, soweit die bestehende Logik dies vorsieht.
+
+9. ZENTRALE DEFIZITLOGIK
+
+Task #256 beibehalten:
+
+Trainingsplan und Periodisierung müssen dieselbe strukturierte Spiro-Bewertung erhalten.
+
+Keine zweite unabhängige Spiro-Defizitlogik erzeugen.
+
+Nicht getestete bzw. wissenschaftlich nicht bewertbare Parameter:
+
+NO_DATA / keine belastbare Bewertung
+
+und NICHT automatisch Defizit.
+
+10. HISTORISCHE DATEN
+
+Keine Massen-Neubewertung historischer Tests.
+
+Historische Werte nicht verändern.
+
+Beim Bearbeiten eines Tests:
+
+Alter am Testtag
+damals gespeicherter Geräte-/Protokolltyp
+verwenden.
+
+Task #259 vollständig erhalten.
+
+11. TESTS
+
+Mindestens prüfen:
+
+Kind 9 Jahre ≠ Erwachsenenbewertung
+Kind 10 Jahre nach Geburtstag verwendet neue Altersstufe/Referenz
+männlich/weiblich entsprechend Referenz getrennt
+Laufband ≠ Fahrrad, sofern Referenzmodell unterschiedlich
+direkte VO₂peak bleibt direkt gemessen
+keine Atemgasanalyse → keine erfundene gemessene VO₂peak
+<45/<50 erzeugt bei U-Spielern nicht mehr automatisch Defizit
+<12 km/h erzeugt ohne belastbare Referenz nicht automatisch Defizit
+nicht bewertbarer Wert erzeugt kein Defizit
+Trainingsplan und Periodisierung erhalten dasselbe Spiro-Defizit
+historische Testtaglogik bleibt korrekt
+Task-#259-Messpunktbearbeitung bleibt vollständig funktionsfähig
+
+12. WICHTIGE STOPP-REGEL
+
+Wenn die wissenschaftlichen Publikationen nicht genügend Informationen liefern, um die konkrete Referenzgleichung rechtssicher und reproduzierbar in Code zu übertragen:
+
+NICHT improvisieren.
+
+Erst Analysebericht ausgeben und die fehlende Tabelle/Gleichung benennen.
+
+13. ABSCHLUSS
+
+Berichten:
+
+verwendete wissenschaftliche Quellen
+tatsächlich implementierte Referenzgleichungen/Tabellen
+Alter/Geschlecht/Gerät berücksichtigt
+Umgang mit Laufband/Fahrrad/Feldtest
+entfernte Legacy-Grenzen
+neue strukturierte Defizitlogik
+Auswirkungen auf Trainingsplan/Periodisierung
+Tests PASS/FAIL
+DB-Migration ja/nein
+historische Daten verändert ja/nein
+Deployment: NEIN
+
+Danach STOPP.
