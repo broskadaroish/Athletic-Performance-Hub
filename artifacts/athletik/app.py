@@ -2713,8 +2713,11 @@ def _render_kraft_edit(spieler_id: int) -> None:
 # ─── Spiroergometrie ──────────────────────────────────────────────────────────
 
 def _render_spiro_edit(spieler_id: int) -> None:
-    """Edit/Delete-Bereich für Spiro-Verlauf (nur Hauptfelder, keine Stufen/Nachbelastung)."""
-    from database import spiro_history_edit, spiro_test_update, spiro_test_loeschen_sicher
+    """Edit/Delete-Bereich für Spiro-Verlauf inklusive Stufen und Nachbelastung."""
+    from database import (
+        spiro_history_edit, spiro_test_update_mit_messpunkten,
+        spiro_test_loeschen_sicher, spiro_stufen_laden, spiro_nachbelastung_laden,
+    )
     from spiro import GERAETEARTEN, SCHWELLENMETHODEN
     records = spiro_history_edit(spieler_id)
     if not records:
@@ -2726,10 +2729,7 @@ def _render_spiro_edit(spieler_id: int) -> None:
         return
     rid = rec["id"]
 
-    st.caption(
-        "ℹ️ Bearbeitbar: Datum, Metadaten, Ergebniskennwerte. "
-        "Stufendaten und Nachbelastungswerte bleiben unverändert — bei Bedarf neuen Test anlegen."
-    )
+    st.caption("ℹ️ Datum, Kennwerte, Belastungsstufen und Nachbelastungswerte können hier gemeinsam korrigiert werden.")
 
     with st.form(f"spiro_edit_form_{spieler_id}_{rid}"):
         st.markdown(f"**Spiro bearbeiten — ID {rid}**")
@@ -2765,13 +2765,104 @@ def _render_spiro_edit(spieler_id: int) -> None:
         new_schw_hf = sc7.number_input("Schwelle HF (bpm)", 0.0, 250.0, float(rec.get("schwelle_herzfrequenz") or 0), 1.0, key=f"sp_e_shf_{rid}")
         new_schw_lak = sc8.number_input("Schwelle Laktat (mmol/l)", 0.0, 20.0, float(rec.get("schwelle_laktat") or 0), 0.1, key=f"sp_e_slak_{rid}")
         new_bemerkung = st.text_area("Bemerkung", value=rec.get("bemerkung") or "", key=f"sp_e_bem_{rid}", height=60)
+
+        st.markdown("##### Belastungsstufen")
+        st.caption("Fehlende Messwerte leer lassen. Beim Speichern werden alle Messpunkte gemeinsam mit dem Haupttest aktualisiert.")
+        stufen_felder = [
+            ("Stufe", "stufennummer"), ("Geschw. (km/h)", "geschwindigkeit_kmh"),
+            ("Steigung (%)", "steigung_prozent"), ("Dauer (s)", "dauer_sekunden"),
+            ("Strecke (m)", "strecke_meter"), ("HF Ende (bpm)", "herzfrequenz_bpm"),
+            ("HF Ø (bpm)", "hf_durchschnitt"), ("VO₂ rel. (ml/kg/min)", "vo2_relativ"),
+            ("VO₂ abs. (l/min)", "vo2_absolut"), ("VCO₂ (l/min)", "vco2"),
+            ("VE (l/min)", "ve"), ("RER", "rer"), ("Atemfreq. (/min)", "atemfrequenz"),
+            ("O₂-Puls", "sauerstoffpuls"), ("Laktat (mmol/l)", "laktat_mmol_l"),
+            ("RPE (0–10)", "rpe"), ("✓ vollst.", "stufe_vollstaendig"),
+            ("Probe ✓", "blutprobe_gueltig"), ("Bemerkung", "bemerkung"),
+        ]
+        stufen_bool_felder = {"stufe_vollstaendig", "blutprobe_gueltig"}
+        stufen_vorbelegt = []
+        for s in spiro_stufen_laden(rid):
+            row = {}
+            for label, feld in stufen_felder:
+                wert = s.get(feld)
+                row[label] = bool(wert) if feld in stufen_bool_felder else wert
+            stufen_vorbelegt.append(row)
+        stufen_df = pd.DataFrame(stufen_vorbelegt, columns=[label for label, _ in stufen_felder])
+        stufen_cfg = {
+            "Stufe": st.column_config.NumberColumn(min_value=1, step=1, format="%d"),
+            "Geschw. (km/h)": st.column_config.NumberColumn(min_value=0, step=0.1, format="%.1f"),
+            "Steigung (%)": st.column_config.NumberColumn(min_value=0, step=0.1, format="%.1f"),
+            "Dauer (s)": st.column_config.NumberColumn(min_value=0, step=1),
+            "Strecke (m)": st.column_config.NumberColumn(min_value=0, step=1),
+            "HF Ende (bpm)": st.column_config.NumberColumn(min_value=0, max_value=250, step=1),
+            "HF Ø (bpm)": st.column_config.NumberColumn(min_value=0, max_value=250, step=1),
+            "VO₂ rel. (ml/kg/min)": st.column_config.NumberColumn(min_value=0, step=0.1, format="%.1f"),
+            "VO₂ abs. (l/min)": st.column_config.NumberColumn(min_value=0, step=0.01, format="%.2f"),
+            "VCO₂ (l/min)": st.column_config.NumberColumn(min_value=0, step=0.01, format="%.2f"),
+            "VE (l/min)": st.column_config.NumberColumn(min_value=0, step=0.1, format="%.1f"),
+            "RER": st.column_config.NumberColumn(min_value=0, step=0.01, format="%.2f"),
+            "Atemfreq. (/min)": st.column_config.NumberColumn(min_value=0, step=1),
+            "O₂-Puls": st.column_config.NumberColumn(min_value=0, step=0.1, format="%.1f"),
+            "Laktat (mmol/l)": st.column_config.NumberColumn(min_value=0, step=0.1, format="%.1f"),
+            "RPE (0–10)": st.column_config.NumberColumn(min_value=0, max_value=10, step=1),
+            "✓ vollst.": st.column_config.CheckboxColumn(default=True),
+            "Probe ✓": st.column_config.CheckboxColumn(default=True),
+        }
+        edited_stufen = st.data_editor(
+            stufen_df, num_rows="dynamic", use_container_width=True,
+            key=f"sp_e_stufen_{rid}", column_config=stufen_cfg,
+        )
+
+        st.markdown("##### Nachbelastungswerte")
+        nb_felder = [
+            ("Zeit (min)", "zeitpunkt_minuten"), ("HF (bpm)", "herzfrequenz_bpm"),
+            ("Laktat (mmol/l)", "laktat_mmol_l"), ("Bemerkung", "bemerkung"),
+        ]
+        nb_vorbelegt = [
+            {label: e.get(feld) for label, feld in nb_felder}
+            for e in spiro_nachbelastung_laden(rid)
+        ]
+        nb_df = pd.DataFrame(nb_vorbelegt, columns=[label for label, _ in nb_felder])
+        edited_nb = st.data_editor(
+            nb_df, num_rows="dynamic", use_container_width=True, key=f"sp_e_nb_{rid}",
+            column_config={
+                "Zeit (min)": st.column_config.NumberColumn(min_value=0, step=1),
+                "HF (bpm)": st.column_config.NumberColumn(min_value=0, max_value=250, step=1),
+                "Laktat (mmol/l)": st.column_config.NumberColumn(min_value=0, step=0.1, format="%.1f"),
+            },
+        )
         submitted = st.form_submit_button("💾 Speichern", type="primary")
         if submitted:
             if not _history_mandant_ok(spieler_id):
                 st.error("❌ Zugriff verweigert."); return
+            def _wert(row, label):
+                value = row.get(label)
+                return None if value is None or pd.isna(value) else value
+
+            neue_stufen = []
+            for _, row in edited_stufen.iterrows():
+                stufennummer = _wert(row, "Stufe")
+                if stufennummer is None:
+                    continue
+                neue_stufen.append({
+                    feld: (
+                        bool(row.get(label, True)) if feld in stufen_bool_felder
+                        else _wert(row, label)
+                    )
+                    for label, feld in stufen_felder
+                })
+            neue_nachbelastung = []
+            for _, row in edited_nb.iterrows():
+                zeitpunkt = _wert(row, "Zeit (min)")
+                if zeitpunkt is None:
+                    continue
+                neue_nachbelastung.append({
+                    feld: _wert(row, label) for label, feld in nb_felder
+                })
             _testtyp = rec.get("testtyp","spiro_laufband")
-            ok = spiro_test_update(
+            ok = spiro_test_update_mit_messpunkten(
                 rid, spieler_id, new_datum.strftime("%Y-%m-%d"), _testtyp,
+                neue_stufen, neue_nachbelastung,
                 geraeteart=new_geraet,
                 protokoll_id=rec.get("protokoll_id"),
                 testort=new_testort or None,

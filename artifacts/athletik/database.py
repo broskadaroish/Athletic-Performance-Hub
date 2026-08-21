@@ -2845,7 +2845,74 @@ def spiro_history_edit(spieler_id: int) -> list[dict]:
             (spieler_id,),
         ).fetchall())
 
-
+def _spiro_test_update_ausfuehren(
+    conn,
+    test_id: int,
+    spieler_id: int,
+    datum: str,
+    testtyp: str,
+    geraeteart: str | None = None,
+    protokoll_id: int | None = None,
+    testort: str | None = None,
+    tester: str | None = None,
+    mit_spiro: int = 0,
+    mit_laktat: int = 0,
+    raumtemperatur: float | None = None,
+    letzte_mahlzeit: str | None = None,
+    letzte_intensive_einheit: str | None = None,
+    akute_beschwerden: str | None = None,
+    koerpergewicht: float | None = None,
+    maximale_geschwindigkeit: float | None = None,
+    maximale_herzfrequenz: float | None = None,
+    vo2_peak: float | None = None,
+    vo2_max: float | None = None,
+    geschaetzte_vo2max: float | None = None,
+    vt1_geschwindigkeit: float | None = None,
+    vt1_herzfrequenz: float | None = None,
+    vt2_geschwindigkeit: float | None = None,
+    vt2_herzfrequenz: float | None = None,
+    laktatschwelle_methode: str | None = None,
+    schwelle_geschwindigkeit: float | None = None,
+    schwelle_herzfrequenz: float | None = None,
+    schwelle_laktat: float | None = None,
+    ruhelaktat: float | None = None,
+    laktat_blutentnahmeort: str | None = None,
+    laktat_messgeraet: str | None = None,
+    rpe_max: int | None = None,
+    abbruchgrund: str | None = None,
+    bemerkung: str | None = None,
+) -> bool:
+    """Führt ein mandantengesichertes Update eines Spiro-Haupttests aus."""
+    cur = conn.execute(
+        """UPDATE spiro_test SET
+               datum=?, testtyp=?, geraeteart=?, protokoll_id=?,
+               testort=?, tester=?, mit_spiro=?, mit_laktat=?,
+               raumtemperatur=?, letzte_mahlzeit=?, letzte_intensive_einheit=?,
+               akute_beschwerden=?, koerpergewicht=?,
+               maximale_geschwindigkeit=?, maximale_herzfrequenz=?,
+               vo2_peak=?, vo2_max=?, geschaetzte_vo2max=?,
+               vt1_geschwindigkeit=?, vt1_herzfrequenz=?,
+               vt2_geschwindigkeit=?, vt2_herzfrequenz=?,
+               laktatschwelle_methode=?, schwelle_geschwindigkeit=?,
+               schwelle_herzfrequenz=?, schwelle_laktat=?,
+               ruhelaktat=?, laktat_blutentnahmeort=?, laktat_messgeraet=?,
+               rpe_max=?, abbruchgrund=?, bemerkung=?
+           WHERE id=? AND spieler_id=?""",
+        (datum, testtyp, geraeteart, protokoll_id,
+         testort, tester, mit_spiro, mit_laktat,
+         raumtemperatur, letzte_mahlzeit, letzte_intensive_einheit,
+         akute_beschwerden, koerpergewicht,
+         maximale_geschwindigkeit, maximale_herzfrequenz,
+         vo2_peak, vo2_max, geschaetzte_vo2max,
+         vt1_geschwindigkeit, vt1_herzfrequenz,
+         vt2_geschwindigkeit, vt2_herzfrequenz,
+         laktatschwelle_methode, schwelle_geschwindigkeit,
+         schwelle_herzfrequenz, schwelle_laktat,
+         ruhelaktat, laktat_blutentnahmeort, laktat_messgeraet,
+         rpe_max, abbruchgrund, bemerkung,
+         test_id, spieler_id),
+    )
+    return cur.rowcount == 1
 def spiro_test_update(
     test_id: int,
     spieler_id: int,
@@ -2882,43 +2949,20 @@ def spiro_test_update(
     abbruchgrund: str | None = None,
     bemerkung: str | None = None,
 ) -> bool:
-    """Aktualisiert den Haupt-Datensatz eines Spiro-Tests (nur wenn spieler_id übereinstimmt).
-
-    Stufen und Nachbelastungs-Daten werden NICHT verändert — diese separat über
-    spiro_stufen_speichern() / spiro_nachbelastung_speichern() aktualisieren.
-    Gibt True zurück wenn genau eine Zeile geändert wurde.
-    """
+    """Aktualisiert nur den Haupt-Datensatz eines Spiro-Tests sicher per ID."""
     with get_conn() as conn:
-        cur = conn.execute(
-            """UPDATE spiro_test SET
-                   datum=?, testtyp=?, geraeteart=?, protokoll_id=?,
-                   testort=?, tester=?, mit_spiro=?, mit_laktat=?,
-                   raumtemperatur=?, letzte_mahlzeit=?, letzte_intensive_einheit=?,
-                   akute_beschwerden=?, koerpergewicht=?,
-                   maximale_geschwindigkeit=?, maximale_herzfrequenz=?,
-                   vo2_peak=?, vo2_max=?, geschaetzte_vo2max=?,
-                   vt1_geschwindigkeit=?, vt1_herzfrequenz=?,
-                   vt2_geschwindigkeit=?, vt2_herzfrequenz=?,
-                   laktatschwelle_methode=?, schwelle_geschwindigkeit=?,
-                   schwelle_herzfrequenz=?, schwelle_laktat=?,
-                   ruhelaktat=?, laktat_blutentnahmeort=?, laktat_messgeraet=?,
-                   rpe_max=?, abbruchgrund=?, bemerkung=?
-               WHERE id=? AND spieler_id=?""",
-            (datum, testtyp, geraeteart, protokoll_id,
-             testort, tester, mit_spiro, mit_laktat,
-             raumtemperatur, letzte_mahlzeit, letzte_intensive_einheit,
-             akute_beschwerden, koerpergewicht,
-             maximale_geschwindigkeit, maximale_herzfrequenz,
-             vo2_peak, vo2_max, geschaetzte_vo2max,
-             vt1_geschwindigkeit, vt1_herzfrequenz,
-             vt2_geschwindigkeit, vt2_herzfrequenz,
-             laktatschwelle_methode, schwelle_geschwindigkeit,
-             schwelle_herzfrequenz, schwelle_laktat,
-             ruhelaktat, laktat_blutentnahmeort, laktat_messgeraet,
-             rpe_max, abbruchgrund, bemerkung,
-             test_id, spieler_id),
+        return _spiro_test_update_ausfuehren(
+            conn, test_id, spieler_id, datum, testtyp,
+            geraeteart, protokoll_id, testort, tester, mit_spiro, mit_laktat,
+            raumtemperatur, letzte_mahlzeit, letzte_intensive_einheit,
+            akute_beschwerden, koerpergewicht, maximale_geschwindigkeit,
+            maximale_herzfrequenz, vo2_peak, vo2_max, geschaetzte_vo2max,
+            vt1_geschwindigkeit, vt1_herzfrequenz, vt2_geschwindigkeit,
+            vt2_herzfrequenz, laktatschwelle_methode, schwelle_geschwindigkeit,
+            schwelle_herzfrequenz, schwelle_laktat, ruhelaktat,
+            laktat_blutentnahmeort, laktat_messgeraet, rpe_max, abbruchgrund,
+            bemerkung,
         )
-        return cur.rowcount == 1
 
 
 def spiro_test_loeschen_sicher(test_id: int, spieler_id: int) -> bool:
@@ -3005,51 +3049,77 @@ def spiro_test_speichern(spieler_id, datum, testtyp, geraeteart=None,
         )
         return cur.lastrowid
 
-
+def _spiro_stufen_speichern_ausfuehren(conn, spiro_test_id: int, stufen: list[dict]) -> None:
+    """Ersetzt die Stufen eines bereits validierten Spiro-Tests in einer Transaktion."""
+    conn.execute("DELETE FROM spiro_stufe WHERE spiro_test_id=?", (spiro_test_id,))
+    for s in stufen:
+        conn.execute(
+            """INSERT INTO spiro_stufe
+               (spiro_test_id,stufennummer,geschwindigkeit_kmh,steigung_prozent,
+                dauer_sekunden,strecke_meter,herzfrequenz_bpm,hf_durchschnitt,
+                vo2_absolut,vo2_relativ,vco2,ve,rer,atemfrequenz,sauerstoffpuls,
+                laktat_mmol_l,rpe,stufe_vollstaendig,blutprobe_gueltig,bemerkung)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+            (spiro_test_id,
+             s.get("stufennummer"), s.get("geschwindigkeit_kmh"),
+             s.get("steigung_prozent"), s.get("dauer_sekunden"),
+             s.get("strecke_meter"), s.get("herzfrequenz_bpm"),
+             s.get("hf_durchschnitt"),
+             s.get("vo2_absolut") or None, s.get("vo2_relativ") or None,
+             s.get("vco2") or None, s.get("ve") or None,
+             s.get("rer") or None, s.get("atemfrequenz") or None,
+             s.get("sauerstoffpuls") or None,
+             s.get("laktat_mmol_l") or None,
+             s.get("rpe") or None,
+             1 if s.get("stufe_vollstaendig", True) else 0,
+             1 if s.get("blutprobe_gueltig", True) else 0,
+             s.get("bemerkung") or None),
+        )
 def spiro_stufen_speichern(spiro_test_id: int, stufen: list[dict]) -> None:
     """Speichert alle Stufen eines Tests. Bestehende werden zuerst gelöscht."""
     with get_conn() as conn:
-        conn.execute("DELETE FROM spiro_stufe WHERE spiro_test_id=?", (spiro_test_id,))
-        for s in stufen:
-            conn.execute(
-                """INSERT INTO spiro_stufe
-                   (spiro_test_id,stufennummer,geschwindigkeit_kmh,steigung_prozent,
-                    dauer_sekunden,strecke_meter,herzfrequenz_bpm,hf_durchschnitt,
-                    vo2_absolut,vo2_relativ,vco2,ve,rer,atemfrequenz,sauerstoffpuls,
-                    laktat_mmol_l,rpe,stufe_vollstaendig,blutprobe_gueltig,bemerkung)
-                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
-                (spiro_test_id,
-                 s.get("stufennummer"), s.get("geschwindigkeit_kmh"),
-                 s.get("steigung_prozent"), s.get("dauer_sekunden"),
-                 s.get("strecke_meter"), s.get("herzfrequenz_bpm"),
-                 s.get("hf_durchschnitt"),
-                 s.get("vo2_absolut") or None, s.get("vo2_relativ") or None,
-                 s.get("vco2") or None, s.get("ve") or None,
-                 s.get("rer") or None, s.get("atemfrequenz") or None,
-                 s.get("sauerstoffpuls") or None,
-                 s.get("laktat_mmol_l") or None,   # None statt 0 für fehlende Messung
-                 s.get("rpe") or None,
-                 1 if s.get("stufe_vollstaendig", True) else 0,
-                 1 if s.get("blutprobe_gueltig", True) else 0,
-                 s.get("bemerkung") or None),
-            )
+        _spiro_stufen_speichern_ausfuehren(conn, spiro_test_id, stufen)
 
-
+def _spiro_nachbelastung_speichern_ausfuehren(conn, spiro_test_id: int, eintraege: list[dict]) -> None:
+    """Ersetzt Nachbelastungswerte eines bereits validierten Spiro-Tests."""
+    conn.execute("DELETE FROM spiro_nachbelastung WHERE spiro_test_id=?", (spiro_test_id,))
+    for e in eintraege:
+        conn.execute(
+            """INSERT INTO spiro_nachbelastung
+               (spiro_test_id,zeitpunkt_minuten,herzfrequenz_bpm,laktat_mmol_l,bemerkung)
+               VALUES (?,?,?,?,?)""",
+            (spiro_test_id, e.get("zeitpunkt_minuten"),
+             e.get("herzfrequenz_bpm") or None,
+             e.get("laktat_mmol_l") or None,
+             e.get("bemerkung") or None),
+        )
 def spiro_nachbelastung_speichern(spiro_test_id: int, eintraege: list[dict]) -> None:
     with get_conn() as conn:
-        conn.execute("DELETE FROM spiro_nachbelastung WHERE spiro_test_id=?", (spiro_test_id,))
-        for e in eintraege:
-            conn.execute(
-                """INSERT INTO spiro_nachbelastung
-                   (spiro_test_id,zeitpunkt_minuten,herzfrequenz_bpm,laktat_mmol_l,bemerkung)
-                   VALUES (?,?,?,?,?)""",
-                (spiro_test_id, e.get("zeitpunkt_minuten"),
-                 e.get("herzfrequenz_bpm") or None,
-                 e.get("laktat_mmol_l") or None,
-                 e.get("bemerkung") or None),
-            )
+        _spiro_nachbelastung_speichern_ausfuehren(conn, spiro_test_id, eintraege)
 
+def spiro_test_update_mit_messpunkten(
+    test_id: int,
+    spieler_id: int,
+    datum: str,
+    testtyp: str,
+    stufen: list[dict],
+    nachbelastung: list[dict],
+    **hauptwerte,
+) -> bool:
+    """Aktualisiert Haupttest und Messpunkte atomar, ausschließlich bei passender Spieler-ID.
 
+    Der Haupttest wird zuerst mit ``WHERE id=? AND spieler_id=?`` validiert. Nur
+    dann werden Stufen und Nachbelastungswerte innerhalb derselben Transaktion
+    ersetzt. Fehler beim Schreiben der Kinddaten rollen alle Änderungen zurück.
+    """
+    with get_conn() as conn:
+        if not _spiro_test_update_ausfuehren(
+            conn, test_id, spieler_id, datum, testtyp, **hauptwerte
+        ):
+            return False
+        _spiro_stufen_speichern_ausfuehren(conn, test_id, stufen)
+        _spiro_nachbelastung_speichern_ausfuehren(conn, test_id, nachbelastung)
+        return True
 def spiro_stufen_laden(spiro_test_id: int) -> list[dict]:
     with get_conn() as conn:
         return _rows(conn.execute(
