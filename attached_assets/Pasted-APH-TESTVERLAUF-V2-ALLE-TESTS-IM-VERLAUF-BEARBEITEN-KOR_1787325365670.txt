@@ -1,0 +1,615 @@
+APH – TESTVERLAUF V2
+ALLE TESTS IM VERLAUF BEARBEITEN / KORRIGIEREN / SPEICHERN / LÖSCHEN
+
+WICHTIG:
+Noch NICHT deployen.
+Keine unnötige Neuarchitektur.
+Keine destructive DB-Migration.
+Bestehende Testdaten, Historie, Normlogik, Alterslogik, Mandantenschutz und zentrale Defizitlogik vollständig erhalten.
+
+ZIEL:
+Bei allen relevanten Testmodulen soll der Trainer im Bereich „Verlauf“ bestehende Testeinträge:
+
+- bearbeiten
+- korrigieren
+- speichern
+- löschen
+
+können.
+
+Änderungen müssen danach systemweit korrekt berücksichtigt werden.
+
+============================================================
+1. ZUERST IST-ZUSTAND PRÜFEN
+============================================================
+
+Prüfe gezielt die Verlauf-/History-Implementierungen für:
+
+- Anthropometrie
+- FMS
+- Y-Balance
+- Sprint
+- Sprung
+- Agilität
+- Ausdauer / Yo-Yo
+- Kraft
+- Spiro / Stufentest
+- weitere tatsächlich vorhandene Testmodule mit Verlauf
+
+Für jedes Modul prüfen:
+
+- welche Tabelle verwendet wird
+- welche Primary-ID vorhanden ist
+- wie History geladen wird
+- ob Update-Helper bereits existieren
+- ob Delete-Helper bereits existieren
+- welche Felder gespeichert werden
+- welche Felder daraus berechnet werden
+- welche Folgefunktionen davon abhängen
+
+Vorhandene Update-/Delete-Funktionen wiederverwenden.
+
+Keine zweite Datenlogik bauen.
+
+============================================================
+2. UI IM VERLAUF
+============================================================
+
+Bei jedem historischen Testeintrag sollen zwei Aktionen vorhanden sein:
+
+✏️ Bearbeiten
+🗑 Löschen
+
+Nicht die komplette Verlaufseite unnötig umbauen.
+
+Der bestehende Verlauf bleibt erhalten.
+
+============================================================
+3. TEST BEARBEITEN
+============================================================
+
+Klick auf:
+
+✏️ Bearbeiten
+
+→ öffnet einen kompakten Bearbeitungsbereich direkt beim ausgewählten Test.
+
+Die aktuell gespeicherten Werte werden vorbefüllt.
+
+Trainer kann nur Felder bearbeiten, die bei diesem Test wirklich zum Datensatz gehören.
+
+Beispiele:
+
+Sprint:
+- Testdatum
+- 5 m Versuche
+- 10 m Versuche
+- 20 m Versuche
+- 30 m Versuche
+- 40 m Versuche
+
+Sprung:
+- die tatsächlich gespeicherten Sprungwerte
+
+Agilität:
+- die tatsächlich gespeicherten Tests
+
+Yo-Yo:
+- Distanz
+- HFmax
+- RPE
+- Testdatum
+
+FMS:
+- einzelne Scores
+- Gesamtwert, sofern dieser aus Einzelwerten berechnet wird, nicht frei editierbar
+
+Y-Balance:
+- Reichweiten / Messwerte
+- nicht nur fertige Asymmetrie
+
+Kraft:
+- Rohwerte der vorhandenen Krafttests
+
+Anthropometrie:
+- Größe
+- Gewicht
+- weitere vorhandene Messwerte
+
+Spiro/Stufentest:
+- nur bestehende bearbeitbare Roh-/Messwerte
+
+============================================================
+4. ABGELEITETE WERTE NICHT MANUELL FALSCH SPEICHERN
+============================================================
+
+Sehr wichtig:
+
+Abgeleitete Werte sollen nach einer Korrektur neu berechnet werden.
+
+Beispiele:
+
+- Sprint-Bestzeit
+- Sprintbewertung
+- Normgruppe
+- VO₂max
+- Yo-Yo-Bewertung
+- Sprungbewertung
+- Asymmetrien
+- FMS-Gesamtscore
+- Defizite
+- Schwerpunkt
+- relevante berechnete Kennwerte
+
+Nicht einfach alte berechnete Werte stehen lassen.
+
+Wenn eine bestehende zentrale Berechnungsfunktion vorhanden ist:
+diese wiederverwenden.
+
+Keine zweite Berechnungslogik.
+
+============================================================
+5. TESTTAG / ALTER / SAISON
+============================================================
+
+Wenn das Testdatum geändert wird:
+
+→ Alter am Testtag neu berechnen
+→ Normreferenz neu bestimmen
+→ Fußballklasse / Testreferenz nach bestehender Logik neu bestimmen, soweit relevant
+
+Bestehende Funktionen verwenden:
+
+- alter_am_datum(...)
+- Saisonlogik
+- Normgruppenlogik
+
+Historische Bewertung muss zum neuen Testdatum passen.
+
+============================================================
+6. ZENTRALE DEFIZITLOGIK
+============================================================
+
+Task #256 / zentrale Defizitlogik muss berücksichtigt werden.
+
+Nach Bearbeitung eines Tests:
+
+→ strukturierte Bewertung neu berechnen
+→ Defizite neu ableiten
+→ Trainingsplan-/Schwerpunktlogik verwendet danach den korrigierten Stand
+→ Periodisierung verwendet danach denselben korrigierten Stand
+
+Keine Legacy-Texte blind weiterverwenden, wenn strukturierte aktuelle Werte vorhanden sind.
+
+============================================================
+7. SYSTEMWEITE AKTUALISIERUNG NACH SPEICHERN
+============================================================
+
+Nach erfolgreichem Bearbeiten eines Tests muss der korrigierte Datensatz überall sichtbar sein:
+
+- Verlauf
+- letzter Test
+- Spielerprofil
+- Dashboard
+- Diagnostik
+- Entwicklung
+- Defizitanzeige
+- Trainingsplan
+- Periodisierung
+- PDF / Berichte, soweit diese Daten live laden
+
+WICHTIG:
+Bestehende bereits gespeicherte Trainingsplan-Versionen NICHT automatisch rückwirkend überschreiben.
+
+Neue Analysen / neue Pläne sollen aber den korrigierten Teststand verwenden.
+
+============================================================
+8. LÖSCHEN
+============================================================
+
+Klick auf:
+
+🗑 Löschen
+
+→ immer Bestätigung anzeigen.
+
+Beispiel:
+
+„Möchtest du diesen Test vom 18.08.2026 wirklich löschen?
+Diese Aktion entfernt nur diesen Testdatensatz.“
+
+Buttons:
+
+✅ Ja, löschen
+❌ Abbrechen
+
+Keine direkte Löschung ohne Bestätigung.
+
+============================================================
+9. NACH DEM LÖSCHEN
+============================================================
+
+Wenn der aktuell neueste Test gelöscht wird:
+
+→ automatisch nächstälteren gültigen Test als „letzten Test“ verwenden.
+
+Beispiel:
+
+Tests:
+20.08.2026
+10.08.2026
+01.07.2026
+
+20.08.2026 löschen
+
+→ letzter Test danach = 10.08.2026
+
+Wenn kein weiterer Test vorhanden:
+
+→ „Noch kein Test“
+
+Keine veralteten Cache-/Sessiondaten anzeigen.
+
+============================================================
+10. LÖSCHEN UND DEFIZITE
+============================================================
+
+Nach Löschen eines Tests:
+
+→ dieser Test darf keine Defizite mehr erzeugen
+→ Periodisierung darf ihn nicht mehr berücksichtigen
+→ Trainingsplan-Neugenerierung darf ihn nicht mehr berücksichtigen
+→ Dashboard muss aktualisiert werden
+
+Wenn ein älterer Test dadurch wieder „letzter Test“ wird:
+→ dessen Bewertung/Defizite verwenden.
+
+============================================================
+11. MANDANTENSCHUTZ – KRITISCH
+============================================================
+
+Bestehende Berechtigungen müssen vollständig erhalten bleiben.
+
+Trainer darf nur Tests bearbeiten/löschen von Spielern, auf die er Zugriff hat.
+
+Trainer Verein A:
+→ keine Tests von Spieler Verein B
+
+Multi-Mandant-Trainer:
+→ nur aktiver Mandant
+
+Vereinsadmin:
+→ nur eigener Verein
+
+Fremder Trainer:
+→ kein Zugriff ohne bestehende Berechtigung
+
+Superadmin:
+→ bestehende Sonderrechte unverändert
+
+KEINE reine ID-basierte Update-/Delete-Funktion ohne Autorisierungsprüfung verwenden.
+
+Wenn vorhandene Helper keine Berechtigungsprüfung besitzen:
+vor dem Aufruf serverseitig mit bestehender Spieler-/Mandantenlogik prüfen.
+
+============================================================
+12. TEST-ID VERWENDEN
+============================================================
+
+Bearbeiten und Löschen immer anhand der eindeutigen Test-ID.
+
+NICHT nur nach:
+
+- Spieler
+- Datum
+- Testart
+
+löschen oder überschreiben.
+
+Dadurch dürfen zwei Tests am selben Tag nicht versehentlich gemeinsam verändert werden.
+
+============================================================
+13. DUPLIKAT-SUFFIX / DATUMSFORMAT
+============================================================
+
+APH besitzt historische Datumsformate:
+
+- YYYY-MM-DD
+- DD.MM.YYYY
+- DD.MM.YYYY (HH:MM)
+
+Bestehenden sicheren Datumsparser verwenden.
+
+Keine neue Datumskonvertierungslogik bauen.
+
+Bearbeiten eines alten Tests darf nicht wegen des Datumsformats crashen.
+
+============================================================
+14. MODULSPEZIFISCHE REGELN
+============================================================
+
+SPRINT:
+- nur vorhandene Distanzen bearbeiten
+- 0.00 = nicht durchgeführt
+- Bestzeiten neu berechnen
+- altersgerechte Bewertung neu berechnen
+- 5/20/40-m-Fallback erhalten
+
+SPRUNG:
+- nur tatsächlich gespeicherte Testarten
+- abgeleitete Werte neu berechnen
+- nicht ausgewählte historische Tests nicht künstlich erzeugen
+
+AGILITÄT:
+- historische Testauswahl erhalten
+- nicht vorhandene Teiltests nicht automatisch aktivieren
+
+AUSDAUER:
+- Yo-Yo / andere vorhandene Ausdauertests unterscheiden
+- VO₂max neu berechnen, wenn Distanz geändert wird
+- altersgerechte Norm verwenden
+
+FMS:
+- Einzelwerte korrigierbar
+- Gesamtwert aus Einzelwerten neu bestimmen
+- Schwerpunkt/Defizit neu bestimmen
+
+Y-BALANCE:
+- Rohwerte korrigierbar
+- Asymmetrien/Composite neu berechnen
+
+KRAFT:
+- vorhandene Rohwerte bearbeiten
+- bestehende Kraftbewertung neu verwenden
+
+ANTHROPOMETRIE:
+- Maße korrigieren
+- bestehende abgeleitete Werte neu berechnen, soweit vorhanden
+
+SPIRO/STUFENTEST:
+- bestehende Datensatzstruktur respektieren
+- keine neue Spiro-Logik bauen
+
+============================================================
+15. HISTORISCHE DATEN
+============================================================
+
+Keine Massenmigration.
+
+Keine alten Datensätze automatisch umschreiben.
+
+Nur wenn der Trainer explizit einen Test bearbeitet:
+→ genau diesen Datensatz aktualisieren.
+
+Beim Löschen:
+→ genau diesen Datensatz löschen.
+
+============================================================
+16. AUDIT / NACHVOLLZIEHBARKEIT
+============================================================
+
+Wenn vorhandenes audit_log sinnvoll wiederverwendbar ist:
+
+bei Bearbeitung loggen:
+
+„test_bearbeitet“
+
+mit:
+- Testart
+- Test-ID
+- Spieler-ID
+
+bei Löschen:
+
+„test_geloescht“
+
+mit:
+- Testart
+- Test-ID
+- Spieler-ID
+
+Keine sensiblen kompletten Messdaten unnötig ins Audit schreiben.
+
+Nur verwenden, wenn vorhandene Auditstruktur ohne großen Umbau geeignet ist.
+
+============================================================
+17. UI-VERHALTEN
+============================================================
+
+Bearbeitungsbereich soll kompakt bleiben.
+
+Nach „Speichern“:
+
+✅ „Test wurde aktualisiert.“
+
+→ Bearbeitungsmodus schließen
+→ st.rerun()
+→ Verlauf aktualisiert
+
+Nach Löschen:
+
+✅ „Test wurde gelöscht.“
+
+→ st.rerun()
+
+Keine Navigation auf andere Seite.
+
+Trainer bleibt im jeweiligen Diagnostik-Modul / Verlauf.
+
+============================================================
+18. KEIN AUTOMATISCHES ÄNDERN HISTORISCHER PLÄNE
+============================================================
+
+Sehr wichtig:
+
+Wenn ein alter Test korrigiert wird, dürfen bereits gespeicherte historische Trainingsplan-Versionen NICHT automatisch verändert werden.
+
+Aber:
+
+- neue Defizitanalyse
+- neue Periodisierung
+- neue Trainingspläne
+
+verwenden den korrigierten aktuellen Datenstand.
+
+============================================================
+19. UPDATE-/DELETE-HELPER
+============================================================
+
+Bevor neue Funktionen gebaut werden:
+
+projektweit nach vorhandenen Helpern suchen.
+
+Bevorzugt:
+
+test_aktualisieren(...)
+test_loeschen(...)
+
+bzw. modulbezogene vorhandene Funktionen wiederverwenden.
+
+Nur fehlende kleine Helper ergänzen.
+
+Keine generische große CRUD-Architektur bauen.
+
+============================================================
+20. TESTS
+============================================================
+
+Gezielte neue Testsuite erstellen, z. B.:
+
+tools/test_testverlauf_edit_delete.py
+
+Mindestens prüfen:
+
+A) Bearbeiten
+1. Sprint bearbeiten
+2. Sprint-Bestzeit aktualisiert
+3. Sprintbewertung aktualisiert
+4. FMS bearbeiten
+5. FMS-Gesamtscore aktualisiert
+6. Y-Balance bearbeiten
+7. Asymmetrie aktualisiert
+8. Sprung bearbeiten
+9. Agilität bearbeiten
+10. Ausdauer bearbeiten
+11. VO₂max aktualisiert
+12. Kraft bearbeiten
+13. Anthropometrie bearbeiten, falls unterstützt
+14. Spiro bearbeiten, falls unterstützt
+
+B) Löschen
+15. einzelnen Test löschen
+16. nur Test-ID betroffen
+17. anderer Test bleibt erhalten
+18. neuester Test gelöscht → nächstälterer wird letzter
+19. letzter vorhandener Test gelöscht → kein Test vorhanden
+
+C) Sicherheit
+20. fremder Spieler nicht bearbeitbar
+21. fremder Spieler nicht löschbar
+22. falscher Mandant blockiert
+
+D) Konsistenz
+23. bearbeiteter Test beeinflusst neue Defizitanalyse korrekt
+24. gelöschter Test beeinflusst Defizitanalyse nicht mehr
+25. Periodisierung verwendet neuen Stand
+26. Trainingsplan-Neugenerierung verwendet neuen Stand
+27. historische Planversion bleibt unverändert
+
+E) Datum
+28. ISO-Datum bearbeitbar
+29. deutsches Datum bearbeitbar
+30. Datum mit Suffix bearbeitbar
+
+============================================================
+21. RELEVANTE REGRESSIONEN
+============================================================
+
+Task #256 Regression unbedingt ausführen.
+
+Zusätzlich relevante vorhandene Tests:
+
+- zentrale Defizitregression
+- test_sprint_auswahl.py
+- test_datum_filter.py
+- test_ulogik.py
+- test_alter_testtag.py
+- test_block_b.py
+
+sowie vorhandene Tests für FMS/Y-Balance/Sprung/Agilität/Ausdauer/Kraft,
+falls direkt betroffen.
+
+Keine unnötige Vollsuite, wenn nicht erforderlich.
+
+============================================================
+22. PY_COMPILE
+============================================================
+
+Alle tatsächlich geänderten Python-Dateien.
+
+============================================================
+23. KEINE DB-MIGRATION
+============================================================
+
+Zuerst prüfen, ob alle Testtabellen bereits eindeutige IDs besitzen.
+
+Wenn eine Testtabelle KEINE eindeutige ID besitzt und sich Bearbeiten/Löschen
+dadurch nicht sicher umsetzen lässt:
+
+NICHT workarounden.
+
+STOPP für dieses Modul und im Bericht nennen.
+
+Keine DB-Migration ungefragt durchführen.
+
+Andere Module dürfen trotzdem umgesetzt werden, wenn sie sicher möglich sind.
+
+============================================================
+24. NICHT VERÄNDERN
+============================================================
+
+Nicht unnötig verändern:
+
+- Normwerte
+- Alterslogik
+- Saisonlogik
+- Trainingsplan-Editor V2
+- Warm-up
+- FIFA 11+
+- Kundenverwaltung
+- Stripe
+- Rechnungen
+- Lizenzen
+- Login/Sessions
+- Mandantenarchitektur
+
+============================================================
+25. ABSCHLUSSBERICHT
+============================================================
+
+Bitte kurz und exakt berichten:
+
+1. geänderte Dateien
+2. welche Testmodule Editieren unterstützen
+3. welche Testmodule Löschen unterstützen
+4. welche Module ggf. wegen fehlender eindeutiger ID nicht sicher umgesetzt wurden
+5. vorhandene Helper wiederverwendet
+6. neue Helper
+7. wie Bewertungen neu berechnet werden
+8. wie Defizite aktualisiert werden
+9. wie Periodisierung reagiert
+10. wie Trainingsplan-Neugenerierung reagiert
+11. historische Pläne bleiben unverändert?
+12. Mandantenschutz
+13. Audit-Log
+14. neue Tests
+15. Regressionstests
+16. Gesamt PASS/FAIL
+17. py_compile
+18. DB-Migration ja/nein
+19. offene Risiken
+20. Bestätigung: NICHT deployed
+
+Danach STOPP.
+
+NICHT DEPLOYEN.
