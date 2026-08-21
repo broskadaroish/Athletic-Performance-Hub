@@ -85,6 +85,14 @@ class AthletikReport(FPDF):
     MID     = (80, 90, 110)
     WHITE   = (255, 255, 255)
 
+    @property
+    def content_width(self) -> float:
+        """Aktuell nutzbare Breite – funktioniert in Hoch- und Querformat."""
+        return self.epw
+
+    def _label_width(self, value=None) -> float:
+        return value if value is not None else min(65, self.content_width * 0.24)
+
     def header(self):
         self.set_fill_color(*self.BRAND)
         self.rect(0, 0, self.w, 18, "F")
@@ -102,7 +110,7 @@ class AthletikReport(FPDF):
         self.set_y(-14)
         self.set_draw_color(*self.BRAND)
         self.set_line_width(0.4)
-        self.line(10, self.get_y(), self.w - 10, self.get_y())
+        self.line(self.l_margin, self.get_y(), self.w - self.r_margin, self.get_y())
         self.set_font("Helvetica", "I", 7)
         self.set_text_color(*self.MID)
         copyright_note = "(c) 2026 Broska Daroish. Alle Rechte vorbehalten."
@@ -119,7 +127,8 @@ class AthletikReport(FPDF):
         self.set_text_color(*self.DARK)
         self.ln(1)
 
-    def kv(self, key: str, value, w_key=65):
+    def kv(self, key: str, value, w_key=None):
+        w_key = self._label_width(w_key)
         self.set_font("Helvetica", "B", 9)
         self.set_text_color(*self.MID)
         self.cell(w_key, 5, _safe(key) + ":", new_x="RIGHT", new_y="TOP")
@@ -127,7 +136,8 @@ class AthletikReport(FPDF):
         self.set_text_color(*self.DARK)
         self.cell(0, 5, _safe(value), new_x="LMARGIN", new_y="NEXT")
 
-    def kv_color(self, key: str, value, color, w_key=65):
+    def kv_color(self, key: str, value, color, w_key=None):
+        w_key = self._label_width(w_key)
         self.set_font("Helvetica", "B", 9)
         self.set_text_color(*self.MID)
         self.cell(w_key, 5, _safe(key) + ":", new_x="RIGHT", new_y="TOP")
@@ -136,23 +146,37 @@ class AthletikReport(FPDF):
         self.cell(0, 5, _safe(value), new_x="LMARGIN", new_y="NEXT")
         self.set_text_color(*self.DARK)
 
-    def metric_box(self, label: str, value: str, color=None):
+    def metric_box(self, label: str, value: str, color=None, width: float = 58, gap: float = 3):
         if color is None:
             color = GREY
         x, y = self.get_x(), self.get_y()
         self.set_fill_color(*self.LIGHT)
-        self.rect(x, y, 58, 16, "F")
+        self.rect(x, y, width, 16, "F")
         self.set_fill_color(*color)
         self.rect(x, y, 3, 16, "F")
         self.set_xy(x + 5, y + 1)
         self.set_font("Helvetica", "", 6)
         self.set_text_color(*self.MID)
-        self.cell(50, 4, _safe(label).upper(), new_x="LMARGIN", new_y="NEXT")
+        self.cell(width - 8, 4, _safe(label).upper(), new_x="LMARGIN", new_y="NEXT")
         self.set_x(x + 5)
         self.set_font("Helvetica", "B", 11)
         self.set_text_color(*self.DARK)
-        self.cell(50, 9, _safe(value), new_x="RIGHT", new_y="TOP")
-        self.set_xy(x + 61, y)
+        self.cell(width - 8, 9, _safe(value), new_x="RIGHT", new_y="TOP")
+        self.set_xy(x + width + gap, y)
+
+    def metric_grid(self, metrics: list[tuple[str, str, tuple]], columns: int = 4):
+        """Rendert Kennzahlen in einem Raster ohne über die Seitenbreite zu laufen."""
+        if not metrics:
+            return
+        gap = 3
+        width = (self.content_width - gap * (columns - 1)) / columns
+        start_x, start_y = self.l_margin, self.get_y()
+        for index, (label, value, color) in enumerate(metrics):
+            row, col = divmod(index, columns)
+            self.set_xy(start_x + col * (width + gap), start_y + row * 19)
+            self.metric_box(label, value, color, width=width, gap=gap)
+        rows = (len(metrics) + columns - 1) // columns
+        self.set_xy(start_x, start_y + rows * 19)
 
     def progress_bar(self, label: str, value: int, max_val: int = 3):
         pct = min(value / max_val, 1.0)
@@ -172,16 +196,19 @@ class AthletikReport(FPDF):
     def row2(self, label: str, val_l, label2: str = "", val_r="",
               color_l=None, color_r=None):
         """Zwei KV-Paare nebeneinander."""
+        content_w = self.content_width
+        label_w = content_w * 0.22
+        value_w = content_w * 0.28
         self.set_font("Helvetica", "B", 8)
         self.set_text_color(*self.MID)
-        self.cell(45, 5, _safe(label) + ":", new_x="RIGHT", new_y="TOP")
+        self.cell(label_w, 5, _safe(label) + ":", new_x="RIGHT", new_y="TOP")
         self.set_font("Helvetica", "", 8)
         self.set_text_color(*(color_l or self.DARK))
-        self.cell(45, 5, _safe(val_l), new_x="RIGHT", new_y="TOP")
+        self.cell(value_w, 5, _safe(val_l), new_x="RIGHT", new_y="TOP")
         if label2:
             self.set_font("Helvetica", "B", 8)
             self.set_text_color(*self.MID)
-            self.cell(40, 5, _safe(label2) + ":", new_x="RIGHT", new_y="TOP")
+            self.cell(label_w, 5, _safe(label2) + ":", new_x="RIGHT", new_y="TOP")
             self.set_font("Helvetica", "", 8)
             self.set_text_color(*(color_r or self.DARK))
             self.cell(0, 5, _safe(val_r), new_x="LMARGIN", new_y="NEXT")
@@ -260,7 +287,7 @@ class AthletikReport(FPDF):
                         new_x="LMARGIN", new_y="NEXT")
 
     def check_page_break(self, needed_mm=30):
-        if self.get_y() > 270 - needed_mm:
+        if self.get_y() + needed_mm > self.h - self.b_margin:
             self.add_page()
 
     def cover_page(self, spieler: dict, vereinsname: str = "", saison: str = "",
@@ -269,28 +296,31 @@ class AthletikReport(FPDF):
         """Erstes Blatt — professionelles Deckblatt mit Spieler-Stammdaten."""
         import io as _cio
         module_vorhanden = module_vorhanden or []
+        content_w = self.content_width
+        left = self.l_margin
 
         # ── Blauer Header-Block ──────────────────────────────────────────────
         self.set_fill_color(*self.BRAND)
-        self.rect(0, 0, 210, 60, "F")
+        self.rect(0, 0, self.w, 60, "F")
 
         # Vereinslogo oben rechts im Header
         if logo_bytes:
             try:
                 _logo_buf = _cio.BytesIO(logo_bytes)
-                self.image(_logo_buf, x=170, y=8, h=20, keep_aspect_ratio=True)
+                self.image(_logo_buf, x=self.w - self.r_margin - 25, y=8, h=20,
+                           keep_aspect_ratio=True)
             except Exception:
                 pass
 
         # Verein / Organisation
-        self.set_xy(15, 10)
+        self.set_xy(left, 10)
         self.set_font("Helvetica", "B", 10)
         self.set_text_color(*self.WHITE)
         self.cell(0, 7, _safe(vereinsname or "FOOTBALL ATHLETIK DIAGNOSTIK"))
 
         # Saison
         if saison:
-            self.set_xy(15, 17)
+            self.set_xy(left, 17)
             self.set_font("Helvetica", "", 8)
             self.set_text_color(200, 215, 240)
             self.cell(0, 5, "Saison " + _safe(saison))
@@ -299,28 +329,28 @@ class AthletikReport(FPDF):
         vorname  = spieler.get("vorname") or ""
         nachname = spieler.get("nachname") or spieler.get("name") or "-"
         fullname = ("%s %s" % (vorname, nachname)).strip()
-        self.set_xy(15, 27)
+        self.set_xy(left, 27)
         self.set_font("Helvetica", "B", 24)
         self.set_text_color(*self.WHITE)
-        self.cell(180, 12, _safe(fullname)[:36])
+        self.cell(content_w - 30, 12, _safe(fullname)[:60])
 
         # Position / Mannschaft
         pos = (spieler.get("hauptposition") or spieler.get("position") or "-")
         team = spieler.get("mannschaft") or "-"
-        self.set_xy(15, 42)
+        self.set_xy(left, 42)
         self.set_font("Helvetica", "", 9)
         self.set_text_color(200, 215, 240)
         self.cell(0, 5, "%s  |  %s" % (_safe(pos), _safe(team)))
 
         # Trainer-Name (links unten im Header)
         if trainer_name:
-            self.set_xy(15, 50)
+            self.set_xy(left, 50)
             self.set_font("Helvetica", "I", 7)
             self.set_text_color(180, 200, 230)
             self.cell(0, 5, "Trainer: " + _safe(trainer_name))
 
         # Erstellt am
-        self.set_xy(0, 50)
+        self.set_xy(left, 50)
         self.set_font("Helvetica", "I", 7)
         self.set_text_color(180, 200, 230)
         self.cell(0, 5, "Erstellt am %s  " % date.today().strftime("%d.%m.%Y"), align="R")
@@ -333,7 +363,7 @@ class AthletikReport(FPDF):
         neben = spieler.get("nebenposition") or ""
         pos_str = _safe(pos) + (" / " + _safe(neben) if neben else "")
 
-        col_l_w = 95
+        col_l_w = content_w / 2
         x0 = self.get_x()
         y0 = self.get_y()
 
@@ -346,10 +376,10 @@ class AthletikReport(FPDF):
         ]:
             self.set_font("Helvetica", "B", 9)
             self.set_text_color(*self.MID)
-            self.cell(40, 6, _safe(key) + ":", new_x="RIGHT", new_y="TOP")
+            self.cell(42, 6, _safe(key) + ":", new_x="RIGHT", new_y="TOP")
             self.set_font("Helvetica", "", 9)
             self.set_text_color(*self.DARK)
-            self.cell(col_l_w - 40, 6, _safe(val), new_x="LMARGIN", new_y="NEXT")
+            self.cell(col_l_w - 42, 6, _safe(val), new_x="LMARGIN", new_y="NEXT")
 
         # Right column
         y_right = y0
@@ -362,10 +392,10 @@ class AthletikReport(FPDF):
         ]:
             self.set_font("Helvetica", "B", 9)
             self.set_text_color(*self.MID)
-            self.cell(38, 6, _safe(key) + ":", new_x="RIGHT", new_y="TOP")
+            self.cell(42, 6, _safe(key) + ":", new_x="RIGHT", new_y="TOP")
             self.set_font("Helvetica", "", 9)
             self.set_text_color(*self.DARK)
-            self.cell(57, 6, _safe(val)[:30], new_x="LMARGIN", new_y="NEXT")
+            self.cell(col_l_w - 42, 6, _safe(val)[:42], new_x="LMARGIN", new_y="NEXT")
             self.set_x(x0 + col_l_w)
 
         self.set_x(x0)
@@ -376,24 +406,24 @@ class AthletikReport(FPDF):
         sc_col = GREEN if athletik_score >= 75 else YELLOW if athletik_score >= 50 else RED
         sx, sy = self.get_x(), self.get_y()
         self.set_fill_color(245, 247, 250)
-        self.rect(sx, sy, 190, 22, "F")
+        self.rect(sx, sy, content_w, 22, "F")
         self.set_fill_color(*sc_col)
         self.rect(sx, sy, 5, 22, "F")
         self.set_xy(sx + 10, sy + 3)
         self.set_font("Helvetica", "B", 9)
         self.set_text_color(*self.MID)
-        self.cell(50, 5, "ATHLETIK-SCORE", new_x="RIGHT", new_y="TOP")
+        self.cell(content_w * 0.28, 5, "ATHLETIK-SCORE", new_x="RIGHT", new_y="TOP")
         self.set_font("Helvetica", "B", 16)
         self.set_text_color(*sc_col)
-        self.cell(40, 5, "%d / 100" % athletik_score)
-        self.set_xy(sx + 110, sy + 3)
+        self.cell(content_w * 0.18, 5, "%d / 100" % athletik_score)
+        self.set_xy(sx + content_w * 0.54, sy + 3)
         self.set_font("Helvetica", "B", 8)
         self.set_text_color(*self.MID)
         self.cell(0, 5, "ENTHALTENE TESTMODULE", new_x="LMARGIN", new_y="NEXT")
-        self.set_x(sx + 110)
+        self.set_x(sx + content_w * 0.54)
         self.set_font("Helvetica", "", 8)
         self.set_text_color(*self.DARK)
-        self.multi_cell(85, 4, _safe(", ".join(module_vorhanden) or "-"))
+        self.multi_cell(content_w * 0.42, 4, _safe(", ".join(module_vorhanden) or "-"))
         self.set_y(sy + 26)
 
         # ── Pflicht-Disclaimer ────────────────────────────────────────────────
@@ -405,24 +435,27 @@ class AthletikReport(FPDF):
         """Renders a highlighted notice box with optional coloured left border."""
         if border_color is None:
             border_color = (230, 126, 34)   # orange
-        x, y = self.get_x(), self.get_y()
-        # measure text height: ~4.5 mm per line at font size 7.5, 170 mm wide
         safe_text = _safe(text)
+        self.set_font("Helvetica", "I", 7)
+        text_w = self.content_width - 8
+        estimated_lines = max(1, int(self.get_string_width(safe_text) / max(text_w, 1)) + 1)
+        height = max(8, estimated_lines * 4 + 2)
+        self.check_page_break(height + 2)
+        x, y = self.get_x(), self.get_y()
         # background
         self.set_fill_color(253, 246, 230)
         self.set_draw_color(*border_color)
         self.set_line_width(0.3)
-        self.rect(x, y, 190, 8, "FD")
+        self.rect(x, y, self.content_width, height, "FD")
         # left accent bar
         self.set_fill_color(*border_color)
-        self.rect(x, y, 3, 8, "F")
+        self.rect(x, y, 3, height, "F")
         # text
         self.set_xy(x + 5, y + 1)
-        self.set_font("Helvetica", "I", 7)
         self.set_text_color(80, 50, 10)
-        self.cell(183, 6, safe_text[:155], new_x="LMARGIN", new_y="NEXT")
+        self.multi_cell(text_w, 4, safe_text, new_x="LMARGIN", new_y="NEXT")
         self.set_text_color(*self.DARK)
-        self.ln(2)
+        self.set_y(y + height + 2)
 
     def ampel_legend(self):
         """Renders a compact 3-column ampel explanation."""
@@ -463,13 +496,17 @@ def generate_report(
     agil_row=None,
     aus_row=None,
     kraft_row=None,
+    kraft_versuche: list | None = None,
     spiro_row=None,
     spiro_bewertung: dict | None = None,
+    spiro_stufen: list | None = None,
+    spiro_nachbelastung: list | None = None,
     verletzungen=None,
     athletik_score: int = 0,
     risiko_label: str = "-",
     defizite: list = None,
     plan_rows: list = None,
+    plan_meta: dict | None = None,
     beobachtungen: list = None,
     vereinsname: str = "",
     saison: str = "",
@@ -483,7 +520,11 @@ def generate_report(
     """
     defizite     = defizite    or []
     plan_rows    = plan_rows   or []
+    plan_meta    = plan_meta   or {}
     verletzungen = verletzungen or []
+    kraft_versuche = kraft_versuche or []
+    spiro_stufen = spiro_stufen or []
+    spiro_nachbelastung = spiro_nachbelastung or []
 
     # Vorhandene Module ermitteln (fuer Deckblatt)
     _module_map = [
@@ -493,7 +534,9 @@ def generate_report(
     ]
     _module_vorhanden = [n for n, v in _module_map if v]
 
-    pdf = AthletikReport()
+    # Der Gesamtbericht folgt dem aktuellen Trainingsplan-PDF: A4 quer mit
+    # ausreichend Breite für alle Diagnose- und Planinformationen.
+    pdf = AthletikReport(orientation="L", unit="mm", format="A4")
     # Dynamische Vereinsfarbe (hex → RGB)
     if farbe_primaer:
         try:
@@ -502,8 +545,14 @@ def generate_report(
                 pdf.BRAND = (int(_h[0:2], 16), int(_h[2:4], 16), int(_h[4:6], 16))
         except Exception:
             pass
-    pdf.set_auto_page_break(auto=True, margin=18)
+    pdf.set_margins(12, 12, 12)
+    pdf.set_auto_page_break(auto=True, margin=14)
     pdf.add_page()
+
+    def _widths(*weights: float) -> list[float]:
+        """Relative Tabellenbreiten für die aktuelle A4-Querformat-Inhaltsbreite."""
+        total = sum(weights) or 1
+        return [pdf.content_width * weight / total for weight in weights]
 
     # ════════════════════════════════════════════════════════════════════════════
     # DECKBLATT (eigene Seite)
@@ -523,36 +572,35 @@ def generate_report(
     pdf.ln(2)
 
     a_col = GREEN if athletik_score >= 75 else YELLOW if athletik_score >= 50 else RED
-    pdf.metric_box("Athletik Score", "%d/100" % athletik_score, a_col)
-
+    metrics = [("Athletik Score", "%d/100" % athletik_score, a_col)]
     rl    = _safe(risiko_label).upper()
     r_col = RED if "HANDLUNGSBEDARF HOCH" in rl else YELLOW if "HANDLUNGSBEDARF" in rl else GREEN
-    pdf.metric_box("Athletik-Status", risiko_label, r_col)
+    metrics.append(("Athletik-Status", risiko_label, r_col))
 
     if fms_row:
         f_col = GREEN if fms_row["score"] >= 15 else YELLOW if fms_row["score"] >= 13 else RED
-        pdf.metric_box("FMS Score", "%d/21" % fms_row["score"], f_col)
+        metrics.append(("FMS Score", "%d/21" % fms_row["score"], f_col))
 
     if y_row:
         avg_y = (y_row["composite_rechts"] + y_row["composite_links"]) / 2
         y_col = GREEN if avg_y >= 89 else YELLOW if avg_y >= 85 else RED
-        pdf.metric_box("Y-Balance Oe", "%.1f %%" % avg_y, y_col)
+        metrics.append(("Y-Balance Ø", "%.1f %%" % avg_y, y_col))
 
     if sprint_row and sprint_row.get("beste_10m"):
-        pdf.metric_box("10 m Sprint", "%.2f s" % sprint_row["beste_10m"],
-                       ampel(sprint_row.get("bewertung_10m", "")))
+        metrics.append(("10 m Sprint", "%.2f s" % sprint_row["beste_10m"],
+                        ampel(sprint_row.get("bewertung_10m", ""))))
 
     if sprung_row and sprung_row.get("cmj_beid"):
-        pdf.metric_box("CMJ", "%.1f cm" % sprung_row["cmj_beid"],
-                       ampel(sprung_row.get("bewertung_cmj", "")))
+        metrics.append(("CMJ", "%.1f cm" % sprung_row["cmj_beid"],
+                        ampel(sprung_row.get("bewertung_cmj", ""))))
 
     if aus_row and aus_row.get("distanz_m"):
-        pdf.metric_box("Yo-Yo Distanz", "%d m" % int(aus_row["distanz_m"]),
-                       ampel(aus_row.get("bewertung", "")))
+        metrics.append(("Yo-Yo Distanz", "%d m" % int(aus_row["distanz_m"]),
+                        ampel(aus_row.get("bewertung", ""))))
 
     if anthro_row and anthro_row.get("bmi"):
-        pdf.metric_box("BMI", "%.1f" % anthro_row["bmi"],
-                       ampel(anthro_row.get("bmi_kategorie", "")))
+        metrics.append(("BMI", "%.1f" % anthro_row["bmi"],
+                        ampel(anthro_row.get("bmi_kategorie", ""))))
 
     if kraft_row:
         rm1 = kraft_row.get("direktes_1rm") or kraft_row.get("geschaetztes_1rm")
@@ -560,9 +608,9 @@ def generate_report(
             rel = kraft_row.get("relative_kraft_direkt") or kraft_row.get("relative_kraft_geschaetzt")
             k_col = GREEN if (rel and rel >= 1.5) else YELLOW if (rel and rel >= 1.0) else GREY
             lbl_k = "Bankdr. 1RM" if kraft_row.get("direktes_1rm") else "Bankdr. 1RM (Epley)"
-            pdf.metric_box(lbl_k, "%.1f kg" % rm1, k_col)
+            metrics.append((lbl_k, "%.1f kg" % rm1, k_col))
 
-    pdf.ln(22)
+    pdf.metric_grid(metrics)
     pdf.ampel_legend()
 
     # ════════════════════════════════════════════════════════════════════════════
@@ -582,6 +630,15 @@ def generate_report(
             kf_label = "Koerperfett%s" % ((" (%s)" % kf_meth) if kf_meth else "")
             pdf.row2(kf_label, "%s %%" % anthro_row.get("koerperfett"),
                      "Muskelmasse", "%s kg" % anthro_row.get("muskelmasse", "-"))
+        if any(anthro_row.get(key) for key in ("sitzhoehe", "beinlaenge", "armspannweite")):
+            pdf.row2(
+                "Sitzhöhe", "%s cm" % anthro_row.get("sitzhoehe", "-"),
+                "Beinlänge / Armspanne",
+                "%s cm / %s cm" % (anthro_row.get("beinlaenge", "-"),
+                                   anthro_row.get("armspannweite", "-")),
+            )
+        if anthro_row.get("phv_offset") is not None:
+            pdf.kv("PHV-Offset (Schätzung)", "%.1f Jahre" % float(anthro_row["phv_offset"]))
         if anthro_row.get("reifestatus"):
             pdf.kv("Reifestatus (Schaetzung)", anthro_row.get("reifestatus", "-"))
         pdf.ln(2)
@@ -602,10 +659,10 @@ def generate_report(
 
         # ── FMS Einzelwerte-Tabelle (Links / Rechts / Score / Asymmetrie) ──────
         # Spaltenbreiten: Muster 62 | Links 22 | Rechts 22 | Score 24 | Bemerkung 60
-        pdf.table_header([
-            ("Bewegungsmuster", 62), ("Links", 22), ("Rechts", 22),
-            ("Score /3", 24), ("Bemerkung", 60),
-        ])
+        _fms_w = _widths(62, 22, 22, 24, 60)
+        pdf.table_header(list(zip(
+            ("Bewegungsmuster", "Links", "Rechts", "Score /3", "Bemerkung"), _fms_w
+        )))
 
         # (name, l_val, r_val, bilat_val)
         # bilat_val gesetzt fuer beidseitige Pattern (kein L/R)
@@ -650,14 +707,14 @@ def generate_report(
             # Muster
             pdf.set_font("Helvetica", "", 7)
             pdf.set_text_color(*pdf.DARK)
-            pdf.cell(62, 5, _safe(name), fill=fill)
+            pdf.cell(_fms_w[0], 5, _safe(name), fill=fill)
             # Links / Rechts
-            pdf.cell(22, 5, l_str, fill=fill, align="C")
-            pdf.cell(22, 5, r_str, fill=fill, align="C")
+            pdf.cell(_fms_w[1], 5, l_str, fill=fill, align="C")
+            pdf.cell(_fms_w[2], 5, r_str, fill=fill, align="C")
             # Score (farbig)
             pdf.set_font("Helvetica", "B", 7)
             pdf.set_text_color(*score_col)
-            pdf.cell(24, 5, "%d/3" % score, fill=fill, align="C")
+            pdf.cell(_fms_w[3], 5, "%d/3" % score, fill=fill, align="C")
             # Bemerkung
             if has_asym:
                 pdf.set_text_color(*RED)
@@ -665,7 +722,7 @@ def generate_report(
             else:
                 pdf.set_text_color(*pdf.MID)
                 pdf.set_font("Helvetica", "", 7)
-            pdf.cell(60, 5, _safe(asym_str), fill=fill,
+            pdf.cell(_fms_w[4], 5, _safe(asym_str), fill=fill,
                      new_x="LMARGIN", new_y="NEXT")
             pdf.set_text_color(*pdf.DARK)
 
@@ -689,10 +746,10 @@ def generate_report(
 
         # ── Y-Balance Richtungs-Tabelle (Ant / PM / PL) ──────────────────────
         # Spalten: Richtung 58 | Rechts 32 | Links 32 | Differenz 30 | Hinweis 38
-        pdf.table_header([
-            ("Richtung", 58), ("Rechts (cm)", 32), ("Links (cm)", 32),
-            ("Differenz", 30), ("Hinweis", 38),
-        ])
+        _yb_w = _widths(58, 32, 32, 30, 38)
+        pdf.table_header(list(zip(
+            ("Richtung", "Rechts (cm)", "Links (cm)", "Differenz", "Hinweis"), _yb_w
+        )))
 
         yb_directions = [
             ("Anterior (Ant)",
@@ -719,14 +776,14 @@ def generate_report(
             pdf.set_fill_color(*(pdf.LIGHT if fill else pdf.WHITE))
             pdf.set_font("Helvetica", "", 7)
             pdf.set_text_color(*pdf.DARK)
-            pdf.cell(58, 5, _safe(name), fill=fill)
-            pdf.cell(32, 5, "%.1f" % r_val, fill=fill, align="C")
-            pdf.cell(32, 5, "%.1f" % l_val, fill=fill, align="C")
+            pdf.cell(_yb_w[0], 5, _safe(name), fill=fill)
+            pdf.cell(_yb_w[1], 5, "%.1f" % r_val, fill=fill, align="C")
+            pdf.cell(_yb_w[2], 5, "%.1f" % l_val, fill=fill, align="C")
             # Differenz farbig
             diff_col = RED if diff >= 4.0 else YELLOW if diff >= 2.0 else GREEN
             pdf.set_font("Helvetica", "B", 7)
             pdf.set_text_color(*diff_col)
-            pdf.cell(30, 5, "%.1f cm" % diff, fill=fill, align="C")
+            pdf.cell(_yb_w[3], 5, "%.1f cm" % diff, fill=fill, align="C")
             # Hinweis
             if has_asym:
                 pdf.set_text_color(*RED)
@@ -736,7 +793,7 @@ def generate_report(
                 pdf.set_text_color(*pdf.MID)
                 pdf.set_font("Helvetica", "", 7)
                 hint = ""
-            pdf.cell(38, 5, _safe(hint), fill=fill, new_x="LMARGIN", new_y="NEXT")
+            pdf.cell(_yb_w[4], 5, _safe(hint), fill=fill, new_x="LMARGIN", new_y="NEXT")
             pdf.set_text_color(*pdf.DARK)
 
         # ── Composite-Zeile (hervorgehoben) ───────────────────────────────────
@@ -746,15 +803,15 @@ def generate_report(
         pdf.set_fill_color(*pdf.BRAND)
         pdf.set_text_color(*pdf.WHITE)
         pdf.set_font("Helvetica", "B", 7)
-        pdf.cell(58, 5, "Composite Score (%)", fill=True)
-        pdf.cell(32, 5, "%.1f %%" % comp_r, fill=True, align="C")
-        pdf.cell(32, 5, "%.1f %%" % comp_l, fill=True, align="C")
+        pdf.cell(_yb_w[0], 5, "Composite Score (%)", fill=True)
+        pdf.cell(_yb_w[1], 5, "%.1f %%" % comp_r, fill=True, align="C")
+        pdf.cell(_yb_w[2], 5, "%.1f %%" % comp_l, fill=True, align="C")
         comp_diff_col = RED if comp_diff >= 4 else YELLOW if comp_diff >= 2 else GREEN
         pdf.set_text_color(*comp_diff_col)
-        pdf.cell(30, 5, "%.1f %%" % comp_diff, fill=True, align="C")
+        pdf.cell(_yb_w[3], 5, "%.1f %%" % comp_diff, fill=True, align="C")
         pdf.set_text_color(*pdf.WHITE)
         pdf.set_font("Helvetica", "", 7)
-        pdf.cell(38, 5, "", fill=True, new_x="LMARGIN", new_y="NEXT")
+        pdf.cell(_yb_w[4], 5, "", fill=True, new_x="LMARGIN", new_y="NEXT")
         pdf.set_text_color(*pdf.DARK)
 
         pdf.ln(2)
@@ -841,6 +898,20 @@ def generate_report(
             pdf.row2("Illinois Agility", "%.2f s" % ill,
                      "Bewertung",        agil_row.get("bew_illinois","-"),
                      color_r=ampel(agil_row.get("bew_illinois","")))
+        _agil_extra = [
+            ("Modified T-Test", agil_row.get("modified_t_test")),
+            ("Pro Agility Shuttle", agil_row.get("pro_agility")),
+            ("Arrowhead rechts", agil_row.get("arrowhead_r")),
+            ("Arrowhead links", agil_row.get("arrowhead_l")),
+            ("Zig-Zag", agil_row.get("zigzag")),
+            ("Balsom", agil_row.get("balsom")),
+        ]
+        _agil_extra = [(name, value) for name, value in _agil_extra if value]
+        for index in range(0, len(_agil_extra), 2):
+            left_name, left_value = _agil_extra[index]
+            right = _agil_extra[index + 1] if index + 1 < len(_agil_extra) else ("", "")
+            pdf.row2(left_name, "%.2f s" % left_value,
+                     right[0], "%.2f s" % right[1] if right[1] else "")
         pdf.ln(2)
 
     # ════════════════════════════════════════════════════════════════════════════
@@ -883,6 +954,12 @@ def generate_report(
 
         pdf.row2("Testdatum", spiro_row.get("datum", "-"), "Testtyp", testtyp_label)
         pdf.row2("Protokoll", protokoll, "Tester", tester)
+        if spiro_row.get("protokoll_geraeteart") or spiro_row.get("dauer_minuten"):
+            pdf.row2(
+                "Geräteart", spiro_row.get("protokoll_geraeteart") or "-",
+                "Testdauer", "%s min" % spiro_row.get("dauer_minuten")
+                if spiro_row.get("dauer_minuten") else "-",
+            )
 
         # VO2-Werte
         vo2_peak = spiro_row.get("vo2_peak")
@@ -957,6 +1034,57 @@ def generate_report(
                 "RPE max",    str(rpe) if rpe else "-",
             )
 
+        if spiro_stufen:
+            pdf.check_page_break(20 + min(len(spiro_stufen), 8) * 5)
+            pdf.set_font("Helvetica", "B", 8)
+            pdf.set_text_color(*pdf.BRAND)
+            pdf.cell(0, 5, "STUFENPROTOKOLL (AKTUELLER TEST)", new_x="LMARGIN", new_y="NEXT")
+            _spiro_cols = _widths(18, 35, 28, 30, 30, 30, 24)
+            pdf.table_header(list(zip(
+                ("Stufe", "Dauer", "Tempo / Steigung", "HF", "Laktat", "VO₂ rel.", "RPE"), _spiro_cols
+            )), font_size=7)
+            for index, stufe in enumerate(spiro_stufen[:12]):
+                dauer_s = stufe.get("dauer_sekunden")
+                dauer = (
+                    "%d:%02d min" % (int(dauer_s) // 60, int(dauer_s) % 60)
+                    if dauer_s is not None else "-"
+                )
+                tempo = (
+                    "%.1f km/h" % stufe["geschwindigkeit_kmh"]
+                    if stufe.get("geschwindigkeit_kmh") is not None else "-"
+                )
+                if stufe.get("steigung_prozent") is not None:
+                    tempo += " · %s %%" % stufe["steigung_prozent"]
+                vals = [
+                    stufe.get("stufennummer", index + 1),
+                    dauer,
+                    tempo,
+                    "%s bpm" % stufe.get("herzfrequenz_bpm") if stufe.get("herzfrequenz_bpm") else "-",
+                    "%s mmol/l" % stufe.get("laktat_mmol_l")
+                    if stufe.get("laktat_mmol_l") is not None else "-",
+                    "%s ml/kg/min" % stufe.get("vo2_relativ") if stufe.get("vo2_relativ") else "-",
+                    stufe.get("rpe") or "-",
+                ]
+                pdf.table_row(vals, _spiro_cols, index % 2 == 0)
+        if spiro_nachbelastung:
+            pdf.check_page_break(15 + min(len(spiro_nachbelastung), 6) * 5)
+            pdf.set_font("Helvetica", "B", 8)
+            pdf.set_text_color(*pdf.BRAND)
+            pdf.cell(0, 5, "NACHBELASTUNGSWERTE", new_x="LMARGIN", new_y="NEXT")
+            _nach_cols = _widths(32, 42, 42, 74)
+            pdf.table_header(list(zip(
+                ("Zeitpunkt", "HF", "Laktat", "Bemerkung"), _nach_cols
+            )), font_size=7)
+            for index, nachwert in enumerate(spiro_nachbelastung[:8]):
+                pdf.table_row([
+                    "%s min" % nachwert.get("zeitpunkt_minuten", "-"),
+                    "%s bpm" % nachwert.get("herzfrequenz_bpm")
+                    if nachwert.get("herzfrequenz_bpm") else "-",
+                    "%s mmol/l" % nachwert.get("laktat_mmol_l")
+                    if nachwert.get("laktat_mmol_l") is not None else "-",
+                    nachwert.get("bemerkung") or "-",
+                ], _nach_cols, index % 2 == 0)
+
         # Bemerkung
         bem = spiro_row.get("bemerkung")
         if bem:
@@ -1012,6 +1140,27 @@ def generate_report(
             if lat_asym:
                 col_la = RED if lat_asym > 15 else YELLOW if lat_asym > 10 else GREEN
                 pdf.kv_color("Laterale Asymmetrie", "%.1f %%" % lat_asym, col_la)
+        if kraft_versuche:
+            pdf.check_page_break(15 + min(len(kraft_versuche), 10) * 5)
+            pdf.set_font("Helvetica", "B", 8)
+            pdf.set_text_color(*pdf.BRAND)
+            pdf.cell(0, 5, "EINZELVERSUCHE (AKTUELLER TEST)", new_x="LMARGIN", new_y="NEXT")
+            _kraft_cols = _widths(58, 24, 35, 35, 35, 50)
+            pdf.table_header(list(zip(
+                ("Übung", "Versuch", "Gewicht", "Wiederholungen", "Zeit", "Status"), _kraft_cols
+            )), font_size=7)
+            for index, versuch in enumerate(kraft_versuche[:15]):
+                status = "gültig" if versuch.get("gueltig", True) else (
+                    versuch.get("ungueltigkeitsgrund") or "ungültig"
+                )
+                pdf.table_row([
+                    versuch.get("uebung") or "-",
+                    versuch.get("versuchsnummer") or "-",
+                    "%s kg" % versuch.get("gewicht") if versuch.get("gewicht") is not None else "-",
+                    versuch.get("wiederholungen") or "-",
+                    "%s s" % versuch.get("zeit_sekunden") if versuch.get("zeit_sekunden") is not None else "-",
+                    status,
+                ], _kraft_cols, index % 2 == 0)
         pdf.ln(2)
 
     # ════════════════════════════════════════════════════════════════════════════
@@ -1106,27 +1255,93 @@ def generate_report(
     # ════════════════════════════════════════════════════════════════════════════
     if plan_rows:
         pdf.add_page()
-        pdf.section_title("PERIODISIERUNGSPLAN (VOLLSTAENDIG)")
+        pdf.section_title("INDIVIDUELLER TRAININGSPLAN (AKTIVE VERSION)")
         pdf.disclaimer_box(_safe(TRAININGSPLAN_HINWEIS), border_color=(80, 100, 160))
+        _plan_meta_parts = []
+        if plan_meta.get("version_nr") is not None:
+            _plan_meta_parts.append("Version %s" % plan_meta["version_nr"])
+        if plan_meta.get("datum"):
+            _plan_meta_parts.append("Planstand: %s" % plan_meta["datum"])
+        if plan_meta.get("modus"):
+            _plan_meta_parts.append("Modus: %s" % plan_meta["modus"])
+        if plan_meta.get("schwerpunkt"):
+            _plan_meta_parts.append("Schwerpunkt: %s" % plan_meta["schwerpunkt"])
+        if plan_meta.get("trainingszeit_min"):
+            _plan_meta_parts.append("Zeitbudget: %s min" % plan_meta["trainingszeit_min"])
+        if _plan_meta_parts:
+            pdf.set_font("Helvetica", "I", 8)
+            pdf.set_text_color(*pdf.MID)
+            pdf.multi_cell(pdf.content_width, 4, "  |  ".join(_plan_meta_parts),
+                           new_x="LMARGIN", new_y="NEXT")
+            pdf.set_text_color(*pdf.DARK)
+        if plan_meta.get("notizen"):
+            pdf.set_font("Helvetica", "I", 8)
+            pdf.set_text_color(*pdf.MID)
+            pdf.multi_cell(pdf.content_width, 4, "Trainernotiz: " + _safe(plan_meta["notizen"]),
+                           new_x="LMARGIN", new_y="NEXT")
+            pdf.set_text_color(*pdf.DARK)
         pdf.ln(1)
-        cols = [("Wo.",10),("Phase",38),("Bereich",28),("Uebung",68),("Volumen",26),("Hz.",20)]
-        pdf.table_header(cols)
-        widths = [c[1] for c in cols]
+
+        _plan_tag_namen = dict(_TAG_NAMEN)
+        try:
+            import json as _json_pdf_report
+            _wochenplanung = _json_pdf_report.loads(plan_meta.get("wochenplanung_json") or "{}")
+            if _wochenplanung.get("planungsmodus") == "vereinsbelastung":
+                for _tag, _wochentag in enumerate(
+                    _wochenplanung.get("gewaehlte_athletik_tage") or [], start=1
+                ):
+                    _plan_tag_namen[_tag] = _safe(_wochentag)
+        except (TypeError, ValueError):
+            pass
+
+        _plan_w = _widths(10, 32, 25, 52, 18, 29, 19, 33, 15, 26, 31, 42)
+        _plan_headers = (
+            "Wo.", "Tag", "Bereich", "Übung", "Sätze", "Wdh. / Dauer",
+            "Pause", "Ausführung", "RPE", "Energiesystem", "Equipment", "Hinweise / Status",
+        )
+        pdf.table_header(list(zip(_plan_headers, _plan_w)), font_size=6.5)
         fill = False
-        plan_display = sorted(plan_rows, key=lambda r: (int(r.get("woche") or 0), str(r.get("uebung") or "")))
+        plan_display = sorted(
+            plan_rows, key=lambda r: (
+                int(r.get("woche") or 0),
+                int(r.get("tag") or 0),
+                int(r.get("position") or 0),
+                str(r.get("uebung") or ""),
+            )
+        )
         for row in plan_display:
-            # Phase-Text kuerzen (Klammer-Zusatz entfernen fuer Platz)
-            raw_phase = row.get("phase", row[1] if isinstance(row, (list, tuple)) else "-")
-            phase_short = str(raw_phase).split("(")[0].strip()[:22]
+            _warmup = row.get("bereich") == WARMUP_BEREICH
+            _uebung = row.get("uebung") or "-"
+            _hinweise = " · ".join(filter(None, [
+                row.get("begruendung") or "",
+                row.get("notiz") or "",
+                row.get("trainerhinweis") or "",
+                row.get("spielerhinweis") or "",
+                "erledigt" if row.get("abgehakt") else "",
+            ]))
+            if _warmup:
+                _wm = warmup_meta_lesen(row)
+                _wi = warmup_details(
+                    _wm["art"], _wm["level"], _wm["teile"],
+                    aph_dauer_min=_wm.get("aph_dauer_min") or 8,
+                )
+                _uebung = "Warm-up: %s" % _wi["titel"]
+                _hinweise = " · ".join(filter(None, [_wi.get("hinweis", ""), _hinweise]))
             vals = [
-                str(row.get("woche", row[0] if isinstance(row, (list, tuple)) else "-")),
-                phase_short,
-                row.get("bereich",    row[3] if isinstance(row, (list, tuple)) else "-"),
-                row.get("uebung",     row[4] if isinstance(row, (list, tuple)) else "-"),
-                row.get("volumen",    row[6] if isinstance(row, (list, tuple)) else "-"),
-                row.get("haeufigkeit",row[7] if isinstance(row, (list, tuple)) else "-"),
+                str(row.get("woche") or "-"),
+                _plan_tag_namen.get(int(row.get("tag") or 0), "Tag %s" % (row.get("tag") or "-")),
+                row.get("bereich") or "-",
+                _uebung,
+                row.get("saetze") or "-",
+                row.get("wiederholungen") or row.get("haeufigkeit") or "-",
+                "%s s" % row["pause_sekunden"] if row.get("pause_sekunden") is not None else "-",
+                row.get("ausfuehrung") or "-",
+                str(row.get("rpe") or "-"),
+                row.get("energie_system") or "-",
+                row.get("equipment") or "-",
+                _hinweise or "-",
             ]
-            pdf.table_row(vals, widths, fill)
+            pdf.table_row_tp(vals, _plan_w, fill, font_size=6.5)
             fill = not fill
 
     # ════════════════════════════════════════════════════════════════════════════
@@ -1164,7 +1379,8 @@ def generate_report(
          lambda r: GREEN if (r.get("relative_kraft_direkt") or r.get("relative_kraft_geschaetzt") or 0) >= 1.5 else YELLOW),
     ]
 
-    cols_sum = [("Modul",45),("Ergebnis (aktuell)",105),("Bewertung",40)]
+    _sum_w = _widths(45, 105, 40)
+    cols_sum = list(zip(("Modul", "Ergebnis (aktuell)", "Bewertung"), _sum_w))
     pdf.table_header(cols_sum)
     _wsum = [c[1] for c in cols_sum]
     fill = False
@@ -1230,16 +1446,17 @@ def generate_report(
     pdf.set_fill_color(245, 247, 250)
     pdf.set_draw_color(*empf_col)
     pdf.set_line_width(0.5)
-    pdf.rect(x_e, y_e, 190, 20, "FD")
+    pdf.rect(x_e, y_e, pdf.content_width, 20, "FD")
     pdf.set_fill_color(*empf_col)
     pdf.rect(x_e, y_e, 5, 20, "F")
     pdf.set_xy(x_e + 8, y_e + 3)
     pdf.set_font("Helvetica", "B", 8)
     pdf.set_text_color(*pdf.DARK)
-    pdf.cell(182, 5, "Athletik-Score: %d/100" % athletik_score, new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(pdf.content_width - 13, 5, "Athletik-Score: %d/100" % athletik_score,
+             new_x="LMARGIN", new_y="NEXT")
     pdf.set_x(x_e + 8)
     pdf.set_font("Helvetica", "", 7.5)
-    pdf.multi_cell(182, 4, _safe(empf))
+    pdf.multi_cell(pdf.content_width - 13, 4, _safe(empf))
     pdf.set_y(y_e + 24)
 
     pdf.ln(3)

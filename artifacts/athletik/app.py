@@ -69,7 +69,7 @@ from database import (
     sprung_speichern, sprung_letzter, sprung_history,
     agilitaet_speichern, agilitaet_letzter, agilitaet_history,
     ausdauer_speichern, ausdauer_letzter, ausdauer_history,
-    kraft_speichern, kraft_letzter, kraft_history,
+    kraft_speichern, kraft_letzter, kraft_history, kraft_versuche_laden,
     einwilligung_speichern, einwilligung_letzter, einwilligung_alle,
     zustimmung_registrierung_speichern,
     db_komplett_zuruecksetzen,
@@ -5426,7 +5426,11 @@ def page_spieler_profil():
         st.markdown("### 📄 PDF Report")
 
         # Daten laden
-        plan_rows        = zyklus_laden(sid)
+        plan_version_pdf = plan_aktive_version(sid)
+        plan_rows        = (
+            plan_laden_nach_version(plan_version_pdf["id"])
+            if plan_version_pdf else trainingsplan_laden(sid)
+        )
         anthro_row       = anthropometrie_letzter(sid)
         sprint_row       = sprint_letzter(sid)
         sprung_row       = sprung_letzter(sid)
@@ -5434,8 +5438,11 @@ def page_spieler_profil():
         aus_row          = ausdauer_letzter(sid)
         verletzungen_pdf = verletzungen_laden(sid)
         kraft_pdf        = kraft_letzter(sid)
+        kraft_versuche_pdf = kraft_versuche_laden(kraft_pdf["id"]) if kraft_pdf else []
         beob_pdf         = beobachtungen_alle_fuer_spieler(sid)
         spiro_pdf        = spiro_test_letzter(sid)
+        spiro_stufen_pdf = spiro_stufen_laden(spiro_pdf["id"]) if spiro_pdf else []
+        spiro_nachbelastung_pdf = spiro_nachbelastung_laden(spiro_pdf["id"]) if spiro_pdf else []
 
         # ── Modulauswahl ──────────────────────────────────────────────────────
         st.markdown("#### 📋 Module auswählen")
@@ -5552,13 +5559,17 @@ def page_spieler_profil():
                 agil_row=      _m("pdf_m_agil",     agil_row),
                 aus_row=       _m("pdf_m_ausdauer", aus_row),
                 kraft_row=     _m("pdf_m_kraft",    kraft_pdf),
+                kraft_versuche=_m("pdf_m_kraft", kraft_versuche_pdf) or [],
                 spiro_row=     _spiro_pdf_row,
                 spiro_bewertung=_spiro_bewertung_pdf,
+                spiro_stufen=_m("pdf_m_spiro", spiro_stufen_pdf) or [],
+                spiro_nachbelastung=_m("pdf_m_spiro", spiro_nachbelastung_pdf) or [],
                 verletzungen=  _m("pdf_m_verletz",  verletzungen_pdf) or [],
                 athletik_score=ascore,
                 risiko_label=label,
                 defizite=      _m("pdf_m_defizite", defizite) or [],
                 plan_rows=     _m("pdf_m_plan",     plan_rows) or [],
+                plan_meta=     _m("pdf_m_plan", plan_version_pdf) or {},
                 beobachtungen= _m("pdf_m_beob",     beob_pdf) or [],
                 vereinsname=st.session_state.get("cfg_vereinsname", ""),
                 saison=st.session_state.get("cfg_saison", ""),
