@@ -4966,14 +4966,73 @@ def lizenz_setzen(
     lizenz_bis: str | None = None,
     testphase_bis: str | None = None,
 ) -> None:
-    """Setzt Lizenztyp, Status und Ablaufdaten für einen Verein."""
+    """Setzt Lizenztyp, Status und Ablaufdaten für einen nicht anonymisierten Verein.
+
+    Das Aktivieren einer zuvor deaktivierten oder gesperrten Lizenz stellt die
+    zugehörigen Zugangs- und Kündigungsflags wieder konsistent her. Endgültig
+    anonymisierte Kundendatensätze dürfen dagegen nicht wiederbelebt werden.
+    """
     with get_conn() as conn:
+        aktuell = conn.execute(
+            """SELECT aktiv, gesperrt, lizenz_status, kundennummer,
+                      stripe_subscription_id, cancel_at_period_end
+                 FROM vereine WHERE id=?""",
+            (verein_id,),
+        ).fetchone()
+        if not aktuell:
+            raise ValueError("Verein für Lizenzänderung nicht gefunden.")
+        alter_status = str(aktuell["lizenz_status"] or "").lower()
+        if (
+            str(aktuell["kundennummer"] or "").strip() == "[gelöscht]"
+            or alter_status in ("geloescht", "gelöscht")
+        ):
+            raise ValueError(
+                "Endgültig anonymisierte Kunden können nicht über die Lizenzverwaltung reaktiviert werden."
+            )
+        if (
+            bool(aktuell["stripe_subscription_id"])
+            and bool(aktuell["cancel_at_period_end"])
+            and lizenz_status != alter_status
+        ):
+            raise ValueError(
+                "Eine bei Stripe vorgemerkte Kündigung kann nur über den Stripe-Widerruf zurückgenommen werden."
+            )
+
+        reaktivierung = (
+            lizenz_status in ("active", "trial")
+            and (
+                not bool(aktuell["aktiv"])
+                or bool(aktuell["gesperrt"])
+                or alter_status in ("cancelled", "beendet", "expired", "suspended", "geloescht", "gelöscht")
+            )
+        )
+        reaktivierungs_sql = ""
+        if reaktivierung:
+            # Eine bei Stripe vorgemerkte Kündigung darf ausschließlich über den
+            # Widerrufsflow aufgehoben werden. Dort wird Stripe zuerst bestätigt
+            # und erst danach werden die lokalen Vertragsfelder zurückgesetzt.
+            reaktivierungs_sql = """
+                , aktiv=1,
+                  gesperrt=0
+            """
+            hat_stripe_kuendigung = (
+                bool(aktuell["stripe_subscription_id"])
+                and bool(aktuell["cancel_at_period_end"])
+            )
+            if not hat_stripe_kuendigung:
+                reaktivierungs_sql += """
+                    , kuendigungsstatus='aktiv',
+                      kuendigung_eingegangen=NULL,
+                      gekuendigt_zum=NULL,
+                      cancel_at_period_end=0
+                """
         conn.execute(
-            """UPDATE vereine
+            f"""UPDATE vereine
                   SET lizenztyp=?,
                       lizenz_status=?,
                       lizenz_bis=COALESCE(?, lizenz_bis),
                       testphase_bis=COALESCE(?, testphase_bis)
+                      {reaktivierungs_sql}
                 WHERE id=?""",
             (lizenz_typ, lizenz_status, lizenz_bis, testphase_bis, verein_id),
         )
@@ -5205,9 +5264,10 @@ def alle_vereine_lizenz() -> list[dict]:
     """Alle Vereine mit Lizenzdaten für den Superadmin-Überblick."""
     with get_conn() as conn:
         return _rows(conn.execute(
-            """SELECT id, name, aktiv, lizenztyp, lizenz_bis, lizenz_status,
+            """SELECT id, name, email, aktiv, kundennummer, lizenztyp, lizenz_bis, lizenz_status,
                       testphase_bis, gesperrt, stripe_customer_id,
                       stripe_subscription_id, zahlungsstatus,
+                       ist_technischer_mandant,
                       cancel_at_period_end, kuendigungsstatus, gekuendigt_zum,
                       kuendigung_eingegangen, letzte_zahlung_fehlgeschlagen
                  FROM vereine

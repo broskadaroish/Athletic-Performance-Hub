@@ -55,6 +55,7 @@ def _status_badge(status: str) -> str:
         "suspended": (_C["red"],    "Gesperrt"),
         "cancelled": (_C["orange"], "Gekündigt"),
         "beendet":   (_C["red"],    "Beendet"),
+        "geloescht": (_C["muted"],  "Gelöscht"),
     }
     color, label = farben.get(status, (_C["muted"], status.capitalize()))
     return (
@@ -619,6 +620,8 @@ def _sa_display_status(row: dict) -> str:
     s = (row.get("lizenz_status") or "").lower()
     if s in ("cancelled", "beendet"):
         return "archiviert"
+    if s == "geloescht":
+        return "archiviert"
     if s == "expired":
         return "abgelaufen"
     if s == "suspended":
@@ -813,6 +816,15 @@ def _sa_edit_dialog(row: dict) -> None:
     st.markdown(_sa_badge_html(row["_display_status"]), unsafe_allow_html=True)
     st.markdown("")
 
+    if row["lizenz_status"] == "geloescht":
+        st.info(
+            "Dieser Datensatz wurde endgültig anonymisiert und ist nur aus "
+            "gesetzlichen Aufbewahrungsgründen archiviert. Er kann nicht bearbeitet oder reaktiviert werden."
+        )
+        if st.button("Schließen", use_container_width=True, key="edit_dlg_deleted_close"):
+            st.rerun()
+        return
+
     typ_keys  = list(LIZENZ_TYPEN.keys())
     cur_typ   = row["_paket_key"] if row["_paket_key"] in typ_keys else typ_keys[0]
     cur_status = row["lizenz_status"] if row["lizenz_status"] in _SA_STATUS_ALLE else _SA_STATUS_ALLE[0]
@@ -822,6 +834,15 @@ def _sa_edit_dialog(row: dict) -> None:
         cur_bis = datetime.date.today() + datetime.timedelta(days=30)
 
     ec1, ec2 = st.columns(2)
+    _stripe_kuendigung_offen = bool(
+        row.get("stripe_subscription_id") and row.get("cancel_at_period_end")
+    )
+    if _stripe_kuendigung_offen:
+        st.info(
+            "Für dieses Stripe-Abo ist eine Kündigung zum Periodenende vorgemerkt. "
+            "Der Status kann nur über den Stripe-Widerruf auf der Vertragsseite geändert werden."
+        )
+
     with ec1:
         neuer_typ = st.selectbox(
             "Lizenztyp",
@@ -835,6 +856,7 @@ def _sa_edit_dialog(row: dict) -> None:
             _SA_STATUS_ALLE,
             index=_SA_STATUS_ALLE.index(cur_status),
             key="edit_dlg_status",
+            disabled=_stripe_kuendigung_offen,
         )
     with ec2:
         ablauf_input = st.date_input("Lizenz bis", value=cur_bis, key="edit_dlg_ablauf")

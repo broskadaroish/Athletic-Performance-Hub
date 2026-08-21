@@ -19,6 +19,7 @@ _STATUS_BADGE: dict[str, tuple[str, str]] = {
     "expired":   ("#da3633", "ABGELAUFEN"),
     "cancelled": ("#da3633", "GEKÜNDIGT"),
     "suspended": ("#d29922", "GESPERRT"),
+    "geloescht": ("#6e7681", "GELÖSCHT"),
 }
 
 
@@ -47,6 +48,13 @@ def _laden(user: dict) -> dict:
     if not row:
         return {}
     data = dict(row)
+    # Status und Paket immer über dieselbe zentrale Bewertung auflösen wie die
+    # Superadmin-Lizenzverwaltung. Vertrags- und Kundendaten bleiben dagegen
+    # unverändert am führenden Vereinsdatensatz.
+    from license import get_lizenz_info
+    lizenz_info = get_lizenz_info(data)
+    data["lizenztyp"] = lizenz_info["lizenz_typ"]
+    data["lizenz_status"] = lizenz_info["lizenz_status"]
     # Für Trainer mit technischem Mandant: sichtbare Kundennummer aus benutzer,
     # nicht aus vereine (deren kundennummer ist eine interne Mandanten-Nummer).
     if data.get("ist_technischer_mandant"):

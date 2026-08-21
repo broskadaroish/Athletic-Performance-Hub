@@ -286,6 +286,7 @@ TESTPHASE_TAGE = 30   # Tage kostenlose Testphase bei Neuregistrierung
 #   "suspended" — manuell gesperrt durch Superadmin
 #   "cancelled" — Abo gekündigt, läuft noch bis Lizenzende
 #   "beendet"   — Abo vollständig beendet (Stripe subscription.deleted) — Zugang gesperrt
+#   "geloescht" — endgültig anonymisierter Kundendatensatz (nicht reaktivierbar)
 
 
 class LizenzInfo(TypedDict):
@@ -322,7 +323,14 @@ def get_lizenz_info(verein_row: dict) -> LizenzInfo:
         verein_row.get("lizenztyp"),
         ist_technischer_mandant=verein_row.get("ist_technischer_mandant"),
     )
-    lizenz_status  = verein_row.get("lizenz_status") or "trial"
+    raw_status     = str(verein_row.get("lizenz_status") or "trial").lower()
+    # Anonymisierte Kundenzeilen bleiben ein endgültiger Sonderfall: Sie werden
+    # wegen Rechnungs-FKs aufbewahrt, haben aber kein wiederherstellbares Konto.
+    ist_anonymisiert = (
+        str(verein_row.get("kundennummer") or "").strip() == "[gelöscht]"
+        or raw_status in ("geloescht", "gelöscht")
+    )
+    lizenz_status  = "geloescht" if ist_anonymisiert else raw_status
     gesperrt       = bool(verein_row.get("gesperrt", 0))
     zahlungsstatus = verein_row.get("zahlungsstatus") or "offen"
 
@@ -348,10 +356,10 @@ def get_lizenz_info(verein_row: dict) -> LizenzInfo:
                 pass
 
     # Abgelaufen-Check (on-the-fly — kein DB-Update)
-    if tage_verbleibend is not None and tage_verbleibend < 0:
+    if not ist_anonymisiert and tage_verbleibend is not None and tage_verbleibend < 0:
         lizenz_status = "expired"
 
-    if gesperrt:
+    if not ist_anonymisiert and gesperrt:
         lizenz_status = "suspended"
 
     info: LizenzInfo = {
