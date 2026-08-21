@@ -1,0 +1,316 @@
+APH – ZENTRALE DEFIZITLOGIK FÜR TRAININGSPLAN + PERIODISIERUNG VEREINHEITLICHEN
+
+WICHTIG:
+Nur die Defizit-/Schwerpunktlogik vereinheitlichen.
+Keine neue Diagnostik erfinden.
+Keine DB-Migration.
+Keine historischen Daten ändern.
+Keine großen UI-Umbauten.
+Nicht deployen.
+
+ZIEL:
+Trainingsplan und Periodisierung müssen für denselben Spieler dieselben relevanten Defizite erkennen.
+
+Aktuelles Problem:
+`defizite_ermitteln(...)` und `schwerpunkt_sammeln(...)` verwenden unterschiedliche Datenquellen, Schwellen und Legacy-Texte.
+
+Dadurch kann z. B. der Trainingsplan nur „Rumpf“ erkennen, während die Periodisierung zusätzlich „Schnelligkeit“ anzeigt.
+
+==================================================
+1. ZENTRALE QUELLE
+==================================================
+
+`defizite_ermitteln(...)` soll die zentrale strukturierte Defizitquelle werden.
+
+Periodisierung und Trainingsplan sollen ihre Schwerpunkte aus derselben strukturierten Defizitbewertung ableiten.
+
+`schwerpunkt_sammeln(...)` soll nicht mehr parallel eigene verkürzte oder alte Schwellenlogik verwenden, wenn strukturierte aktuelle Daten vorhanden sind.
+
+Legacy-Felder wie:
+- sprint_test.defizite
+- gespeicherte schwerpunkt-Texte
+dürfen nur noch als klar definierter Fallback dienen, wenn keine strukturierte aktuelle Bewertung vorhanden ist.
+
+==================================================
+2. KEINE BLINDE MASSENÄNDERUNG
+==================================================
+
+Für jedes Modul gezielt prüfen und nur die bestehende aktuelle Logik wiederverwenden:
+
+- FMS
+- Y-Balance
+- Sprint
+- Sprung
+- Agilität
+- Ausdauer
+- Kraft
+- Anthropometrie
+- Stufentest/Spiro
+
+Keine neuen Schwellenwerte erfinden.
+
+Bestehende alters-/geschlechts-/testgerechte Normen wiederverwenden.
+
+==================================================
+3. SPRINT
+==================================================
+
+Bei vorhandener strukturierter Bewertung:
+- bewertung_10m
+- bewertung_30m
+
+muss diese Vorrang haben.
+
+Beispiel:
+30 m = 5,06 s
+Bewertung = „Sehr gut (Profi-Niveau)“
+
+→ KEIN Schnelligkeitsdefizit.
+
+Gespeichertes Legacy-Feld `defizite` nur verwenden, wenn keine verwertbare strukturierte 10m/30m-Bewertung vorhanden ist.
+
+5m/20m/40m-Fallback muss erhalten bleiben.
+
+==================================================
+4. FMS
+==================================================
+
+Periodisierung soll dieselben aktuellen FMS-Kriterien berücksichtigen wie `defizite_ermitteln(...)`.
+
+Nicht nur auf gespeicherten Schwerpunkttext vertrauen.
+
+Wenn aktueller FMS-Score/Auffälligkeit ein Defizit erzeugt:
+→ Trainingsplan und Periodisierung müssen denselben Schwerpunkt sehen.
+
+==================================================
+5. Y-BALANCE
+==================================================
+
+Aktuelle Asymmetrien und vorhandene strukturierte Bewertung verwenden.
+
+Periodisierung darf Y-Balance-Defizite nicht verlieren, nur weil sie nicht im gespeicherten Schwerpunkttext stehen.
+
+==================================================
+6. SPRUNG
+==================================================
+
+Die gleichen aktuellen Kriterien verwenden wie im strukturierten Defizitpfad:
+
+- CMJ-Bewertung
+- relevante Asymmetrien
+- RSI
+- weitere bereits vorhandene strukturierte Defizite
+
+Legacy-Text nur als Fallback, wenn strukturierte Werte fehlen.
+
+==================================================
+7. AGILITÄT
+==================================================
+
+Periodisierung soll dieselben relevanten Testbestandteile berücksichtigen wie der Trainingsplan:
+
+- T-Test
+- 505
+- Illinois
+- 505-Asymmetrie
+- weitere bereits vorhandene strukturierte Bewertungen
+
+Keine eigene verkürzte Teilmenge mehr.
+
+==================================================
+8. AUSDAUER
+==================================================
+
+Periodisierung muss dieselbe altersgerechte Ausdauer-/VO2max-Logik verwenden wie `defizite_ermitteln(...)`.
+
+Keine eigenen pauschalen VO2-Schwellen zusätzlich verwenden, wenn die altersgerechte Norm bereits vorhanden ist.
+
+Yo-Yo und VO2 müssen in beiden Pfaden dieselbe Aussage erzeugen.
+
+==================================================
+9. KRAFT
+==================================================
+
+Aktuell hat `defizite_ermitteln(...)` laut Audit keinen vollständigen Kraftpfad.
+
+Bitte diesen Bereich gezielt sauber integrieren, ABER:
+- nur bestehende Kraftbewertung/Schwellen wiederverwenden
+- keine neuen Normwerte erfinden
+- keine große Kraftarchitektur neu bauen
+
+Ziel:
+Wenn Kraftdiagnostik ein echtes Defizit erkennt,
+muss dieses sowohl im Trainingsplan als auch in der Periodisierung sichtbar sein.
+
+==================================================
+10. ANTHROPOMETRIE
+==================================================
+
+Wenn Anthropometrie aktuell strukturierte Defizite erzeugt
+(z. B. bestehende BMI-/Reifestatuslogik),
+muss entschieden werden, ob diese wirklich trainingsrelevant für die Periodisierung sind.
+
+Nicht einfach blind in einen Trainingsschwerpunkt umwandeln.
+
+Falls die bestehende Logik nur Hinweis-/Kontextcharakter hat:
+→ entsprechend dokumentieren und nicht zwangsläufig in Periodisierung übernehmen.
+
+Keine neue medizinische Interpretation erzeugen.
+
+==================================================
+11. STUFENTEST / SPIRO
+==================================================
+
+Die bestehende VO2-/Schwellenlogik zwischen beiden Pfaden angleichen.
+
+Wenn aktuell bereits weitgehend konsistent:
+nur minimale Harmonisierung.
+
+==================================================
+12. ZENTRALER SCHWERPUNKT-PFAD
+==================================================
+
+Zielarchitektur:
+
+Diagnostikdaten
+→ defizite_ermitteln(...)
+→ strukturierte Defizite
+→ Schwerpunkt-Mapping
+→ Trainingsplan
+→ Periodisierung
+
+Nicht:
+
+Diagnostikdaten
+→ mehrere unabhängige Schwellen
+→ gespeicherte Texte
+→ verschiedene Ergebnisse.
+
+Wenn technisch sinnvoll:
+`schwerpunkt_sammeln(...)` soll aus den bereits strukturierten Defiziten arbeiten, statt dieselben Testwerte erneut separat zu bewerten.
+
+==================================================
+13. LEGACY-DATEN
+==================================================
+
+Historische Felder NICHT löschen.
+
+Keine DB-Migration.
+
+Legacy-Texte dürfen weiterhin als Fallback dienen,
+wenn ein alter Datensatz keine strukturierte aktuelle Bewertung besitzt.
+
+Aber:
+strukturierte aktuelle Bewertung hat immer Vorrang.
+
+==================================================
+14. KONSISTENZREGEL
+==================================================
+
+Für denselben Spieler und denselben aktuellen Testbestand müssen folgende Komponenten bezüglich Defizit JA/NEIN konsistent sein:
+
+- sichtbare Trainingsplan-Defizitanzeige
+- automatische Übungsauswahl
+- Periodisierung
+- Schwerpunktanzeige
+
+Unterschiedliche Textlabels sind okay,
+aber nicht widersprüchliche fachliche Aussagen.
+
+==================================================
+15. PFLICHTTESTFÄLLE
+==================================================
+
+Gezielte Tests ergänzen.
+
+Mindestens:
+
+A) Sprint gut
+30m „Sehr gut“
+→ kein Schnelligkeitsdefizit in Trainingsplan UND Periodisierung
+
+B) Sprint auffällig
+→ Schnelligkeitsdefizit in beiden
+
+C) FMS auffällig
+→ Rumpf/Bewegungsqualitätsdefizit in beiden
+
+D) Y-Balance Asymmetrie
+→ in beiden konsistent
+
+E) Sprung auffällig
+→ in beiden konsistent
+
+F) Agilität auffällig
+→ in beiden konsistent
+
+G) Ausdauer gut
+→ kein Ausdauerdefizit in beiden
+
+H) Ausdauer auffällig
+→ Ausdauerdefizit in beiden
+
+I) Kraft auffällig
+→ Kraftdefizit in beiden, sofern bestehende Kraftlogik dies vorsieht
+
+J) alte Legacy-Daten ohne strukturierte Bewertung
+→ Fallback funktioniert weiterhin
+
+K) gutes Sprint + echtes Rumpfdefizit
+→ nur Rumpf, kein Schnelligkeit
+
+==================================================
+16. REGRESSION
+==================================================
+
+Nur relevante bestehende Tests ausführen:
+
+- test_ulogik.py
+- test_alter_testtag.py
+- test_ausdauer_defizit.py
+- test_ausdauer_trainingsplan.py
+- vorhandene Sprint-/Sprung-/Agilität-/Krafttests
+- test_block_b.py
+
+Keine riesige Vollsuite, wenn nicht nötig.
+
+==================================================
+17. NICHT VERÄNDERN
+==================================================
+
+Nicht anfassen:
+
+- DB-Schema
+- historische Testdaten
+- Normwerte
+- Saisonlogik
+- Testtag-Alter
+- Trainingsplan-Editor
+- Warm-up/FIFA 11+
+- Kundenverwaltung
+- Stripe
+- Rechnungen
+- Sessions
+- Mandantenlogik
+
+==================================================
+18. ABSCHLUSSBERICHT
+==================================================
+
+Kurz berichten:
+
+1. welche Dateien/Funktionen geändert wurden
+2. welche Defizitquelle jetzt zentral ist
+3. wie `schwerpunkt_sammeln(...)` jetzt arbeitet
+4. welche Legacy-Fallbacks erhalten bleiben
+5. welche Module harmonisiert wurden
+6. ob Kraft integriert wurde und wie
+7. wie Anthropometrie behandelt wird
+8. Testergebnisse PASS/FAIL
+9. py_compile
+10. DB-Migration ja/nein
+11. offene Risiken
+12. NICHT deployed
+
+Danach STOPP.
+NICHT DEPLOYEN.
