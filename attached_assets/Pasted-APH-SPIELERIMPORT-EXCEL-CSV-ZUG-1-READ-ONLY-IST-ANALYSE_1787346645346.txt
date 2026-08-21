@@ -1,0 +1,80 @@
+APH – SPIELERIMPORT EXCEL/CSV – ZUG 1: READ-ONLY IST-ANALYSE
+
+Wir möchten die bestehende Spielerverwaltung um einen sicheren Excel-/CSV-Massenimport erweitern.
+
+In diesem Zug NICHT implementieren. Nur analysieren.
+
+Zielbild für V1:
+
+In der bestehenden Spielerverwaltung sollen künftig drei Bereiche vorhanden sein:
+
+➕ Neu anlegen | 📥 Importieren | 📋 Alle Spieler
+
+Der neue Bereich „📥 Importieren“ soll später folgenden Ablauf erhalten:
+
+Datei hochladen → Spalten automatisch zuordnen → editierbare Vorschautabelle → Ampelprüfung → Dublettenprüfung → Paketlimitprüfung → Bestätigung → Speicherung → Importergebnis
+
+Geplanter Funktionsumfang:
+
+.xlsx und .csv
+optionale APH-Excel-Vorlage zum Download
+fremde Excel-/CSV-Dateien ebenfalls unterstützen
+Spalten anhand typischer Bezeichnungen automatisch erkennen, z. B.:
+Vorname
+Nachname / Name
+Geburtsdatum / Geburtstag / Geb.
+Geschlecht / m-w
+Position / Pos.
+Mannschaft / Team
+ggf. weitere bereits vorhandene APH-Spielerstammdaten
+nicht erkannte Spalten manuell einem APH-Feld zuordnen oder auf „Nicht importieren“ setzen
+nach Upload noch keine Daten speichern
+Vorschautabelle muss manuell editierbar sein
+einzelne Zeilen aus dem Import entfernen
+Mehrfachauswahl für gemeinsame Änderungen vorsehen
+Ampel:
+🟢 importbereit
+🟡 importierbar, aber wichtige optionale Angaben fehlen
+🔴 nicht sicher importierbar / Entscheidung erforderlich
+Vorname, Nachname und Geburtsdatum sollen grundsätzlich als zentrale Identifikationsdaten behandelt werden
+Geschlecht, Position, Mannschaft etc. können je nach bestehendem APH-Datenmodell nachtragbar sein
+Altersklasse/Jahrgang möglichst aus dem Geburtsdatum ableiten statt blind aus Excel übernehmen
+ungültige/zukünftige Geburtsdaten erkennen
+Dubletten gegen vorhandene Spieler des aktuellen Mandanten prüfen, primär anhand Vorname + Nachname + Geburtsdatum
+mögliche Dublette nicht automatisch neu anlegen
+Aktionen später: Überspringen / vorhandenen Spieler gezielt aktualisieren / bewusst neu anlegen
+Paket-/Spielerlimits vor dem Speichern prüfen
+None bei unbegrenzten Limits fachlich als unbegrenzt behandeln
+Import ausschließlich in den aktuell berechtigten Mandanten
+Excel darf niemals verein_id, trainer_id, Rollen, Lizenz- oder Berechtigungsdaten bestimmen
+erst nach ausdrücklicher Importbestätigung Datenbankänderungen
+anschließend Ergebnis wie „23 neu angelegt · 2 übersprungen · 1 aktualisiert“
+hochgeladene Originaldatei nicht unnötig dauerhaft speichern
+
+Bitte jetzt ausschließlich den vorhandenen Code untersuchen und berichten:
+
+Wo befinden sich aktuell „Neu anlegen“ und „Alle Spieler“ und wie sollte „Importieren“ dort minimal ergänzt werden?
+Welche Felder besitzt ein Spieler tatsächlich in APH? Unterscheide Stammdaten, Diagnostik-/Anthropometrie-Daten und technisch verwaltete Felder.
+Welche Felder sind bei der bestehenden manuellen Spieleranlage Pflichtfelder?
+Welche vorhandene Funktion ist die zentrale/sicherste Methode zum Anlegen eines Spielers?
+Wie werden verein_id, trainer_id und Multi-Mandanten-Zuordnung aktuell bestimmt?
+Welche bestehende Berechtigungs-/Mandantenlogik muss der Import wiederverwenden?
+Wie werden Paket- und Spielerlimits aktuell geprüft? Welche vorhandene zentrale Funktion kann wiederverwendet werden?
+Gibt es bereits Dublettenprüfungen oder Namens-/Geburtsdatumsnormalisierung?
+Wie werden Altersklasse und Alter aktuell aus dem Geburtsdatum bestimmt? Bestehende zentrale Logik wiederverwenden.
+Welche Bibliotheken für .xlsx und .csv sind bereits installiert? Insbesondere openpyxl, pandas etc. prüfen. Keine neue Dependency hinzufügen.
+Prüfe, ob Streamlit st.data_editor bzw. vorhandene APH-Komponenten für die editierbare Vorschautabelle geeignet sind.
+Welche Sicherheitsrisiken bestehen bei Massenimport, Dublettenaktualisierung und Mandantentrennung?
+Welche Dateien/Funktionen müssten für eine minimale V1 tatsächlich geändert bzw. neu erstellt werden?
+Welche Regressionstests müssen zwingend vorhanden sein?
+
+Noch keine Implementierung.
+
+Keine DB-Migration.
+Keine Produktionsdatenänderung.
+Keine Stripe-Aktion.
+Keine neuen Dependencies.
+Nicht deployen.
+Keine bestehenden Spieler verändern.
+
+Am Ende einen kompakten Umsetzungsplan für Zug 2 liefern und danach STOPP.
