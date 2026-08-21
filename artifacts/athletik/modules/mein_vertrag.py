@@ -45,9 +45,14 @@ def _laden(user: dict) -> dict:
         row = conn.execute(
             "SELECT * FROM vereine WHERE id=?", (verein_id,)
         ).fetchone()
+        aktive_benutzer_anzahl = conn.execute(
+            "SELECT COUNT(*) FROM benutzer WHERE verein_id=? AND aktiv=1",
+            (verein_id,),
+        ).fetchone()[0]
     if not row:
         return {}
     data = dict(row)
+    data["aktive_benutzer_anzahl"] = aktive_benutzer_anzahl
     # Status und Paket immer über dieselbe zentrale Bewertung auflösen wie die
     # Superadmin-Lizenzverwaltung. Vertrags- und Kundendaten bleiben dagegen
     # unverändert am führenden Vereinsdatensatz.

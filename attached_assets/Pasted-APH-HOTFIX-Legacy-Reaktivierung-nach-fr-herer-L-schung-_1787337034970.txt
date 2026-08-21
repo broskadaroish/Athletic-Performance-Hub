@@ -1,0 +1,70 @@
+APH HOTFIX – Legacy-Reaktivierung nach früherer Löschung allgemein absichern
+
+Nach Task #263 muss noch ein möglicher historischer Legacy-Zustand berücksichtigt werden.
+
+In älteren Datenbeständen kann folgende widersprüchliche Kombination vorkommen:
+
+kundennummer = "[gelöscht]"
+lizenz_status = "geloescht" bzw. "gelöscht"
+Verein wurde später wieder aktiviert (aktiv = 1)
+Verein ist nicht gesperrt (gesperrt = 0)
+es können weiterhin aktive Benutzer diesem Verein zugeordnet sein
+eventuell wurde anschließend wieder ein aktives Lizenzpaket vergeben
+
+Wichtig: Das ist eine allgemeine Legacy-Konstellation. Keine konkreten Produktionsdaten stehen in der Replit-Entwicklungsdatenbank zur Verfügung.
+
+Bitte analysiere zunächst die vorhandene Lösch-, Anonymisierungs-, Aktivierungs- und Reaktivierungslogik im Code.
+
+Ziel
+
+Das System muss zuverlässig zwischen zwei Fällen unterscheiden:
+
+A. Tatsächlich endgültig gelöschter/anonymisierter Account
+
+bleibt fail-closed
+darf nicht reaktiviert werden
+keine personenbezogenen Daten oder alte Kundennummer rekonstruieren
+
+B. Historischer Legacy-Widerspruch
+
+Account trägt noch alte Löschmarker, wurde aber durch frühere Programmlogik später technisch wieder aktiviert bzw. mit einer neuen Lizenz versehen
+dieser Zustand darf nicht dazu führen, dass Superadmin und „Mein Vertrag“ dauerhaft unterschiedliche Status anzeigen
+
+Prüfe insbesondere:
+
+Welche Felder beweisen heute tatsächlich eine endgültige Anonymisierung?
+Reicht [gelöscht] oder lizenz_status=geloescht alleine überhaupt als sicherer Beweis?
+Wie konnte ein als gelöscht markierter Datensatz später wieder aktiv=1 / gesperrt=0 werden?
+Kann die heutige Aktivierungs-/Lizenzvergabe einen solchen widersprüchlichen Zustand erneut erzeugen?
+
+Saubere Lösung
+
+Behebe zuerst die Ursache, sodass zukünftig kein widersprüchlicher Zustand mehr entstehen kann.
+
+Für vorhandene Legacy-Zustände eine sichere Behandlung implementieren:
+
+keine Kundennummer erfinden
+keine gelöschte Kundennummer rekonstruieren
+falls bei einer zulässigen Reaktivierung eine neue Kundennummer erforderlich ist, ausschließlich die bestehende atomare Kundennummern-Vergabe verwenden
+echte Löscharchive weiterhin schützen
+Stripe-Kündigungsschutz aus Task #263 vollständig erhalten
+Mein Vertrag und Superadmin-Lizenzverwaltung müssen dieselbe zentrale Statusquelle verwenden
+
+Wichtig: Nicht allein anhand von aktiv=1 oder eines vorhandenen Benutzers ein endgültig anonymisiertes Konto automatisch wiederherstellen. Die Reaktivierbarkeit muss aus der vorhandenen Account-/Löschlogik eindeutig und sicher ableitbar sein.
+
+Ergänze Regressionstests für:
+
+normal aktiver Account
+normal deaktivierter Account → zulässige Reaktivierung
+endgültig anonymisierter Account → Reaktivierung blockiert
+historischer widersprüchlicher Legacy-Zustand
+neue Kundennummer nur über bestehende atomare Vergabe
+keine Kundennummer-Kollision
+Mein Vertrag = Superadmin-Status
+offene Stripe-Kündigung bleibt geschützt
+
+Keine Produktionsdaten verändern. Keine konkreten Produktionsaccounts voraussetzen. Keine DB-Migration, sofern nicht zwingend erforderlich. NICHT DEPLOYEN.
+
+Im Abschlussbericht bitte ausdrücklich erklären, wie künftig ein echtes Löscharchiv von einem Legacy-Widerspruch unterschieden wird.
+
+Danach STOPP.

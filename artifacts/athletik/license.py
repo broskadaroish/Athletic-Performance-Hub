@@ -305,6 +305,33 @@ class LizenzInfo(TypedDict):
     gekuendigt_zum: str | None  # ISO-Date: Ende des laufenden Abrechnungszeitraums
 
 
+def ist_legacy_reaktivierung(verein_row: dict) -> bool:
+    """Erkennt einen eng definierten, historisch widersprüchlichen Reaktivierungszustand.
+
+    Ein Löschmarker allein bleibt immer fail-closed. Als Legacy-Reaktivierung
+    gilt ein Datensatz nur, wenn eine frühere Logik ihn bereits vollständig
+    technisch wieder freigeschaltet hat: aktiver Verein, keine Sperre und
+    mindestens ein aktives zugeordnetes Benutzerkonto. Die Benutzeranzahl muss
+    vom aufrufenden DB-Lesepfad explizit als ``aktive_benutzer_anzahl`` geliefert
+    werden; ohne diese Information wird nie eine Reaktivierung angenommen.
+    """
+    raw_status = str(verein_row.get("lizenz_status") or "").lower()
+    hat_loeschmarker = (
+        str(verein_row.get("kundennummer") or "").strip() == "[gelöscht]"
+        or raw_status in ("geloescht", "gelöscht")
+    )
+    try:
+        aktive_benutzer = int(verein_row.get("aktive_benutzer_anzahl") or 0)
+    except (TypeError, ValueError):
+        aktive_benutzer = 0
+    return (
+        hat_loeschmarker
+        and bool(verein_row.get("aktiv"))
+        and not bool(verein_row.get("gesperrt"))
+        and aktive_benutzer > 0
+    )
+
+
 def get_lizenz_info(verein_row: dict) -> LizenzInfo:
     """Berechnet den vollständigen Lizenz-Status eines Vereins.
 
@@ -326,11 +353,19 @@ def get_lizenz_info(verein_row: dict) -> LizenzInfo:
     raw_status     = str(verein_row.get("lizenz_status") or "trial").lower()
     # Anonymisierte Kundenzeilen bleiben ein endgültiger Sonderfall: Sie werden
     # wegen Rechnungs-FKs aufbewahrt, haben aber kein wiederherstellbares Konto.
-    ist_anonymisiert = (
+    # Nur ein nachweislich bereits technisch reaktivierter Altbestand wird
+    # lesend als aktiv behandelt; einzelne aktive Flags reichen nie aus.
+    hat_loeschmarker = (
         str(verein_row.get("kundennummer") or "").strip() == "[gelöscht]"
         or raw_status in ("geloescht", "gelöscht")
     )
-    lizenz_status  = "geloescht" if ist_anonymisiert else raw_status
+    legacy_reaktiviert = ist_legacy_reaktivierung(verein_row)
+    ist_anonymisiert = hat_loeschmarker and not legacy_reaktiviert
+    lizenz_status = (
+        "geloescht" if ist_anonymisiert
+        else "active" if legacy_reaktiviert and raw_status in ("geloescht", "gelöscht")
+        else raw_status
+    )
     gesperrt       = bool(verein_row.get("gesperrt", 0))
     zahlungsstatus = verein_row.get("zahlungsstatus") or "offen"
 

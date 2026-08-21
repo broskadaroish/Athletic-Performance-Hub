@@ -58,6 +58,17 @@ def neuer_verein(
         ).lastrowid
 
 
+def aktiver_benutzer(verein_id: int, email: str) -> int:
+    """Legt einen aktiven Benutzer für den nachweisbaren Legacy-Zustand an."""
+    with database.get_conn() as conn:
+        return conn.execute(
+            """INSERT INTO benutzer
+               (verein_id, vorname, nachname, email, passwort_hash, rolle, aktiv)
+               VALUES (?, 'Legacy', 'Benutzer', ?, 'test-hash', 'Vereinsadmin', 1)""",
+            (verein_id, email),
+        ).lastrowid
+
+
 def vertrag_und_admin_status(verein_id: int) -> tuple[dict, str]:
     invalidate_lizenz_cache(verein_id)
     vertrag = _laden({"verein_id": verein_id, "rolle": "Vereinsadmin"})
@@ -97,6 +108,47 @@ vertrag, admin_status = vertrag_und_admin_status(reaktiv_id)
 check("Reaktivierte Lizenz bleibt im Vertrag nicht gelöscht", vertrag["lizenz_status"] == "active")
 check("Reaktivierte Lizenz stimmt mit Superadmin überein", vertrag["lizenz_status"] == admin_status)
 
+# Historischer Widerspruch: Löschmarker allein reichen nicht, aber ein bereits
+# aktivierter und entsperrter Verein mit aktivem Benutzer wird lesend konsistent
+# als Legacy-Reaktivierung behandelt und bei der nächsten Lizenzspeicherung
+# atomar mit neuer Kundennummer bereinigt.
+legacy_id = neuer_verein(
+    "[Archiviert]", status="geloescht", lizenz_bis=zukunft, aktiv=1, gesperrt=0,
+    kundennummer="[gelöscht]",
+)
+aktiver_benutzer(legacy_id, "legacy-aktiv-1@test.invalid")
+vertrag, admin_status = vertrag_und_admin_status(legacy_id)
+check("Legacy-Widerspruch erscheint im Vertrag als aktiv", vertrag["lizenz_status"] == "active")
+check("Legacy-Widerspruch stimmt vor Bereinigung mit Superadmin überein", vertrag["lizenz_status"] == admin_status)
+database.lizenz_setzen(legacy_id, "VEREIN_PRO", "active", zukunft)
+with database.get_conn() as conn:
+    legacy_row = dict(conn.execute("SELECT * FROM vereine WHERE id=?", (legacy_id,)).fetchone())
+check(
+    "Legacy-Reaktivierung erhält eine neue Kundennummer",
+    legacy_row["kundennummer"].startswith("APH-") and legacy_row["kundennummer"] != "[gelöscht]",
+)
+check(
+    "Legacy-Reaktivierung behält den technischen Zugang aktiv",
+    legacy_row["aktiv"] == 1 and legacy_row["gesperrt"] == 0 and legacy_row["lizenz_status"] == "active",
+)
+vertrag, admin_status = vertrag_und_admin_status(legacy_id)
+check("Bereinigter Legacy-Account stimmt mit Superadmin überein", vertrag["lizenz_status"] == admin_status)
+
+# Jede zulässige Legacy-Bereinigung erhält eine eigene atomar vergebene Nummer.
+legacy_2_id = neuer_verein(
+    "[Archiviert]", status="gelöscht", lizenz_bis=zukunft, aktiv=1, gesperrt=0,
+    kundennummer="[gelöscht]",
+)
+aktiver_benutzer(legacy_2_id, "legacy-aktiv-2@test.invalid")
+database.lizenz_setzen(legacy_2_id, "VEREIN_PRO", "active", zukunft)
+with database.get_conn() as conn:
+    legacy_2_row = dict(conn.execute("SELECT * FROM vereine WHERE id=?", (legacy_2_id,)).fetchone())
+check(
+    "Neue Legacy-Kundennummer kollidiert nicht",
+    legacy_2_row["kundennummer"].startswith("APH-")
+    and legacy_2_row["kundennummer"] != legacy_row["kundennummer"],
+)
+
 # Ein technischer Mandant muss auch bei einem alten Paket-Key in beiden Ansichten
 # als Trainer-Paket aufgelöst werden.
 tech_id = neuer_verein(
@@ -112,14 +164,14 @@ check("Technischer Mandant normalisiert BASIC im Vertrag als Trainer-Paket", ver
 check("Technischer Mandant normalisiert BASIC im Superadmin gleich", admin_row["_paket_key"] == "TRAINER_BASIC")
 
 # Ablauf wird nur zentral berechnet und deshalb auf beiden Seiten gleich angezeigt.
-expired_id = neuer_verein("Abgelaufen", status="active", lizenz_bis=vergangenheit, kundennummer="APH-900003")
+expired_id = neuer_verein("Abgelaufen", status="active", lizenz_bis=vergangenheit, kundennummer="APH-900010")
 vertrag, admin_status = vertrag_und_admin_status(expired_id)
 check("Abgelaufene Lizenz wird im Vertrag als abgelaufen angezeigt", vertrag["lizenz_status"] == "expired")
 check("Abgelaufene Lizenz stimmt mit Superadmin überein", vertrag["lizenz_status"] == admin_status)
 
 # Eine laufende Kündigung bleibt ein eigener Vertragsstatus.
 cancelled_id = neuer_verein(
-    "Gekuendigt", status="cancelled", lizenz_bis=zukunft, kundennummer="APH-900004",
+    "Gekuendigt", status="cancelled", lizenz_bis=zukunft, kundennummer="APH-900011",
     kuendigungsstatus="vorgemerkt",
 )
 vertrag, admin_status = vertrag_und_admin_status(cancelled_id)
@@ -129,7 +181,7 @@ check("Gekündigte Lizenz stimmt mit Superadmin überein", vertrag["lizenz_statu
 
 # Eine Stripe-Kündigung darf durch lokales Speichern nicht als widerrufen gelten.
 stripe_id = neuer_verein(
-    "Stripe Kündigung", status="cancelled", lizenz_bis=zukunft, kundennummer="APH-900006",
+    "Stripe Kündigung", status="cancelled", lizenz_bis=zukunft, kundennummer="APH-900012",
     kuendigungsstatus="vorgemerkt", stripe_subscription_id="sub_test_pending",
 )
 try:
@@ -177,12 +229,18 @@ check(
     and deleted_row["lizenz_status"] == "geloescht"
     and deleted_row["aktiv"] == 0,
 )
+try:
+    database.verein_aktivieren(deleted_id, 1)
+    direktaktivierung_blockiert = False
+except ValueError:
+    direktaktivierung_blockiert = True
+check("Echtes Löscharchiv kann nicht direkt aktiviert werden", direktaktivierung_blockiert)
 
 # Auch ein roher Löschstatus bleibt gelöscht, wenn die Kundennummer aus einem
 # historischen Import nicht das aktuelle Anonymisierungs-Sentinel trägt.
 raw_deleted_id = neuer_verein(
     "Historisch gelöscht", status="geloescht", lizenz_bis=zukunft, aktiv=0, gesperrt=1,
-    kundennummer="APH-900007",
+    kundennummer="APH-900013",
 )
 vertrag, admin_status = vertrag_und_admin_status(raw_deleted_id)
 check("Roher Löschstatus bleibt in Mein Vertrag gelöscht", vertrag["lizenz_status"] == "geloescht")

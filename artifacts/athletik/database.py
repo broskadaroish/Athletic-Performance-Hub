@@ -4887,6 +4887,20 @@ def verein_by_id(verein_id: int) -> dict | None:
 
 def verein_aktivieren(verein_id: int, aktiv: int) -> None:
     with get_conn() as conn:
+        if aktiv:
+            row = conn.execute(
+                """SELECT kundennummer, lizenz_status
+                     FROM vereine WHERE id=?""",
+                (verein_id,),
+            ).fetchone()
+            if row and (
+                str(row["kundennummer"] or "").strip() == "[gelöscht]"
+                or str(row["lizenz_status"] or "").lower() in ("geloescht", "gelöscht")
+            ):
+                raise ValueError(
+                    "Archivierte Kunden dürfen nicht direkt aktiviert werden. "
+                    "Eine nachweisbare Legacy-Reaktivierung muss über die Lizenzverwaltung erfolgen."
+                )
         conn.execute(
             "UPDATE vereine SET aktiv=? WHERE id=?", (aktiv, verein_id)
         )
@@ -4909,6 +4923,18 @@ def verein_aktualisieren(
     aktiv: int = 1,
 ) -> None:
     with get_conn() as conn:
+        if aktiv:
+            row = conn.execute(
+                "SELECT kundennummer, lizenz_status FROM vereine WHERE id=?",
+                (verein_id,),
+            ).fetchone()
+            if row and (
+                str(row["kundennummer"] or "").strip() == "[gelöscht]"
+                or str(row["lizenz_status"] or "").lower() in ("geloescht", "gelöscht")
+            ):
+                raise ValueError(
+                    "Archivierte Kunden dürfen nicht über die Vereinsbearbeitung aktiviert werden."
+                )
         conn.execute("""
             UPDATE vereine SET
                 name=?, ansprechpartner=?, email=?, telefon=?,
@@ -4949,11 +4975,14 @@ def lizenz_info_laden(verein_id: int) -> dict | None:
     """
     with get_conn() as conn:
         return _row(conn.execute(
-            """SELECT id, name, aktiv, lizenztyp, lizenz_bis, lizenz_status,
+            """SELECT id, name, aktiv, kundennummer, lizenztyp, lizenz_bis, lizenz_status,
                       testphase_bis, gesperrt, stripe_customer_id,
                       stripe_subscription_id, zahlungsstatus,
                       ist_technischer_mandant, abo_intervall,
-                      cancel_at_period_end, gekuendigt_zum
+                       cancel_at_period_end, gekuendigt_zum,
+                       (SELECT COUNT(*) FROM benutzer b
+                         WHERE b.verein_id=vereine.id AND b.aktiv=1)
+                         AS aktive_benutzer_anzahl
                  FROM vereine WHERE id=?""",
             (verein_id,),
         ).fetchone())
@@ -4966,28 +4995,40 @@ def lizenz_setzen(
     lizenz_bis: str | None = None,
     testphase_bis: str | None = None,
 ) -> None:
-    """Setzt Lizenztyp, Status und Ablaufdaten für einen nicht anonymisierten Verein.
+    """Setzt Lizenztyp, Status und Ablaufdaten für einen Verein.
 
     Das Aktivieren einer zuvor deaktivierten oder gesperrten Lizenz stellt die
     zugehörigen Zugangs- und Kündigungsflags wieder konsistent her. Endgültig
     anonymisierte Kundendatensätze dürfen dagegen nicht wiederbelebt werden.
+    Eine eng erkannte Legacy-Reaktivierung erhält atomar eine neue Kundennummer.
     """
     with get_conn() as conn:
         aktuell = conn.execute(
-            """SELECT aktiv, gesperrt, lizenz_status, kundennummer,
-                      stripe_subscription_id, cancel_at_period_end
-                 FROM vereine WHERE id=?""",
+            """SELECT v.aktiv, v.gesperrt, v.lizenz_status, v.kundennummer,
+                      v.ist_technischer_mandant, v.stripe_subscription_id,
+                      v.cancel_at_period_end,
+                      (SELECT COUNT(*) FROM benutzer b
+                         WHERE b.verein_id=v.id AND b.aktiv=1)
+                         AS aktive_benutzer_anzahl
+                 FROM vereine v WHERE v.id=?""",
             (verein_id,),
         ).fetchone()
         if not aktuell:
             raise ValueError("Verein für Lizenzänderung nicht gefunden.")
         alter_status = str(aktuell["lizenz_status"] or "").lower()
-        if (
+        hat_loeschmarker = (
             str(aktuell["kundennummer"] or "").strip() == "[gelöscht]"
             or alter_status in ("geloescht", "gelöscht")
-        ):
+        )
+        from license import ist_legacy_reaktivierung
+        legacy_reaktiviert = ist_legacy_reaktivierung(dict(aktuell))
+        if hat_loeschmarker and not legacy_reaktiviert:
             raise ValueError(
                 "Endgültig anonymisierte Kunden können nicht über die Lizenzverwaltung reaktiviert werden."
+            )
+        if legacy_reaktiviert and lizenz_status not in ("active", "trial"):
+            raise ValueError(
+                "Ein historisch reaktivierter Account kann nur mit aktiver Lizenz oder Testphase bereinigt werden."
             )
         if (
             bool(aktuell["stripe_subscription_id"])
@@ -5003,7 +5044,8 @@ def lizenz_setzen(
             and (
                 not bool(aktuell["aktiv"])
                 or bool(aktuell["gesperrt"])
-                or alter_status in ("cancelled", "beendet", "expired", "suspended", "geloescht", "gelöscht")
+                or legacy_reaktiviert
+                or alter_status in ("cancelled", "beendet", "expired", "suspended")
             )
         )
         reaktivierungs_sql = ""
@@ -5026,6 +5068,16 @@ def lizenz_setzen(
                       gekuendigt_zum=NULL,
                       cancel_at_period_end=0
                 """
+        neue_kundennummer = None
+        if legacy_reaktiviert:
+            # Alte oder anonymisierte Kundennummern werden nie wiederverwendet.
+            # Die bestehende atomare Vergabelogik wird innerhalb derselben
+            # Verbindung genutzt, damit keine Nummernkollision entstehen kann.
+            neue_kundennummer = _kundennummer_verein_zuweisen_in_conn(
+                conn, verein_id, neu_vergeben=True
+            )
+        params = [lizenz_typ, lizenz_status, lizenz_bis, testphase_bis]
+        params.append(verein_id)
         conn.execute(
             f"""UPDATE vereine
                   SET lizenztyp=?,
@@ -5034,7 +5086,7 @@ def lizenz_setzen(
                       testphase_bis=COALESCE(?, testphase_bis)
                       {reaktivierungs_sql}
                 WHERE id=?""",
-            (lizenz_typ, lizenz_status, lizenz_bis, testphase_bis, verein_id),
+            params,
         )
 
 
@@ -5264,13 +5316,16 @@ def alle_vereine_lizenz() -> list[dict]:
     """Alle Vereine mit Lizenzdaten für den Superadmin-Überblick."""
     with get_conn() as conn:
         return _rows(conn.execute(
-            """SELECT id, name, email, aktiv, kundennummer, lizenztyp, lizenz_bis, lizenz_status,
+            """SELECT v.id, v.name, v.email, v.aktiv, v.kundennummer, v.lizenztyp, v.lizenz_bis, v.lizenz_status,
                       testphase_bis, gesperrt, stripe_customer_id,
                       stripe_subscription_id, zahlungsstatus,
                        ist_technischer_mandant,
                       cancel_at_period_end, kuendigungsstatus, gekuendigt_zum,
-                      kuendigung_eingegangen, letzte_zahlung_fehlgeschlagen
-                 FROM vereine
+                       kuendigung_eingegangen, letzte_zahlung_fehlgeschlagen,
+                       (SELECT COUNT(*) FROM benutzer b
+                         WHERE b.verein_id=v.id AND b.aktiv=1)
+                         AS aktive_benutzer_anzahl
+                  FROM vereine v
                 ORDER BY erstellt_am DESC""",
         ).fetchall())
 
@@ -5723,6 +5778,18 @@ def benutzer_aktivieren(benutzer_id: int, aktiv: int) -> None:
         ziel = conn.execute(
             "SELECT rolle, verein_id FROM benutzer WHERE id=?", (benutzer_id,)
         ).fetchone()
+        if aktiv == 1 and ziel and ziel["verein_id"]:
+            verein = conn.execute(
+                "SELECT kundennummer, lizenz_status FROM vereine WHERE id=?",
+                (ziel["verein_id"],),
+            ).fetchone()
+            if verein and (
+                str(verein["kundennummer"] or "").strip() == "[gelöscht]"
+                or str(verein["lizenz_status"] or "").lower() in ("geloescht", "gelöscht")
+            ):
+                raise ValueError(
+                    "Benutzer eines archivierten Kunden dürfen nicht direkt aktiviert werden."
+                )
 
         # ── Guard: letzten aktiven Superadmin schützen ────────────────────────
         if aktiv == 0 and ziel and ziel[0] == "Superadmin":
@@ -7310,6 +7377,30 @@ def _naechste_kundennummer_in_conn(conn) -> str:
     return f"APH-{max(mv, mb)+1:06d}"
 
 
+def _kundennummer_verein_zuweisen_in_conn(
+    conn,
+    verein_id: int,
+    *,
+    neu_vergeben: bool = False,
+) -> str:
+    """Zentrale atomare Kundennummernvergabe innerhalb einer Transaktion.
+
+    ``neu_vergeben`` ist ausschließlich für eine als sicher erkannte
+    Legacy-Reaktivierung bestimmt. Die alte, durch Löschmarker entwertete Nummer
+    wird dabei nie wiederverwendet.
+    """
+    existing = conn.execute(
+        "SELECT kundennummer FROM vereine WHERE id=?", (verein_id,)
+    ).fetchone()
+    if not existing:
+        raise ValueError("Verein für Kundennummernvergabe nicht gefunden.")
+    if existing[0] and not neu_vergeben:
+        return existing[0]
+    kn = _naechste_kundennummer_in_conn(conn)
+    conn.execute("UPDATE vereine SET kundennummer=? WHERE id=?", (kn, verein_id))
+    return kn
+
+
 def kundennummer_vergeben_verein(verein_id: int) -> str:
     """Vergibt eine neue Kundennummer an einen Verein — atomar in einer Transaktion.
 
@@ -7318,14 +7409,7 @@ def kundennummer_vergeben_verein(verein_id: int) -> str:
     vereine ist die führende Vertragsquelle für Kundennummern.
     """
     with get_conn() as conn:
-        existing = conn.execute(
-            "SELECT kundennummer FROM vereine WHERE id=?", (verein_id,)
-        ).fetchone()
-        if existing and existing[0]:
-            return existing[0]
-        kn = _naechste_kundennummer_in_conn(conn)
-        conn.execute("UPDATE vereine SET kundennummer=? WHERE id=?", (kn, verein_id))
-    return kn
+        return _kundennummer_verein_zuweisen_in_conn(conn, verein_id)
 
 
 def kundennummer_vergeben_benutzer(benutzer_id: int) -> str:
