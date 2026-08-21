@@ -6,7 +6,9 @@ from __future__ import annotations
 import streamlit as st
 from database import (
     kunden_liste_laden,
+    verwaiste_mandanten_laden,
     kunde_vollstaendig_laden,
+    trainer_mandanten_fuer_verein,
     rechnungsadresse_speichern,
     rechnungsadresse_laden,
     superadmin_email_aendern,
@@ -1166,6 +1168,7 @@ def _kunde_detail(verein_id: int | None, benutzer_id: int | None) -> None:
     st.divider()
 
     _detail_a_kundenkonto(daten)
+    _detail_trainer_und_benutzer(daten)
     _detail_b_rechnungsadresse(daten)
     _detail_c_lizenz(daten)
     _detail_d_vertrag(daten)
@@ -1173,6 +1176,26 @@ def _kunde_detail(verein_id: int | None, benutzer_id: int | None) -> None:
     _detail_f_abrechnung(daten)
     _detail_audit(daten)
     _detail_gefahrenbereich(daten)
+
+
+def _detail_trainer_und_benutzer(daten: dict) -> None:
+    """Zeigt die aktuellen Vereinszugehörigkeiten aus trainer_mandanten."""
+    verein = daten.get("verein") or {}
+    if not verein or verein.get("ist_technischer_mandant"):
+        return
+
+    mitglieder = [
+        person for person in trainer_mandanten_fuer_verein(verein["id"])
+        if person.get("benutzer_aktiv")
+    ]
+    with st.expander("**Trainer & Benutzer**", expanded=False):
+        if not mitglieder:
+            st.info("Für diesen Verein sind aktuell keine aktiven Trainer oder Vereinsadmins zugeordnet.")
+            return
+        for person in mitglieder:
+            name = f"{person.get('vorname') or ''} {person.get('nachname') or ''}".strip() or "Unbekannt"
+            rolle = person.get("rolle_im_verein") or person.get("rolle") or "Trainer"
+            st.markdown(f"- **{name}** – {rolle} · {person.get('email') or '—'}")
 
 
 def _widerruf_frist_badge(eingegangen_str: str | None) -> str:
@@ -1403,7 +1426,9 @@ def page_kundenverwaltung():
 
     st.title("👥 Kundenverwaltung")
 
-    tab_kunden, tab_kuend = st.tabs(["👥 Kunden", "🚫 Kündigungen"])
+    tab_kunden, tab_kuend, tab_pruefung = st.tabs(
+        ["👥 Kunden", "🚫 Kündigungen", "⚠️ Datenprüfung"]
+    )
 
     # ── Tab: Kunden ────────────────────────────────────────────────────────────
     with tab_kunden:
@@ -1451,3 +1476,38 @@ def page_kundenverwaltung():
     # ── Tab: Kündigungen ───────────────────────────────────────────────────────
     with tab_kuend:
         _kuendigungen_uebersicht()
+
+    # ── Tab: Datenprüfung / verwaiste Mandanten ────────────────────────────────
+    with tab_pruefung:
+        st.markdown("### ⚠️ Datenprüfung / Verwaiste Mandanten")
+        st.caption(
+            "Diese Mandanten haben keine aktiven Benutzer und keine Spieler, "
+            "besitzen aber noch Lizenz-, Vertrags- oder Stripe-Daten. "
+            "Die Anzeige ist rein informativ und nimmt keine Änderungen vor."
+        )
+        verwaiste = verwaiste_mandanten_laden()
+        if not verwaiste:
+            st.success("Keine verwaisten Mandanten gefunden.")
+        else:
+            for mandant in verwaiste:
+                stripe_vorhanden = bool(
+                    mandant.get("stripe_customer_id") or mandant.get("stripe_subscription_id")
+                )
+                vertrag_vorhanden = bool(
+                    mandant.get("kundennummer")
+                    or mandant.get("vertragsbeginn")
+                    or mandant.get("vertragsende")
+                    or mandant.get("lizenztyp")
+                )
+                with st.expander(
+                    f"⚠️ {mandant.get('vereinsname') or 'Unbenannter Mandant'} "
+                    f"({mandant.get('kundennummer') or 'ohne Kundennummer'})",
+                    expanded=False,
+                ):
+                    c1, c2, c3 = st.columns(3)
+                    c1.markdown(f"**Lizenzstatus:** {mandant.get('lizenz_status') or '—'}")
+                    c2.markdown(f"**Aktive Benutzer:** {mandant.get('aktive_benutzer_anzahl', 0)}")
+                    c3.markdown(f"**Spieler:** {mandant.get('spieler_anzahl', 0)}")
+                    c1.markdown(f"**Paket:** {mandant.get('lizenztyp') or '—'}")
+                    c2.markdown(f"**Vertragsdaten:** {'vorhanden' if vertrag_vorhanden else 'keine'}")
+                    c3.markdown(f"**Stripe-Daten:** {'vorhanden' if stripe_vorhanden else 'keine'}")

@@ -37,3 +37,4 @@
 - [Warm-up plan representation](warmup-plan-representation.md) — special plan rows keep APH/FIFA selections, canonical duration, and legacy fallback in UI/PDF sync
 - [Protocol-specific CPET reference data](cpet-reference-models.md) — never transfer VO₂ norms across devices/protocols; global ranges failed on methodological heterogeneity
 - [Contract status consistency](contract-status-consistency.md) — customer contract views must use the central effective license evaluation; anonymized records are never revived
+- [Customer and tenant classification](customer-tenant-classification.md) — customer and license views share one evidence-based classification; memberships never establish a contract

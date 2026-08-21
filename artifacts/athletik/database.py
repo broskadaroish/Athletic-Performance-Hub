@@ -5289,45 +5289,66 @@ def rechnungen_laden(verein_id: int) -> list[dict]:
 
 
 def alle_trainer_lizenz() -> list[dict]:
-    """Gibt alle Benutzer zurück, die eine eigene Trainer-Lizenz besitzen (Einzeltrainer).
-
-    Standalone-Trainer sind Benutzer mit einer eigenen Kundennummer — sie haben
-    eine direkte Lizenz über trainer_lizenz_setzen() erhalten und sind nicht als
-    Vereinsmitglied einer Vereinslizenz zugeordnet.
-    """
-    with get_conn() as conn:
-        rows = conn.execute("""
-            SELECT b.id, b.vorname, b.nachname, b.email, b.kundennummer,
-                   b.lizenztyp, b.lizenz_status, b.lizenz_bis, b.testphase_bis,
-                   b.aktiv, b.rolle, b.verein_id,
-                   b.vertragsbeginn, b.vertragsende,
-                   b.kuendigungsstatus, b.gekuendigt_zum,
-                   b.kuendigung_eingegangen
-            FROM benutzer b
-            WHERE b.kundennummer IS NOT NULL
-              AND b.lizenztyp IS NOT NULL
-              AND b.lizenztyp != ''
-            ORDER BY b.nachname, b.vorname
-        """).fetchall()
-    return [dict(r) for r in rows]
+    """Gibt nur klassifizierte Einzeltrainer-Vertragspartner zurück."""
+    return [
+        {
+            "id": row["benutzer_id"],
+            "vorname": row["vorname"],
+            "nachname": row["nachname"],
+            "email": row["email"],
+            "kundennummer": row["kundennummer"],
+            "lizenztyp": row["lizenztyp"],
+            "lizenz_status": row["lizenz_status"],
+            "lizenz_bis": row["lizenz_bis"],
+            "testphase_bis": row["testphase_bis"],
+            "aktiv": row["aktiv"],
+            "rolle": "Trainer",
+            "verein_id": row.get("vertrag_verein_id"),
+            "vertragsbeginn": row["vertragsbeginn"],
+            "vertragsende": row["vertragsende"],
+            "kuendigungsstatus": row["kuendigungsstatus"],
+            "gekuendigt_zum": row["gekuendigt_zum"],
+            "kuendigung_eingegangen": row["kuendigung_eingegangen"],
+            "zahlungsstatus": row.get("zahlungsstatus"),
+            "stripe_customer_id": row.get("stripe_customer_id"),
+            "stripe_subscription_id": row.get("stripe_subscription_id"),
+            "cancel_at_period_end": row.get("cancel_at_period_end"),
+            "letzte_zahlung_fehlgeschlagen": row.get("letzte_zahlung_fehlgeschlagen"),
+            "vertrag_verein_id": row.get("vertrag_verein_id"),
+        }
+        for row in vertragspartner_liste_laden()
+        if row["klassifikation"] == "einzeltrainer"
+    ]
 
 
 def alle_vereine_lizenz() -> list[dict]:
-    """Alle Vereine mit Lizenzdaten für den Superadmin-Überblick."""
-    with get_conn() as conn:
-        return _rows(conn.execute(
-            """SELECT v.id, v.name, v.email, v.aktiv, v.kundennummer, v.lizenztyp, v.lizenz_bis, v.lizenz_status,
-                      testphase_bis, gesperrt, stripe_customer_id,
-                      stripe_subscription_id, zahlungsstatus,
-                       ist_technischer_mandant,
-                      cancel_at_period_end, kuendigungsstatus, gekuendigt_zum,
-                       kuendigung_eingegangen, letzte_zahlung_fehlgeschlagen,
-                       (SELECT COUNT(*) FROM benutzer b
-                         WHERE b.verein_id=v.id AND b.aktiv=1)
-                         AS aktive_benutzer_anzahl
-                  FROM vereine v
-                ORDER BY erstellt_am DESC""",
-        ).fetchall())
+    """Gibt nur klassifizierte echte Vereins-Vertragspartner zurück."""
+    return [
+        {
+            "id": row["verein_id"],
+            "name": row["vereinsname"],
+            "email": row.get("verein_email"),
+            "aktiv": row["aktiv"],
+            "kundennummer": row["kundennummer"],
+            "lizenztyp": row["lizenztyp"],
+            "lizenz_bis": row["lizenz_bis"],
+            "lizenz_status": row["lizenz_status"],
+            "testphase_bis": row["testphase_bis"],
+            "gesperrt": row["verein_gesperrt"],
+            "stripe_customer_id": row.get("stripe_customer_id"),
+            "stripe_subscription_id": row.get("stripe_subscription_id"),
+            "zahlungsstatus": row.get("zahlungsstatus"),
+            "ist_technischer_mandant": 0,
+            "cancel_at_period_end": row.get("cancel_at_period_end"),
+            "kuendigungsstatus": row["kuendigungsstatus"],
+            "gekuendigt_zum": row["gekuendigt_zum"],
+            "kuendigung_eingegangen": row["kuendigung_eingegangen"],
+            "letzte_zahlung_fehlgeschlagen": row.get("letzte_zahlung_fehlgeschlagen"),
+            "aktive_benutzer_anzahl": row.get("aktive_benutzer_anzahl", 0),
+        }
+        for row in vertragspartner_liste_laden()
+        if row["klassifikation"] == "verein"
+    ]
 
 
 def verein_logo_speichern(verein_id: int, logo_bytes: bytes | None) -> None:
@@ -7447,6 +7468,228 @@ def audit_log_eintragen(
         pass  # Audit darf die Hauptoperation nie blockieren
 
 
+_TRAINER_LIZENZ_TYPEN = frozenset({"TRAINER_BASIC", "TRAINER_PRO"})
+
+
+def _hat_vertragsdaten(row: dict, prefix: str = "") -> bool:
+    """Prüft konservativ auf kaufmännische Daten, ohne etwas zu verändern."""
+    fields = (
+        "kundennummer", "stripe_customer_id", "stripe_subscription_id",
+        "lizenz_bis", "testphase_bis", "vertragsbeginn", "vertragsende",
+        "kuendigung_eingegangen", "gekuendigt_zum",
+    )
+    if any(row.get(f"{prefix}{field}") not in (None, "") for field in fields):
+        return True
+    return str(row.get(f"{prefix}lizenz_status") or "").lower() not in ("", "trial")
+
+
+def _hat_eigene_standalone_lizenz(row: dict) -> bool:
+    """Historische Kundennummern allein begründen keinen Einzeltrainerkunden."""
+    lizenztyp = str(row.get("lizenztyp") or "").upper()
+    if lizenztyp not in _TRAINER_LIZENZ_TYPEN:
+        return False
+    # Kundennummer bewusst ausklammern: Sie wurde bei älteren Datenbeständen
+    # teilweise automatisch vergeben und ist kein ausreichender Vertragsbeleg.
+    fields = (
+        "lizenz_bis", "testphase_bis", "vertragsbeginn", "vertragsende",
+        "kuendigung_eingegangen", "gekuendigt_zum",
+    )
+    if any(row.get(field) not in (None, "") for field in fields):
+        return True
+    return str(row.get("lizenz_status") or "").lower() not in ("", "trial")
+
+
+def vertragspartner_liste_laden() -> list[dict]:
+    """Liefert die gemeinsame Klassifikation für alle Superadmin-Kundenlisten.
+
+    Klassifikationen:
+    - ``verein``: echter Verein mit aktivem Bezug zum Produkt
+    - ``einzeltrainer``: eigene Trainerinstanz oder belegter Standalone-Vertrag
+    - ``verwaist``: Mandant ohne aktive Benutzer und Spieler mit Vertragsdaten
+
+    ``trainer_mandanten`` ist für aktuelle Vereinsmitgliedschaften führend.
+    Das Legacy-Feld ``benutzer.verein_id`` wird nur noch für die technische
+    Einzeltrainerinstanz und einen deterministischen Ansprechpartner genutzt.
+    """
+    with get_conn() as conn:
+        vereine = [dict(r) for r in conn.execute("""
+            SELECT v.*,
+                   ba.id AS admin_id, ba.vorname AS admin_vorname,
+                   ba.nachname AS admin_nachname, ba.benutzername AS admin_benutzername,
+                   ba.email AS admin_email, ba.email_verifiziert AS admin_email_verifiziert,
+                   ba.erstellt_am AS admin_erstellt_am, ba.letzter_login AS admin_letzter_login,
+                   ba.aktiv AS admin_aktiv, ba.gesperrt_bis AS admin_gesperrt_bis,
+                   ba.telefon AS admin_telefon,
+                   (SELECT COUNT(*)
+                      FROM trainer_mandanten tm
+                      JOIN benutzer mb ON mb.id=tm.benutzer_id
+                     WHERE tm.verein_id=v.id AND tm.aktiv=1 AND mb.aktiv=1)
+                     AS mandanten_benutzer_anzahl,
+                   (SELECT COUNT(*) FROM benutzer tb
+                     WHERE tb.verein_id=v.id AND tb.aktiv=1)
+                     AS direkte_benutzer_anzahl,
+                   (SELECT COUNT(*) FROM spieler s WHERE s.verein_id=v.id)
+                     AS spieler_anzahl
+              FROM vereine v
+              LEFT JOIN benutzer ba ON ba.id=(
+                  SELECT b2.id FROM benutzer b2
+                   WHERE b2.verein_id=v.id AND b2.rolle='Vereinsadmin'
+                   ORDER BY b2.aktiv DESC, b2.erstellt_am ASC, b2.id ASC
+                   LIMIT 1
+              )
+             ORDER BY v.erstellt_am DESC, v.id DESC
+        """).fetchall()]
+        trainer = [dict(r) for r in conn.execute("""
+            SELECT b.*,
+                   tv.id AS tech_verein_id, tv.kundennummer AS tech_kundennummer,
+                   tv.lizenztyp AS tech_lizenztyp, tv.lizenz_status AS tech_lizenz_status,
+                   tv.lizenz_bis AS tech_lizenz_bis, tv.testphase_bis AS tech_testphase_bis,
+                   tv.vertragsbeginn AS tech_vertragsbeginn, tv.vertragsende AS tech_vertragsende,
+                   tv.kuendigungsstatus AS tech_kuendigungsstatus,
+                   tv.kuendigung_eingegangen AS tech_kuendigung_eingegangen,
+                   tv.gekuendigt_zum AS tech_gekuendigt_zum,
+                   tv.stripe_customer_id AS tech_stripe_customer_id,
+                   tv.stripe_subscription_id AS tech_stripe_subscription_id,
+                   tv.zahlungsstatus AS tech_zahlungsstatus,
+                   tv.cancel_at_period_end AS tech_cancel_at_period_end,
+                   tv.letzte_zahlung_fehlgeschlagen AS tech_letzte_zahlung_fehlgeschlagen
+              FROM benutzer b
+              LEFT JOIN vereine tv
+                ON tv.id=b.verein_id AND COALESCE(tv.ist_technischer_mandant,0)=1
+             WHERE b.rolle='Trainer'
+             ORDER BY CASE WHEN tv.id IS NULL THEN 1 ELSE 0 END,
+                      tv.id, b.erstellt_am, b.id
+        """).fetchall()]
+
+    result: list[dict] = []
+    for v in vereine:
+        ist_technisch = bool(v.get("ist_technischer_mandant"))
+        aktive_benutzer = (
+            int(v.get("direkte_benutzer_anzahl") or 0)
+            if ist_technisch
+            else int(v.get("mandanten_benutzer_anzahl") or 0)
+        )
+        hat_verein_vertrag = _hat_vertragsdaten(v)
+        ist_verwaist = (
+            aktive_benutzer == 0
+            and int(v.get("spieler_anzahl") or 0) == 0
+            and hat_verein_vertrag
+        )
+        klassifikation = "verwaist" if ist_verwaist else ("technisch" if ist_technisch else "verein")
+        # Eine aktuelle Mitgliedschaft ist kein Vertragsbeleg. Ein echter Verein
+        # erscheint daher nur bei nachweisbaren eigenen Vertrags-/Lizenzdaten.
+        if klassifikation == "technisch" or (klassifikation == "verein" and not hat_verein_vertrag):
+            continue
+        result.append({
+            "klassifikation": klassifikation,
+            "verein_id": v["id"],
+            "benutzer_id": v.get("admin_id"),
+            "vertrag_verein_id": v["id"],
+            "kundentyp": "Verein" if klassifikation == "verein" else "Datenprüfung",
+            "kundennummer": v.get("kundennummer"),
+            "vereinsname": v.get("name"),
+            "verein_email": v.get("email"),
+            "vorname": v.get("admin_vorname"),
+            "nachname": v.get("admin_nachname"),
+            "benutzername": v.get("admin_benutzername"),
+            "email": v.get("admin_email") or v.get("email"),
+            "email_verifiziert": bool(v.get("admin_email_verifiziert", 1)),
+            "registriert_am": v.get("admin_erstellt_am") or v.get("erstellt_am"),
+            "letzter_login": v.get("admin_letzter_login"),
+            "aktiv": bool(v.get("admin_aktiv")) if v.get("admin_id") else bool(v.get("aktiv")),
+            "gesperrt_bis": v.get("admin_gesperrt_bis"),
+            "lizenztyp": v.get("lizenztyp") or "BASIC",
+            "lizenz_status": v.get("lizenz_status") or "trial",
+            "lizenz_bis": v.get("lizenz_bis"),
+            "testphase_bis": v.get("testphase_bis"),
+            "vertragsbeginn": v.get("vertragsbeginn"),
+            "vertragsende": v.get("vertragsende"),
+            "kuendigungsstatus": v.get("kuendigungsstatus") or "aktiv",
+            "kuendigung_eingegangen": v.get("kuendigung_eingegangen"),
+            "gekuendigt_zum": v.get("gekuendigt_zum"),
+            "verein_gesperrt": bool(v.get("gesperrt")),
+            "zahlungsstatus": v.get("zahlungsstatus"),
+            "telefon": v.get("admin_telefon") or v.get("telefon"),
+            "stripe_customer_id": v.get("stripe_customer_id"),
+            "stripe_subscription_id": v.get("stripe_subscription_id"),
+            "cancel_at_period_end": bool(v.get("cancel_at_period_end")),
+            "letzte_zahlung_fehlgeschlagen": v.get("letzte_zahlung_fehlgeschlagen"),
+            "aktive_benutzer_anzahl": aktive_benutzer,
+            "spieler_anzahl": int(v.get("spieler_anzahl") or 0),
+        })
+
+    technische_vertragspartner: set[int] = set()
+    for b in trainer:
+        tech_id = b.get("tech_verein_id")
+        tech_lizenztyp = str(b.get("tech_lizenztyp") or "").upper()
+        # Frühere Einzeltrainerinstanzen trugen noch BASIC/PRO. Ein technischer
+        # Mandant macht diese historische Bezeichnung eindeutig als Trainerpaket.
+        hat_tech_lizenz = (
+            bool(tech_id)
+            and tech_lizenztyp in (_TRAINER_LIZENZ_TYPEN | {"BASIC", "PRO"})
+            and _hat_vertragsdaten(b, "tech_")
+        )
+        hat_standalone_lizenz = not b.get("verein_id") and _hat_eigene_standalone_lizenz(b)
+        if not (hat_tech_lizenz or hat_standalone_lizenz):
+            continue
+        if hat_tech_lizenz:
+            if tech_id in technische_vertragspartner:
+                continue
+            technische_vertragspartner.add(tech_id)
+
+        prefix = "tech_" if hat_tech_lizenz else ""
+        result.append({
+            "klassifikation": "einzeltrainer",
+            "verein_id": None,
+            "benutzer_id": b["id"],
+            "vertrag_verein_id": tech_id if hat_tech_lizenz else None,
+            "kundentyp": "Einzeltrainer",
+            "kundennummer": b.get("kundennummer") or b.get("tech_kundennummer"),
+            "vereinsname": None,
+            "verein_email": None,
+            "vorname": b.get("vorname"),
+            "nachname": b.get("nachname"),
+            "benutzername": b.get("benutzername"),
+            "email": b.get("email"),
+            "email_verifiziert": bool(b.get("email_verifiziert", 1)),
+            "registriert_am": b.get("erstellt_am"),
+            "letzter_login": b.get("letzter_login"),
+            "aktiv": bool(b.get("aktiv")),
+            "gesperrt_bis": b.get("gesperrt_bis"),
+            "lizenztyp": (
+                f"TRAINER_{tech_lizenztyp}"
+                if hat_tech_lizenz and tech_lizenztyp in {"BASIC", "PRO"}
+                else b.get(f"{prefix}lizenztyp") or b.get("lizenztyp") or "TRAINER_BASIC"
+            ),
+            "lizenz_status": b.get(f"{prefix}lizenz_status") or b.get("lizenz_status") or "trial",
+            "lizenz_bis": b.get(f"{prefix}lizenz_bis") or b.get("lizenz_bis"),
+            "testphase_bis": b.get(f"{prefix}testphase_bis") or b.get("testphase_bis"),
+            "vertragsbeginn": b.get(f"{prefix}vertragsbeginn") or b.get("vertragsbeginn"),
+            "vertragsende": b.get(f"{prefix}vertragsende") or b.get("vertragsende"),
+            "kuendigungsstatus": b.get(f"{prefix}kuendigungsstatus") or b.get("kuendigungsstatus") or "aktiv",
+            "kuendigung_eingegangen": b.get(f"{prefix}kuendigung_eingegangen") or b.get("kuendigung_eingegangen"),
+            "gekuendigt_zum": b.get(f"{prefix}gekuendigt_zum") or b.get("gekuendigt_zum"),
+            "verein_gesperrt": False,
+            "zahlungsstatus": b.get(f"{prefix}zahlungsstatus"),
+            "telefon": b.get("telefon"),
+            "stripe_customer_id": b.get(f"{prefix}stripe_customer_id"),
+            "stripe_subscription_id": b.get(f"{prefix}stripe_subscription_id"),
+            "cancel_at_period_end": bool(b.get(f"{prefix}cancel_at_period_end")),
+            "letzte_zahlung_fehlgeschlagen": b.get(f"{prefix}letzte_zahlung_fehlgeschlagen"),
+            "aktive_benutzer_anzahl": 1 if b.get("aktiv") else 0,
+            "spieler_anzahl": 0,
+        })
+    return result
+
+
+def verwaiste_mandanten_laden() -> list[dict]:
+    """Lädt ausschließlich informative Datensätze für die Datenprüfung."""
+    return [
+        row for row in vertragspartner_liste_laden()
+        if row["klassifikation"] == "verwaist"
+    ]
+
+
 def kunden_liste_laden(
     such: str = "",
     filter_typ: str = "Alle",
@@ -7454,109 +7697,11 @@ def kunden_liste_laden(
     filter_lizenz: str = "Alle",
     filter_zahlungsstatus: str = "Alle",   # B3: neu
 ) -> list[dict]:
-    """Lädt alle Kunden (Vereine + Einzeltrainer) für Superadmin-Übersicht.
-
-    Gibt eine flache Liste von dicts zurück, die beide Kundentypen vereinheitlicht.
-    Nur echte Vertragspartner erscheinen:
-      - Vereinskunden (ist_technischer_mandant=0)
-      - Einzeltrainer-Kunden mit Kundennummer oder aktivem Stripe-Vertrag
-    Normale Vereinstrainer (Rolle=Trainer, kein eigener Vertrag) werden herausgefiltert.
-    B3: zahlungsstatus in SELECT; filter_zahlungsstatus-Parameter ergänzt.
-    """
-    sql = """
-        SELECT
-            v.id                            AS verein_id,
-            b.id                            AS benutzer_id,
-            'Verein'                        AS kundentyp,
-            v.kundennummer                  AS kundennummer,
-            v.name                          AS vereinsname,
-            b.vorname,
-            b.nachname,
-            b.benutzername,
-            b.email,
-            COALESCE(b.email_verifiziert,1) AS email_verifiziert,
-            b.erstellt_am                   AS registriert_am,
-            b.letzter_login,
-            COALESCE(b.aktiv,1)             AS aktiv,
-            b.gesperrt_bis,
-            COALESCE(v.lizenztyp,'BASIC')        AS lizenztyp,
-            COALESCE(v.lizenz_status,'trial')    AS lizenz_status,
-            v.lizenz_bis,
-            v.testphase_bis,
-            v.vertragsbeginn,
-            v.vertragsende,
-            COALESCE(v.kuendigungsstatus,'aktiv') AS kuendigungsstatus,
-            v.kuendigung_eingegangen,
-            v.gekuendigt_zum,
-            COALESCE(v.gesperrt,0)          AS verein_gesperrt,
-            v.zahlungsstatus,
-            b.telefon
-        FROM vereine v
-        LEFT JOIN benutzer b
-               ON b.verein_id = v.id
-              AND b.rolle = 'Vereinsadmin'
-        WHERE COALESCE(v.ist_technischer_mandant, 0) = 0
-
-        UNION ALL
-
-        -- Trainer-Kunden: Vertrags-/Lizenz-/Stripe-Felder kommen aus dem technischen Mandant (vereine v2),
-        -- personenbezogene Daten aus benutzer (b). COALESCE bevorzugt v2 gegenüber b.
-        SELECT
-            NULL                            AS verein_id,
-            b.id                            AS benutzer_id,
-            'Einzeltrainer'                 AS kundentyp,
-            b.kundennummer,
-            NULL                            AS vereinsname,
-            b.vorname,
-            b.nachname,
-            b.benutzername,
-            b.email,
-            COALESCE(b.email_verifiziert,1) AS email_verifiziert,
-            b.erstellt_am                   AS registriert_am,
-            b.letzter_login,
-            COALESCE(b.aktiv,1)             AS aktiv,
-            b.gesperrt_bis,
-            COALESCE(v2.lizenztyp,  b.lizenztyp,  'BASIC')        AS lizenztyp,
-            COALESCE(v2.lizenz_status, b.lizenz_status, 'trial')   AS lizenz_status,
-            COALESCE(v2.lizenz_bis,    b.lizenz_bis)               AS lizenz_bis,
-            COALESCE(v2.testphase_bis, b.testphase_bis)            AS testphase_bis,
-            COALESCE(v2.vertragsbeginn, b.vertragsbeginn)          AS vertragsbeginn,
-            COALESCE(v2.vertragsende,   b.vertragsende)            AS vertragsende,
-            COALESCE(v2.kuendigungsstatus, b.kuendigungsstatus, 'aktiv') AS kuendigungsstatus,
-            COALESCE(v2.kuendigung_eingegangen, b.kuendigung_eingegangen) AS kuendigung_eingegangen,
-            COALESCE(v2.gekuendigt_zum, b.gekuendigt_zum)          AS gekuendigt_zum,
-            0                               AS verein_gesperrt,
-            v2.zahlungsstatus,
-            b.telefon
-        FROM benutzer b
-        LEFT JOIN vereine v2
-               ON v2.id = b.verein_id
-              AND COALESCE(v2.ist_technischer_mandant, 0) = 1
-        -- Einzeltrainer-Kunden: Rolle='Trainer' UND (kein Verein ODER technischer Mandant)
-        -- UND echter Vertragspartner (Kundennummer oder aktive Stripe-Verbindung vorhanden).
-        -- Normale Vereinstrainer (verein_id auf echten Verein) und ungebundene Trainer
-        -- ohne Vertrag erscheinen NICHT in der Kundenverwaltung.
-        WHERE b.rolle = 'Trainer'
-          AND (
-              b.verein_id IS NULL
-              OR EXISTS (
-                  SELECT 1 FROM vereine v3
-                  WHERE v3.id = b.verein_id
-                    AND COALESCE(v3.ist_technischer_mandant, 0) = 1
-              )
-          )
-          -- Nur echte Vertragspartner: haben eine Kundennummer ODER einen aktiven Stripe-Vertrag
-          AND (
-              b.kundennummer IS NOT NULL
-              OR v2.kundennummer IS NOT NULL
-              OR v2.stripe_customer_id IS NOT NULL
-              OR v2.stripe_subscription_id IS NOT NULL
-          )
-
-        ORDER BY kundennummer
-    """
-    with get_conn() as conn:
-        rows = [dict(r) for r in conn.execute(sql).fetchall()]
+    """Lädt die gemeinsamen Vertragspartner ohne technische oder Mitglieds-Dubletten."""
+    rows = [
+        row for row in vertragspartner_liste_laden()
+        if row["klassifikation"] in ("verein", "einzeltrainer")
+    ]
 
     such_l = such.strip().lower()
     result = []
@@ -7611,7 +7756,10 @@ def kunde_vollstaendig_laden(
             if not v:
                 return None
             b = _row(conn.execute(
-                "SELECT * FROM benutzer WHERE verein_id=? AND rolle='Vereinsadmin' LIMIT 1",
+                """SELECT * FROM benutzer
+                     WHERE verein_id=? AND rolle='Vereinsadmin'
+                     ORDER BY aktiv DESC, erstellt_am ASC, id ASC
+                     LIMIT 1""",
                 (verein_id,),
             ).fetchone())
         else:

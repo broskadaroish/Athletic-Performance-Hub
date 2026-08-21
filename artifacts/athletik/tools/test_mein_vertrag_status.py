@@ -44,7 +44,7 @@ def neuer_verein(
     cancel_at_period_end: int = 1,
 ) -> int:
     with database.get_conn() as conn:
-        return conn.execute(
+        verein_id = conn.execute(
             """INSERT INTO vereine
                (name, aktiv, gesperrt, kundennummer, lizenztyp, lizenz_status,
                 lizenz_bis, kuendigungsstatus, kuendigung_eingegangen,
@@ -56,17 +56,22 @@ def neuer_verein(
                 cancel_at_period_end, ist_technischer_mandant, stripe_subscription_id,
             ),
         ).lastrowid
+    if not ist_technischer_mandant:
+        aktiver_benutzer(verein_id, f"verein-{verein_id}@test.invalid")
+    return verein_id
 
 
-def aktiver_benutzer(verein_id: int, email: str) -> int:
+def aktiver_benutzer(verein_id: int, email: str, rolle: str = "Vereinsadmin") -> int:
     """Legt einen aktiven Benutzer für den nachweisbaren Legacy-Zustand an."""
     with database.get_conn() as conn:
-        return conn.execute(
+        benutzer_id = conn.execute(
             """INSERT INTO benutzer
                (verein_id, vorname, nachname, email, passwort_hash, rolle, aktiv)
-               VALUES (?, 'Legacy', 'Benutzer', ?, 'test-hash', 'Vereinsadmin', 1)""",
-            (verein_id, email),
+                VALUES (?, 'Legacy', 'Benutzer', ?, 'test-hash', ?, 1)""",
+                (verein_id, email, rolle),
         ).lastrowid
+    database.trainer_mandant_hinzufuegen(benutzer_id, verein_id, rolle)
+    return benutzer_id
 
 
 def vertrag_und_admin_status(verein_id: int) -> tuple[dict, str]:
@@ -155,11 +160,16 @@ tech_id = neuer_verein(
     "Technischer Mandant", status="active", lizenz_bis=zukunft, kundennummer="APH-900005",
     ist_technischer_mandant=1,
 )
+aktiver_benutzer(tech_id, "technisch-trainer@test.invalid", "Trainer")
 with database.get_conn() as conn:
     conn.execute("UPDATE vereine SET lizenztyp='BASIC' WHERE id=?", (tech_id,))
-vertrag, admin_status = vertrag_und_admin_status(tech_id)
 invalidate_lizenz_cache(tech_id)
-admin_row = next(row for row in _sa_normalize(database.alle_vereine_lizenz(), []) if row["_id"] == tech_id)
+vertrag = _laden({"verein_id": tech_id, "rolle": "Vereinsadmin"})
+invalidate_lizenz_cache(tech_id)
+admin_row = next(
+    row for row in _sa_normalize([], database.alle_trainer_lizenz())
+    if row["_vertrag_verein_id"] == tech_id
+)
 check("Technischer Mandant normalisiert BASIC im Vertrag als Trainer-Paket", vertrag["lizenztyp"] == "TRAINER_BASIC")
 check("Technischer Mandant normalisiert BASIC im Superadmin gleich", admin_row["_paket_key"] == "TRAINER_BASIC")
 

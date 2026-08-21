@@ -719,17 +719,18 @@ def _sa_normalize(vereine_raw: list[dict], trainer_raw: list[dict]) -> list[dict
             "lizenz_status":  t.get("lizenz_status") or "",
             "lizenz_bis":     t.get("lizenz_bis") or None,
             "gesperrt":       False,
-            "zahlungsstatus": "",
-            "stripe_customer_id":       "",
-            "stripe_subscription_id":   "",
-            "letzte_zahlung_fehlgeschlagen": "",
-            "cancel_at_period_end":     False,
+            "zahlungsstatus": t.get("zahlungsstatus") or "",
+            "stripe_customer_id":       t.get("stripe_customer_id") or "",
+            "stripe_subscription_id":   t.get("stripe_subscription_id") or "",
+            "letzte_zahlung_fehlgeschlagen": t.get("letzte_zahlung_fehlgeschlagen") or "",
+            "cancel_at_period_end":     bool(t.get("cancel_at_period_end")),
             "kuendigungsstatus":        t.get("kuendigungsstatus") or "",
             "gekuendigt_zum":           t.get("gekuendigt_zum") or "",
             "kuendigung_eingegangen":   t.get("kuendigung_eingegangen") or "",
             "_raw_verein":  None,
             "_raw_info":    None,
             "_raw_trainer": t,
+            "_vertrag_verein_id": t.get("vertrag_verein_id"),
         })
     for row in result:
         row["_display_status"] = _sa_display_status(row)
@@ -892,14 +893,24 @@ def _sa_edit_dialog(row: dict) -> None:
                     testphase_verlaengern(row["_id"], extra_tage)
                 invalidate_lizenz_cache(row["_id"])
             else:
-                trainer_lizenz_setzen(
-                    benutzer_id=row["_id"],
-                    lizenz_typ=neuer_typ,
-                    lizenz_status=neuer_status,
-                    lizenz_bis=ablauf_input.isoformat(),
-                )
-                if extra_tage > 0:
-                    testphase_verlaengern(row["_id"], extra_tage)
+                vertrag_verein_id = row.get("_vertrag_verein_id")
+                if vertrag_verein_id:
+                    lizenz_setzen(
+                        verein_id=vertrag_verein_id,
+                        lizenz_typ=neuer_typ,
+                        lizenz_status=neuer_status,
+                        lizenz_bis=ablauf_input.isoformat(),
+                    )
+                    if extra_tage > 0:
+                        testphase_verlaengern(vertrag_verein_id, extra_tage)
+                    invalidate_lizenz_cache(vertrag_verein_id)
+                else:
+                    trainer_lizenz_setzen(
+                        benutzer_id=row["_id"],
+                        lizenz_typ=neuer_typ,
+                        lizenz_status=neuer_status,
+                        lizenz_bis=ablauf_input.isoformat(),
+                    )
             st.success(f"✅ Lizenz für **{row['_name']}** gespeichert.")
             st.rerun()
     with sc2:
