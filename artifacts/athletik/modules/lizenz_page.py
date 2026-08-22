@@ -90,15 +90,6 @@ def _stripe_upgrade(typ_key: str, verein_id: int, info: dict) -> None:
             "Wähle nach Ablauf deiner Testphase ein reguläres Paket."
         )
         return
-    if (
-        info.get("lizenz_typ") == "STARTER_FREE"
-        and info.get("lizenz_status") != "expired"
-    ):
-        st.info(
-            "Ein reguläres Paket kannst du nach Ablauf deiner Starter-Testphase aktivieren."
-        )
-        return
-
     if not stripe_verfuegbar():
         st.info(
             f"Für einen Wechsel auf **{typ_def.get('label', typ_key)}** kontaktiere uns bitte: "
@@ -539,14 +530,7 @@ def page_lizenz_vereinsadmin() -> None:
                     typ_key,
                     typ_def_iter,
                     ist_aktuell=(typ_key == info["lizenz_typ"]),
-                    on_upgrade=(
-                        _on_upgrade
-                        if (
-                            info["lizenz_typ"] != "STARTER_FREE"
-                            or info["lizenz_status"] == "expired"
-                        )
-                        else None
-                    ),
+                    on_upgrade=_on_upgrade,
                 )
 
         # Stripe Billing-Portal (wenn verfügbar)
@@ -577,10 +561,11 @@ def page_lizenz_vereinsadmin() -> None:
             )
 
     with tab_wechseln:
-        if info["lizenz_typ"] == "STARTER_FREE" and info["lizenz_status"] != "expired":
+        if info["lizenz_typ"] == "STARTER_FREE" and info["lizenz_status"] == "trial":
             st.info(
                 "Starter ist eine einmalige 30-Tage-Testphase. "
-                "Während der Testphase wird kein Stripe-Checkout angeboten."
+                "Du kannst den Zugang weiter nutzen oder jederzeit unter "
+                "**Tarife** auf ein reguläres Paket upgraden."
             )
         elif info["lizenz_typ"] == "STARTER_FREE":
             st.info(

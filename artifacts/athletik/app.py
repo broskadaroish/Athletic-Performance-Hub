@@ -830,19 +830,19 @@ if "user" not in st.session_state:
                     '</div>',
                     unsafe_allow_html=True,
                 )
-                st.markdown(
-                    '<div style="background:#0f2417;border:1px solid #2ea043;'
-                    'border-radius:8px;padding:10px 14px;margin-bottom:12px;'
-                    'font-size:13px;color:#3fb950;font-weight:600">'
-                    '🎁 30 Tage kostenlos testen'
-                    '<span style="color:#8b949e;font-weight:400;font-size:12px">'
-                    ' — Heute keine Zahlung fällig</span>'
-                    '</div>',
-                    unsafe_allow_html=True,
-                )
+                st.caption("Wähle das passende Vereins-Paket für deine Registrierung.")
 
-                # Paket-Karten mit Auswahlzustand
-                _cur_v_paket = st.session_state.get("reg_v_paket", _VEREIN_PAKETE[0])
+                _r_paket = st.radio(
+                    "Paket",
+                    _VEREIN_PAKETE,
+                    format_func=lambda k: _REG_VLT[k]["label"],
+                    key="reg_v_paket",
+                    horizontal=True,
+                    label_visibility="collapsed",
+                )
+                # Paket-Karten und Absende-CTA verwenden denselben aktuellen
+                # Radio-Wert, damit sie nach dem Umschalten synchron bleiben.
+                _cur_v_paket = _r_paket
                 _rvc1, _rvc2 = st.columns(2)
                 for _rpk, _rpc in zip(_VEREIN_PAKETE, [_rvc1, _rvc2]):
                     _rtd = _REG_VLT[_rpk]
@@ -868,14 +868,6 @@ if "user" not in st.session_state:
                         unsafe_allow_html=True,
                     )
 
-                _r_paket = st.radio(
-                    "Paket",
-                    _VEREIN_PAKETE,
-                    format_func=lambda k: _REG_VLT[k]["label"],
-                    key="reg_v_paket",
-                    horizontal=True,
-                    label_visibility="collapsed",
-                )
                 _r_vsel = _REG_VLT[_r_paket]
                 _r_intervall = st.radio(
                     "Abrechnungsintervall *",
@@ -968,8 +960,11 @@ if "user" not in st.session_state:
                     st.rerun()
                 st.markdown("</div>", unsafe_allow_html=True)
 
-                st.caption("Heute keine Zahlung. Anschließend gemäß gewähltem Tarif.")
-                if st.button("🚀 30 TAGE KOSTENLOS STARTEN", type="primary",
+                _verein_reg_btn_label = {
+                    "VEREIN_BASIC": "🚀 Verein Basic wählen",
+                    "VEREIN_PRO": "🚀 Verein Pro wählen",
+                }[_r_paket]
+                if st.button(_verein_reg_btn_label, type="primary",
                              use_container_width=True, key="reg_btn"):
                     _rerr = []
                     if not _r_datenschutz or not _r_agb:
@@ -1251,19 +1246,19 @@ if "user" not in st.session_state:
                         '</div>',
                         unsafe_allow_html=True,
                     )
-                    st.markdown(
-                        '<div style="background:#0f2417;border:1px solid #2ea043;'
-                        'border-radius:8px;padding:10px 14px;margin-bottom:12px;'
-                        'font-size:13px;color:#3fb950;font-weight:600">'
-                        '🎁 30 Tage kostenlos testen'
-                        '<span style="color:#8b949e;font-weight:400;font-size:12px">'
-                        ' — Heute keine Zahlung fällig</span>'
-                        '</div>',
-                        unsafe_allow_html=True,
-                    )
+                    st.caption("Wähle zwischen der einmaligen Starter-Testphase und einem regulären Paket.")
 
-                    # Paket-Karten mit Auswahlzustand
-                    _cur_t_paket = st.session_state.get("reg_t_paket", _TRAINER_PAKETE[0])
+                    _t_paket = st.radio(
+                        "Paket",
+                        _TRAINER_PAKETE,
+                        format_func=lambda k: _REG_TLT[k]["label"],
+                        key="reg_t_paket",
+                        horizontal=True,
+                        label_visibility="collapsed",
+                    )
+                    # Paket-Karten und Absende-CTA verwenden denselben aktuellen
+                    # Radio-Wert, damit sie nach dem Umschalten synchron bleiben.
+                    _cur_t_paket = _t_paket
                     _ttc1, _ttc2, _ttc3 = st.columns(3)
                     for _tpk, _tpc in zip(_TRAINER_PAKETE, [_ttc1, _ttc2, _ttc3]):
                         _ttd = _REG_TLT[_tpk]
@@ -1291,14 +1286,6 @@ if "user" not in st.session_state:
                             unsafe_allow_html=True,
                         )
 
-                    _t_paket = st.radio(
-                        "Paket",
-                        _TRAINER_PAKETE,
-                        format_func=lambda k: _REG_TLT[k]["label"],
-                        key="reg_t_paket",
-                        horizontal=True,
-                        label_visibility="collapsed",
-                    )
                     _t_tsel = _REG_TLT[_t_paket]
                     if _t_paket == "STARTER_FREE":
                         _t_intervall = "monat"
@@ -1400,8 +1387,12 @@ if "user" not in st.session_state:
                         st.rerun()
                     st.markdown("</div>", unsafe_allow_html=True)
 
-                    st.caption("Heute keine Zahlung. Anschließend gemäß gewähltem Tarif.")
-                    if st.button("🚀 30 TAGE KOSTENLOS STARTEN", type="primary",
+                    _trainer_reg_btn_label = {
+                        "STARTER_FREE": "🚀 30 Tage kostenlos starten",
+                        "TRAINER_BASIC": "🚀 Einzeltrainer Basic wählen",
+                        "TRAINER_PRO": "🚀 Einzeltrainer Pro wählen",
+                    }[_t_paket]
+                    if st.button(_trainer_reg_btn_label, type="primary",
                                  use_container_width=True, key="trainer_reg_btn"):
                         _terr = []
                         if not _t_datenschutz or not _t_agb:
