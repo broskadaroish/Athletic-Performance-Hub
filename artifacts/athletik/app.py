@@ -155,7 +155,7 @@ KOERPERTEILE      = ["Sprunggelenk", "Knie", "Oberschenkel", "Leiste", "Hüfte",
 SCHWEREGRADE      = ["Leicht (1–7 Tage)", "Mittel (8–28 Tage)", "Schwer (> 28 Tage)"]
 from training import init_training_bibliothek, empfehlung_bereiche, uebungen_fuer_bereiche
 from fms import FMSResult
-from y_balance import YBalanceResult
+from y_balance import YBalanceResult, y_balance_hat_relevante_asymmetrie
 from kraft import KraftErgebnis as _KraftErgebnis, epley_1rm as _epley_1rm
 from analytics import (
     risiko_score, risiko_label, athletik_score, athletik_sub_scores,
@@ -10794,8 +10794,15 @@ def page_startseite():
     else:
         _kraft_rating_s = None
 
-    # Y-Balance: Asymmetrie-Text als Rating (Farblogik in test_status_card reagiert auf "auffällig" / "Asymmetrie")
-    _yb_rating_s = str(y["asymmetrie"]) if y and y.get("asymmetrie") else None
+    # Der gespeicherte unauffällige Text enthält selbst „Asymmetrie“. Für die
+    # Kachel entscheidet daher ausschließlich der strukturierte, numerische Befund.
+    _yb_rating_s = (
+        str(y["asymmetrie"])
+        if y and y_balance_hat_relevante_asymmetrie(y)
+        else "Unauffällig — Keine relevante Asymmetrie"
+        if y
+        else None
+    )
 
     # Anthropometrie-Beurteilung für Startseite (Ampelfarben)
     _anthro_kat = (anthro.get("bmi_kategorie") or "").strip() if anthro else ""
@@ -12013,7 +12020,9 @@ def page_spieler_vergleich():
             avg = (cr + cl) / 2
             col = C["green"] if avg >= 94 else (C["yellow"] if avg >= 89 else C["red"])
             asym = row.get("asymmetrie") or "—"
-            asym_col = C["red"] if "Asymmetrie" in str(asym) else C["green"]
+            asym_col = (
+                C["red"] if y_balance_hat_relevante_asymmetrie(row) else C["green"]
+            )
             return (
                 _cell("Composite Rechts", f"{cr:.1f}", "%", col)
                 + _cell("Composite Links", f"{cl:.1f}", "%", col)

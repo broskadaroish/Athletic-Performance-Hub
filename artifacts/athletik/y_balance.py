@@ -57,6 +57,11 @@ class YBalanceResult:
         return found
 
     @property
+    def hat_relevante_asymmetrie(self) -> bool:
+        """Ob mindestens eine bestehende numerische Seitendifferenz auffällig ist."""
+        return bool(self.asymmetrien)
+
+    @property
     def asymmetrie_text(self) -> str:
         a = self.asymmetrien
         if not a:
@@ -121,3 +126,14 @@ def y_balance_aus_row(row) -> YBalanceResult:
         obj.diff_posteromedial  = float(row["diff_posteromedial"]  or 0.0)
         obj.diff_posterolateral = float(row["diff_posterolateral"] or 0.0)
     return obj
+
+
+def y_balance_hat_relevante_asymmetrie(row) -> bool:
+    """Bewertet gespeicherte Y-Balance-Daten über ihre numerischen Differenzen.
+
+    Der Anzeigetext ``Keine relevante Asymmetrie`` ist bewusst kein
+    Entscheidungsmerkmal: Er enthält zwar das Wort „Asymmetrie“, beschreibt aber
+    gerade einen unauffälligen Befund. Die fachliche Schwelle bleibt vollständig
+    in ``YBalanceResult.asymmetrien`` zentral definiert.
+    """
+    return bool(row) and y_balance_aus_row(row).hat_relevante_asymmetrie

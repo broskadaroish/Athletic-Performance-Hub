@@ -4,6 +4,8 @@ and composite athleticism rating.
 All functions operate on sqlite3.Row objects from the database layer.
 """
 
+from y_balance import y_balance_hat_relevante_asymmetrie
+
 
 # ─── Internal helpers ─────────────────────────────────────────────────────────
 
@@ -57,7 +59,7 @@ def risiko_score(fms_row, y_row, verletzungen=None) -> int:
             score += 2
         elif avg < 89:
             score += 1
-        if "Asymmetrie" in str(y_row["asymmetrie"]):
+        if y_balance_hat_relevante_asymmetrie(y_row):
             score += 2  # Bilaterale Asymmetrie erhöhtes Verletzungsrisiko (Plisky et al. 2006)
 
     # ── Verletzungshistorie ──────────────────────────────────────────────────
@@ -137,7 +139,7 @@ def athletik_score(
         avg = (y_row["composite_rechts"] + y_row["composite_links"]) / 2
         # Target norm is 94 %; map linearly with floor at 70 % → 0
         sub = round(min(100, max(0, (avg - 70) / (100 - 70) * 100)))
-        if "Asymmetrie" in str(y_row["asymmetrie"]):
+        if y_balance_hat_relevante_asymmetrie(y_row):
             sub = max(0, sub - 10)
         sub_scores["y"] = sub
 
@@ -220,7 +222,7 @@ def athletik_sub_scores(
     if y_row:
         avg = (y_row["composite_rechts"] + y_row["composite_links"]) / 2
         s = round(min(100, max(0, (avg - 70) / 30 * 100)))
-        if "Asymmetrie" in str(y_row.get("asymmetrie", "")):
+        if y_balance_hat_relevante_asymmetrie(y_row):
             s = max(0, s - 10)
         scores["Y-Balance"] = s
 
