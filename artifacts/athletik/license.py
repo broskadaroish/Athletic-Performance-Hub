@@ -491,6 +491,11 @@ def enforce_license_gate() -> None:
         return
     info = get_lizenz_info(verein_row)
 
+    # Das Ablauf-Flag gilt für alle Kundentypen. Es wird nur nach einem
+    # ausdrücklich erlaubten Ablauf-Übergang gesetzt und bei einem aktuellen
+    # Status wieder entfernt.
+    st.session_state.pop("_lizenz_abgelaufen", None)
+
     if info["lizenz_status"] == "suspended":
         _zeige_gesperrt_page(rolle=user.get("rolle"))
         st.stop()
@@ -498,10 +503,22 @@ def enforce_license_gate() -> None:
     # Ein abgelaufener Starter bleibt eingeloggt: Die App-Navigation beschränkt
     # ihn anschließend auf Profil, Vertrag, Paketansicht und Logout. So bleiben
     # Daten erhalten und die Paketentscheidung ist erreichbar, ohne fachliche
-    # Bereiche wieder zu öffnen. Andere abgelaufene Lizenzen behalten das
-    # bisherige Voll-Gate unverändert.
-    if info["lizenz_status"] == "expired" and ist_starter_lizenz(info["lizenz_typ"]):
-        st.session_state["_starter_abgelaufen"] = True
+    # Bereiche wieder zu öffnen. Für historische bezahlte/alte Trial-Pakete
+    # sowie beendete Abos wird derselbe sichere Zugang erst über den
+    # Vertragsbutton freigeschaltet.
+    if info["lizenz_status"] in ("expired", "beendet") and (
+        (
+            info["lizenz_status"] == "expired"
+            and ist_starter_lizenz(info["lizenz_typ"])
+        )
+        or _abgelaufen_zugang_erlaubt()
+    ):
+        st.session_state["_lizenz_abgelaufen"] = True
+        if (
+            info["lizenz_status"] == "expired"
+            and ist_starter_lizenz(info["lizenz_typ"])
+        ):
+            st.session_state["_starter_abgelaufen"] = True
         return
     st.session_state.pop("_starter_abgelaufen", None)
 
@@ -652,6 +669,19 @@ def invalidate_lizenz_cache(verein_id: int) -> None:
 
 # ─── Interne Gate-Seiten ──────────────────────────────────────────────────────
 
+_ABGELAUFEN_SICHERE_SEKTIONEN = frozenset(
+    ("👤  Mein Profil", "📋  Mein Vertrag", "ℹ️  Über")
+)
+
+
+def _abgelaufen_zugang_erlaubt(state: dict | None = None) -> bool:
+    """Erlaubt bei EXPIRED nur die sichere Vertrags-/Kontonavigation."""
+    nav_state = st.session_state if state is None else state
+    return (
+        nav_state.get("_nav_goto") in _ABGELAUFEN_SICHERE_SEKTIONEN
+        or nav_state.get("nav_section") in _ABGELAUFEN_SICHERE_SEKTIONEN
+    )
+
 def _card(color: str, icon: str, titel: str, text: str) -> None:
     st.markdown(
         f'<div style="max-width:600px;margin:60px auto;padding:40px 44px;'
@@ -691,20 +721,20 @@ def _zeige_gesperrt_page(rolle: str | None = None) -> None:
 def _zeige_abgelaufen_page(info: LizenzInfo) -> None:
     if info["lizenz_status"] == "trial":
         titel = "Testphase abgelaufen"
-        text  = (
-            "Deine kostenlose 30-Tage-Testphase ist abgelaufen. "
-            "Wähle einen Tarif und aktiviere deine Lizenz, um weiterzumachen."
-        )
     else:
         titel = "Lizenz abgelaufen"
-        text  = (
-            "Deine Lizenz ist abgelaufen. "
-            "Bitte erneuere dein Abonnement, um wieder Zugriff zu erhalten."
-        )
-    _card("#d29922", "⏳", titel, text)
-    st.markdown(
-        '<p style="text-align:center;margin-top:8px">'
-        '<a href="?section=lizenz" style="color:#58a6ff;font-size:14px">'
-        '→ Zur Lizenz-Seite</a></p>',
-        unsafe_allow_html=True,
+    text = (
+        "Deine Testphase bzw. Lizenz ist abgelaufen. "
+        "Deine Daten bleiben gespeichert. "
+        "Wähle ein Paket, um APH weiter zu nutzen "
+        "(Upgrade auf Basic oder Pro)."
     )
+    _card("#d29922", "⏳", titel, text)
+    if st.button(
+        "📋 Paket auswählen / Mein Vertrag",
+        key="expired_goto_vertrag",
+        type="primary",
+        use_container_width=True,
+    ):
+        st.session_state["_nav_goto"] = "📋  Mein Vertrag"
+        st.rerun()

@@ -1,0 +1,91 @@
+APH – NACHFIX ABGELAUFENE ALTKUNDEN / EXPired-GATE
+
+PROBLEM
+
+Bei bestehenden normalen Kunden mit abgelaufener Testphase/Lizenz wird aktuell eine Sperrseite angezeigt:
+
+„Lizenz abgelaufen“
+
+Darunter befindet sich noch der alte Link:
+
+„→ Zur Lizenz-Seite“
+
+Der normale Kundennavigationspunkt „Lizenz“ wurde inzwischen bewusst entfernt.
+„📋 Mein Vertrag“ ist jetzt die zentrale Vertrags-/Paketseite.
+
+AUFGABE
+
+1. Suche das zentrale Gate / die Sperrseite für:
+- expired
+- abgelaufene Testphase
+- abgelaufene Lizenz
+
+2. Ersetze bei normalen Kunden alle Links/Buttons:
+„Zur Lizenz-Seite“
+oder ähnliche alte Lizenz-Verweise
+
+durch:
+
+„📋 Paket auswählen / Mein Vertrag“
+
+Ziel:
+📋 Mein Vertrag
+
+3. Die Sperrseite soll sinngemäß anzeigen:
+
+„Deine Testphase bzw. Lizenz ist abgelaufen.
+Deine Daten bleiben gespeichert.
+Wähle ein Paket, um APH weiter zu nutzen.“
+
+4. Nach Klick muss „Mein Vertrag“ erreichbar sein.
+
+5. Das gilt für:
+- alte TRAINER_BASIC-Testphasen
+- alte TRAINER_PRO-Testphasen
+- STARTER_FREE nach Ablauf
+- ggf. abgelaufene Vereins-Testphasen, sofern diese denselben Gate benutzen
+
+6. Keine separate Kundenseite „Lizenz“ wieder einführen.
+
+7. Mein Vertrag soll weiterhin die zentrale Stelle bleiben für:
+- Vertragsstatus
+- Paket
+- Upgrade / Wechsel
+- Zahlung / Stripe
+- Rechnungen
+
+8. Fachliche Bereiche bleiben bei expired weiterhin gesperrt.
+
+9. Superadmin-Lizenzverwaltung NICHT verändern.
+
+10. Keine Änderung an:
+- Stripe Price-IDs
+- Webhooks
+- Paketpreisen
+- Lizenzlimits
+- Kundendaten
+- Datenbankstruktur
+
+REGRESSIONSTESTS
+
+Prüfen:
+
+- alter TRAINER_BASIC-Trial expired → Mein Vertrag erreichbar
+- alter TRAINER_PRO-Trial expired → Mein Vertrag erreichbar
+- STARTER_FREE expired → Mein Vertrag erreichbar
+- kein Link „Zur Lizenz-Seite“ für normale Kunden
+- keine Sackgasse nach Ablauf
+- Fachbereiche bleiben gesperrt
+- Superadmin-Lizenzverwaltung bleibt unverändert
+
+Danach:
+py_compile
+bestehende Lizenz-/Starter-/Vertragstests
+git diff --check
+
+Keine DB-Migration.
+Keine Produktionsdaten verändern.
+Nicht deployen.
+Nicht pushen.
+
+Danach Abschlussbericht und STOPP.

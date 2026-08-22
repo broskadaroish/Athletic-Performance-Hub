@@ -11598,9 +11598,9 @@ def page_spieler_vergleich():
     _inline_spielerwechsel("vergleich")
     st.markdown("---")
 
-    # Nach Ablauf der Starter-Testphase darf auch die Sidebar keine fachlichen
-    # Personen- oder Testdaten mehr lesen bzw. darstellen.
-    alle_spieler = [] if st.session_state.get("_starter_abgelaufen") else spieler_laden(
+    # Nach Ablauf darf auch die Sidebar keine fachlichen Personen- oder
+    # Testdaten mehr lesen bzw. darstellen.
+    alle_spieler = [] if st.session_state.get("_lizenz_abgelaufen") else spieler_laden(
         _akt_user()["id"], _akt_user()["rolle"], _akt_user()["verein_id"]
     )
     if len(alle_spieler) < 2:
@@ -12573,9 +12573,9 @@ def page_testprotokoll():
         unsafe_allow_html=True,
     )
 
-    # Nach Ablauf der Starter-Testphase darf auch die globale Sidebar keine
-    # fachlichen Personen- oder Testdaten mehr laden bzw. darstellen.
-    alle_spieler = [] if st.session_state.get("_starter_abgelaufen") else spieler_laden(
+    # Nach Ablauf darf auch die globale Sidebar keine fachlichen Personen- oder
+    # Testdaten mehr laden bzw. darstellen.
+    alle_spieler = [] if st.session_state.get("_lizenz_abgelaufen") else spieler_laden(
         _akt_user()["id"], _akt_user()["rolle"], _akt_user()["verein_id"]
     )
 
@@ -12923,10 +12923,10 @@ if _user_rolle_nav in ("Trainer", "Vereinsadmin"):
 if _user_rolle_nav == "Superadmin":
     _MAIN_SECTIONS = _MAIN_SECTIONS + ["🏢  Vereinsverwaltung", "💳  Lizenzverwaltung", "👥  Kundenverwaltung"]
 
-# Abgelaufene Starter behalten einen schmalen, sicheren Kontozugang. Die
-# Lizenzprüfung setzt dieses Flag nur für STARTER_FREE; alle fachlichen Bereiche
-# verschwinden aus Navigation und Routing, Daten bleiben unangetastet.
-if st.session_state.get("_starter_abgelaufen"):
+# Abgelaufene Kunden behalten einen schmalen, sicheren Kontozugang. Die
+# Lizenzprüfung setzt dieses Flag nach dem Ablauf-Übergang; alle fachlichen
+# Bereiche verschwinden aus Navigation und Routing, Daten bleiben unangetastet.
+if st.session_state.get("_lizenz_abgelaufen"):
     _MAIN_SECTIONS = [
         section for section in ("👤  Mein Profil", "📋  Mein Vertrag", "ℹ️  Über")
         if section in _MAIN_SECTIONS
@@ -12949,9 +12949,9 @@ with st.sidebar:
     )
 
     # ── Global player search ──────────────────────────────────────────────────
-    # Nach Ablauf der Starter-Testphase darf die globale Sidebar keine
-    # fachlichen Personen- oder Testdaten mehr laden bzw. darstellen.
-    alle_spieler = [] if st.session_state.get("_starter_abgelaufen") else spieler_laden(
+    # Nach Ablauf darf die globale Sidebar keine fachlichen Personen- oder
+    # Testdaten mehr laden bzw. darstellen.
+    alle_spieler = [] if st.session_state.get("_lizenz_abgelaufen") else spieler_laden(
         _akt_user()["id"], _akt_user()["rolle"], _akt_user()["verein_id"]
     )
     if alle_spieler:
@@ -13121,7 +13121,7 @@ with st.sidebar:
     # ── Benachrichtigungen (nur für Trainer-Rolle) ────────────────────────────
     _nb_user = _akt_user()
     if (
-        not st.session_state.get("_starter_abgelaufen")
+        not st.session_state.get("_lizenz_abgelaufen")
         and _nb_user.get("rolle") == "Trainer"
         and _nb_user.get("id")
     ):

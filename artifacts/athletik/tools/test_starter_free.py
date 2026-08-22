@@ -372,7 +372,7 @@ def main() -> int:
         "Abgelaufener Starter behält Profil, Vertrag und Über",
         '("👤  Mein Profil", "📋  Mein Vertrag", "ℹ️  Über")' in app_source
         and '"💳  Lizenz"' not in app_source.split(
-            'if st.session_state.get("_starter_abgelaufen"):', 1
+            'if st.session_state.get("_lizenz_abgelaufen"):', 1
         )[1].split("with st.sidebar:", 1)[0],
     )
     check(
