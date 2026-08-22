@@ -1,0 +1,248 @@
+APH – SICHERHEITS-NACHFIX GEFAHRENBEREICH / ENDGÜLTIGE KUNDENLÖSCHUNG
+
+PROBLEM
+
+In der Superadmin-Kundenverwaltung ist bei technischen Einzeltrainer-Mandanten
+die Anzeige im Gefahrenbereich inkonsistent.
+
+Beispiel:
+
+Geöffneter Kunde:
+APH-000009
+Trainer: lion devin
+
+Zugehöriger Benutzer:
+APH-000010
+
+Aktuell zeigt der Gefahrenbereich teilweise:
+
+„Betroffene Daten dieses Kunden
+Kundennummer: APH-000010“
+
+und verlangt zur Bestätigung:
+APH-000010
+
+Das ist falsch.
+
+Das aktuell geöffnete Vertrags-/Kundenkonto ist APH-000009.
+APH-000010 ist lediglich die Kundennummer des verknüpften Benutzerkontos.
+
+ZIEL
+
+Der Gefahrenbereich muss immer eindeutig das aktuell geöffnete Kunden-/Vertragsobjekt referenzieren.
+
+Für technische Einzeltrainer:
+
+Haupt-Kundennummer:
+Kundennummer des technischen Mandanten / Vertragskontos
+
+Verknüpftes Benutzerkonto:
+Benutzer-Kundennummer separat anzeigen
+
+Die Löschbestätigung muss IMMER die Kundennummer des aktuell geöffneten Kundenkontos verlangen.
+
+==================================================
+1. ZENTRALE IDENTITÄT BESTIMMEN
+==================================================
+
+Bitte zuerst analysieren, welche ID/Kundennummer in der Kundenverwaltung
+das aktuell ausgewählte Kunden-/Vertragsobjekt repräsentiert.
+
+Nicht aus einem beliebigen Benutzerdatensatz ableiten.
+
+Für technischen Einzeltrainer gilt sinngemäß:
+
+Kundenkonto:
+vereine.id / technischer Mandant
+vereine.kundennummer
+
+Benutzerkonto:
+benutzer.id
+benutzer.kundennummer
+
+Die Superadmin-Kundenkarte und der Gefahrenbereich müssen dieselbe zentrale
+Vertragspartner-Identität verwenden.
+
+==================================================
+2. ANZEIGE IM GEFAHRENBEREICH
+==================================================
+
+Bei technischem Einzeltrainer sinngemäß anzeigen:
+
+Kundenkonto:
+APH-000009
+
+Name:
+Trainer: lion devin
+
+Kundentyp:
+Einzeltrainer
+
+Verknüpftes Benutzerkonto:
+APH-000010 · lion devin
+
+Damit ist sichtbar, dass beide Datensätze zusammengehören.
+
+Keine Benutzer-Kundennummer als Haupt-Kundennummer anzeigen.
+
+==================================================
+3. BESTÄTIGUNGSFELD
+==================================================
+
+Die zweite Bestätigung muss exakt die Kundennummer des aktuell geöffneten Kundenkontos verlangen.
+
+Beispiel:
+
+Geöffneter Kunde:
+APH-000009
+
+Dann:
+
+„Gib die Kundennummer APH-000009 exakt ein, um die Löschung freizuschalten.“
+
+NICHT APH-000010.
+
+Die Vergleichslogik muss gegen die zentrale Kunden-/Mandanten-Kundennummer laufen.
+
+==================================================
+4. LÖSCHZIEL
+==================================================
+
+Die eigentliche Löschung muss weiterhin das gesamte Kundenobjekt erfassen:
+
+- technischer Mandant / Kundenkonto
+- direkt verknüpftes Benutzerkonto
+- trainer_mandanten
+- Spieler
+- Diagnostikdaten
+- Trainingspläne
+- Sessions
+- Push-Tokens
+- Benachrichtigungen
+- sonstige mandanten-/benutzerbezogene Daten
+
+Gesetzlich relevante Rechnungsdaten weiterhin wie bisher anonymisieren, nicht unzulässig löschen.
+
+Nicht zwei unabhängige Löschvorgänge daraus machen.
+
+==================================================
+5. SICHERHEIT
+==================================================
+
+Vor endgültiger Löschung serverseitig nochmals prüfen:
+
+- ausgewählte Kunden-ID existiert
+- Kundennummer stimmt mit dem geöffneten Kunden überein
+- bei technischem Einzeltrainer gehört das Benutzerkonto tatsächlich zu diesem Mandanten
+- keine fremden Benutzer im Mandanten
+- keine fremden Spieler oder Zuordnungen
+- keine fremden Mandanten durch Multi-Mandanten-Zuordnung betroffen
+
+Bei Inkonsistenz:
+Abbruch, keine Teil-Löschung.
+
+Löschung möglichst in einer Transaktion.
+
+==================================================
+6. VEREINSKUNDEN
+==================================================
+
+Bei echten Vereinen darf sich das Verhalten nicht verschlechtern.
+
+Geöffneter Verein:
+seine Vereins-Kundennummer ist die Bestätigungsnummer.
+
+Verknüpfte Vereinsadmins/Trainer können separat angezeigt werden,
+werden aber nicht als Haupt-Kundennummer verwendet.
+
+==================================================
+7. ANZEIGE DER BETROFFENEN DATEN
+==================================================
+
+Die vorhandene Übersicht beibehalten bzw. korrigieren:
+
+- Benutzerkonten
+- Spieler
+- Testdatensätze
+- Trainingsplan-Versionen
+- Trainingsplan-Einträge
+- Sessions
+- Benachrichtigungen
+- Rechnungsadresse
+- Lizenz/Paket
+- Audit-Log
+
+Zahlen müssen ausschließlich für den aktuell geöffneten Kunden/Mandanten berechnet werden.
+
+Keine Fremddaten mitzählen.
+
+==================================================
+8. REGRESSIONSTESTS
+==================================================
+
+Mindestens prüfen:
+
+1. Technischer Einzeltrainer:
+   Kundenkonto APH-A
+   Benutzerkonto APH-B
+   → Gefahrenbereich zeigt APH-A als Hauptkundennummer
+
+2. Bestätigung verlangt APH-A, nicht APH-B.
+
+3. Benutzerkonto APH-B wird nur als verknüpftes Konto angezeigt.
+
+4. Falsche Kundennummer blockiert Löschung.
+
+5. Richtige Kundennummer erlaubt Löschfreigabe.
+
+6. Fremder Benutzer im Mandanten → Löschung wird fail-closed blockiert.
+
+7. Vereinskunde verwendet Vereins-Kundennummer.
+
+8. Multi-Mandanten-Trainer führt nicht zur Löschung fremder Mandanten.
+
+9. Rechnungsanonymisierung bleibt unverändert.
+
+10. Audit-Log-Aufbewahrung bleibt unverändert.
+
+11. Keine Regression in Kundenverwaltung / Lizenzverwaltung / Mein Vertrag.
+
+==================================================
+9. NICHT ÄNDERN
+==================================================
+
+Nicht ändern:
+
+- Stripe
+- Preise
+- Webhooks
+- Starter-Logik
+- Paketlimits
+- Registrierungslogik
+- Kundennummernvergabe
+- bestehende Produktionsdaten
+
+Keine Migration durchführen, sofern nicht zwingend erforderlich.
+
+==================================================
+10. ABSCHLUSSBERICHT
+==================================================
+
+Bitte berichten:
+
+- genaue Ursache der falschen Kundennummer
+- geänderte Dateien
+- zentrale Kundenidentität vorher/nachher
+- Verhalten technischer Einzeltrainer
+- Verhalten Verein
+- Bestätigungslogik
+- Löschsicherheitsprüfungen
+- Testergebnisse
+- DB-Migration ja/nein
+- Produktionsdaten verändert ja/nein
+- Deployment nein
+- Push nein
+
+Nicht deployen.
+Nicht pushen.
+Danach STOPP.
