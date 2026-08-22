@@ -80,8 +80,6 @@ def _detail_paket_key(
 def _detail_kundennummer(verein: dict, benutzer: dict) -> str:
     """Liest die Kundennummer vom Vertragspartner, nie vom Vereinsbenutzer."""
     if verein:
-        if verein.get("ist_technischer_mandant"):
-            return verein.get("kundennummer") or benutzer.get("kundennummer") or "—"
         return verein.get("kundennummer") or "—"
     return benutzer.get("kundennummer") or "—"
 
@@ -173,7 +171,10 @@ def _kunden_karte(k: dict) -> None:
     ev    = "✅" if k.get("email_verifiziert") else "📧"
     ak    = "🟢" if k.get("aktiv") else "⛔"
 
-    vid = k.get("verein_id") or 0
+    # Technische Einzeltrainer bleiben in der Liste als Einzeltrainer
+    # klassifiziert. Für ihr Detail ist dennoch der technische Vertragsmandant
+    # maßgeblich, nicht das verknüpfte Benutzerkonto.
+    vid = k.get("vertrag_verein_id") or k.get("verein_id") or 0
     bid = k.get("benutzer_id") or 0
 
     # HTML-Escaping aller kundenkontrollierten Werte
@@ -236,7 +237,7 @@ def _detail_a_kundenkonto(daten: dict) -> None:
     """
     b = daten.get("benutzer") or {}
     v = daten.get("verein") or {}
-    kundentyp = "Verein" if v else "Einzeltrainer"
+    kundentyp = "Verein" if v and not v.get("ist_technischer_mandant") else "Einzeltrainer"
     kundennummer = _detail_kundennummer(v, b)
 
     # ── Kernunterscheidung: Vertragspartner vs. Benutzerkonto ────────────────
@@ -976,15 +977,17 @@ def _detail_gefahrenbereich(daten: dict) -> None:
     v   = daten.get("verein") or {}
     bid = b.get("id")
     vid = v.get("id")
-    # Technischer Mandant: Kundennummer liegt auf benutzer, nicht auf vereine
-    if v.get("ist_technischer_mandant"):
-        kn  = b.get("kundennummer") or v.get("kundennummer") or "—"
-    else:
-        kn  = v.get("kundennummer") or b.get("kundennummer") or "—"
-    name_str = (
-        v.get("name")
-        or f"{b.get('vorname','') or ''} {b.get('nachname','') or ''}".strip()
+    ist_technischer_mandant = bool(v.get("ist_technischer_mandant"))
+    # Der Vertragspartner bestimmt die Bestätigungsnummer. Beim technischen
+    # Einzeltrainer ist das immer der technische Mandant, nie sein Benutzerkonto.
+    kn = _detail_kundennummer(v, b)
+    benutzer_kn = b.get("kundennummer") or "—"
+    benutzer_name = (
+        f"{b.get('vorname','') or ''} {b.get('nachname','') or ''}".strip()
         or "—"
+    )
+    name_str = benutzer_name if ist_technischer_mandant else (
+        v.get("name") or benutzer_name
     )
     current_sa_id = _sa_id()
     if not bid:
@@ -1025,7 +1028,12 @@ def _detail_gefahrenbereich(daten: dict) -> None:
         # Die Vorschau wird direkt im selben Renderdurchlauf unterhalb angezeigt.
         if st.button("🔍 Betroffene Daten prüfen", key=f"_lz_start_{bid}", type="secondary"):
             try:
-                zs = kunde_zusammenfassung_laden(vid, bid)
+                zs = kunde_zusammenfassung_laden(
+                    vid,
+                    bid,
+                    erwartete_kundennummer=kn,
+                    superadmin_id=current_sa_id,
+                )
                 st.session_state[_preview_key] = zs
                 # kunden_auswahl defensiv sichern — ist ein normaler session_state-Wert,
                 # kein Widget-Key → darf hier geschrieben werden.
@@ -1045,16 +1053,30 @@ def _detail_gefahrenbereich(daten: dict) -> None:
         st.markdown("---")
         st.markdown("**📋 Betroffene Daten dieses Kunden**")
 
-        # Kopfzeile
-        st.markdown(
-            f'<div style="background:#161b22;border:1px solid #30363d;border-radius:6px;'
-            f'padding:8px 12px;margin:8px 0;font-size:13px">'
-            f'<b>Kundennummer:</b> <code>{kn}</code> &nbsp;·&nbsp; '
-            f'<b>Name/Verein:</b> {name_str} &nbsp;·&nbsp; '
-            f'<b>E-Mail:</b> {b.get("email","—")}'
-            f'</div>',
-            unsafe_allow_html=True,
-        )
+        # Kopfzeile: Vertragskonto und Benutzerkonto bleiben bei technischen
+        # Einzeltrainern sichtbar getrennt, damit die Löschidentität eindeutig ist.
+        if ist_technischer_mandant:
+            st.markdown(
+                f'<div style="background:#161b22;border:1px solid #30363d;border-radius:6px;'
+                f'padding:8px 12px;margin:8px 0;font-size:13px">'
+                f'<b>Kundenkonto:</b> <code>{kn}</code> &nbsp;·&nbsp; '
+                f'<b>Name:</b> Trainer: {name_str} &nbsp;·&nbsp; '
+                f'<b>Kundentyp:</b> Einzeltrainer<br>'
+                f'<b>Verknüpftes Benutzerkonto:</b> <code>{benutzer_kn}</code> · '
+                f'{benutzer_name}'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+        else:
+            st.markdown(
+                f'<div style="background:#161b22;border:1px solid #30363d;border-radius:6px;'
+                f'padding:8px 12px;margin:8px 0;font-size:13px">'
+                f'<b>Kundennummer:</b> <code>{kn}</code> &nbsp;·&nbsp; '
+                f'<b>Name/Verein:</b> {name_str} &nbsp;·&nbsp; '
+                f'<b>E-Mail:</b> {b.get("email","—")}'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
 
         # Zähler-Reihe
         _mc = st.columns(4)
@@ -1089,6 +1111,7 @@ def _detail_gefahrenbereich(daten: dict) -> None:
         _n_nb   = zs.get("n_benachrichtigungen", 0)
         _n_pt   = zs.get("n_push_tokens", 0)
         _n_bu   = zs.get("n_benutzerkonten", 0)
+        _n_tm   = zs.get("n_mandantenzuordnungen", 0)
         _logo   = zs.get("logo_vorhanden", False)
         _vs     = zs.get("vertragsstatus", "—")
 
@@ -1101,6 +1124,7 @@ def _detail_gefahrenbereich(daten: dict) -> None:
             '<th style="padding:6px 10px;text-align:left;color:#8b949e;border-bottom:1px solid #30363d">Aktion</th>'
             '</tr></thead><tbody>'
             + _row("Benutzerkonto(en)",         _n_bu,   "wird gelöscht")
+            + _row("Mandantenzuordnungen",      _n_tm,   "wird gelöscht" if _n_tm > 0 else "nicht vorhanden")
             + _row("Spieler (inkl. Diagnostik)",_n_sp,   "wird gelöscht" if _n_sp > 0 else "nicht vorhanden")
             + _row("Testdatensätze",            _n_ts,   "wird gelöscht" if _n_ts > 0 else "nicht vorhanden")
             + _row("Trainingsplan-Versionen",   _n_pl,   "wird gelöscht" if _n_pl > 0 else "nicht vorhanden")
@@ -1172,17 +1196,11 @@ def _detail_gefahrenbereich(daten: dict) -> None:
                 _kv_logger = _kv_log.getLogger(__name__)
                 _should_rerun = False
                 try:
-                    _result = kunde_loeschen(vid, bid, current_sa_id)
-                    audit_log_eintragen(
-                        None,
-                        "kunde_endgueltig_geloescht",
-                        (
-                            f"kn={kn}, name={name_str}, "
-                            f"n_spieler={_result.get('n_spieler', 0)}, "
-                            f"n_benutzer={_result.get('n_benutzer', 0)}, "
-                            f"backup={'ok' if _bk_ok else 'fehlgeschlagen'}"
-                        ),
+                    _result = kunde_loeschen(
+                        vid,
+                        bid,
                         current_sa_id,
+                        erwartete_kundennummer=kn,
                     )
                     # Session-State bereinigen → zurück zur Kundenliste (nicht Startseite)
                     for _k in [_preview_key, f"_lz_confirm_{bid}",

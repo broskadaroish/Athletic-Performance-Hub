@@ -8017,11 +8017,17 @@ def vertragspartner_liste_laden() -> list[dict]:
         prefix = "tech_" if hat_tech_lizenz else ""
         result.append({
             "klassifikation": "einzeltrainer",
+            # verein_id bleibt für die Kundentyp-Klassifikation leer; die
+            # führende Vertrags-ID wird separat transportiert und von der UI
+            # gezielt für die Detailnavigation verwendet.
             "verein_id": None,
             "benutzer_id": b["id"],
             "vertrag_verein_id": tech_id if hat_tech_lizenz else None,
             "kundentyp": "Einzeltrainer",
-            "kundennummer": b.get("kundennummer") or b.get("tech_kundennummer"),
+            "kundennummer": (
+                b.get("tech_kundennummer") if hat_tech_lizenz
+                else b.get("kundennummer")
+            ),
             "vereinsname": None,
             "verein_email": None,
             "vorname": b.get("vorname"),
@@ -8132,13 +8138,21 @@ def kunde_vollstaendig_laden(
             v = _row(conn.execute("SELECT * FROM vereine WHERE id=?", (verein_id,)).fetchone())
             if not v:
                 return None
-            b = _row(conn.execute(
-                """SELECT * FROM benutzer
-                     WHERE verein_id=? AND rolle='Vereinsadmin'
-                     ORDER BY aktiv DESC, erstellt_am ASC, id ASC
-                     LIMIT 1""",
-                (verein_id,),
-            ).fetchone())
+            if benutzer_id is not None:
+                b = _row(conn.execute(
+                    "SELECT * FROM benutzer WHERE id=? AND verein_id=?",
+                    (benutzer_id, verein_id),
+                ).fetchone())
+                if not b:
+                    return None
+            else:
+                b = _row(conn.execute(
+                    """SELECT * FROM benutzer
+                         WHERE verein_id=? AND rolle='Vereinsadmin'
+                         ORDER BY aktiv DESC, erstellt_am ASC, id ASC
+                         LIMIT 1""",
+                    (verein_id,),
+                ).fetchone())
         else:
             b = _row(conn.execute("SELECT * FROM benutzer WHERE id=?", (benutzer_id,)).fetchone())
             if not b:
@@ -8417,12 +8431,172 @@ def backup_status_laden() -> dict:
     return result
 
 
-def kunde_zusammenfassung_laden(verein_id: int | None, benutzer_id: int) -> dict:
+def _kunde_loeschziel_pruefen_in_conn(
+    conn: sqlite3.Connection,
+    verein_id: int | None,
+    benutzer_id: int,
+    erwartete_kundennummer: str,
+    superadmin_id: int | None,
+) -> dict:
+    """Prüft ein Löschziel fail-closed innerhalb derselben DB-Transaktion.
+
+    Der Vertragspartner ist bei technischen Einzeltrainern der technische
+    Mandant. Benutzer- und Mandantenzuordnungen werden vor jeder Vorschau und
+    Löschung erneut geprüft, damit eine fremde Mehrfachzuordnung niemals durch
+    das Löschen eines Kundenkontos mitbetroffen ist.
+    """
+    erwartete_kundennummer = str(erwartete_kundennummer or "").strip()
+    if not erwartete_kundennummer or erwartete_kundennummer in ("—", "[gelöscht]"):
+        raise ValueError("Für die endgültige Löschung fehlt eine gültige Kundennummer.")
+
+    if superadmin_id is None:
+        raise ValueError("Endgültige Löschungen erfordern ein Superadmin-Konto.")
+    superadmin = conn.execute(
+        "SELECT rolle, aktiv FROM benutzer WHERE id=?", (superadmin_id,)
+    ).fetchone()
+    if not superadmin or superadmin["rolle"] != "Superadmin" or not superadmin["aktiv"]:
+        raise ValueError("Endgültige Löschungen erfordern ein aktives Superadmin-Konto.")
+
+    benutzer = conn.execute(
+        "SELECT * FROM benutzer WHERE id=?", (benutzer_id,)
+    ).fetchone()
+    if not benutzer:
+        raise ValueError("Das ausgewählte Benutzerkonto existiert nicht mehr.")
+
+    if verein_id is None:
+        if benutzer["verein_id"] is not None:
+            raise ValueError("Das Benutzerkonto gehört zu einem Mandanten und ist kein Standalone-Kunde.")
+        if str(benutzer["kundennummer"] or "").strip() != erwartete_kundennummer:
+            raise ValueError("Die Kundennummer stimmt nicht mit dem geöffneten Kundenkonto überein.")
+        fremde_mandanten = conn.execute(
+            "SELECT 1 FROM trainer_mandanten WHERE benutzer_id=? LIMIT 1",
+            (benutzer_id,),
+        ).fetchone()
+        if fremde_mandanten:
+            raise ValueError(
+                "Das Standalone-Konto hat Mandantenzuordnungen und kann nicht sicher gelöscht werden."
+            )
+        if benutzer_id == superadmin_id:
+            raise ValueError("Das aktuell verwendete Superadmin-Konto kann nicht gelöscht werden.")
+        return {
+            "verein_id": None,
+            "benutzer_id": benutzer_id,
+            "kundennummer": erwartete_kundennummer,
+            "benutzer_ids": [benutzer_id],
+            "n_mandantenzuordnungen": 0,
+            "ist_technischer_mandant": False,
+        }
+
+    verein = conn.execute(
+        "SELECT * FROM vereine WHERE id=?", (verein_id,)
+    ).fetchone()
+    if not verein:
+        raise ValueError("Das ausgewählte Kundenkonto existiert nicht mehr.")
+    if str(verein["kundennummer"] or "").strip() != erwartete_kundennummer:
+        raise ValueError("Die Kundennummer stimmt nicht mit dem geöffneten Kundenkonto überein.")
+    if benutzer["verein_id"] != verein_id:
+        raise ValueError("Das ausgewählte Benutzerkonto gehört nicht zum geöffneten Kundenkonto.")
+
+    benutzer_ids = [
+        row[0] for row in conn.execute(
+            "SELECT id FROM benutzer WHERE verein_id=? ORDER BY id", (verein_id,)
+        ).fetchall()
+    ]
+    if not benutzer_ids or benutzer_id not in benutzer_ids:
+        raise ValueError("Die Benutzerzuordnung des Kundenkontos ist inkonsistent.")
+    if superadmin_id in benutzer_ids:
+        raise ValueError("Das aktuell verwendete Superadmin-Konto kann nicht gelöscht werden.")
+
+    ist_technischer_mandant = bool(verein["ist_technischer_mandant"])
+    mandanten_benutzer_ids = [
+        row[0] for row in conn.execute(
+            "SELECT benutzer_id FROM trainer_mandanten WHERE verein_id=?",
+            (verein_id,),
+        ).fetchall()
+    ]
+    if ist_technischer_mandant and (
+        len(benutzer_ids) != 1
+        or benutzer_ids[0] != benutzer_id
+        or any(member_id != benutzer_id for member_id in mandanten_benutzer_ids)
+    ):
+        raise ValueError(
+            "Der technische Einzeltrainer-Mandant enthält fremde Benutzerzuordnungen."
+        )
+
+    placeholders = ",".join("?" for _ in benutzer_ids)
+    fremde_zuordnungen = conn.execute(
+        f"""SELECT tm.benutzer_id, tm.verein_id
+              FROM trainer_mandanten tm
+             WHERE tm.benutzer_id IN ({placeholders})
+               AND tm.verein_id != ?
+             LIMIT 1""",
+        (*benutzer_ids, verein_id),
+    ).fetchone()
+    if fremde_zuordnungen:
+        raise ValueError(
+            "Ein zu löschendes Benutzerkonto ist weiteren Mandanten zugeordnet."
+        )
+
+    fremde_spielerzuordnung = conn.execute(
+        """SELECT s.id
+             FROM spieler s
+             LEFT JOIN benutzer tb ON tb.id=s.trainer_id
+             LEFT JOIN trainer_mandanten tm
+                    ON tm.benutzer_id=s.trainer_id
+                   AND tm.verein_id=?
+                   AND tm.aktiv=1
+            WHERE s.verein_id=?
+              AND s.trainer_id IS NOT NULL
+              AND (tb.id IS NULL OR tm.benutzer_id IS NULL)
+            LIMIT 1""",
+        (verein_id, verein_id),
+    ).fetchone()
+    if fremde_spielerzuordnung:
+        raise ValueError(
+            "Ein Spieler des Kundenkontos ist einem fremden Trainer zugeordnet."
+        )
+
+    return {
+        "verein_id": verein_id,
+        "benutzer_id": benutzer_id,
+        "kundennummer": erwartete_kundennummer,
+        "benutzer_ids": benutzer_ids,
+        "n_mandantenzuordnungen": len(mandanten_benutzer_ids),
+        "ist_technischer_mandant": ist_technischer_mandant,
+    }
+
+
+def kunde_loeschziel_pruefen(
+    verein_id: int | None,
+    benutzer_id: int,
+    *,
+    erwartete_kundennummer: str,
+    superadmin_id: int | None,
+) -> dict:
+    """Prüft ein Löschziel ohne Daten zu verändern."""
+    with get_conn() as conn:
+        return _kunde_loeschziel_pruefen_in_conn(
+            conn, verein_id, benutzer_id, erwartete_kundennummer, superadmin_id
+        )
+
+
+def kunde_zusammenfassung_laden(
+    verein_id: int | None,
+    benutzer_id: int,
+    *,
+    erwartete_kundennummer: str,
+    superadmin_id: int | None,
+) -> dict:
     """
     Liefert eine Zusammenfassung der Daten eines Kunden für den Lösch-Dialog.
     Tenant-sicher: nur Daten des angegebenen verein_id/benutzer_id.
     """
     with get_conn() as conn:
+        ziel = _kunde_loeschziel_pruefen_in_conn(
+            conn, verein_id, benutzer_id, erwartete_kundennummer, superadmin_id
+        )
+        verein_id = ziel["verein_id"]
+        benutzer_id = ziel["benutzer_id"]
         if verein_id:
             n_spieler = conn.execute(
                 "SELECT COUNT(*) FROM spieler WHERE verein_id=?", (verein_id,)
@@ -8494,16 +8668,7 @@ def kunde_zusammenfassung_laden(verein_id: int | None, benutzer_id: int) -> dict
         n_audit_eintraege   = 0
         n_benachrichtigungen = 0
         n_push_tokens       = 0
-        alle_bid_list: list[int] = []
-        if verein_id:
-            alle_bid_list = [
-                r[0] for r in conn.execute(
-                    "SELECT id FROM benutzer WHERE verein_id=? OR id=?",
-                    (verein_id, benutzer_id),
-                ).fetchall()
-            ]
-        else:
-            alle_bid_list = [benutzer_id]
+        alle_bid_list: list[int] = ziel["benutzer_ids"]
 
         for _bid in alle_bid_list:
             try:
@@ -8577,6 +8742,7 @@ def kunde_zusammenfassung_laden(verein_id: int | None, benutzer_id: int) -> dict
             "n_benachrichtigungen": n_benachrichtigungen,
             "n_push_tokens":      n_push_tokens,
             "n_benutzerkonten":   len(alle_bid_list),
+            "n_mandantenzuordnungen": ziel["n_mandantenzuordnungen"],
             "logo_vorhanden":     logo_vorhanden,
             "vertragsstatus":     vertragsstatus,
         }
@@ -8586,6 +8752,8 @@ def kunde_loeschen(
     verein_id: int | None,
     benutzer_id: int,
     superadmin_id: int | None = None,
+    *,
+    erwartete_kundennummer: str,
 ) -> dict:
     """
     Löscht einen Kunden endgültig (Superadmin-only). Atomar — alles in einer Transaktion.
@@ -8601,6 +8769,15 @@ def kunde_loeschen(
     """
 
     with get_conn() as conn:
+        # Sperrt die Zielmenge vor Validierung und Löschung in einer
+        # Transaktion. Jede Inkonsistenz löst den Contextmanager-Rollback aus.
+        conn.execute("BEGIN IMMEDIATE")
+        ziel = _kunde_loeschziel_pruefen_in_conn(
+            conn, verein_id, benutzer_id, erwartete_kundennummer, superadmin_id
+        )
+        verein_id = ziel["verein_id"]
+        benutzer_id = ziel["benutzer_id"]
+        alle_benutzer_ids = ziel["benutzer_ids"]
         # PRAGMA foreign_keys = ON ist bereits durch get_conn() gesetzt und bleibt aktiv.
         # Alle Abhängigkeiten werden in der korrekten FK-konformen Reihenfolge behandelt.
 
@@ -8611,12 +8788,6 @@ def kunde_loeschen(
                     "SELECT id FROM spieler WHERE verein_id=?", (verein_id,)
                 ).fetchall()
             ]
-            alle_benutzer_ids = [
-                r[0] for r in conn.execute(
-                    "SELECT id FROM benutzer WHERE verein_id=? OR id=?",
-                    (verein_id, benutzer_id),
-                ).fetchall()
-            ]
         else:
             # Standalone-Trainer: Spieler über trainer_id verknüpft (nicht benutzer_id —
             # diese Spalte existiert nicht in der spieler-Tabelle)
@@ -8625,7 +8796,6 @@ def kunde_loeschen(
                     "SELECT id FROM spieler WHERE trainer_id=?", (benutzer_id,)
                 ).fetchall()
             ]
-            alle_benutzer_ids = [benutzer_id]
 
         n_spieler = len(spieler_ids)
 
@@ -8705,11 +8875,22 @@ def kunde_loeschen(
             except Exception:
                 pass
 
-        # DELETE benutzer: CASCADE → benachrichtigungen auto-gelöscht;
-        # SET NULL → login_log.benutzer_id, spieler_zuweisung_log.ausfuehrender_id auto-genullt
+        # Mitgliedschaften des zu löschenden Mandanten lösen, ohne
+        # mitgliedschaftsbasierte Benutzerkonten anderer Mandanten zu löschen.
         if verein_id:
-            conn.execute("DELETE FROM benutzer WHERE verein_id=?", (verein_id,))
-        conn.execute("DELETE FROM benutzer WHERE id=?", (benutzer_id,))
+            conn.execute("DELETE FROM trainer_mandanten WHERE verein_id=?", (verein_id,))
+
+        # DELETE benutzer: CASCADE → benachrichtigungen auto-gelöscht;
+        # SET NULL → login_log.benutzer_id, spieler_zuweisung_log.ausfuehrender_id auto-genullt.
+        # Nur die zuvor serverseitig geprüften direkten Benutzer werden entfernt.
+        if verein_id:
+            placeholders = ",".join("?" for _ in alle_benutzer_ids)
+            conn.execute(
+                f"DELETE FROM benutzer WHERE id IN ({placeholders})",
+                tuple(alle_benutzer_ids),
+            )
+        else:
+            conn.execute("DELETE FROM benutzer WHERE id=?", (benutzer_id,))
 
         # ── Schritt 4: Verein anonymisieren (NICHT löschen) ──────────────────
         # rechnungen.verein_id ist NOT NULL, ON DELETE=NO ACTION →
@@ -8763,7 +8944,24 @@ def kunde_loeschen(
                 (verein_id,),
             )
 
-    return {"n_spieler": n_spieler, "n_benutzer": len(alle_benutzer_ids)}
+        # Der irreversible Löschvorgang erhält seinen Audit-Nachweis in
+        # derselben Transaktion. Schlägt das INSERT fehl, wird die gesamte
+        # Löschung zurückgerollt statt nachträglich unprotokolliert zu bleiben.
+        conn.execute(
+            """INSERT INTO audit_log (benutzer_id, aktion, details, superadmin_id)
+               VALUES (NULL, 'kunde_endgueltig_geloescht', ?, ?)""",
+            (
+                f"kn={ziel['kundennummer']}, n_spieler={n_spieler}, "
+                f"n_benutzer={len(alle_benutzer_ids)}",
+                superadmin_id,
+            ),
+        )
+
+    return {
+        "n_spieler": n_spieler,
+        "n_benutzer": len(alle_benutzer_ids),
+        "n_mandantenzuordnungen": ziel["n_mandantenzuordnungen"],
+    }
 
 
 def db_backup_erstellen() -> tuple[bool, str]:

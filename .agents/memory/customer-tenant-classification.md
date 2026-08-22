@@ -16,3 +16,11 @@ Use one shared, read-only classification for customer administration and the Sup
 **How to apply:** Reuse the central classifier when adding or changing Superadmin customer, licensing, invoice, or tenant-overview lists. Keep data-review paths informational unless a separately approved data-cleanup workflow is implemented.
 
 For a club, never fall back to a secondary user profile for commercial data. Unknown package values must remain visibly unassigned rather than defaulting to a trainer plan.
+
+## Destructive customer actions
+
+Customer deletion must derive its identity and confirmation number from the classified contract partner. For a technical individual trainer, that is the technical tenant; the linked user account is secondary account information and must never become the deletion identity.
+
+**Why:** Legacy user assignments and multi-tenant memberships can make an arbitrary account look like the owner. Deleting from that identity risks removing data from a different tenant.
+
+**How to apply:** Resolve the target consistently for the UI, data preview, and final mutation. Revalidate the exact contract number, target account relationship, active player-trainer assignments, and all other tenant memberships immediately before mutation in one transaction. Any ambiguity or foreign/inactive association must fail closed; retention records and the deletion audit remain in the same transaction.
