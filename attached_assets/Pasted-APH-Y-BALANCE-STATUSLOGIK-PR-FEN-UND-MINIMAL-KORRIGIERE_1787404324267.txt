@@ -1,0 +1,136 @@
+APH – Y-BALANCE STATUSLOGIK PRÜFEN UND MINIMAL KORRIGIEREN
+
+WICHTIG:
+Zuerst ausschließlich analysieren.
+Nicht sofort umbauen.
+Keine unnötigen Refactorings.
+Keine Produktionsdaten verändern.
+Kein Deployment.
+Kein Push.
+
+AKTUELLER FEHLER
+
+Bei Y-Balance werden plausible gute Werte angezeigt, z. B.:
+
+Composite Rechts: ca. 92 %
+Composite Links: ca. 91 %
+
+Seitendifferenzen:
+Anterior: 1 cm
+Posteromedial: 1 cm
+Posterolateral: 1 cm
+
+Text:
+„Keine relevante Asymmetrie“
+
+Trotzdem wird die Y-Balance-Kachel ROT dargestellt.
+
+Zusätzlich zeigt das Spielerprofil teilweise:
+„Handlungsbedarf hoch“
+
+obwohl der Y-Balance-Befund sprachlich unauffällig ist.
+
+AUFGABE
+
+1. Analysiere zuerst vollständig, wo Y-Balance-Bewertung und Status erzeugt werden.
+
+Prüfe insbesondere:
+- Berechnung der Seitendifferenzen
+- Composite-Berechnung
+- Asymmetrie-Text
+- Ampelfarbe
+- Statuscode / Severity
+- Athletik-Score
+- Athletik-Status / Handlungsbedarf
+- Trainingsplan-Schwerpunkte
+- Entwicklung
+- Vergleich
+- PDF-Berichte
+- Dashboard-/Diagnostikkachel
+
+2. Finde heraus, ob aktuell nur die Farbe falsch ist oder ob intern
+„Keine relevante Asymmetrie“
+fälschlicherweise als negativer Befund behandelt wird.
+
+3. Bestehende fachliche Grenzwerte NICHT neu erfinden.
+Nutze ausschließlich die bereits vorhandene Y-Balance-Bewertungslogik und Schwellenwerte im Projekt.
+
+4. Erwartete semantische Konsistenz:
+
+Wenn Ergebnis:
+„Keine relevante Asymmetrie“
+
+dann darf der Status nicht rot / kritisch sein.
+
+Sinngemäß:
+- unauffällig → grün
+- grenzwertig → gelb
+- auffällig → rot
+
+Aber nur entsprechend der bereits bestehenden zentralen Bewertungslogik.
+
+5. Falls mehrere Stellen eigene Farb-/Statuslogik besitzen:
+nicht einfach überall hartcodieren.
+Prüfen, ob eine zentrale Y-Balance-Bewertungsfunktion existiert oder sinnvoll wiederverwendet werden kann.
+
+6. Besonders wichtig:
+Prüfe, ob der falsche Y-Balance-Status den Gesamtstatus
+„Handlungsbedarf hoch“
+oder den Athletik-Score verschlechtert.
+
+Falls ja:
+minimal korrigieren, sodass der gleiche zentrale Befund überall konsistent verwendet wird.
+
+7. Keine Änderung an:
+- Messwerten
+- Demo-Daten
+- Sprint
+- FMS
+- Sprung
+- Kraft
+- Ausdauer
+- Stripe
+- Registrierung
+- Kunden-/Mandantenlogik
+
+TESTS
+
+Mindestens Regressionstests für:
+
+A)
+Y-Balance unauffällig
+→ Text „Keine relevante Asymmetrie“
+→ grün / positiv
+→ kein kritischer Y-Balance-Status
+
+B)
+leichte Grenzwert-Situation
+→ bestehende gelbe Logik bleibt korrekt
+
+C)
+klare relevante Asymmetrie
+→ rot / Handlungsbedarf entsprechend bestehender Logik
+
+D)
+Athletik-Score / Athletik-Status
+→ unauffällige Y-Balance darf nicht als negativer Befund eingehen
+
+E)
+Dashboard-Kachel und Detailansicht zeigen dieselbe Bewertung
+
+F)
+PDF / Entwicklung / Vergleich verwenden dieselbe Bewertung, falls dort Y-Balance-Status ausgegeben wird
+
+Am Ende:
+- Ursache
+- geänderte Dateien
+- war es UI-only oder Logikfehler?
+- Einfluss auf Athletik-Score
+- Einfluss auf Handlungsbedarf
+- Tests
+- DB-Migration nein
+- Produktionsdaten verändert nein
+- Deployment nein
+- Push nein
+
+STOPP danach.
