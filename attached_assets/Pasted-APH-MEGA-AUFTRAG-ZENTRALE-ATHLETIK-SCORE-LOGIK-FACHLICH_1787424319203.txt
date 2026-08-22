@@ -1,0 +1,894 @@
+APH – MEGA-AUFTRAG: ZENTRALE ATHLETIK-SCORE-LOGIK FACHLICH KORRIGIEREN
+
+WICHTIG:
+Bestehende APH-Architektur erhalten.
+Kein kompletter Neubau.
+Keine unnötigen Refactorings.
+Keine Produktionsdaten verändern.
+Keine Datenbankmigration, sofern nicht technisch zwingend notwendig.
+Keine Änderungen an Registrierung, Login, Stripe, Lizenzsystem, Mandantenlogik,
+Trainingsplan, Periodisierung oder anderen fachfremden Bereichen.
+Kein Deployment und kein Push.
+
+ZIEL:
+Die bereits vorhandene Diagnostik bleibt bestehen.
+Korrigiert wird ausschließlich die zentrale Score-/Befundlogik und die dafür
+notwendigen Verbraucher.
+
+Die vorhandenen Testmodule und Rohdaten sollen weiterverwendet werden.
+
+==================================================
+PHASE 1 – READ ONLY / IST-ZUSTAND BESTÄTIGEN
+==================================================
+
+Bitte zuerst den aktuellen Code lesen und die nachfolgenden bestätigten Punkte
+gegen den tatsächlichen Stand verifizieren.
+
+Noch KEINE Dateien ändern.
+
+Relevante Bereiche insbesondere:
+
+- analytics.py
+- sprint.py
+- sprung.py
+- agilitaet.py
+- ausdauer.py
+- kraft.py
+- fms.py
+- y_balance.py
+- age_norms.py
+- app.py
+- database.py
+- pdf_report.py
+- export.py
+- modules/saas_dashboard.py
+- bestehende Regressionstests
+
+Bereits auf dem Produktionsserver bestätigt:
+
+1. athletik_score() verwendet aktuell FMS, Y-Balance, Sprint, Sprung,
+   Agilität, Ausdauer und nominell Spiro.
+
+2. Fehlende Module werden aktuell nicht als 0 gewertet, sondern die Gewichte
+   der vorhandenen Module werden neu normalisiert.
+   Dieses Grundprinzip soll erhalten bleiben.
+
+3. FMS hat einen bestätigten Textfehler:
+   "Keine Asymmetrie" enthält das Wort "Asymmetrie" und kann dadurch
+   fälschlich als auffälliger Befund behandelt werden.
+
+4. Die zentrale Text-zu-Score-Tabelle ist inkonsistent.
+   Beispiele:
+   - Sehr gut (Profi-Niveau) = 95
+   - Gut (Leistungssport) = 78
+   - Mittel (Breitensport) = 58
+   - Verbesserungsbedarf = 30
+   gleichzeitig:
+   - Gut = 85
+   - Mittel = 60
+   und einfaches "Sehr gut" wird teilweise gar nicht erkannt.
+
+5. Y-Balance verwendet im Athletik-Score aktuell eine pauschale lineare
+   70–100-%-Skala, obwohl APH bereits altersabhängige Y-Balance-Normen besitzt.
+
+6. Sprint speichert mehrere Distanzen, der zentrale Score nutzt aktuell aber
+   praktisch nur bewertung_10m ODER bewertung_30m.
+
+7. Sprung enthält CMJ, Squat Jump, Drop Jump/RSI, Standweitsprung und
+   Seitenwerte, der zentrale Score nutzt aktuell hauptsächlich CMJ.
+
+8. Agilität enthält 505, 5-10-5, T-Test und Illinois, der zentrale Score nutzt
+   aktuell hauptsächlich T-Test bzw. alternativ 505.
+
+9. Kraftdiagnostik ist vorhanden, aber nicht Bestandteil des zentralen
+   Athletik-Scores.
+
+10. Spiro wird an athletik_score() übergeben, ist als Gewicht dokumentiert,
+    erzeugt aber aktuell keinen echten Spiro-Subscore.
+
+Nach dieser Bestätigung mit minimaler Umsetzung fortfahren.
+
+==================================================
+PHASE 2 – FACHLICHES ZIELMODELL
+==================================================
+
+APH soll künftig klar drei Dinge trennen:
+
+A) ATHLETISCHE LEISTUNGSFÄHIGKEIT
+- Sprint
+- Sprung / Power
+- Richtungswechsel / COD
+- Ausdauer
+- Kraft
+
+B) BEWEGUNGSQUALITÄT / KONTROLLE
+- FMS
+- Y-Balance
+
+C) TRAINER-HANDLUNGSBEDARF
+- auffällige Screening-Befunde
+- relevante Seitenunterschiede
+- Verletzungshistorie
+- andere bereits vorhandene Trainerhinweise
+
+FMS und Y-Balance sollen NICHT mehr den reinen Leistungs-Athletikscore
+herunterziehen.
+
+Sie bleiben vollständig erhalten, aber als Bewegungs-/Befundbereich.
+
+Der bestehende Risiko-/Handlungsmechanismus darf intern weitgehend erhalten
+bleiben, aber Nutzertexte sollen nicht so formuliert sein, als könne APH ein
+individuelles Verletzungsrisiko sicher vorhersagen.
+
+Bevorzugte Nutzerbegriffe:
+
+- Unauffällig
+- Einzelne Hinweise / beobachten
+- Trainer-Handlungsbedarf
+- Trainer-Handlungsbedarf hoch
+
+Keine Aussagen wie:
+"hohes Verletzungsrisiko aufgrund FMS/Y-Balance"
+
+==================================================
+PHASE 3 – GESAMT-ATHLETIKSCORE
+==================================================
+
+Der Athletik-Score soll künftig ausschließlich die fünf Leistungsbereiche
+abbilden:
+
+- COD / Richtungswechsel: 30 %
+- Sprint: 25 %
+- Sprung / Power: 20 %
+- Ausdauer: 15 %
+- Kraft: 10 %
+
+Summe = 100 %.
+
+WICHTIG:
+Diese Gewichtung ist eine transparente APH-Produktgewichtung und darf im Code
+nicht als wissenschaftlich validierte Universalformel bezeichnet werden.
+
+COD erhält bewusst das höchste APH-Gewicht.
+
+FEHLENDE MODULE:
+
+Fehlende Leistungsbereiche dürfen niemals als 0 bewertet werden.
+
+Wie bisher:
+Nur vorhandene und fachlich bewertbare Module verwenden und deren Gewichte
+auf die tatsächlich vorhandenen Bereiche normalisieren.
+
+Beispiel:
+Nur Sprint + Ausdauer vorhanden
+→ nur 25 + 15 als Basis verwenden und relativ auf 100 % umrechnen.
+
+ABER:
+Zusätzlich muss sichtbar werden, wie vollständig die Datenbasis ist.
+
+Regel:
+
+- 0 Leistungsbereiche:
+  kein Athletik-Score
+- 1 Leistungsbereich:
+  nur Modulscore anzeigen, KEIN Gesamt-Athletikscore
+- 2 Leistungsbereiche:
+  Gesamt-Athletikscore erlaubt
+  Datenbasis: eingeschränkt
+- 3 Leistungsbereiche:
+  Datenbasis: mittel
+- 4–5 Leistungsbereiche:
+  Datenbasis: gut
+
+Anzeige z. B.:
+
+Athletik-Score: 82/100
+Datenbasis: 3 von 5 Leistungsbereichen – mittlere Aussagekraft
+
+Keine fehlenden Module mit 0 auffüllen.
+
+==================================================
+PHASE 4 – SPRINT
+==================================================
+
+Der Trainer entscheidet selbst, welche Sprintdistanzen getestet werden.
+
+APH soll NICHT vorschreiben, dass immer 10 m + 30 m gemacht werden müssen.
+
+Der Trainer kann:
+
+- nur 1 Distanz testen
+- 2 Distanzen testen
+- 3 Distanzen testen
+- oder alle vorhandenen Sprintdistanzen testen
+
+Bestehende auswählbare/gespeicherte Sprintdistanzen beibehalten.
+
+WICHTIG:
+Kein fehlender Sprintsplit ist ein Nullwert.
+
+Der Sprint-Modulscore soll aus allen tatsächlich absolvierten und
+fachlich bewertbaren Sprintdistanzen gebildet werden.
+
+Regel:
+
+1. Für jede absolvierte Distanz prüfen:
+   - existiert im vorhandenen APH-System eine belastbare alters-/geschlechts-
+     bezogene Norm bzw. Bewertungsfunktion?
+   - wenn ja: in einen strukturierten normierten Teilscore überführen
+   - wenn nein: Messwert weiterhin anzeigen, aber NICHT in den Score einrechnen
+
+2. Keine neue Norm für 5/20/40 m erfinden.
+
+3. Wenn für 20 m oder 40 m bereits vorhandene, belegte Normtabellen im Projekt
+   existieren, diese korrekt anbinden.
+
+4. Wenn keine belastbare Norm vorhanden ist:
+   Anzeige:
+   "Messwert vorhanden – keine Referenzbewertung verfügbar"
+   und nicht scorewirksam.
+
+5. Sprint-Modulscore =
+   Mittelwert der tatsächlich vorhandenen scorefähigen Sprintdistanzen.
+
+Beispiel:
+nur 10 m scorefähig
+→ Sprintscore = 10-m-Score
+
+10 m + 30 m scorefähig
+→ Mittelwert aus 10 m + 30 m
+
+10 m + 20 m + 30 m scorefähig
+→ Mittelwert der drei scorefähigen Distanzen
+
+WICHTIG:
+Sprint wird im Gesamt-Athletikscore trotzdem nur EINMAL mit 25 % gewichtet.
+Mehr Sprintdistanzen erhöhen nicht das Gesamtgewicht des Sprintbereichs.
+
+Legacy-Kompatibilität:
+Alte gespeicherte Texte wie
+"Sehr gut", "Gut", "Mittel"
+und neue Texte wie
+"Sehr gut (Profi-Niveau)", "Gut (Leistungssport)"
+müssen weiterhin lesbar bleiben.
+
+Entscheidungslogik soll aber möglichst strukturiert sein und nicht langfristig
+nur auf Textfragmenten basieren.
+
+==================================================
+PHASE 5 – SPRUNG / POWER
+==================================================
+
+Für APH sind CMJ und Squat Jump (SJ) die wichtigsten Sprung-Leistungswerte.
+
+Bestehende übrige Sprungtests bleiben erhalten:
+- einbeinige CMJ
+- Drop Jump
+- RSI
+- Standweitsprung
+- Seitenasymmetrien
+
+Sie dürfen NICHT entfernt werden.
+
+Für den zentralen Leistungs-Subscore gilt jedoch:
+
+PRIMÄR:
+- CMJ
+- Squat Jump / SJ
+
+Regel:
+
+1. CMJ besitzt bereits eine vorhandene altersbezogene Bewertungslogik.
+   Diese weiterverwenden, sofern nach Prüfung fachlich konsistent.
+
+2. Für Squat Jump zuerst prüfen, ob im Projekt bereits eine belastbare,
+   dokumentierte alters-/geschlechtsspezifische Normierung vorhanden ist.
+
+3. KEINE SJ-Normwerte erfinden.
+
+4. Falls eine belastbare vorhandene SJ-Referenz existiert:
+   - CMJ + SJ beide scorefähig
+   - wenn beide vorhanden: Mittelwert der beiden normierten Subscores
+   - wenn nur einer vorhanden: dieser allein bildet den Power-Subscore
+
+5. Falls keine belastbare SJ-Norm vorhanden ist:
+   - SJ bleibt ein zentral sichtbarer Leistungswert
+   - aber zunächst nicht in einen künstlichen 0–100-Wert umrechnen
+   - CMJ bildet dann den scorefähigen Hauptwert
+   - im Abschlussbericht ausdrücklich festhalten, dass SJ mangels belastbarer
+     vorhandener Norm nicht künstlich gescored wurde
+
+6. Drop Jump / RSI / Standweitsprung:
+   vorerst NICHT zusätzlich in den zentralen Power-Score hineinmitteln,
+   solange keine gleichwertige strukturierte Normierung vorliegt.
+
+7. Einbeinige Unterschiede / Asymmetrien:
+   weiterhin als Trainerhinweis anzeigen.
+   Kein pauschaler künstlicher -10-Punkte-Abzug vom Power-Score.
+
+WICHTIG:
+CMJ + SJ zusammen bilden EIN Leistungsmodul "Sprung / Power" mit maximal 20 %
+Gesamtgewicht.
+
+==================================================
+PHASE 6 – COD / RICHTUNGSWECHSEL
+==================================================
+
+Dieses Modul ist für die APH-Gesamtgewichtung am wichtigsten.
+
+Bestehende Tests:
+
+- 505 rechts / links
+- 5-10-5
+- T-Test
+- Illinois
+
+Bestehende Eingaben und Historien erhalten.
+
+Bezeichnung in Score-/Profilbereichen bevorzugt:
+"Richtungswechsel / COD"
+
+Nicht zwingend jede alte UI-Überschrift sofort global umbenennen, wenn dadurch
+unnötig viele Verbraucher geändert werden müssten.
+
+ZIEL:
+
+COD-Modulscore soll nicht mehr nur stumpf T-Test ODER 505 verwenden.
+
+Die vorhandenen Tests sollen in sinnvolle Unterbereiche eingeordnet werden:
+
+A) 180° COD
+- 505
+
+B) Shuttle COD
+- 5-10-5
+
+C) multidirektionaler COD
+- T-Test oder Illinois
+
+Regel:
+
+- nur tatsächlich vorhandene, bewertbare Teiltests verwenden
+- fehlende Teiltests niemals = 0
+- pro Unterbereich maximal ein Subscore
+- wenn T-Test UND Illinois vorhanden sind, nicht automatisch doppelt stärker
+  zählen; beide gehören zum multidirektionalen Bereich
+
+Für den multidirektionalen Bereich:
+- wenn nur einer vorhanden → diesen verwenden
+- wenn beide vorhanden → Mittelwert aus T-Test und Illinois
+
+COD-Modulscore =
+Mittelwert der vorhandenen Unterbereich-Scores:
+
+- 180° COD
+- Shuttle COD
+- multidirektionaler COD
+
+Beispiel:
+nur 505 vorhanden
+→ COD basiert nur auf 505
+
+505 + T-Test vorhanden
+→ Mittelwert aus 180° COD + multidirektional
+
+505 + 5-10-5 + T-Test
+→ Mittelwert aller 3 Unterbereiche
+
+WICHTIG:
+COD bleibt im Gesamt-Athletikscore EIN Modul mit 30 %.
+
+505-Seitenasymmetrie:
+weiterhin separat als Trainerhinweis darstellen.
+
+Kein pauschaler -8-Punkte-Abzug vom COD-Leistungsscore allein aufgrund der
+Asymmetrie.
+
+Keine Aussage "Verletzungsrisiko" allein aufgrund einer 505-Asymmetrie.
+
+==================================================
+PHASE 7 – AUSDAUER
+==================================================
+
+Bestehende Ausdauermodule erhalten.
+
+Yo-Yo / Feldtest und Spiroergometrie NICHT doppelt im Gesamt-Athletikscore
+gewichten.
+
+Der Gesamt-Athletikscore besitzt genau EIN Modul:
+
+"AUSDAUER" = maximal 15 %.
+
+Yo-Yo:
+- tatsächlich erreichte Distanz ist die primäre Feldtestleistung
+- vorhandene alters-/geschlechtsspezifische Bewertung beibehalten
+- Testtyp beachten
+- fehlende Daten niemals 0
+
+VO2-Schätzung aus Yo-Yo:
+- als geschätzt kennzeichnen
+- nicht wie direkt gemessene Spiro-VO2 darstellen
+- bisherigen pauschalen Bonus
+  VO2max >= 55 → +5 Scorepunkte
+  entfernen
+- dadurch keine doppelte Belohnung desselben Feldtests
+
+Spiro:
+- bestehende Spirodiagnostik vollständig erhalten
+- VO2peak, Schwellen usw. weiter anzeigen
+- NICHT zusätzlich mit einem eigenen 12-%-Gewicht neben Ausdauer rechnen
+
+Wenn nur Yo-Yo vorhanden:
+→ Ausdauer-Modulscore aus der vorhandenen Feldtestbewertung
+
+Wenn nur Spiro vorhanden:
+→ nur dann als Ausdauer-Score verwenden, wenn der bestehende Spiro-Code bereits
+  eine fachlich belastbare, strukturierte und vergleichbare Referenzbewertung
+  für genau diesen Test liefert.
+
+Wenn das nicht sicher gewährleistet ist:
+→ Spiro weiterhin separat anzeigen, aber keinen künstlichen Score erzeugen.
+
+Wenn Yo-Yo + Spiro vorhanden:
+→ Yo-Yo und Spiro separat sichtbar lassen.
+Nicht einfach beide blind mitteln und nicht doppelt gewichten.
+
+==================================================
+PHASE 8 – KRAFT
+==================================================
+
+Das bestehende Kraftmodul bleibt erhalten.
+
+Vorhanden sind u. a.:
+- Bankdrücken / relatives 1RM
+- geschätztes 1RM
+- ventrale Rumpfkraftausdauer
+- laterale Rumpfkraftausdauer
+- Seitenasymmetrie
+
+Kraft soll künftig als Leistungsbereich im Athletik-Score berücksichtigt werden.
+
+Gesamtgewicht:
+10 %.
+
+ABER:
+Keine erfundenen Kraftscores.
+
+Priorität:
+
+1. Vorhandene alters-/geschlechtsbezogene relative Kraftbewertung nutzen,
+   sofern fachlich konsistent.
+
+2. Bankdrücken ausdrücklich als Oberkörperkraft behandeln, nicht als gesamte
+   Fußball-Kraftfähigkeit bezeichnen.
+
+3. Da aktuell offenbar kein sauberer standardisierter Unterkörperkrafttest
+   im Score vorhanden ist, Datenbasis transparent kennzeichnen.
+
+Beispiel:
+"Kraftscore basiert auf verfügbarer relativer Oberkörperkraft."
+
+4. Rumpfkraftausdauer / Plank bleibt sichtbar.
+Nicht blind mit Bankdrücken mitteln, wenn dafür keine gleichwertige Normierung
+existiert.
+
+5. Laterale Rumpfasymmetrie:
+Trainerhinweis, kein pauschaler Leistungs-Malus.
+
+6. Keine neuen Kniebeuge-/IMTP-/Nordic-Tests im Rahmen dieses Tasks bauen.
+Das wäre ein späteres Feature und ist NICHT Teil dieses Nachfixes.
+
+==================================================
+PHASE 9 – FMS
+==================================================
+
+FMS bleibt vollständig erhalten.
+
+ABER:
+FMS gehört nicht mehr in den reinen Leistungs-Athletikscore.
+
+Bestätigten Bug korrigieren:
+
+"Keine Asymmetrie"
+darf NICHT als relevante Asymmetrie erkannt werden.
+
+Bitte alle betroffenen FMS-Pfade prüfen:
+
+- risiko_score
+- athletik_score Altpfad
+- athletik_sub_scores Altpfad
+- FMSResult / Schwerpunkt
+- Dashboard
+- Profil
+- Vergleich
+- PDF / Export, falls dort Entscheidungen getroffen werden
+
+Strukturierte FMS-Asymmetrieprüfung bevorzugen.
+
+Keine reine Prüfung mehr wie:
+
+if "Asymmetrie" in text
+
+wenn dadurch "Keine Asymmetrie" als positiv erkannt werden kann.
+
+FMS-Ausgabe:
+- Gesamtwert
+- Bewertung
+- relevante Einzelbefunde
+- Seitenunterschiede
+- Trainerhinweis
+
+Keine Verletzungsprognose allein aus FMS.
+
+==================================================
+PHASE 10 – Y-BALANCE
+==================================================
+
+Y-Balance bleibt vollständig erhalten.
+
+Die bereits korrigierte strukturierte Asymmetrielogik aus den letzten Tasks
+NICHT zurückbauen.
+
+Y-Balance gehört nicht mehr in den reinen Leistungs-Athletikscore.
+
+Die bestehende pauschale 70–100-%-Athletikscoreformel darf im neuen
+Leistungs-Athletikscore keine Rolle mehr spielen.
+
+Y-Balance soll weiterhin anzeigen:
+
+- Composite rechts
+- Composite links
+- anterior
+- posteromedial
+- posterolateral
+- Seitenunterschiede
+- strukturierte relevante Asymmetrie
+
+Die vorhandenen altersbezogenen Y-Balance-Referenzen bleiben bestehen.
+
+4-cm-Regel:
+weiterhin als bestehender APH-Hinweiswert verwenden,
+aber nicht als universelle Verletzungsprognose formulieren.
+
+Nutzertext z. B.:
+"Seitendifferenz auffällig – Trainerprüfung empfohlen."
+
+==================================================
+PHASE 11 – TRAINER-HANDLUNGSBEDARF
+==================================================
+
+Athletik-Score und Handlungsbedarf müssen unabhängig voneinander bleiben.
+
+Ein Spieler kann z. B. haben:
+
+Athletik-Score 85/100
+Datenbasis 4/5
+Trainer-Handlungsbedarf hoch
+
+Das ist erlaubt und fachlich sinnvoll.
+
+Sehr gute Leistungswerte dürfen einen auffälligen Befund NICHT wegmitteln.
+
+Handlungsbedarf soll weiterhin u. a. berücksichtigen:
+
+- relevante FMS-Befunde
+- relevante Y-Balance-Befunde
+- relevante Seitenunterschiede
+- Verletzungshistorie
+- vorhandene kritische Testhinweise
+
+Keine automatische Aussage:
+"Verletzungsrisiko X %"
+
+Bestehende Ampellogik soweit möglich erhalten:
+
+grün:
+Unauffällig
+
+gelb:
+Einzelne Hinweise / beobachten
+
+rot:
+Trainer-Handlungsbedarf hoch
+
+Intern bestehende Funktionen dürfen minimal weiterverwendet werden, solange
+die fachlich problematischen Aussagen korrigiert werden.
+
+==================================================
+PHASE 12 – LEGACY-KOMPATIBILITÄT
+==================================================
+
+Bestehende Produktionsdaten NICHT migrieren oder massenhaft überschreiben.
+
+Alte gespeicherte Bewertungstexte müssen weiter funktionieren.
+
+Beispiele:
+
+"Sehr gut"
+"Gut"
+"Mittel"
+
+sowie:
+
+"Sehr gut (Profi-Niveau)"
+"Gut (Leistungssport)"
+"Mittel (Breitensport)"
+"Verbesserungsbedarf"
+
+WICHTIG:
+Die neue zentrale Scorelogik soll nicht mehr davon abhängen, dass exakt ein
+bestimmter Anzeigetext vorliegt.
+
+Wenn möglich:
+intern strukturierte Status-IDs verwenden.
+
+Anzeige-Texte bleiben Anzeige-Texte.
+
+==================================================
+PHASE 13 – ALTER
+==================================================
+
+Die bestehende Alterslogik NICHT grundlegend umbauen.
+
+Der Nutzer hat ausdrücklich entschieden:
+Das bestehende Alterssystem soll im Rahmen dieses Tasks erhalten bleiben.
+
+Bestehende Berechnung "Alter am Testtag" weiterverwenden, wo sie bereits
+vorhanden ist.
+
+Keine große age_norms.py-Neustrukturierung im Rahmen dieses Tasks.
+
+Nur dort eingreifen, wo eine neue Scorefunktion zwingend die bestehende
+Altersbewertung korrekt weiterverwenden muss.
+
+==================================================
+PHASE 14 – UI
+==================================================
+
+Kein Redesign.
+
+Bestehende Karten, Radar-Chart, Spielerprofil, Dashboard und Vergleich möglichst
+erhalten.
+
+Minimal ergänzen:
+
+1. Athletik-Score künftig auf Basis der fünf Leistungsbereiche.
+
+2. Datenbasis sichtbar:
+   z. B.
+   "3 von 5 Leistungsbereichen – mittlere Aussagekraft"
+
+3. Radar-Chart:
+   bevorzugt die fünf Leistungsbereiche:
+   - Sprint
+   - Sprung / Power
+   - COD
+   - Ausdauer
+   - Kraft
+
+FMS/Y-Balance dürfen separat in einem Bewegungs-/Befundbereich sichtbar bleiben.
+
+Wenn eine komplette Radar-Neustrukturierung unnötig große Seiteneffekte hätte:
+zuerst minimal sicher umsetzen und im Abschlussbericht transparent nennen.
+
+==================================================
+PHASE 15 – SCORE-FARBEN
+==================================================
+
+Bestehende Scorefarblogik grundsätzlich erhalten, sofern sie keine fachlichen
+Fehler verursacht:
+
+>= 75:
+grün
+
+>= 50:
+gelb
+
+< 50:
+rot
+
+Diese Farben beschreiben die APH-Leistungszusammenfassung, NICHT medizinisches
+Risiko.
+
+Handlungsbedarf besitzt seine eigene Ampel.
+
+==================================================
+PHASE 16 – TESTS
+==================================================
+
+Neue zentrale Regressionstests anlegen.
+
+Unbedingt prüfen:
+
+A) FMS
+- "Keine Asymmetrie" → kein Asymmetrie-Malus / kein falscher Risikohinweis
+- echte Asymmetrie → Hinweis bleibt erhalten
+
+B) Sprint
+- nur 1 Sprintdistanz
+- 2 Distanzen
+- 3 Distanzen
+- alle scorefähigen Distanzen
+- fehlende Distanzen → kein Nullwert
+- Distanz ohne Referenz → wird nicht erfunden und nicht gescored
+- mehrere Distanzen erhöhen nicht das Gesamtgewicht über 25 %
+
+C) Sprung
+- nur CMJ
+- CMJ + SJ, falls SJ belastbar scorefähig
+- SJ ohne belastbare Norm → kein erfundener Score
+- Asymmetrie bleibt Hinweis, kein pauschaler Leistungsabzug
+
+D) COD
+- nur 505
+- nur T-Test
+- 505 + T-Test
+- 505 + 5-10-5 + T-Test
+- T-Test + Illinois zählen gemeinsam nur als multidirektionaler Unterbereich
+- Asymmetrie bleibt Hinweis, kein pauschaler Leistungsabzug
+- COD Gesamtgewicht maximal 30 %
+
+E) Ausdauer
+- Yo-Yo gut
+- Yo-Yo sehr gut
+- kein VO2>=55-Bonus mehr
+- fehlender Test kein 0
+- Spiro nicht doppelt zusätzlich gewichtet
+
+F) Kraft
+- valide relative Kraft
+- kein Krafttest → Modul fehlt neutral
+- Plank allein erzeugt nicht automatisch eine vollständige Kraftbewertung
+- Seitenasymmetrie nur als Hinweis
+
+G) Datenbasis
+- 0 Module → kein Score
+- 1 Modul → kein Gesamt-Athletikscore
+- 2 Module → eingeschränkt
+- 3 Module → mittel
+- 4 Module → gut
+- 5 Module → gut/vollständig
+
+H) Handlungsbedarf
+- hoher Leistungs-Score + relevanter Befund → hoher Handlungsbedarf bleibt
+- niedriger Leistungs-Score ohne Screening-Befund → nicht automatisch
+  "Verletzungsrisiko hoch"
+
+I) Legacy
+- alte "Gut"/"Sehr gut"-Datensätze bleiben auswertbar
+- neue Bewertungslabels bleiben auswertbar
+
+==================================================
+PHASE 17 – DEMO-SPIELER / PRODUKTIONSSERVER
+==================================================
+
+WICHTIG:
+Die sechs Demo-Spieler befinden sich ausschließlich auf dem Produktionsserver
+und stehen in Replit NICHT zur Verfügung.
+
+Replit darf deshalb NICHT versuchen, diese Spieler zu laden, anzulegen,
+nachzubauen oder Produktionsdaten zu verändern.
+
+Die sechs Produktionsspieler sind:
+
+- Anton Schwarz
+- Ben Adler
+- David Seidel
+- Elias Winter
+- Emil Brandt
+- Felix Vogel
+
+Stattdessen:
+
+1. Erstelle Regressionstests mit künstlichen Testdaten,
+   die dieselben relevanten Konstellationen abdecken:
+
+   - sehr gute Leistungswerte
+   - mittlere Leistungswerte
+   - deutlicher Entwicklungsbedarf
+   - echte FMS-Asymmetrie
+   - "Keine Asymmetrie"
+   - unauffällige Y-Balance
+   - auffällige Y-Balance
+   - fehlende Module
+   - nur 1 Leistungsbereich
+   - 2 Leistungsbereiche
+   - 3 Leistungsbereiche
+   - 4 Leistungsbereiche
+   - 5 Leistungsbereiche
+   - alte Legacy-Bewertungstexte
+   - neue strukturierte Bewertungslabels
+
+2. Die neue zentrale Score-Engine muss so testbar sein,
+   dass nach dem Deployment auf dem VPS die sechs echten Spieler
+   read-only mit denselben Funktionen ausgewertet werden können.
+
+3. Bitte dafür ein kleines READ-ONLY Diagnosewerkzeug anlegen,
+   z. B.:
+
+   tools/score_debug.py
+
+   Das Werkzeug soll möglichst:
+
+   - Spieler-ID oder Name entgegennehmen
+   - aktuelle Testdaten lesen
+   - vorhandene Testmodule auflisten
+   - Sprint-Subscore ausgeben
+   - Power-Subscore ausgeben
+   - COD-Subscore ausgeben
+   - Ausdauer-Subscore ausgeben
+   - Kraft-Subscore ausgeben
+   - Gesamt-Athletikscore ausgeben
+   - Datenbasis ausgeben
+   - Trainer-Handlungsbedarf ausgeben
+   - verwendete Gewichte ausgeben
+   - erklären, welche Teiltests tatsächlich scorewirksam waren
+   - nicht scorefähige vorhandene Messwerte klar nennen
+
+   Das Werkzeug darf NICHT:
+
+   - Daten ändern
+   - Tests speichern
+   - Spieler ändern
+   - Produktionsdaten migrieren
+   - automatisch reparieren
+
+4. Im Abschlussbericht ausdrücklich nennen,
+   mit welchem read-only VPS-Befehl wir nach dem Deployment
+   die sechs Produktionsspieler prüfen können.
+
+5. Keine Annahme treffen, dass Replit Zugriff auf Produktionsdaten hat.
+
+==================================================
+PHASE 18 – BESTEHENDE REGRESSIONEN
+==================================================
+
+Zusätzlich alle relevanten bestehenden Tests ausführen:
+
+- Y-Balance-Status
+- BMI / WHO
+- Defizitlogik
+- Trainingsplan
+- Periodisierung
+- Spielerprofil-PDF
+- Export
+- Dashboard / Vergleich soweit testbar
+- Python-Kompilierung
+- git diff --check
+
+Nach Codeänderungen App neu starten und Browser-Smoke-Test durchführen.
+
+==================================================
+PHASE 19 – ABSCHLUSSBERICHT
+==================================================
+
+Am Ende bitte klar berichten:
+
+1. Welche bestehenden Fehler bestätigt wurden.
+2. Welche Dateien geändert wurden.
+3. Wie der neue Athletik-Score exakt berechnet wird.
+4. Welche Sprintdistanzen aktuell tatsächlich scorefähig sind.
+5. Ob für Squat Jump eine belastbare vorhandene Norm gefunden wurde.
+6. Welche COD-Teiltests tatsächlich scorefähig sind.
+7. Wie Kraft aktuell einfließt.
+8. Wie Yo-Yo und Spiro getrennt behandelt werden.
+9. Wie Datenbasis/Aussagekraft berechnet wird.
+10. Wie Trainer-Handlungsbedarf vom Leistungs-Score getrennt bleibt.
+11. Wie das read-only VPS-Diagnosewerkzeug verwendet wird.
+12. Alle Testergebnisse.
+13. Bestätigung:
+    - keine Produktionsdaten verändert
+    - keine unnötige DB-Migration
+    - kein Deployment
+    - kein Push
+
+STOPP anschließend.
+
+Keine weiteren Features hinzufügen.
+
+WENN während der Umsetzung für eine Bewertung eine wissenschaftlich bzw.
+projektintern belegte Referenz fehlt:
+
+NICHT improvisieren.
+NICHT neue Grenzwerte erfinden.
+Den Teilwert nicht scorewirksam machen und im Abschlussbericht dokumentieren.
