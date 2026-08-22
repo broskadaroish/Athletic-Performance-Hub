@@ -12920,10 +12920,6 @@ if _user_rolle_nav in ("Superadmin", "Vereinsadmin"):
     _MAIN_SECTIONS = _MAIN_SECTIONS + ["🧑‍💼  Trainerportal", "🔑  Benutzerverwaltung"]
 if _user_rolle_nav in ("Trainer", "Vereinsadmin"):
     _MAIN_SECTIONS = _MAIN_SECTIONS + ["📋  Mein Vertrag"]
-if _user_rolle_nav == "Vereinsadmin" or (
-    _user_rolle_nav == "Trainer" and st.session_state.get("_starter_abgelaufen")
-):
-    _MAIN_SECTIONS = _MAIN_SECTIONS + ["💳  Lizenz"]
 if _user_rolle_nav == "Superadmin":
     _MAIN_SECTIONS = _MAIN_SECTIONS + ["🏢  Vereinsverwaltung", "💳  Lizenzverwaltung", "👥  Kundenverwaltung"]
 
@@ -12932,7 +12928,7 @@ if _user_rolle_nav == "Superadmin":
 # verschwinden aus Navigation und Routing, Daten bleiben unangetastet.
 if st.session_state.get("_starter_abgelaufen"):
     _MAIN_SECTIONS = [
-        section for section in ("👤  Mein Profil", "📋  Mein Vertrag", "💳  Lizenz", "ℹ️  Über")
+        section for section in ("👤  Mein Profil", "📋  Mein Vertrag", "ℹ️  Über")
         if section in _MAIN_SECTIONS
     ]
 

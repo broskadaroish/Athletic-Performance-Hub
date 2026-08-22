@@ -341,6 +341,22 @@ def main() -> int:
         "Upgrade auf Basic oder Pro" in license_source
         and "nach Ablauf deiner Testphase" not in license_source,
     )
+    check(
+        "Kundennavigation enthält keinen separaten Lizenzbereich",
+        '_MAIN_SECTIONS = _MAIN_SECTIONS + ["💳  Lizenz"]' not in app_source,
+    )
+    check(
+        "Abgelaufener Starter behält Profil, Vertrag und Über",
+        '("👤  Mein Profil", "📋  Mein Vertrag", "ℹ️  Über")' in app_source
+        and '"💳  Lizenz"' not in app_source.split(
+            'if st.session_state.get("_starter_abgelaufen"):', 1
+        )[1].split("with st.sidebar:", 1)[0],
+    )
+    check(
+        "Superadmin-Lizenzverwaltung bleibt erhalten",
+        '"💳  Lizenzverwaltung"' in app_source
+        and 'elif section == "💳  Lizenzverwaltung":' in app_source,
+    )
 
     print(f"\n{passed} PASS, {failed} FAIL")
     return 1 if failed else 0

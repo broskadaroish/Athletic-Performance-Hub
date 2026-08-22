@@ -1,0 +1,192 @@
+APH – FINALER UI-NACHFIX: „Lizenz“ aus Kundennavigation entfernen
+
+Bitte zunächst den aktuellen IST-Stand prüfen und anschließend ausschließlich den beschriebenen UI-/Navigations-Nachfix durchführen.
+
+ZIEL
+Für normale Kunden soll es keine zwei parallelen Bereiche „Mein Vertrag“ und „Lizenz“ mehr geben.
+
+„📋 Mein Vertrag“ wird die einzige zentrale Stelle für:
+- Vertragsinformationen
+- aktuelles Paket
+- Lizenz-/Testphasenstatus
+- Rechnungen/Zahlungen
+- Paketwechsel / Upgrade
+- Stripe-Checkout
+
+Die bestehende Superadmin-Lizenzverwaltung darf NICHT verändert werden.
+
+--------------------------------------------------
+1. KUNDENNAVIGATION
+--------------------------------------------------
+
+Entferne den Menüpunkt:
+
+💳 Lizenz
+
+aus der Navigation für normale Kunden bzw. Trainer/Vereine.
+
+Das gilt insbesondere für:
+- STARTER_FREE – laufende Testphase
+- STARTER_FREE – abgelaufen
+- TRAINER_BASIC
+- TRAINER_PRO
+- VEREIN_BASIC
+- VEREIN_PRO
+
+WICHTIG:
+Die Superadmin-Navigation „Lizenzverwaltung“ bleibt vollständig erhalten.
+
+--------------------------------------------------
+2. STARTER NACH ABLAUF
+--------------------------------------------------
+
+Ein abgelaufener STARTER_FREE soll weiterhin nur eingeschränkten Zugriff haben.
+
+Erreichbar bleiben mindestens:
+
+👤 Mein Profil
+📋 Mein Vertrag
+ℹ️ Über
+🚪 Logout
+
+„Mein Vertrag“ muss weiterhin erreichbar sein, damit der Nutzer ein kostenpflichtiges Paket auswählen kann.
+
+Keine fachlichen Bereiche aufgrund dieses Nachfixes wieder freischalten.
+
+--------------------------------------------------
+3. UPGRADE-NAVIGATION
+--------------------------------------------------
+
+Suche alle Starter-Sperrbuttons und Links wie:
+
+- „Pakete ansehen“
+- „Upgrade“
+- „Paket auswählen“
+- ähnliche Upgrade-Verweise
+
+Diese sollen bei normalen Kunden NICHT mehr zur alten Seite „Lizenz“ führen.
+
+Ziel muss sein:
+
+📋 Mein Vertrag → Paket wechseln / Upgrade
+
+Keine neue Paketansicht bauen.
+
+--------------------------------------------------
+4. MEIN VERTRAG
+--------------------------------------------------
+
+Die bereits vorhandene Upgrade-Darstellung unter „Mein Vertrag“ beibehalten.
+
+Für STARTER_FREE als Einzeltrainer dürfen ausschließlich angeboten werden:
+
+Einzeltrainer Basic
+9,99 €/Monat
+99 €/Jahr
+
+Einzeltrainer Pro
+14,99 €/Monat
+149 €/Jahr
+
+Preise, Leistungen und Limits weiterhin aus der bestehenden zentralen Definition LIZENZ_TYPEN beziehen.
+
+Keine zweite Preistabelle erstellen.
+
+Bestehenden Stripe-Checkout verwenden.
+
+--------------------------------------------------
+5. KLEINEN ANZEIGEFEHLER PRÜFEN
+--------------------------------------------------
+
+In der aktuellen Ansicht erscheint bei Einzeltrainer Pro teilweise:
+
+„Max. 1 Trainer · None Spieler“
+
+Das darf nicht vorkommen.
+
+Bei unbegrenztem Spielerlimit muss angezeigt werden:
+
+„Max. 1 Trainer · unbegrenzt Spieler“
+
+Falls der bereits umgesetzte ENV-/Anzeige-Hotfix dies schon korrigiert, nichts weiter ändern – nur regressionsprüfen.
+
+--------------------------------------------------
+6. NICHT ÄNDERN
+--------------------------------------------------
+
+Nicht verändern:
+
+- STARTER_FREE 30-Tage-Logik
+- Ablaufberechnung
+- Spielerlimit 5
+- Trainerlimit 1
+- Trainingsplanlimits
+- Premium-Sperren
+- Datenbankstruktur
+- Stripe Price-IDs
+- Stripe Produkte
+- Stripe Webhooks
+- Checkout-Logik
+- Zahlungsstatus
+- bestehende Kunden-/Lizenzdaten
+- Superadmin-Lizenzverwaltung
+- Superadmin-Kundenverwaltung
+
+Keine DB-Migration.
+
+--------------------------------------------------
+7. TESTS
+--------------------------------------------------
+
+Bitte regressionsprüfen:
+
+1. STARTER_FREE während Trial:
+   - kein Menüpunkt „Lizenz“
+   - „Mein Vertrag“ vorhanden
+   - Upgrade Basic/Pro vorhanden
+
+2. STARTER_FREE abgelaufen:
+   - kein Menüpunkt „Lizenz“
+   - „Mein Vertrag“ erreichbar
+   - Paketwahl Basic/Pro möglich
+   - Fachbereiche weiterhin gesperrt
+
+3. TRAINER_BASIC / TRAINER_PRO:
+   - kein zusätzlicher Menüpunkt „Lizenz“
+   - „Mein Vertrag“ funktioniert weiterhin
+
+4. Verein:
+   - keine Regression der bestehenden Vertragsnavigation
+
+5. Superadmin:
+   - „Lizenzverwaltung“ weiterhin vollständig vorhanden und funktionsfähig
+
+6. Alle „Pakete ansehen“-/Upgrade-Buttons:
+   - führen zu „Mein Vertrag“
+   - nicht zur alten Kundenseite „Lizenz“
+
+7. Pro-Spielerlimit:
+   - „unbegrenzt Spieler“
+   - niemals „None Spieler“
+
+Danach bestehende Regressionstests, py_compile und git diff --check ausführen.
+
+--------------------------------------------------
+ABSCHLUSSBERICHT
+--------------------------------------------------
+
+Bitte danach kurz berichten:
+
+- welche Dateien geändert wurden
+- wo „Lizenz“ aus der Kundennavigation entfernt wurde
+- welche Upgrade-Links angepasst wurden
+- Verhalten STARTER_FREE während Trial
+- Verhalten STARTER_FREE nach Ablauf
+- Verhalten Superadmin
+- Testergebnisse
+- DB-Migration: ja/nein
+- Produktionsdaten verändert: ja/nein
+- Deployment durchgeführt: ja/nein
+
+WICHTIG:
+Nicht deployen und nicht pushen.
