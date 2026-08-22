@@ -1,0 +1,285 @@
+APH – SICHERER KONVERTIERUNGSFLOW EINZELTRAINER → VEREIN
+
+AKTUELLER PRODUKTIONSFEHLER
+
+Ein bestehender Einzeltrainer wurde im Superadmin von Trainer/PRO auf VEREIN_PRO umgestellt.
+
+Danach verschwand der Kunde aus:
+- Kundenverwaltung
+- Lizenzverwaltung
+
+In der Vereinsverwaltung erscheint er kurz und verschwindet beim Rerun wieder.
+
+Konkreter Produktionszustand:
+
+Benutzer:
+id = 5
+verein_id = 2
+vorname = Zahra
+nachname = Daroish
+rolle = Trainer
+kundennummer = APH-000004
+lizenztyp = PRO
+lizenz_status = trial
+testphase_bis = 29.08.2026
+
+Technischer Mandant:
+id = 2
+name = Trainer: Zahra Daroish
+kundennummer = APH-000005
+lizenztyp = VEREIN_PRO
+lizenz_status = trial
+ist_technischer_mandant = 1
+stripe_customer_id vorhanden
+stripe_subscription_id = NULL
+testphase_bis = 2026-09-12
+
+trainer_mandanten:
+benutzer_id = 5
+verein_id = 2
+rolle_im_verein = Trainer
+aktiv = 1
+
+URSACHE VERMUTET:
+Der bestehende Paketwechsel hat lediglich Teile des Lizenztyps geändert, aber den technischen Einzeltrainer-Mandanten nicht vollständig in einen echten Vereinsmandanten konvertiert.
+
+AUFGABE
+
+Zuerst den bestehenden Codepfad analysieren, über den Superadmin einen Einzeltrainer auf VEREIN_BASIC / VEREIN_PRO umstellen kann.
+
+Noch KEINE Produktionsdaten verändern.
+
+==================================================
+1. KLARE KONVERTIERUNGSREGEL
+==================================================
+
+Ein Wechsel von:
+
+TRAINER_BASIC / TRAINER_PRO / Legacy BASIC/PRO
+→ VEREIN_BASIC / VEREIN_PRO
+
+ist KEIN normaler Paketwechsel.
+
+Er muss als Mandanten-Konvertierung behandelt werden.
+
+Dabei soll möglichst derselbe vorhandene Mandant weiterverwendet werden.
+KEIN zweiter Verein erzeugen.
+
+Spieler und vorhandene Daten müssen am selben Mandanten bleiben.
+
+==================================================
+2. TECHNISCHER MANDANT → ECHTER VEREIN
+==================================================
+
+Bei erfolgreicher Konvertierung muss:
+
+ist_technischer_mandant
+von 1 auf 0 gesetzt werden.
+
+Der Mandant wird damit echter Vereins-Vertragspartner.
+
+lizenztyp:
+VEREIN_BASIC oder VEREIN_PRO
+
+Die vorhandene Mandanten-ID bleibt erhalten.
+
+Keine Spieler verschieben.
+
+Keine neue Kundennummer erzeugen, sofern die bestehende Mandanten-Kundennummer bereits die Vertragsidentität darstellt.
+
+==================================================
+3. BENUTZERROLLE / ZUORDNUNG
+==================================================
+
+Der bisherige Einzeltrainer muss nach Konvertierung sinnvoller Vereinsadmin sein.
+
+Bitte prüfen, welche bestehende Rolle/Logik APH dafür verwendet.
+
+Nicht blind neue Rollen erfinden.
+
+trainer_mandanten muss weiterhin gültig bleiben, aber die Rolle im Verein ggf. sauber auf die vorhandene Admin-Rolle des Vereins umgestellt werden.
+
+Der Benutzer darf danach nicht mehr als eigener Einzeltrainer-Vertragspartner klassifiziert werden.
+
+==================================================
+4. KUNDENNUMMERN
+==================================================
+
+Aktuell existieren:
+
+Benutzer:
+APH-000004
+
+Mandant:
+APH-000005
+
+Bitte bestehende zentrale Vertragspartnerlogik prüfen.
+
+Nach Konvertierung darf es nur EINEN fachlichen Kunden/Vertragspartner geben:
+den echten Verein/Mandanten.
+
+Die Benutzer-Kundennummer darf nicht zu einem zweiten Kunden führen.
+
+Keine neue Kundennummer erzeugen.
+
+Keine bestehende Kundennummer automatisch löschen oder überschreiben, bevor die bestehende Architektur geprüft wurde.
+
+Im Abschlussbericht exakt erklären, welche Kundennummer danach die Vertragsidentität ist.
+
+==================================================
+5. TESTPHASE / VERTRAGSSTATUS
+==================================================
+
+Aktuell widersprüchlich:
+
+Benutzer:
+testphase_bis = 29.08.2026
+
+Mandant:
+testphase_bis = 2026-09-12
+
+Nach Konvertierung muss die zentrale Vereinslizenz nur noch EINEN maßgeblichen Status / eine maßgebliche Testfrist haben.
+
+Bitte bestehende zentrale Lizenzbewertung verwenden.
+
+Nicht willkürlich ein Datum wählen.
+
+Analysieren, welcher Wert laut vorhandener Architektur nach Vereins-Konvertierung führend sein muss.
+
+==================================================
+6. STRIPE
+==================================================
+
+Mandant besitzt bereits:
+stripe_customer_id vorhanden
+stripe_subscription_id = NULL
+
+Keine neue Stripe-Customer-ID erzeugen, wenn die bestehende sinnvoll weiterverwendet werden kann.
+
+Kein Stripe-Abo lokal erfinden.
+
+Keine Webhooks ändern.
+
+Bei späterer Aktivierung eines Bezahlpakets weiterhin bestehenden sicheren Stripe-/Webhook-Flow verwenden.
+
+==================================================
+7. SUPERADMIN
+==================================================
+
+Der Superadmin darf einen Wechsel Einzeltrainer → Verein künftig nicht mehr wie einen simplen Lizenztyp-Wechsel behandeln.
+
+Wenn Zieltyp VEREIN_BASIC / VEREIN_PRO und Quelle technischer Einzeltrainer ist:
+
+gezielten Konvertierungsflow verwenden.
+
+Falls dafür eine zusätzliche Bestätigung sinnvoll ist, z. B.:
+
+„Dieser Wechsel wandelt den Einzeltrainer-Mandanten in einen echten Verein um.“
+
+dann sauber ergänzen.
+
+==================================================
+8. NACH KONVERTIERUNG MUSS SICHTBAR SEIN
+==================================================
+
+Kundenverwaltung:
+- genau einmal
+- Kundentyp Verein
+- korrektes Paket
+- korrekter Status
+
+Lizenzverwaltung:
+- genau einmal
+- Verein Basic/Pro
+- korrekter Status
+
+Vereinsverwaltung:
+- dauerhaft sichtbar
+- kein kurzes Auftauchen und Verschwinden mehr
+
+Benutzerverwaltung:
+- Benutzer weiterhin vorhanden
+- sinnvoll dem Verein zugeordnet
+- kein zweiter Vertragspartner
+
+==================================================
+9. RÜCKWECHSEL VEREIN → EINZELTRAINER
+==================================================
+
+Nicht automatisch implementieren, wenn dafür keine sichere bestehende Architektur vorhanden ist.
+
+Falls der Rückwechsel komplex ist:
+im Abschlussbericht ausdrücklich als separaten späteren Flow markieren.
+
+Keinen halbfertigen Rückkonvertierungsweg bauen.
+
+==================================================
+10. REGRESSIONSTESTS
+==================================================
+
+Mindestens testen:
+
+1. technischer TRAINER_BASIC → VEREIN_BASIC
+2. technischer TRAINER_BASIC → VEREIN_PRO
+3. technischer TRAINER_PRO → VEREIN_BASIC
+4. technischer TRAINER_PRO → VEREIN_PRO
+5. ist_technischer_mandant wird korrekt 0
+6. Mandanten-ID bleibt gleich
+7. Spieler bleiben am selben Mandanten
+8. kein zweiter Verein entsteht
+9. keine neue Kundennummer entsteht
+10. Kunde erscheint genau einmal in Kundenverwaltung
+11. Lizenz erscheint genau einmal in Lizenzverwaltung
+12. Verein erscheint stabil in Vereinsverwaltung
+13. Benutzer wird nicht als zweiter Einzeltrainer-Kunde gezählt
+14. trainer_mandanten bleibt konsistent
+15. Stripe Customer bleibt erhalten
+16. keine Subscription wird lokal erzeugt
+17. Trial-/Lizenzstatus ist nach Konvertierung zentral konsistent
+18. bestehende Vereine bleiben unverändert
+19. bestehende Einzeltrainer bleiben unverändert
+20. STARTER_FREE bleibt unverändert
+
+==================================================
+11. PRODUKTIONSFALL ZAHRA
+
+Den Produktionsfall NICHT automatisch verändern.
+
+Nach Implementierung bitte nur einen exakt vorbereiteten Reparaturplan für:
+
+Benutzer-ID 5
+Mandant-ID 2
+
+liefern.
+
+Keine Produktionsdatenänderung durch Replit.
+
+Wir führen die Datenkorrektur nach Review bewusst separat auf dem VPS aus.
+
+==================================================
+12. ABSCHLUSSBERICHT
+
+Bitte berichten:
+
+- genaue Ursache
+- betroffener bisheriger Codepfad
+- geänderte Dateien
+- neue Konvertierungslogik
+- zentrale Vertragsidentität nach Konvertierung
+- Rolle des Benutzers nach Konvertierung
+- Verhalten Kundennummern
+- Verhalten Testphase
+- Verhalten Stripe
+- Kundenverwaltung
+- Lizenzverwaltung
+- Vereinsverwaltung
+- Tests
+- Reparaturplan für Zahra ID 5 / Mandant 2
+- DB-Migration ja/nein
+- Produktionsdaten verändert nein
+- Deployment nein
+- Push nein
+
+Nicht deployen.
+Nicht pushen.
+Danach STOPP.
