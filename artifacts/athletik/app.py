@@ -155,7 +155,11 @@ KOERPERTEILE      = ["Sprunggelenk", "Knie", "Oberschenkel", "Leiste", "Hüfte",
 SCHWEREGRADE      = ["Leicht (1–7 Tage)", "Mittel (8–28 Tage)", "Schwer (> 28 Tage)"]
 from training import init_training_bibliothek, empfehlung_bereiche, uebungen_fuer_bereiche
 from fms import FMSResult
-from y_balance import YBalanceResult, y_balance_hat_relevante_asymmetrie
+from y_balance import (
+    YBalanceResult,
+    y_balance_hat_relevante_asymmetrie,
+    y_balance_status,
+)
 from kraft import KraftErgebnis as _KraftErgebnis, epley_1rm as _epley_1rm
 from analytics import (
     risiko_score, risiko_label, athletik_score, athletik_sub_scores,
@@ -12476,12 +12480,17 @@ def page_diagnostik_overview() -> None:
     # ── Key metric per test ───────────────────────────────────────────────────
     def _yb_metric():
         if not yb_d:
-            return None, None
+            return None, None, None
         cr = yb_d.get("composite_rechts")
         cl = yb_d.get("composite_links")
         if cr and cl:
-            return f"R {cr:.0f} % / L {cl:.0f} %", yb_d.get("asymmetrie")
-        return None, None
+            rating, is_relevant = y_balance_status(yb_d)
+            return (
+                f"R {cr:.0f} % / L {cl:.0f} %",
+                rating,
+                C["red"] if is_relevant else C["green"],
+            )
+        return None, None, None
 
     def _agil_metric():
         if not agil_d:
@@ -12523,7 +12532,7 @@ def page_diagnostik_overview() -> None:
             rating = None
         return metric, rating
 
-    yb_metric, yb_rating     = _yb_metric()
+    yb_metric, yb_rating, yb_status_color = _yb_metric()
     agil_metric, agil_rating = _agil_metric()
     def _spiro_beurteilung(spiro):
         if not spiro:
@@ -12587,6 +12596,7 @@ def page_diagnostik_overview() -> None:
             "sub":  "📏 Y-Balance",
             "metric": yb_metric,
             "rating": yb_rating,
+            "status_color": yb_status_color,
             "date":   yb_d.get("datum") if yb_d else None,
         },
         {
@@ -12671,7 +12681,10 @@ def page_diagnostik_overview() -> None:
             i = row_idx * 3 + j
             with cols[j]:
                 has_data    = tile["metric"] is not None
-                rc          = _rating_color(tile["rating"]) if has_data else C["border"]
+                rc          = (
+                    tile.get("status_color") or _rating_color(tile["rating"])
+                    if has_data else C["border"]
+                )
                 dot         = (
                     f'<span style="display:inline-block;width:7px;height:7px;border-radius:50%;'
                     f'background:{rc};margin-right:5px;vertical-align:middle"></span>'

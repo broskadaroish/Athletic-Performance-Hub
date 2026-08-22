@@ -137,3 +137,13 @@ def y_balance_hat_relevante_asymmetrie(row) -> bool:
     in ``YBalanceResult.asymmetrien`` zentral definiert.
     """
     return bool(row) and y_balance_aus_row(row).hat_relevante_asymmetrie
+
+
+def y_balance_status(row) -> tuple[str | None, bool]:
+    """Liefert Anzeigetext und strukturierten Status für einen Y-Balance-Befund."""
+    if not row:
+        return None, False
+    relevant = y_balance_hat_relevante_asymmetrie(row)
+    if relevant:
+        return str(row.get("asymmetrie") or "Relevante Asymmetrie"), True
+    return "Unauffällig — Keine relevante Asymmetrie", False

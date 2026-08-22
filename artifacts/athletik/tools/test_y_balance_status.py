@@ -19,7 +19,12 @@ sys.path.insert(0, str(ROOT))
 from analytics import athletik_score, athletik_sub_scores, risiko_label, risiko_score
 from modules import saas_dashboard
 from ui_components import C, test_status_card
-from y_balance import y_balance_aus_row, y_balance_hat_relevante_asymmetrie
+from y_balance import (
+    y_balance_aus_row,
+    y_balance_hat_relevante_asymmetrie,
+    y_balance_status,
+)
+from theme import C as THEME_COLORS
 
 
 PASS = 0
@@ -69,12 +74,29 @@ def y_row(
     }
 
 
+def diagnostik_kachel_farbe(row: dict) -> str:
+    """Abbild der strukturierten Statusfarbe der Diagnostik-Übersicht."""
+    _, is_relevant = y_balance_status(row)
+    return THEME_COLORS["red"] if is_relevant else THEME_COLORS["green"]
+
+
 print("\n=== Strukturierter Y-Balance-Befund ===")
 demo_unauffaellig = y_row(anterior_diff=1.0)
+demo_rating, demo_relevant = y_balance_status(demo_unauffaellig)
 check(
     "Demo-Fall R 92 % / L 91 % mit ca. 1 cm ist unauffällig",
     y_balance_aus_row(demo_unauffaellig).asymmetrie_text,
     "Keine relevante Asymmetrie",
+)
+check(
+    "Diagnostik-Kachel zeigt den positiven Status",
+    demo_rating,
+    "Unauffällig — Keine relevante Asymmetrie",
+)
+check(
+    "Diagnostik-Kachel erkennt den Demo-Fall strukturiert als unauffällig",
+    demo_relevant,
+    False,
 )
 check(
     "Unauffälliger Demo-Fall erzeugt keine relevante Asymmetrie",
@@ -97,9 +119,15 @@ check(
 )
 
 relevante_asymmetrie = y_row(anterior_diff=5.0)
+relevant_rating, relevant_status = y_balance_status(relevante_asymmetrie)
 check(
     "Relevante Asymmetrie bleibt strukturiert auffällig",
     y_balance_hat_relevante_asymmetrie(relevante_asymmetrie),
+    True,
+)
+check(
+    "Diagnostik-Kachel zeigt relevante Asymmetrie weiter rot",
+    relevant_status,
     True,
 )
 
@@ -152,6 +180,13 @@ check(
     athletik_score(None, relevante_asymmetrie),
     base_y_score - 10,
 )
+_score_vor_ui_status = athletik_score(None, demo_unauffaellig)
+_ = y_balance_status(demo_unauffaellig)
+check(
+    "Der reine Kachelstatus verändert den Athletik-Score nicht",
+    athletik_score(None, demo_unauffaellig),
+    _score_vor_ui_status,
+)
 
 
 print("\n=== Darstellung: Dashboard, Vergleich und Übersichtskachel ===")
@@ -193,13 +228,23 @@ check(
 )
 check(
     "Übersichtskachel zeigt unauffälligen Y-Balance-Status grün",
-    C["green"] in test_status_card(
+    THEME_COLORS["green"] in test_status_card(
         "Y-Balance",
         "📏",
         "2026-08-22",
         "Unauffällig — Keine relevante Asymmetrie",
     ),
     True,
+)
+check(
+    "Unauffälliger Kachelstatus verwendet grün für Punkt, Text und Rand",
+    diagnostik_kachel_farbe(demo_unauffaellig),
+    THEME_COLORS["green"],
+)
+check(
+    "Relevanter Kachelstatus verwendet rot für Punkt, Text und Rand",
+    diagnostik_kachel_farbe(relevante_asymmetrie),
+    THEME_COLORS["red"],
 )
 
 app_source = (ROOT / "app.py").read_text(encoding="utf-8")
@@ -211,6 +256,19 @@ check(
 check(
     "Übersichtskachel nutzt den strukturierten Y-Balance-Befund",
     'y_balance_hat_relevante_asymmetrie(y)' in app_source,
+    True,
+)
+check(
+    "Diagnostik-Kachel übernimmt den strukturierten Status-Farbwert",
+    'tile.get("status_color") or _rating_color(tile["rating"])' in app_source
+    and '"status_color": yb_status_color' in app_source,
+    True,
+)
+check(
+    "Kachelpunkt, Statustext und Rand teilen denselben Farbwert",
+    'background:{rc}' in app_source
+    and 'color:{rc};font-weight:600' in app_source
+    and 'border-top:3px solid {rc}' in app_source,
     True,
 )
 
