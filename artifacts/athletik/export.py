@@ -142,13 +142,16 @@ def _build_kader_sheet(ws):
         sprung = sprung_letzter(pid)
         agil   = agilitaet_letzter(pid)
         aus    = ausdauer_letzter(pid)
+        kraft  = kraft_letzter(pid)
         verlet = []  # nur für Risiko-Score nötig — wir laden separat
         from database import verletzungen_laden as _vl
         verlet = _vl(pid)
         rs     = risiko_score(fms, y, verlet)
         _, level = risiko_label(rs)
         sc     = athletik_score(fms, y, sprint, sprung, agil, aus,
-                               spiro_row=spiro_test_letzter(pid))
+                                spiro_row=spiro_test_letzter(pid), kraft_row=kraft,
+                                geschlecht=p.get("geschlecht", "Männlich"),
+                                geburtsdatum=p.get("geburtsdatum"))
         alter  = berechne_alter(p.get("geburtsdatum")) or "—"
 
         risiko_de = {"hoch": "Hoch ⚠", "mittel": "Mittel", "gering": "Gering"}.get(level, level)
@@ -346,7 +349,10 @@ def spieler_excel_bytes(spieler_id: int) -> bytes:
     rs     = risiko_score(fms, y, verlet)
     _, level = risiko_label(rs)
     spiro  = spiro_test_letzter(spieler_id)
-    sc     = athletik_score(fms, y, sprint, sprung, agil, aus, spiro_row=spiro)
+    sc     = athletik_score(
+        fms, y, sprint, sprung, agil, aus, spiro_row=spiro, kraft_row=kraft,
+        geschlecht=sp.get("geschlecht", "Männlich"), geburtsdatum=sp.get("geburtsdatum"),
+    )
     bmi_status = bmi_bewertung_aus_messung(
         anthr, sp.get("geburtsdatum"), sp.get("geschlecht")
     )
@@ -424,13 +430,13 @@ def spieler_excel_bytes(spieler_id: int) -> bytes:
 
     r += 1
     r = _section(r, "ATHLETIK-KENNZAHLEN")
-    sc_bg = _ACCENT if sc >= 75 else _WARN if sc >= 50 else _DANGER
-    c_sc = ws1.cell(row=r, column=2, value=f"{sc}/100")
+    sc_bg = _ACCENT if sc is not None and sc >= 75 else _WARN if sc is not None and sc >= 50 else _DANGER if sc is not None else _NORM_BG
+    c_sc = ws1.cell(row=r, column=2, value=f"{sc}/100" if sc is not None else "Kein Gesamt-Score")
     c_sc.font = Font(name="Calibri", bold=True, color="FFFFFF", size=10)
     c_sc.fill = PatternFill("solid", fgColor=sc_bg)
     c_sc.alignment = Alignment(horizontal="left", vertical="center")
     c_sc.border = _thin_border()
-    ws1.cell(row=r, column=1, value="Athletik-Score").font = Font(name="Calibri", bold=True, color=_HDR_FG, size=10)
+    ws1.cell(row=r, column=1, value="Leistungs-Score").font = Font(name="Calibri", bold=True, color=_HDR_FG, size=10)
     ws1.cell(row=r, column=1).fill = PatternFill("solid", fgColor=_HDR_BG)
     ws1.cell(row=r, column=1).border = _thin_border()
     r += 1

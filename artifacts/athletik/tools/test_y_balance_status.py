@@ -159,26 +159,25 @@ check(
     "mittel",
 )
 
-base_y_score = round((91.5 - 70) / 30 * 100)
 check(
-    "Unauffälliger Y-Balance-Subscore hat keinen Malus",
-    athletik_sub_scores(None, demo_unauffaellig)["Y-Balance"],
-    base_y_score,
+    "Y-Balance ist kein Leistungs-Subscore",
+    athletik_sub_scores(None, demo_unauffaellig),
+    {},
 )
 check(
-    "Relevanter Y-Balance-Subscore behält den 10-Punkte-Malus",
-    athletik_sub_scores(None, relevante_asymmetrie)["Y-Balance"],
-    base_y_score - 10,
+    "Relevante Y-Balance-Asymmetrie bleibt aus dem Leistungsradar heraus",
+    athletik_sub_scores(None, relevante_asymmetrie),
+    {},
 )
 check(
-    "Unauffälliger Athletik-Score hat keinen Y-Balance-Malus",
+    "Y-Balance allein erzeugt keinen Leistungs-Gesamtscore",
     athletik_score(None, demo_unauffaellig),
-    base_y_score,
+    None,
 )
 check(
-    "Relevanter Athletik-Score behält den Y-Balance-Malus",
+    "Y-Balance-Hinweise senken keinen Leistungs-Gesamtscore",
     athletik_score(None, relevante_asymmetrie),
-    base_y_score - 10,
+    None,
 )
 _score_vor_ui_status = athletik_score(None, demo_unauffaellig)
 _ = y_balance_status(demo_unauffaellig)
@@ -199,6 +198,7 @@ dashboard_dependencies = {
         "sprung_letzter",
         "agilitaet_letzter",
         "ausdauer_letzter",
+        "kraft_letzter",
         "spiro_test_letzter",
         "verletzungen_laden",
     )
@@ -212,6 +212,7 @@ try:
     saas_dashboard.sprung_letzter = lambda _pid: None
     saas_dashboard.agilitaet_letzter = lambda _pid: None
     saas_dashboard.ausdauer_letzter = lambda _pid: None
+    saas_dashboard.kraft_letzter = lambda _pid: None
     saas_dashboard.spiro_test_letzter = lambda _pid: None
     saas_dashboard.verletzungen_laden = lambda _pid: []
     dashboard_score, dashboard_risk, dashboard_count = (
@@ -222,9 +223,9 @@ finally:
         setattr(saas_dashboard, name, value)
 
 check(
-    "Dashboard zählt nur den relevanten Y-Balance-Befund als Risiko",
+    "Dashboard zählt nur den relevanten Y-Balance-Befund als Trainerhinweis",
     (dashboard_score, dashboard_risk, dashboard_count),
-    (round((base_y_score + (base_y_score - 10)) / 2), 1, 2),
+    (0, 1, 0),
 )
 check(
     "Übersichtskachel zeigt unauffälligen Y-Balance-Status grün",

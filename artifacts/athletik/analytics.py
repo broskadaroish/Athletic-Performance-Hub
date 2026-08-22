@@ -1,66 +1,105 @@
 """
-Athletic analytics engine — injury risk scoring, deficit detection,
-and composite athleticism rating.
-All functions operate on sqlite3.Row objects from the database layer.
+Athletic analytics engine — trainer hints, deficit detection and performance score.
+
+The APH performance score deliberately measures performance capability only.
+Movement quality and trainer hints are evaluated separately and never reduce
+the performance score.
 """
 
+from dataclasses import dataclass, field
+
+from fms import fms_hat_relevante_asymmetrie
 from y_balance import y_balance_hat_relevante_asymmetrie
 
 
 # ─── Internal helpers ─────────────────────────────────────────────────────────
 
 _BEWERTUNG_SCORE = {
-    # Strukturierte Status-IDs (neu, stabil)
-    "sehr_gut":           95,
-    "gut":                78,
-    "mittel":             58,
+    # Strukturierte Status-IDs
+    "sehr_gut": 95,
+    "gut": 78,
+    "mittel": 58,
     "entwicklungsbedarf": 30,
-    # Lesbare Bezeichnungen (Altbestand, bleiben für Rückwärtskompatibilität)
-    "Sehr gut (Profi-Niveau)":    95,
-    "Gut (Leistungssport)":       78,
-    "Mittel (Breitensport)":      58,
-    "Verbesserungsbedarf":        30,
-    # Ausdauer verwendet eine vereinfachte Skala
-    "Gut":                        85,
-    "Mittel":                     60,
+    # Lesbare Bestandswerte aus allen bisherigen Leistungsmodulen
+    "Sehr gut": 95,
+    "Sehr gut (Profi-Niveau)": 95,
+    "Gut": 78,
+    "Gut (Leistungssport)": 78,
+    "Mittel": 58,
+    "Mittel (Breitensport)": 58,
+    "Durchschnittlich": 58,
+    "Unterdurchschnittlich": 45,
+    "Verbesserungsbedarf": 30,
+    "Kritisch": 30,
+}
+
+# Transparente APH-Produktgewichtung, keine universelle wissenschaftliche Formel.
+ATHLETIK_LEISTUNGSGEWICHTE = {
+    "Richtungswechsel / COD": 30,
+    "Sprint": 25,
+    "Sprung / Power": 20,
+    "Ausdauer": 15,
+    "Kraft": 10,
 }
 
 
+def _wert(row, key, default=None):
+    """Liest sqlite-Zeilen und Dict-Testdaten robust."""
+    if not row:
+        return default
+    try:
+        return row.get(key, default)
+    except AttributeError:
+        try:
+            return row[key]
+        except (KeyError, IndexError):
+            return default
+
+
+def _positive_zahl(value) -> float | None:
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    return number if number > 0 else None
+
+
 def _bew_to_score(bew: str) -> int | None:
-    """Translate a text evaluation to a 0-100 sub-score.  None = no data."""
-    return _BEWERTUNG_SCORE.get(bew)
+    """Übersetzt aktuelle und historische Bewertungslabels stabil zu 0–100."""
+    return _BEWERTUNG_SCORE.get(str(bew or "").strip())
 
 
 # ─── Risk Score ───────────────────────────────────────────────────────────────
 
 def risiko_score(fms_row, y_row, verletzungen=None) -> int:
     """
-    Returns a numeric risk score 0–8+.
-    0–1 = low  |  2–3 = medium  |  4+ = high
+    Returns a trainer-hint score 0–8+.
+    0–1 = unauffällig | 2–3 = beobachten | 4+ = hoher Handlungsbedarf
 
     verletzungen: list of dicts/Rows with keys 'schwere' and 'ausfall_tage'.
+    Der Wert ist keine individuelle Verletzungsprognose.
     """
     score = 0
 
     if fms_row:
-        fms_score = fms_row["score"]
+        fms_score = _wert(fms_row, "score", 21)
         if fms_score <= 12:
             score += 2
         elif fms_score <= 14:
             score += 1
-        if "Asymmetrie" in str(fms_row["asymmetrie"]):
-            score += 2  # Asymmetrie ist stärkerer Prädiktor als Rohscore (Kiesel et al. 2007)
+        if fms_hat_relevante_asymmetrie(fms_row):
+            score += 2
 
     if y_row:
-        comp_r = y_row["composite_rechts"]
-        comp_l = y_row["composite_links"]
+        comp_r = _wert(y_row, "composite_rechts", 0)
+        comp_l = _wert(y_row, "composite_links", 0)
         avg = (comp_r + comp_l) / 2
         if avg < 85:
             score += 2
         elif avg < 89:
             score += 1
         if y_balance_hat_relevante_asymmetrie(y_row):
-            score += 2  # Bilaterale Asymmetrie erhöhtes Verletzungsrisiko (Plisky et al. 2006)
+            score += 2
 
     # ── Verletzungshistorie ──────────────────────────────────────────────────
     if verletzungen:
@@ -78,188 +117,382 @@ def risiko_score(fms_row, y_row, verletzungen=None) -> int:
 
 
 def risiko_label(score: int) -> tuple[str, str]:
-    """Returns (label, level) where level is 'hoch'/'mittel'/'gering'."""
+    """Returns trainer-oriented display label and level."""
     if score >= 4:
-        return "Erhöhte Hinweise — Trainer prüft", "hoch"
+        return "Trainer-Handlungsbedarf hoch", "hoch"
     if score >= 2:
-        return "Einzelne Hinweise vorhanden", "mittel"
-    return "Keine auffälligen Hinweise", "gering"
+        return "Einzelne Hinweise / beobachten", "mittel"
+    return "Unauffällig", "gering"
 
 
-# ─── Athletik Score ───────────────────────────────────────────────────────────
+# ─── Leistungs-Athletikscore ──────────────────────────────────────────────────
+
+@dataclass
+class AthletikLeistungsbewertung:
+    """Zentrale, transparente Leistungsbewertung für UI, Export und Diagnose."""
+
+    gesamt_score: int | None
+    module_scores: dict[str, int] = field(default_factory=dict)
+    module_details: dict[str, dict] = field(default_factory=dict)
+    nicht_scorefaehige_messwerte: list[str] = field(default_factory=list)
+
+    @property
+    def anzahl_bereiche(self) -> int:
+        return len(self.module_scores)
+
+    @property
+    def datenbasis_text(self) -> str:
+        anzahl = self.anzahl_bereiche
+        if anzahl == 0:
+            return "Keine scorefähigen Leistungsbereiche vorhanden"
+        if anzahl == 1:
+            return "1 von 5 Leistungsbereichen – nur Modulscore, kein Gesamt-Athletikscore"
+        if anzahl == 2:
+            return "2 von 5 Leistungsbereichen – eingeschränkte Aussagekraft"
+        if anzahl == 3:
+            return "3 von 5 Leistungsbereichen – mittlere Aussagekraft"
+        return f"{anzahl} von 5 Leistungsbereichen – gute Aussagekraft"
+
+    @property
+    def gesamt_score_anzeigen(self) -> bool:
+        return self.gesamt_score is not None
+
+
+def _score_aus_bewertung(
+    gespeichert: object,
+    rohwert: float | None = None,
+    test_key: str | None = None,
+    alter: float | None = None,
+    geschlecht: str = "Männlich",
+) -> int | None:
+    """Bevorzugt bestehende Bewertung; berechnet nur mit vorhandener Referenz."""
+    # Die hinterlegten weiblichen Sprint-/CMJ-/COD-Schwellen sind aktuell
+    # rechnerische Ableitungen, keine validierte Referenzstichprobe. Sie dürfen
+    # weder live noch aus ihrem historischen Textlabel einen Leistungs-Score
+    # erzeugen; der Messwert bleibt als Befund sichtbar.
+    if geschlecht == "Weiblich" and test_key in {
+        "10m", "30m", "cmj", "505_rechts", "505_links", "5_10_5", "t_test", "illinois",
+    }:
+        return None
+    score = _bew_to_score(str(gespeichert or ""))
+    if score is not None:
+        return score
+    if rohwert is None or alter is None or not test_key:
+        return None
+    if test_key in {"10m", "30m"}:
+        from sprint import bewertung_sprint
+        return _bew_to_score(bewertung_sprint(rohwert, test_key, geschlecht=geschlecht, alter=alter))
+    if test_key == "cmj":
+        from sprung import bewertung_cmj
+        return _bew_to_score(bewertung_cmj(rohwert, geschlecht=geschlecht, alter=alter))
+    if test_key in {"505_rechts", "505_links", "5_10_5", "t_test", "illinois"}:
+        from agilitaet import bewertung
+        return _bew_to_score(bewertung(rohwert, test_key, geschlecht=geschlecht, alter=alter))
+    return None
+
+
+def _sprint_bewertung(row, alter, geschlecht) -> tuple[int | None, dict, list[str]]:
+    """10 m und 30 m sind die derzeit belastbar normierten Sprintdistanzen."""
+    if not row:
+        return None, {}, []
+    teilwerte: list[tuple[str, int]] = []
+    nicht_scorefaehig: list[str] = []
+    for label, bew_key, wert_key in (
+        ("10 m", "bewertung_10m", "beste_10m"),
+        ("30 m", "bewertung_30m", "beste_30m"),
+    ):
+        raw = _positive_zahl(_wert(row, wert_key))
+        score = _score_aus_bewertung(
+            _wert(row, bew_key), raw, wert_key.replace("beste_", ""), alter, geschlecht
+        )
+        if score is not None:
+            teilwerte.append((label, score))
+    for label, key in (("5 m", "beste_5m"), ("20 m", "beste_20m"), ("40 m", "beste_40m")):
+        if _positive_zahl(_wert(row, key)) is not None:
+            nicht_scorefaehig.append(
+                f"Sprint {label}: Messwert vorhanden – keine belastbare Referenzbewertung verfügbar"
+            )
+    if geschlecht == "Weiblich" and any(
+        _positive_zahl(_wert(row, key)) is not None for key in ("beste_10m", "beste_30m")
+    ):
+        nicht_scorefaehig.append(
+            "Sprint: weibliche Referenz ist derzeit nur abgeleitet und daher nicht scorewirksam"
+        )
+    if not teilwerte:
+        return None, {}, nicht_scorefaehig
+    return round(sum(score for _, score in teilwerte) / len(teilwerte)), {
+        "scorewirksame_teiltests": [label for label, _ in teilwerte],
+        "beschreibung": "Mittelwert der vorhandenen scorefähigen Sprintdistanzen",
+    }, nicht_scorefaehig
+
+
+def _power_bewertung(row, alter, geschlecht) -> tuple[int | None, dict, list[str]]:
+    """CMJ ist scorefähig; Squat Jump bleibt ohne belastbare Projektnorm sichtbar."""
+    if not row:
+        return None, {}, []
+    cmj = _score_aus_bewertung(
+        _wert(row, "bewertung_cmj"),
+        _positive_zahl(_wert(row, "cmj_beid")),
+        "cmj",
+        alter,
+        geschlecht,
+    )
+    nicht_scorefaehig: list[str] = []
+    if _positive_zahl(_wert(row, "squat_jump")) is not None:
+        nicht_scorefaehig.append(
+            "Squat Jump: Messwert vorhanden – keine belastbare Referenzbewertung verfügbar"
+        )
+    for label, key in (("Drop Jump", "drop_jump_hoehe"), ("RSI", "rsi"), ("Standweitsprung", "standweit")):
+        if _positive_zahl(_wert(row, key)) is not None:
+            nicht_scorefaehig.append(
+                f"{label}: sichtbar als Leistungswert bzw. Hinweis, derzeit nicht scorewirksam"
+            )
+    if geschlecht == "Weiblich" and _positive_zahl(_wert(row, "cmj_beid")) is not None:
+        nicht_scorefaehig.append(
+            "CMJ: weibliche Referenz ist derzeit nur abgeleitet und daher nicht scorewirksam"
+        )
+    if cmj is None:
+        return None, {}, nicht_scorefaehig
+    return cmj, {
+        "scorewirksame_teiltests": ["CMJ"],
+        "beschreibung": "CMJ; Seitenunterschiede bleiben separat als Trainerhinweis",
+    }, nicht_scorefaehig
+
+
+def _cod_bewertung(row, alter, geschlecht) -> tuple[int | None, dict, list[str]]:
+    """Bildet COD aus bis zu drei gleich gewichteten Bewegungs-Unterbereichen."""
+    if not row:
+        return None, {}, []
+
+    unterbereiche: list[tuple[str, int, list[str]]] = []
+    # 180° COD: beide Seiten gehören zu einem Unterbereich und werden gemittelt.
+    s505: list[int] = []
+    for key, label in (("t505_r", "505 rechts"), ("t505_l", "505 links")):
+        raw = _positive_zahl(_wert(row, key))
+        test_key = "505_rechts" if key == "t505_r" else "505_links"
+        score = _score_aus_bewertung(None, raw, test_key, alter, geschlecht)
+        if score is not None:
+            s505.append(score)
+    if not s505:
+        legacy_505 = _score_aus_bewertung(
+            _wert(row, "bew_505"), test_key="505_rechts", alter=alter, geschlecht=geschlecht
+        )
+        if legacy_505 is not None:
+            s505.append(legacy_505)
+    if s505:
+        unterbereiche.append(("180° COD", round(sum(s505) / len(s505)), ["505"]))
+
+    shuttle = _score_aus_bewertung(
+        None,
+        _positive_zahl(_wert(row, "t5_10_5")),
+        "5_10_5",
+        alter,
+        geschlecht,
+    )
+    if shuttle is not None:
+        unterbereiche.append(("Shuttle COD", shuttle, ["5-10-5"]))
+
+    multi: list[tuple[str, int]] = []
+    for raw_key, bew_key, test_key, label in (
+        ("t_test", "bew_t_test", "t_test", "T-Test"),
+        ("illinois", "bew_illinois", "illinois", "Illinois"),
+    ):
+        score = _score_aus_bewertung(
+            _wert(row, bew_key),
+            _positive_zahl(_wert(row, raw_key)),
+            test_key,
+            alter,
+            geschlecht,
+        )
+        if score is not None:
+            multi.append((label, score))
+    if multi:
+        unterbereiche.append((
+            "Multidirektionaler COD",
+            round(sum(score for _, score in multi) / len(multi)),
+            [label for label, _ in multi],
+        ))
+
+    if not unterbereiche:
+        if geschlecht == "Weiblich" and any(
+            _positive_zahl(_wert(row, key)) is not None
+            for key in ("t505_r", "t505_l", "t5_10_5", "t_test", "illinois")
+        ):
+            return None, {}, [
+                "COD: weibliche Referenz ist derzeit nur abgeleitet und daher nicht scorewirksam"
+            ]
+        return None, {}, []
+    return round(sum(score for _, score, _ in unterbereiche) / len(unterbereiche)), {
+        "scorewirksame_teiltests": [name for _, _, labels in unterbereiche for name in labels],
+        "unterbereiche": {name: score for name, score, _ in unterbereiche},
+        "beschreibung": "Mittelwert der vorhandenen COD-Unterbereiche; 505-Asymmetrie bleibt ein Hinweis",
+    }, []
+
+
+def _ausdauer_bewertung(row, spiro_row) -> tuple[int | None, dict, list[str]]:
+    """Bewertet einen Yo-Yo-Feldtest ohne Doppelanrechnung der VO₂-Schätzung."""
+    nicht_scorefaehig: list[str] = []
+    if spiro_row:
+        nicht_scorefaehig.append(
+            "Spiroergometrie: separat sichtbar, ohne protokollspezifisch vergleichbaren Score nicht scorewirksam"
+        )
+    if not row:
+        return None, {}, nicht_scorefaehig
+    score = _bew_to_score(str(_wert(row, "bewertung", "") or ""))
+    if score is None:
+        return None, {}, nicht_scorefaehig
+    return score, {
+        "scorewirksame_teiltests": ["Yo-Yo Feldtest"],
+        "beschreibung": "Vorhandene Yo-Yo-Bewertung; VO₂-Schätzung erzeugt keinen Zusatzbonus",
+    }, nicht_scorefaehig
+
+
+def _kraft_bewertung(row, alter, geschlecht) -> tuple[int | None, dict, list[str]]:
+    """Verwendet nur die vorhandene relative Bankdrückkraft als Oberkörperkraft."""
+    if not row:
+        return None, {}, []
+    rel = _positive_zahl(_wert(row, "relative_kraft_direkt"))
+    quelle = "Relative Bankdrückkraft (direkt)"
+    if rel is None:
+        rel = _positive_zahl(_wert(row, "relative_kraft_geschaetzt"))
+        quelle = "Relative Bankdrückkraft (geschätzt)"
+
+    nicht_scorefaehig: list[str] = []
+    for label, key in (
+        ("Ventrale Rumpfkraftausdauer", "ventral_sekunden"),
+        ("Laterale Rumpfkraftausdauer", "lateral_rechts_sekunden"),
+        ("Dorsale Rumpfkraftausdauer", "dorsal_sekunden"),
+    ):
+        if _positive_zahl(_wert(row, key)) is not None:
+            nicht_scorefaehig.append(f"{label}: sichtbar als Trainerhinweis, nicht scorewirksam")
+    if rel is None or alter is None:
+        if rel is not None and alter is None:
+            nicht_scorefaehig.append(
+                "Relative Bankdrückkraft: Alter fehlt – keine altersgerechte Scorebewertung"
+            )
+        return None, {}, nicht_scorefaehig
+
+    from age_norms import kraft_bewertung_alter
+    bewertung, _ = kraft_bewertung_alter(rel, alter, geschlecht)
+    score = _bew_to_score(bewertung)
+    if score is None:
+        return None, {}, nicht_scorefaehig
+    return score, {
+        "scorewirksame_teiltests": [quelle],
+        "beschreibung": "Kraftscore basiert auf verfügbarer relativer Oberkörperkraft",
+    }, nicht_scorefaehig
+
+
+def athletik_leistungsbewertung(
+    fms_row=None,
+    y_row=None,
+    sprint_row=None,
+    sprung_row=None,
+    agil_row=None,
+    aus_row=None,
+    spiro_row=None,
+    kraft_row=None,
+    *,
+    alter: float | None = None,
+    geschlecht: str = "Männlich",
+    geburtsdatum: str | None = None,
+) -> AthletikLeistungsbewertung:
+    """Ermittelt den APH-Leistungs-Score und seine transparente Datenbasis.
+
+    FMS und Y-Balance werden bewusst nicht eingerechnet. Sie werden weiterhin
+    über ``risiko_score`` und die strukturierte Defizitlogik als Trainerhinweis
+    geführt. Fehlende Leistungsbereiche werden neutral behandelt.
+    """
+    module_scores: dict[str, int] = {}
+    details: dict[str, dict] = {}
+    nicht_scorefaehig: list[str] = []
+
+    def _alter_zum_test(row) -> float | None:
+        """Nutze das Testalter, wenn Geburts- und Messdatum vorliegen."""
+        if geburtsdatum and _wert(row, "datum"):
+            try:
+                from database import alter_am_datum
+                return alter_am_datum(geburtsdatum, _wert(row, "datum"))
+            except (ImportError, TypeError, ValueError):
+                pass
+        return alter
+
+    pruefungen = (
+        ("Sprint", _sprint_bewertung(sprint_row, _alter_zum_test(sprint_row), geschlecht)),
+        ("Sprung / Power", _power_bewertung(sprung_row, _alter_zum_test(sprung_row), geschlecht)),
+        ("Richtungswechsel / COD", _cod_bewertung(agil_row, _alter_zum_test(agil_row), geschlecht)),
+        ("Ausdauer", _ausdauer_bewertung(aus_row, spiro_row)),
+        ("Kraft", _kraft_bewertung(kraft_row, _alter_zum_test(kraft_row), geschlecht)),
+    )
+    for name, (score, detail, nicht) in pruefungen:
+        nicht_scorefaehig.extend(nicht)
+        if score is not None:
+            module_scores[name] = max(0, min(100, round(score)))
+            details[name] = detail
+
+    if len(module_scores) < 2:
+        return AthletikLeistungsbewertung(
+            gesamt_score=None,
+            module_scores=module_scores,
+            module_details=details,
+            nicht_scorefaehige_messwerte=nicht_scorefaehig,
+        )
+
+    gewicht_summe = sum(ATHLETIK_LEISTUNGSGEWICHTE[name] for name in module_scores)
+    gesamt = round(
+        sum(module_scores[name] * ATHLETIK_LEISTUNGSGEWICHTE[name] for name in module_scores)
+        / gewicht_summe
+    )
+    return AthletikLeistungsbewertung(
+        gesamt_score=max(0, min(100, gesamt)),
+        module_scores=module_scores,
+        module_details=details,
+        nicht_scorefaehige_messwerte=nicht_scorefaehig,
+    )
+
 
 def athletik_score(
-    fms_row,
-    y_row,
+    fms_row=None,
+    y_row=None,
     sprint_row=None,
     sprung_row=None,
     agil_row=None,
     aus_row=None,
     spiro_row=None,
-) -> int:
-    """
-    Composite athleticism score 0–100.
+    kraft_row=None,
+    *,
+    alter: float | None = None,
+    geschlecht: str = "Männlich",
+    geburtsdatum: str | None = None,
+) -> int | None:
+    """Kompatibler Kurzadapter: Gesamt-Score erst ab zwei Leistungsbereichen."""
+    return athletik_leistungsbewertung(
+        fms_row, y_row, sprint_row, sprung_row, agil_row, aus_row,
+        spiro_row, kraft_row, alter=alter, geschlecht=geschlecht,
+        geburtsdatum=geburtsdatum,
+    ).gesamt_score
 
-    Weights (only available modules are counted; missing modules are skipped
-    and the remaining weight is redistributed):
-        FMS             18 %
-        Y-Balance       18 %
-        Sprint          13 %
-        Sprung          13 %
-        Agilität        13 %
-        Ausdauer        13 %
-        Spiro (VO₂peak) 12 %
-    All seven weights sum to 100, so each module contributes exactly its
-    stated percentage when all data is present.
-    """
-    # Weights sum to 100 when all 7 modules are present,
-    # so each module contributes exactly its stated percentage.
-    weights = {
-        "fms":    18,
-        "y":      18,
-        "sprint": 13,
-        "sprung": 13,
-        "agil":   13,
-        "aus":    13,
-        "spiro":  12,
-    }
-
-    sub_scores: dict[str, int] = {}
-
-    # ── FMS ──────────────────────────────────────────────────────────────────
-    if fms_row:
-        s = fms_row["score"]
-        sub = round(s / 21 * 100)
-        if "Asymmetrie" in str(fms_row["asymmetrie"]):
-            sub = max(0, sub - 10)
-        sub_scores["fms"] = sub
-
-    # ── Y-Balance ────────────────────────────────────────────────────────────
-    if y_row:
-        avg = (y_row["composite_rechts"] + y_row["composite_links"]) / 2
-        # Target norm is 94 %; map linearly with floor at 70 % → 0
-        sub = round(min(100, max(0, (avg - 70) / (100 - 70) * 100)))
-        if y_balance_hat_relevante_asymmetrie(y_row):
-            sub = max(0, sub - 10)
-        sub_scores["y"] = sub
-
-    # ── Sprint ────────────────────────────────────────────────────────────────
-    if sprint_row:
-        bew = str(sprint_row.get("bewertung_10m") or sprint_row.get("bewertung_30m") or "")
-        s = _bew_to_score(bew)
-        if s is not None:
-            sub_scores["sprint"] = s
-
-    # ── Sprung ────────────────────────────────────────────────────────────────
-    if sprung_row:
-        bew = str(sprung_row.get("bewertung_cmj") or "")
-        s = _bew_to_score(bew)
-        if s is not None:
-            asym = sprung_row.get("cmj_asymmetrie") or 0
-            if asym and float(asym) > 10:
-                s = max(0, s - 10)
-            sub_scores["sprung"] = s
-
-    # ── Agilität ─────────────────────────────────────────────────────────────
-    if agil_row:
-        bew = str(agil_row.get("bew_t_test") or agil_row.get("bew_505") or "")
-        s = _bew_to_score(bew)
-        if s is not None:
-            asym = agil_row.get("asym_505") or 0
-            if asym and float(asym) > 10:
-                s = max(0, s - 8)
-            sub_scores["agil"] = s
-
-    # ── Ausdauer ──────────────────────────────────────────────────────────────
-    if aus_row:
-        bew = str(aus_row.get("bewertung") or "")
-        s = _bew_to_score(bew)
-        if s is not None:
-            # VO2max bonus/malus
-            vo2 = aus_row.get("vo2max") or 0
-            if vo2 and float(vo2) >= 55:
-                s = min(100, s + 5)
-            sub_scores["aus"] = s
-
-    if not sub_scores:
-        return 0  # no data at all
-
-    # Redistribute weights for missing modules
-    available_weight = sum(weights[k] for k in sub_scores)
-    if available_weight == 0:
-        return 0
-
-    total = sum(sub_scores[k] * weights[k] for k in sub_scores) / available_weight
-    return max(0, min(100, round(total)))
-
-
-# ─── Sub-scores für Radar-Chart ───────────────────────────────────────────────
 
 def athletik_sub_scores(
-    fms_row,
-    y_row,
+    fms_row=None,
+    y_row=None,
     sprint_row=None,
     sprung_row=None,
     agil_row=None,
     aus_row=None,
     spiro_row=None,
+    kraft_row=None,
+    *,
+    alter: float | None = None,
+    geschlecht: str = "Männlich",
+    geburtsdatum: str | None = None,
 ) -> dict[str, int]:
-    """
-    Gibt normierte Einzelwerte (0–100) pro Modul zurück — Grundlage für
-    den Radar-Chart 'Athletisches Profil'.
-
-    Schlüssel: 'FMS', 'Y-Balance', 'Sprint', 'Sprungkraft', 'Agilität', 'Ausdauer', 'Spiro'
-    Nur Module mit Daten sind enthalten.
-    """
-    scores: dict[str, int] = {}
-
-    if fms_row:
-        s = round(fms_row["score"] / 21 * 100)
-        if "Asymmetrie" in str(fms_row.get("asymmetrie", "")):
-            s = max(0, s - 10)
-        scores["FMS"] = s
-
-    if y_row:
-        avg = (y_row["composite_rechts"] + y_row["composite_links"]) / 2
-        s = round(min(100, max(0, (avg - 70) / 30 * 100)))
-        if y_balance_hat_relevante_asymmetrie(y_row):
-            s = max(0, s - 10)
-        scores["Y-Balance"] = s
-
-    if sprint_row:
-        bew = str(sprint_row.get("bewertung_10m") or sprint_row.get("bewertung_30m") or "")
-        s = _bew_to_score(bew)
-        if s is not None:
-            scores["Sprint"] = s
-
-    if sprung_row:
-        bew = str(sprung_row.get("bewertung_cmj") or "")
-        s = _bew_to_score(bew)
-        if s is not None:
-            asym = sprung_row.get("cmj_asymmetrie") or 0
-            if asym and float(asym) > 10:
-                s = max(0, s - 10)
-            scores["Sprungkraft"] = s
-
-    if agil_row:
-        bew = str(agil_row.get("bew_t_test") or agil_row.get("bew_505") or "")
-        s = _bew_to_score(bew)
-        if s is not None:
-            asym = agil_row.get("asym_505") or 0
-            if asym and float(asym) > 10:
-                s = max(0, s - 8)
-            scores["Agilitaet"] = s
-
-    if aus_row:
-        bew = str(aus_row.get("bewertung") or "")
-        s = _bew_to_score(bew)
-        if s is not None:
-            vo2 = aus_row.get("vo2max") or 0
-            if vo2 and float(vo2) >= 55:
-                s = min(100, s + 5)
-            scores["Ausdauer"] = s
-
-    return scores
+    """Gibt die fünf Leistungs-Subscores für das Athletik-Radar zurück."""
+    return athletik_leistungsbewertung(
+        fms_row, y_row, sprint_row, sprung_row, agil_row, aus_row,
+        spiro_row, kraft_row, alter=alter, geschlecht=geschlecht,
+        geburtsdatum=geburtsdatum,
+    ).module_scores
 
 
 # ─── Defizite ────────────────────────────────────────────────────────────────

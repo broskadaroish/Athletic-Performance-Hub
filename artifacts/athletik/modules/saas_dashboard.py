@@ -15,7 +15,7 @@ from database import (
     dashboard_trainer_neue_verletzungen, dashboard_trainer_diagnostiken_monat,
     spieler_laden, verein_by_id, spieler_ohne_verein_zaehlen,
     fms_letzter, y_balance_letzter, sprint_letzter, sprung_letzter,
-    agilitaet_letzter, ausdauer_letzter, spiro_test_letzter, verletzungen_laden,
+    agilitaet_letzter, ausdauer_letzter, kraft_letzter, spiro_test_letzter, verletzungen_laden,
     lizenz_info_laden,
 )
 
@@ -743,9 +743,11 @@ def _compute_team_score(alle_spieler: list) -> tuple[int, int, int]:
         sc  = athletik_score(
             fms_letzter(pid), y_balance_letzter(pid), sprint_letzter(pid),
             sprung_letzter(pid), agilitaet_letzter(pid), ausdauer_letzter(pid),
-            spiro_row=spiro_test_letzter(pid),
+            spiro_row=spiro_test_letzter(pid), kraft_row=kraft_letzter(pid),
+            geschlecht=p.get("geschlecht", "Männlich"), geburtsdatum=p.get("geburtsdatum"),
         )
-        scores.append(sc)
+        if sc is not None:
+            scores.append(sc)
     avg_score = round(sum(scores) / len(scores)) if scores else 0
 
     high_risk = 0
@@ -764,7 +766,7 @@ def _trainer_kpi_strip(n_spieler: int, faellig: int,
     items: list[tuple] = [
         ("⚽", "Spieler",      n_spieler,  _C["blue"],   False),
         ("📋", "Fällige Tests", faellig,    _C["orange"], faellig > 0),
-        ("⚠",  "Erhöhtes Risiko", high_risk, _C["red"],   high_risk > 0),
+        ("⚠",  "Trainer-Hinweise", high_risk, _C["red"],   high_risk > 0),
     ]
     if verletz > 0:
         items.append(("🩺", "Verletzungen", verletz, _C["red"], True))
@@ -931,10 +933,11 @@ def _trainer_letzte_spieler(trainer_id, verein_id=None) -> None:
         sc      = athletik_score(
             fms_letzter(pid), y_balance_letzter(pid), sprint_letzter(pid),
             sprung_letzter(pid), agilitaet_letzter(pid), ausdauer_letzter(pid),
-            spiro_row=spiro_test_letzter(pid),
+            spiro_row=spiro_test_letzter(pid), kraft_row=kraft_letzter(pid),
+            geschlecht=s.get("geschlecht", "Männlich"), geburtsdatum=s.get("geburtsdatum"),
         )
-        sc_c    = _C["green"] if sc >= 70 else _C["orange"] if sc >= 40 else _C["red"]
-        sc_txt  = f"{sc}/100" if sc else "—"
+        sc_c    = _C["green"] if sc is not None and sc >= 70 else _C["orange"] if sc is not None and sc >= 40 else _C["muted"]
+        sc_txt  = f"{sc}/100" if sc is not None else "—"
         farbe   = _FARBEN[i % len(_FARBEN)]
         initial = name[0].upper() if name else "?"
 
@@ -1040,8 +1043,12 @@ def _dash_trainer(user: dict):
             agi  = agilitaet_letzter(pid)
             aus  = ausdauer_letzter(pid)
             spi  = spiro_test_letzter(pid)
-            sc   = athletik_score(fms, y, spr, sprg, agi, aus, spiro_row=spi)
-            scores.append(sc)
+            sc   = athletik_score(
+                fms, y, spr, sprg, agi, aus, spiro_row=spi, kraft_row=kraft_letzter(pid),
+                geschlecht=p.get("geschlecht", "Männlich"), geburtsdatum=p.get("geburtsdatum"),
+            )
+            if sc is not None:
+                scores.append(sc)
         avg_score = round(sum(scores) / len(scores)) if scores else 0
 
         # Risiko über alle Spieler — stimmt mit dem Mannschafts-Filter überein
@@ -1117,7 +1124,8 @@ def _dash_trainer(user: dict):
             sc   = athletik_score(
                 fms_letzter(pid), y_balance_letzter(pid), sprint_letzter(pid),
                 sprung_letzter(pid), agilitaet_letzter(pid), ausdauer_letzter(pid),
-                spiro_row=spiro_test_letzter(pid),
+                spiro_row=spiro_test_letzter(pid), kraft_row=kraft_letzter(pid),
+                geschlecht=s.get("geschlecht", "Männlich"), geburtsdatum=s.get("geburtsdatum"),
             )
             scores_map[pid] = sc
 
@@ -1129,13 +1137,13 @@ def _dash_trainer(user: dict):
             mannsch  = s.get("mannschaft","—")
             ak       = s.get("altersklasse","—")
             letzte_m = s.get("letzte_messung") or "Noch kein Test"
-            sc       = scores_map.get(pid, 0)
+            sc       = scores_map.get(pid)
             farbe    = _FARBEN[i % len(_FARBEN)]
             initial  = name[0].upper() if name else "?"
 
             # Score-Farbe
-            sc_c = _C["green"] if sc >= 70 else _C["orange"] if sc >= 40 else _C["red"]
-            sc_txt = f"{sc}/100" if sc else "—"
+            sc_c = _C["green"] if sc is not None and sc >= 70 else _C["orange"] if sc is not None and sc >= 40 else _C["muted"]
+            sc_txt = f"{sc}/100" if sc is not None else "—"
 
             with cols[i % 3]:
                 st.markdown(
@@ -1153,7 +1161,7 @@ def _dash_trainer(user: dict):
                     f'<div style="display:flex;justify-content:space-between;'
                     f'align-items:center;border-top:1px solid {_C["border"]};padding-top:10px">'
                     f'<div>'
-                    f'<div style="font-size:9px;color:{_C["muted"]};letter-spacing:.5px">ATHLETIKSCORE</div>'
+                    f'<div style="font-size:9px;color:{_C["muted"]};letter-spacing:.5px">LEISTUNGS-SCORE</div>'
                     f'<div style="font-size:18px;font-weight:800;color:{sc_c}">{sc_txt}</div>'
                     f'</div>'
                     f'<div style="text-align:right">'

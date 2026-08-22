@@ -548,7 +548,12 @@ class AthletikReport(FPDF):
 
         # ── Athletik Score Banner ─────────────────────────────────────────────
         self.check_page_break(28)
-        sc_col = GREEN if athletik_score >= 75 else YELLOW if athletik_score >= 50 else RED
+        hat_gesamt_score = athletik_score is not None
+        sc_col = (
+            GREEN if hat_gesamt_score and athletik_score >= 75
+            else YELLOW if hat_gesamt_score and athletik_score >= 50
+            else RED if hat_gesamt_score else self.MID
+        )
         sx, sy = self.get_x(), self.get_y()
         self.set_fill_color(245, 247, 250)
         self.rect(sx, sy, content_w, 22, "F")
@@ -557,10 +562,10 @@ class AthletikReport(FPDF):
         self.set_xy(sx + 10, sy + 3)
         self.set_font("Helvetica", "B", 9)
         self.set_text_color(*self.MID)
-        self.cell(content_w * 0.28, 5, "ATHLETIK-SCORE", new_x="RIGHT", new_y="TOP")
+        self.cell(content_w * 0.28, 5, "LEISTUNGS-SCORE", new_x="RIGHT", new_y="TOP")
         self.set_font("Helvetica", "B", 16)
         self.set_text_color(*sc_col)
-        self.cell(content_w * 0.18, 5, "%d / 100" % athletik_score)
+        self.cell(content_w * 0.18, 5, "%d / 100" % athletik_score if hat_gesamt_score else "—")
         self.set_xy(sx + content_w * 0.54, sy + 3)
         self.set_font("Helvetica", "B", 8)
         self.set_text_color(*self.MID)
@@ -647,7 +652,7 @@ def generate_report(
     spiro_stufen: list | None = None,
     spiro_nachbelastung: list | None = None,
     verletzungen=None,
-    athletik_score: int = 0,
+    athletik_score: int | None = None,
     risiko_label: str = "-",
     defizite: list = None,
     plan_rows: list = None,
@@ -722,8 +727,16 @@ def generate_report(
     pdf.section_title("ATHLETIK-KENNZAHLEN")
     pdf.ln(2)
 
-    a_col = GREEN if athletik_score >= 75 else YELLOW if athletik_score >= 50 else RED
-    metrics = [("Athletik Score", "%d/100" % athletik_score, a_col)]
+    a_col = (
+        GREEN if athletik_score is not None and athletik_score >= 75
+        else YELLOW if athletik_score is not None and athletik_score >= 50
+        else RED if athletik_score is not None else pdf.MID
+    )
+    metrics = [(
+        "Leistungs-Score",
+        "%d/100" % athletik_score if athletik_score is not None else "Kein Gesamt-Score",
+        a_col,
+    )]
     rl    = _safe(risiko_label).upper()
     r_col = RED if "HANDLUNGSBEDARF HOCH" in rl else YELLOW if "HANDLUNGSBEDARF" in rl else GREEN
     metrics.append(("Athletik-Status", risiko_label, r_col))
@@ -1580,20 +1593,29 @@ def generate_report(
     # ── Gesamtempfehlung ──────────────────────────────────────────────────────
     pdf.ln(3)
     pdf.section_title("EMPFEHLUNGEN")
-    if athletik_score >= 75:
+    if athletik_score is None:
+        empf = ("Noch kein Leistungs-Gesamtscore: Mindestens zwei scorefähige Leistungsbereiche "
+                "sind erforderlich. Vorhandene Befunde und Trainerhinweise werden separat bewertet.")
+        empf_col = pdf.MID
+        empfehlungs_titel = "Leistungs-Score: noch keine ausreichende Datenbasis"
+    elif athletik_score >= 75:
         empf = ("Sehr gutes Athletik-Profil. Gezielte Optimierung der verbleibenden Defizite empfohlen. "
                 "Fokus auf Erhalt der Staerken und spezifische Leistungssteigerung in Schluesselbereichen.")
         empf_col = GREEN
     elif athletik_score >= 50:
         empf = ("Solides Athletik-Profil mit klaren Entwicklungsfeldern. Gezieltes Athletiktraining "
-                "entlang der identifizierten Defizite empfohlen. Prioritaet auf Stabilitaet und "
-                "Verletzungspraevention. Trainingsplan basiert auf individueller Befundanalyse.")
+                "entlang der identifizierten Defizite empfohlen. Prioritaet auf belastbare "
+                "Ausfuehrung und individuelle Befundanalyse.")
         empf_col = YELLOW
     else:
         empf = ("Deutlicher Handlungsbedarf festgestellt. Systematisches Athletiktraining mit hoher "
-                "Prioritaet auf Verletzungspraevention und Bewegungsqualitaet empfohlen. "
-                "Engmaschige Begleitung durch Atletiktrainer notwendig.")
+                "Prioritaet auf Leistungsaufbau und Bewegungsqualitaet empfohlen. "
+                "Trainerische Begleitung und Verlaufskontrolle sind sinnvoll.")
         empf_col = RED
+        empfehlungs_titel = "Leistungs-Score: %d/100" % athletik_score
+
+    if athletik_score is not None and "empfehlungs_titel" not in locals():
+        empfehlungs_titel = "Leistungs-Score: %d/100" % athletik_score
 
     x_e, y_e = pdf.get_x(), pdf.get_y()
     pdf.set_fill_color(245, 247, 250)
@@ -1605,7 +1627,7 @@ def generate_report(
     pdf.set_xy(x_e + 8, y_e + 3)
     pdf.set_font("Helvetica", "B", 8)
     pdf.set_text_color(*pdf.DARK)
-    pdf.cell(pdf.content_width - 13, 5, "Athletik-Score: %d/100" % athletik_score,
+    pdf.cell(pdf.content_width - 13, 5, empfehlungs_titel,
              new_x="LMARGIN", new_y="NEXT")
     pdf.set_x(x_e + 8)
     pdf.set_font("Helvetica", "", 7.5)
@@ -1644,7 +1666,7 @@ class _VergleichReport(AthletikReport):
         self.set_text_color(*self.DARK)
         self.ln(14)
 
-    def player_banner(self, sp1: dict, sp2: dict, sc1: int, sc2: int):
+    def player_banner(self, sp1: dict, sp2: dict, sc1: int | None, sc2: int | None):
         """Zwei Spieler-Info-Karten nebeneinander."""
         def _info(sp, sc, accent):
             name   = _safe(sp.get("name") or sp.get("nachname") or "-")
@@ -1652,7 +1674,11 @@ class _VergleichReport(AthletikReport):
             team   = _safe(sp.get("mannschaft") or "-")
             status = _safe(sp.get("trainingsstatus") or "Volltraining")
             geb    = _safe(sp.get("geburtsdatum") or "-")
-            col    = GREEN if sc >= 75 else YELLOW if sc >= 50 else RED
+            col    = (
+                GREEN if sc is not None and sc >= 75
+                else YELLOW if sc is not None and sc >= 50
+                else RED if sc is not None else self.MID
+            )
             return name, pos, team, status, geb, sc, col, accent
 
         x_start = self.get_x()
@@ -1695,7 +1721,11 @@ class _VergleichReport(AthletikReport):
             self.set_x(x + 3)
             self.set_font("Helvetica", "B", 9)
             self.set_text_color(*sc_col)
-            self.cell(W - 6, 5, "Athletik-Score: %d/100" % score,
+            score_text = (
+                "Leistungs-Score: %d/100" % score
+                if score is not None else "Leistungs-Score: Kein Gesamt-Score"
+            )
+            self.cell(W - 6, 5, score_text,
                       new_x="LMARGIN", new_y="NEXT")
 
         self.set_xy(x_start, y_start + 42)
@@ -1741,7 +1771,7 @@ class _VergleichReport(AthletikReport):
 
 def generate_vergleich_pdf(
     sp1: dict, sp2: dict,
-    sc1: int = 0, sc2: int = 0,
+    sc1: int | None = None, sc2: int | None = None,
     fms1=None,   fms2=None,
     y1=None,     y2=None,
     spr1=None,   spr2=None,

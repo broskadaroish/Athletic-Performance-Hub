@@ -39,3 +39,4 @@
 - [Contract status consistency](contract-status-consistency.md) — customer contract views must use the central effective license evaluation; anonymized records are never revived
 - [Customer and tenant classification](customer-tenant-classification.md) — customer and license views share one evidence-based classification; memberships never establish a contract
 - [Registration confirmation state](registration-confirmation-state.md) — confirmation UX survives Streamlit reruns only; a full browser reload intentionally starts a new unauthenticated session
+- [Performance score boundaries](performance-score-boundaries.md) — APH Leistungs-Score uses five performance modules only; movement-quality hints remain separate

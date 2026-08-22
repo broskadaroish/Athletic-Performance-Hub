@@ -162,7 +162,7 @@ from y_balance import (
 )
 from kraft import KraftErgebnis as _KraftErgebnis, epley_1rm as _epley_1rm
 from analytics import (
-    risiko_score, risiko_label, athletik_score, athletik_sub_scores,
+    risiko_score, risiko_label, athletik_score, athletik_sub_scores, athletik_leistungsbewertung,
     defizite_ermitteln, trainingsbereich_scores_ermitteln, schwerpunkt_sammeln, testdaten_uebersicht,
     ist_unauffaellig, ERHALTUNGS_SCHWERPUNKT, ERHALTUNGS_BEGRUENDUNG,
 )
@@ -1938,7 +1938,12 @@ if _pf_role not in ("Superadmin",) and _pf_vid:
 def _risk_badge(level: str) -> str:
     return risk_badge_html(level)
 
-def _score_badge(score: int) -> str:
+def _score_badge(score: int | None) -> str:
+    if score is None:
+        return (
+            '<span style="display:inline-block;padding:7px 12px;border-radius:999px;'
+            'background:#21262d;color:#8b949e;font-weight:700">Kein Gesamt-Score</span>'
+        )
     return score_badge_html(score)
 
 def _progress_html(value: int, max_val: int, color: str = "#1f6feb") -> str:
@@ -3275,6 +3280,7 @@ def page_dashboard():
         sprung = sprung_letzter(pid)
         agil   = agilitaet_letzter(pid)
         aus    = ausdauer_letzter(pid)
+        kraft  = kraft_letzter(pid)
         anthro = anthropometrie_letzter(pid)
         anthro_bmi_status = bmi_bewertung_aus_messung(
             anthro, p.get("geburtsdatum"), p.get("geschlecht", "Männlich")
@@ -3284,7 +3290,10 @@ def page_dashboard():
         rs     = risiko_score(fms, y, verlet)
         _, level = risiko_label(rs)
         spiro  = spiro_test_letzter(pid)
-        sc     = athletik_score(fms, y, sprint, sprung, agil, aus, spiro_row=spiro)
+        sc     = athletik_score(
+            fms, y, sprint, sprung, agil, aus, spiro_row=spiro, kraft_row=kraft,
+            geschlecht=p.get("geschlecht", "Männlich"), geburtsdatum=p.get("geburtsdatum"),
+        )
         defizite = defizite_ermitteln(fms, y, sprint, sprung, agil, aus, anthro,
                                       spiro_row=spiro,
                                       geschlecht=p.get("geschlecht", "Männlich"),
@@ -3295,13 +3304,13 @@ def page_dashboard():
         last_test_date = max(dates) if dates else None
         player_data.append({
             "p": p, "fms": fms, "y": y, "sprint": sprint, "sprung": sprung,
-            "agil": agil, "aus": aus, "anthro": anthro, "anthro_bmi_status": anthro_bmi_status, "spiro": spiro,
+            "agil": agil, "aus": aus, "kraft": kraft, "anthro": anthro, "anthro_bmi_status": anthro_bmi_status, "spiro": spiro,
             "verlet": verlet, "rs": rs, "level": level, "sc": sc,
             "defizite": defizite, "last_test_date": last_test_date,
         })
 
     total     = len(player_data)
-    scores    = [d["sc"] for d in player_data]
+    scores    = [d["sc"] for d in player_data if d["sc"] is not None]
     high_risk = sum(1 for d in player_data if d["level"] == "hoch")
     med_risk  = sum(1 for d in player_data if d["level"] == "mittel")
     avg_score = round(sum(scores) / len(scores)) if scores else 0
@@ -3311,7 +3320,7 @@ def page_dashboard():
     c1.metric("Spieler gesamt", total)
     c2.metric("🔴 Handlungsbedarf Hoch", high_risk)
     c3.metric("🟡 Handlungsbedarf", med_risk)
-    c4.metric("Ø Athletik Score", f"{avg_score}/100")
+    c4.metric("Ø Leistungs-Score", f"{avg_score}/100" if scores else "—")
 
     # ── KPI-Filter aus dem Dashboard (Direktlinks) ───────────────────────────
     _kpi_filter = st.session_state.get("kpi_filter")
@@ -3358,7 +3367,9 @@ def page_dashboard():
     _RISK_ICON   = {"hoch": "🔴", "mittel": "🟡", "gering": "🟢"}
     _RISK_LABEL  = {"hoch": "Handlungsbedarf hoch", "mittel": "Handlungsbedarf", "gering": "Unauffällig"}
 
-    def _score_color(s: int) -> str:
+    def _score_color(s: int | None) -> str:
+        if s is None:
+            return C["muted"]
         return C["green"] if s >= 75 else C["yellow"] if s >= 50 else C["red"]
 
     def _fmt_date(d: str | None) -> str:
@@ -3451,8 +3462,9 @@ def page_dashboard():
                         f'<div style="font-size:11px;color:{C["muted"]};margin-bottom:8px">'
                         f'{pos} · {team}</div>'
                         f'<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:6px">'
-                        f'<span style="font-size:28px;font-weight:800;color:{sc_col}">{d["sc"]}</span>'
-                        f'<span style="font-size:11px;color:{C["muted"]}">/ 100 Athletik-Score</span>'
+                        f'<span style="font-size:28px;font-weight:800;color:{sc_col}">{d["sc"] if d["sc"] is not None else "—"}</span>'
+                        f'<span style="font-size:11px;color:{C["muted"]}">'
+                        f'{" / 100 Leistungs-Score" if d["sc"] is not None else " Kein Gesamt-Score"}</span>'
                         f'</div>'
                         f'<div style="font-size:11px;color:{rc};font-weight:600;margin-bottom:6px">'
                         f'{_RISK_ICON[level]} {_RISK_LABEL[level]}</div>'
@@ -3553,7 +3565,8 @@ def page_dashboard():
                             f'<div style="font-size:10px;color:{C["muted"]}">'
                             f'{p.get("hauptposition") or p.get("position") or "—"}</div>'
                             f'<div style="font-size:10px;color:{rc};margin-top:4px">'
-                            f'{_RISK_ICON[d["level"]]} Score {d["sc"]}/100</div>'
+                            f'{_RISK_ICON[d["level"]]} '
+                            f'{"Leistungs-Score " + str(d["sc"]) + "/100" if d["sc"] is not None else "Kein Gesamt-Score"}</div>'
                             + (f'<div style="font-size:9px;color:{C["muted"]};margin-top:4px;'
                                f'line-height:1.3">{prim_def}</div>' if prim_def else "")
                             + f'</div>',
@@ -3668,17 +3681,22 @@ def page_dashboard():
                                   legend=dict(orientation="h", y=-0.2))
             st.plotly_chart(fig_pie, use_container_width=True)
         with col_right:
-            st.markdown("##### Athletik Scores — Kader")
-            names  = [d["p"]["name"] for d in player_data]
-            cols_c = [_color_for_score(d["sc"]) for d in player_data]
-            fig_bar = go.Figure(go.Bar(
-                x=names, y=scores,
-                marker_color=cols_c,
-                text=scores, textposition="outside",
-                textfont=dict(color="#e6edf3"),
-            ))
-            fig_bar.update_layout(**_pl(height=240, yaxis=dict(range=[0, 105])))
-            st.plotly_chart(fig_bar, use_container_width=True)
+            st.markdown("##### Leistungs-Scores — Kader")
+            score_player_data = [d for d in player_data if d["sc"] is not None]
+            if not score_player_data:
+                st.info("Noch kein Gesamt-Score: Mindestens zwei scorefähige Leistungsbereiche pro Spieler erforderlich.")
+            else:
+                names  = [d["p"]["name"] for d in score_player_data]
+                values = [d["sc"] for d in score_player_data]
+                cols_c = [_color_for_score(d["sc"]) for d in score_player_data]
+                fig_bar = go.Figure(go.Bar(
+                    x=names, y=values,
+                    marker_color=cols_c,
+                    text=values, textposition="outside",
+                    textfont=dict(color="#e6edf3"),
+                ))
+                fig_bar.update_layout(**_pl(height=240, yaxis=dict(range=[0, 105])))
+                st.plotly_chart(fig_bar, use_container_width=True)
 
         st.markdown("---")
         # ── Suche & Filter ────────────────────────────────────────────────────
@@ -3710,7 +3728,7 @@ def page_dashboard():
                 "Position":       p.get("hauptposition") or p.get("position") or "—",
                 "Mannschaft":     p.get("mannschaft") or "—",
                 "Altersklasse":   p.get("altersklasse") or "—",
-                "Athletik Score": d["sc"],
+                "Leistungs-Score": d["sc"] if d["sc"] is not None else "—",
                 "FMS Score":      fms["score"] if fms else None,
                 "Y-Balance Ø":    round((y["composite_rechts"] + y["composite_links"]) / 2, 1)
                                   if y else None,
@@ -5217,7 +5235,12 @@ def page_spieler_profil():
     rs     = risiko_score(fms, y, verlet)
     label, level = risiko_label(rs)
     _spiro_p = spiro_test_letzter(sid)
-    ascore   = athletik_score(fms, y, sprint, sprung, agil, aus, spiro_row=_spiro_p)
+    leistungsbewertung = athletik_leistungsbewertung(
+        fms, y, sprint, sprung, agil, aus, spiro_row=_spiro_p, kraft_row=kraft,
+        geschlecht=auswahl.get("geschlecht", "Männlich"),
+        geburtsdatum=auswahl.get("geburtsdatum"),
+    )
+    ascore = leistungsbewertung.gesamt_score
     anthro_bmi_status = bmi_bewertung_aus_messung(
         anthro, auswahl.get("geburtsdatum"), auswahl.get("geschlecht", "Männlich")
     )
@@ -5268,8 +5291,9 @@ def page_spieler_profil():
             unsafe_allow_html=True,
         )
     with h2:
-        st.markdown("**Athletik Score**")
+        st.markdown("**Leistungs-Score**")
         st.markdown(_score_badge(ascore), unsafe_allow_html=True)
+        st.caption(leistungsbewertung.datenbasis_text)
     with h3:
         st.markdown("**Athletik-Status**")
         st.markdown(_risk_badge(level), unsafe_allow_html=True)
@@ -5299,13 +5323,16 @@ def page_spieler_profil():
             )
 
     # ── Radar-Chart im Header (wenn ≥ 3 Module vorhanden) ─────────────────
-    sub_scores_header = athletik_sub_scores(fms, y, sprint, sprung, agil, aus,
-                                            spiro_row=_spiro_p)
+    sub_scores_header = athletik_sub_scores(
+        fms, y, sprint, sprung, agil, aus, spiro_row=_spiro_p, kraft_row=kraft,
+        geschlecht=auswahl.get("geschlecht", "Männlich"),
+        geburtsdatum=auswahl.get("geburtsdatum"),
+    )
     if len(sub_scores_header) >= 3:
         label_map_h = {
-            "FMS": "FMS", "Y-Balance": "Y-Balance", "Sprint": "Sprint",
-            "Sprungkraft": "Sprungkraft", "Agilitaet": "Agilität", "Ausdauer": "Ausdauer",
-            "Spiro": "Spiro",
+            "Richtungswechsel / COD": "Richtungswechsel / COD",
+            "Sprint": "Sprint", "Sprung / Power": "Sprung / Power",
+            "Ausdauer": "Ausdauer", "Kraft": "Kraft",
         }
         cats_h  = [label_map_h.get(k, k) for k in sub_scores_header.keys()]
         vals_h  = list(sub_scores_header.values())
@@ -5912,7 +5939,11 @@ def page_trainingsplan():
         # Diagnostik-Score für Empfehlungs-Engine
         _diag_score: float | None = None
         try:
-            _ascore_val = athletik_score(fms, y, sprint, sprung, agil, aus)
+            _ascore_val = athletik_score(
+                fms, y, sprint, sprung, agil, aus, kraft_row=kraft,
+                geschlecht=auswahl.get("geschlecht", "Männlich"),
+                geburtsdatum=auswahl.get("geburtsdatum"),
+            )
             _diag_score = float(_ascore_val) if _ascore_val is not None else None
         except Exception:
             pass
@@ -7585,21 +7616,22 @@ def page_fortschritt():
         agil_now   = agilitaet_letzter(sid)
         aus_now    = ausdauer_letzter(sid)
         spiro_now  = spiro_test_letzter(sid)
+        kraft_now  = kraft_letzter(sid)
         sub = athletik_sub_scores(fms_now, y_now, sprint_now, sprung_now, agil_now, aus_now,
-                                   spiro_row=spiro_now)
+                                   spiro_row=spiro_now, kraft_row=kraft_now,
+                                   geschlecht=auswahl.get("geschlecht", "Männlich"),
+                                   geburtsdatum=auswahl.get("geburtsdatum"))
 
         if len(sub) < 2:
             st.info("Mindestens 2 Testmodule müssen vorliegen, um das Radar-Chart zu zeichnen.")
         else:
             # Label-Mapping für Anzeige
             label_map = {
-                "FMS": "FMS",
-                "Y-Balance": "Y-Balance",
+                "Richtungswechsel / COD": "Richtungswechsel / COD",
                 "Sprint": "Sprint",
-                "Sprungkraft": "Sprungkraft",
-                "Agilitaet": "Agilität",
+                "Sprung / Power": "Sprung / Power",
                 "Ausdauer": "Ausdauer",
-                "Spiro": "Spiro",
+                "Kraft": "Kraft",
             }
             cats   = [label_map.get(k, k) for k in sub.keys()]
             vals   = list(sub.values())
@@ -10695,7 +10727,11 @@ def page_startseite():
     rs              = risiko_score(fms, y, verlet)
     _, level        = risiko_label(rs)
     _spiro_s = spiro_test_letzter(sid)
-    ascore          = athletik_score(fms, y, sprint, sprung, agil, aus, spiro_row=_spiro_s)
+    ascore          = athletik_score(
+        fms, y, sprint, sprung, agil, aus, spiro_row=_spiro_s, kraft_row=kraft,
+        geschlecht=auswahl.get("geschlecht", "Männlich"),
+        geburtsdatum=auswahl.get("geburtsdatum"),
+    )
     anthro_bmi_status = bmi_bewertung_aus_messung(
         anthro, auswahl.get("geburtsdatum"), auswahl.get("geschlecht", "Männlich")
     )
@@ -10713,10 +10749,10 @@ def page_startseite():
     st.markdown(player_banner(auswahl, alter), unsafe_allow_html=True)
 
     # ── KPI row ───────────────────────────────────────────────────────────────
-    score_color = C["green"] if ascore >= 75 else C["yellow"] if ascore >= 50 else C["red"]
+    score_color = C["green"] if ascore is not None and ascore >= 75 else C["yellow"] if ascore is not None and ascore >= 50 else C["red"]
     risk_colors = {"hoch": C["red"], "mittel": C["yellow"], "gering": C["green"]}
     risk_icons  = {"hoch": "🔴", "mittel": "🟡", "gering": "🟢"}
-    risk_labels = {"hoch": "HANDLUNGSBEDARF HOCH", "mittel": "HANDLUNGSBEDARF", "gering": "UNAUFFÄLLIG"}
+    risk_labels = {"hoch": "TRAINER-HANDLUNGSBEDARF HOCH", "mittel": "BEOBACHTEN", "gering": "UNAUFFÄLLIG"}
 
     # Last test date across all modules
     dates = []
@@ -10734,7 +10770,7 @@ def page_startseite():
     with k1:
         score_display = (
             f'{ascore}<span style="font-size:16px;font-weight:400;color:{C["muted"]}">/100</span>'
-            if hat_tests else
+            if ascore is not None else
             f'<span style="font-size:20px;color:{C["muted"]}">—</span>'
         )
         st.markdown(kpi_card("Athletik Score", score_display, color=score_color if hat_tests else C["muted"]),
@@ -11320,10 +11356,17 @@ def page_einstellungen():
                 fms    = fms_letzter(p["id"])
                 y      = y_balance_letzter(p["id"])
                 sprint = sprint_letzter(p["id"])
+                sprung = sprung_letzter(p["id"])
+                agil   = agilitaet_letzter(p["id"])
                 aus    = ausdauer_letzter(p["id"])
+                kraft  = kraft_letzter(p["id"])
                 verlet = verletzungen_laden(p["id"])
-                ascore = athletik_score(fms, y, sprint, None, None, aus,
-                                        spiro_row=spiro_test_letzter(p["id"]))
+                ascore = athletik_score(
+                    fms, y, sprint, sprung, agil, aus,
+                    spiro_row=spiro_test_letzter(p["id"]), kraft_row=kraft,
+                    geschlecht=p.get("geschlecht", "Männlich"),
+                    geburtsdatum=p.get("geburtsdatum"),
+                )
                 rs     = risiko_score(fms, y, verlet)
                 _, rlv = risiko_label(rs)
                 rows.append({
@@ -11801,15 +11844,21 @@ def page_spieler_vergleich():
     agil1 = agilitaet_letzter(pid1);  agil2 = agilitaet_letzter(pid2)
     aus1  = ausdauer_letzter(pid1);   aus2  = ausdauer_letzter(pid2)
     spiro1 = spiro_test_letzter(pid1); spiro2 = spiro_test_letzter(pid2)
+    kraft1 = kraft_letzter(pid1);      kraft2 = kraft_letzter(pid2)
 
     # ── Composite scores ──────────────────────────────────────────────────────
-    sc1 = athletik_score(fms1, y1, spr1, spg1, agil1, aus1, spiro_row=spiro1)
-    sc2 = athletik_score(fms2, y2, spr2, spg2, agil2, aus2, spiro_row=spiro2)
-    sub1 = athletik_sub_scores(fms1, y1, spr1, spg1, agil1, aus1, spiro_row=spiro1)
-    sub2 = athletik_sub_scores(fms2, y2, spr2, spg2, agil2, aus2, spiro_row=spiro2)
+    sc1 = athletik_score(fms1, y1, spr1, spg1, agil1, aus1, spiro_row=spiro1, kraft_row=kraft1,
+                          geschlecht=sp1.get("geschlecht", "Männlich"), geburtsdatum=sp1.get("geburtsdatum"))
+    sc2 = athletik_score(fms2, y2, spr2, spg2, agil2, aus2, spiro_row=spiro2, kraft_row=kraft2,
+                          geschlecht=sp2.get("geschlecht", "Männlich"), geburtsdatum=sp2.get("geburtsdatum"))
+    sub1 = athletik_sub_scores(fms1, y1, spr1, spg1, agil1, aus1, spiro_row=spiro1, kraft_row=kraft1,
+                                geschlecht=sp1.get("geschlecht", "Männlich"), geburtsdatum=sp1.get("geburtsdatum"))
+    sub2 = athletik_sub_scores(fms2, y2, spr2, spg2, agil2, aus2, spiro_row=spiro2, kraft_row=kraft2,
+                                geschlecht=sp2.get("geschlecht", "Männlich"), geburtsdatum=sp2.get("geburtsdatum"))
 
     # ── Score banner ──────────────────────────────────────────────────────────
-    def _score_color(s: int) -> str:
+    def _score_color(s: int | None) -> str:
+        if s is None: return C["muted"]
         if s >= 75: return C["green"]
         if s >= 50: return C["yellow"]
         return C["red"]
@@ -11825,8 +11874,8 @@ def page_spieler_vergleich():
             f'<div style="font-size:11px;color:{C["muted"]}">'
             f'{sp1.get("hauptposition") or sp1.get("position") or "—"} · '
             f'{sp1.get("mannschaft") or "—"}</div>'
-            f'<div style="font-size:32px;font-weight:900;color:{col};margin-top:8px">{sc1}</div>'
-            f'<div style="font-size:11px;color:{C["muted"]}">Athletik-Score / 100</div>'
+            f'<div style="font-size:32px;font-weight:900;color:{col};margin-top:8px">{sc1 if sc1 is not None else "—"}</div>'
+            f'<div style="font-size:11px;color:{C["muted"]}">Leistungs-Score / 100</div>'
             f'</div>',
             unsafe_allow_html=True,
         )
@@ -11846,8 +11895,8 @@ def page_spieler_vergleich():
             f'<div style="font-size:11px;color:{C["muted"]}">'
             f'{sp2.get("hauptposition") or sp2.get("position") or "—"} · '
             f'{sp2.get("mannschaft") or "—"}</div>'
-            f'<div style="font-size:32px;font-weight:900;color:{col};margin-top:8px">{sc2}</div>'
-            f'<div style="font-size:11px;color:{C["muted"]}">Athletik-Score / 100</div>'
+            f'<div style="font-size:32px;font-weight:900;color:{col};margin-top:8px">{sc2 if sc2 is not None else "—"}</div>'
+            f'<div style="font-size:11px;color:{C["muted"]}">Leistungs-Score / 100</div>'
             f'</div>',
             unsafe_allow_html=True,
         )
@@ -11855,8 +11904,8 @@ def page_spieler_vergleich():
     st.markdown("<br>", unsafe_allow_html=True)
 
     # ── Radar chart ───────────────────────────────────────────────────────────
-    _CAT_KEYS   = ["FMS", "Y-Balance", "Sprint", "Sprungkraft", "Agilitaet", "Ausdauer"]
-    _CAT_LABELS = ["FMS", "Y-Balance", "Sprint", "Sprungkraft", "Agilität", "Ausdauer"]
+    _CAT_KEYS   = ["Richtungswechsel / COD", "Sprint", "Sprung / Power", "Ausdauer", "Kraft"]
+    _CAT_LABELS = ["Richtungswechsel / COD", "Sprint", "Sprung / Power", "Ausdauer", "Kraft"]
 
     v1 = [sub1.get(k, 0) for k in _CAT_KEYS]
     v2 = [sub2.get(k, 0) for k in _CAT_KEYS]
@@ -12239,13 +12288,14 @@ def page_spieler_vergleich():
     h_spg1   = _filter(sprung_history(pid1));       h_spg2   = _filter(sprung_history(pid2))
     h_agil1  = _filter(agilitaet_history(pid1));    h_agil2  = _filter(agilitaet_history(pid2))
     h_aus1   = _filter(ausdauer_history(pid1));     h_aus2   = _filter(ausdauer_history(pid2))
+    h_kraft1 = _filter(kraft_history(pid1));        h_kraft2 = _filter(kraft_history(pid2))
     h_spiro1 = _filter(spiro_test_alle(pid1));      h_spiro2 = _filter(spiro_test_alle(pid2))
 
-    def _score_timeline(fh, yh, sprh, spgh, agilh, aush, spiroh):
-        """Berechnet Athletik-Score für jeden Testtermin (kumulativer Zustand)."""
+    def _score_timeline(fh, yh, sprh, spgh, agilh, aush, krh, spiroh, spieler):
+        """Berechnet den Leistungs-Score für jeden Testtermin (kumulativer Zustand)."""
         state = {
             "fms": None, "y": None, "sprint": None, "sprung": None,
-            "agil": None, "aus": None, "spiro": None,
+            "agil": None, "aus": None, "kraft": None, "spiro": None,
         }
         events = (
             [(r["datum"], "fms",    r) for r in fh]
@@ -12254,6 +12304,7 @@ def page_spieler_vergleich():
             + [(r["datum"], "sprung", r) for r in spgh]
             + [(r["datum"], "agil",   r) for r in agilh]
             + [(r["datum"], "aus",    r) for r in aush]
+            + [(r["datum"], "kraft",  r) for r in krh]
             + [(r["datum"], "spiro",  r) for r in spiroh if r.get("datum")]
         )
         events.sort(key=lambda x: x[0])
@@ -12262,13 +12313,15 @@ def page_spieler_vergleich():
             state[mod] = row
             sc = athletik_score(state["fms"], state["y"], state["sprint"],
                                 state["sprung"], state["agil"], state["aus"],
-                                spiro_row=state["spiro"])
-            if sc > 0:
+                                spiro_row=state["spiro"], kraft_row=state["kraft"],
+                                geschlecht=spieler.get("geschlecht", "Männlich"),
+                                geburtsdatum=spieler.get("geburtsdatum"))
+            if sc is not None:
                 out.append((datum, sc))
         return out
 
-    tl1 = _score_timeline(h_fms1, h_y1, h_spr1, h_spg1, h_agil1, h_aus1, h_spiro1)
-    tl2 = _score_timeline(h_fms2, h_y2, h_spr2, h_spg2, h_agil2, h_aus2, h_spiro2)
+    tl1 = _score_timeline(h_fms1, h_y1, h_spr1, h_spg1, h_agil1, h_aus1, h_kraft1, h_spiro1, sp1)
+    tl2 = _score_timeline(h_fms2, h_y2, h_spr2, h_spg2, h_agil2, h_aus2, h_kraft2, h_spiro2, sp2)
 
     # ── Gesamtscore-Chart ─────────────────────────────────────────────────────
     if tl1 or tl2:
@@ -12290,7 +12343,7 @@ def page_spieler_vergleich():
                 marker=dict(size=7, color="#3fb950"),
             ))
         fig_tl.update_layout(
-            title=dict(text="Athletik-Gesamtscore (0–100)",
+            title=dict(text="Leistungs-Gesamtscore (0–100)",
                        font=dict(size=14, color=C["text"]), x=0.0),
             xaxis=dict(gridcolor=C["surface2"], linecolor=C["border"],
                        tickfont=dict(color=C["muted"])),

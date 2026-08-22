@@ -9,6 +9,56 @@ from typing import List, Tuple
 
 from age_norms import fms_bewertung_alter as _fms_bw_alter
 
+
+def _row_wert(row, key, default=None):
+    """Liest Dict-/sqlite-Zeilen robust, ohne Anzeige-Text zu interpretieren."""
+    if not row:
+        return default
+    try:
+        return row.get(key, default)
+    except AttributeError:
+        try:
+            return row[key]
+        except (KeyError, IndexError):
+            return default
+
+
+def fms_hat_relevante_asymmetrie(row) -> bool:
+    """Ermittelt FMS-Seitenunterschiede strukturiert und legacy-sicher.
+
+    ``Keine Asymmetrie`` ist eine positive Anzeige und darf nicht aufgrund
+    des enthaltenen Wortes als auffällig gewertet werden. Wenn die
+    Einzelwerte vorliegen, haben sie Vorrang vor dem historischen Text.
+    """
+    if not row:
+        return False
+
+    paare = (
+        ("hurdle_links", "hurdle_rechts"),
+        ("inline_links", "inline_rechts"),
+        ("shoulder_links", "shoulder_rechts"),
+        ("aslr_links", "aslr_rechts"),
+        ("rotary_links", "rotary_rechts"),
+    )
+    hat_strukturierte_werte = False
+    for links_key, rechts_key in paare:
+        links = _row_wert(row, links_key)
+        rechts = _row_wert(row, rechts_key)
+        if links is None or rechts is None:
+            continue
+        hat_strukturierte_werte = True
+        if links != rechts:
+            return True
+
+    if hat_strukturierte_werte:
+        return False
+
+    text = str(_row_wert(row, "asymmetrie", "") or "").strip().lower()
+    if not text or text.startswith("keine"):
+        return False
+    return "asymmetrie" in text
+
+
 @dataclass
 class FMSResult:
     deep_squat: int
@@ -103,7 +153,7 @@ class FMSResult:
         if self.score <= 12:
             if not issues:
                 issues.append("Ganzkörper Stabilitätstraining")
-        elif "Asymmetrie" in self.asymmetrie:
+        elif self.asymmetrie != "Keine Asymmetrie":
             if not issues:
                 issues.append("Seitenasymmetrien korrigieren")
 
@@ -154,4 +204,4 @@ def fms_bewertung_kurz(score: int | None) -> str:
         return "Solide Bewegungsbasis — gezielte Optimierung einzelner Muster empfohlen."
     if s >= 13:
         return "Einzelne Schwächen erkannt — regelmäßig beobachten und im Training ansprechen."
-    return "Erhebliche Bewegungsdefizite — sofortiger Trainingsfokus notwendig, erhöhtes Verletzungsrisiko."
+    return "Erhebliche Bewegungsdefizite — Trainingsfokus auf Korrektur und Verlaufskontrolle."
