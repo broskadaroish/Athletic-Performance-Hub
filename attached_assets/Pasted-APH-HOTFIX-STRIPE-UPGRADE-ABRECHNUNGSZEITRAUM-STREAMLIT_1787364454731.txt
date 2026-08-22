@@ -1,0 +1,396 @@
+APH – HOTFIX STRIPE-UPGRADE / ABRECHNUNGSZEITRAUM / STREAMLIT-STATE
+
+AKTUELLER FEHLER
+
+Unter:
+
+📋 Mein Vertrag → Paket wechseln / Upgrade
+
+werden für STARTER_FREE die Pakete Einzeltrainer Basic und Einzeltrainer Pro korrekt angezeigt.
+
+Auch der Bereich:
+
+Abrechnungszeitraum
+- Monatlich
+- Jährlich
+
+wird angezeigt.
+
+Es bestehen aktuell zwei zusammenhängende Fehler:
+
+1. Wenn der Nutzer auf „Jährlich“ klickt, verschwindet die Auswahl bzw. der Upgrade-Bereich oder springt durch den Streamlit-Rerun zurück.
+
+2. Wenn der Nutzer auf den Button
+   „Jetzt auf Einzeltrainer Basic upgraden“
+   bzw. Pro klickt,
+   passiert im Browser nichts.
+   Es erfolgt keine sichtbare Weiterleitung zu Stripe Checkout.
+
+WICHTIG:
+Die Stripe-Price-IDs sind bereits vorhanden.
+Die ENV-Kompatibilität für MONAT/JAHR sowie MONTHLY/YEARLY ist bereits umgesetzt.
+Bitte diese bestehende Logik NICHT erneut umbauen.
+
+==================================================
+1. ZUERST URSACHE ANALYSIEREN
+==================================================
+
+Bitte den vollständigen Flow prüfen:
+
+modules/mein_vertrag.py
+→ Paketwahl
+→ Abrechnungszeitraum
+→ st.session_state / bestehende State-Logik
+→ Upgrade-Button
+→ bestehender _stripe_upgrade-/Checkout-Pfad
+→ stripe_service.py
+→ Checkout-Session
+→ Redirect/Navigation zur Stripe-Checkout-URL
+
+Nicht nur Symptome patchen.
+
+Insbesondere prüfen:
+
+- Wird die Paketwahl bei jedem Streamlit-Rerun neu initialisiert?
+- Wird der Abrechnungszeitraum bei jedem Rerun überschrieben?
+- Gibt es unterschiedliche Keys für Radio / Paket / Button?
+- Wird ein State nur lokal in einer Render-Funktion gehalten?
+- Wird st.rerun() ausgelöst, bevor der Checkout-Pfad ausgeführt wird?
+- Wird die Checkout-URL erstellt, aber nie für eine echte Navigation verwendet?
+- Gibt es Button-Logik, die nur session_state setzt und danach den eigentlichen Checkout verliert?
+
+==================================================
+2. TARIF-STATE STABIL MACHEN
+==================================================
+
+Der aktuell ausgewählte Tarif muss stabil über Streamlit-Reruns erhalten bleiben.
+
+Für STARTER_FREE:
+
+TRAINER_BASIC
+oder
+TRAINER_PRO
+
+Die Auswahl darf beim Klick auf:
+- Monatlich
+- Jährlich
+- andere UI-Elemente
+- st.rerun()
+
+nicht verloren gehen.
+
+Falls st.session_state verwendet wird:
+eindeutige, stabile Keys verwenden.
+
+Keine mehrfachen konkurrierenden State-Variablen für denselben Tarif.
+
+==================================================
+3. ABRECHNUNGSZEITRAUM STABIL MACHEN
+==================================================
+
+Die Auswahl:
+
+Monatlich
+Jährlich
+
+muss stabil in der Session gespeichert werden.
+
+Interne kanonische Werte bitte weiterverwenden:
+
+monat
+jahr
+
+Wenn der Nutzer „Jährlich“ auswählt:
+
+- Jährlich bleibt sichtbar ausgewählt.
+- Der Upgrade-Bereich bleibt sichtbar.
+- Der Tarif bleibt ausgewählt.
+- Der Button verwendet anschließend die Jahres-Price-ID.
+- Kein Rücksprung auf Monatlich durch einen Rerun.
+
+Dasselbe entsprechend für Monatlich.
+
+==================================================
+4. BUTTON MUSS DIE SICHTBARE AUSWAHL VERWENDEN
+==================================================
+
+Der Button:
+
+„Jetzt auf Einzeltrainer Basic upgraden“
+
+bzw.
+
+„Jetzt auf Einzeltrainer Pro upgraden“
+
+muss genau die aktuell sichtbare Kombination verwenden.
+
+Beispiele:
+
+Basic + Monatlich
+→ TRAINER_BASIC + monat
+
+Basic + Jährlich
+→ TRAINER_BASIC + jahr
+
+Pro + Monatlich
+→ TRAINER_PRO + monat
+
+Pro + Jährlich
+→ TRAINER_PRO + jahr
+
+Keine versteckten Defaultwerte verwenden, wenn der Nutzer etwas anderes gewählt hat.
+
+==================================================
+5. STRIPE-CHECKOUT WIEDERVERWENDEN
+==================================================
+
+Keine zweite Checkout-Implementierung bauen.
+
+Bestehende Stripe-Funktionen in stripe_service.py wiederverwenden.
+
+Prüfen, dass für die gewählte Kombination korrekt:
+
+get_price_id(...)
+bzw. vorhandene zentrale Price-Auflösung
+
+verwendet wird.
+
+Keine Stripe-Price-ID hardcoden.
+
+Keine Stripe-Produkte oder Price-IDs ändern.
+
+==================================================
+6. CHECKOUT-REDIRECT REPARIEREN
+==================================================
+
+Nach erfolgreichem Erstellen einer Stripe Checkout Session muss der Benutzer zuverlässig zur von Stripe zurückgegebenen Checkout-URL gelangen.
+
+Aktuell passiert beim Klick sichtbar nichts.
+
+Bitte prüfen, ob:
+
+- checkout_session.url vorhanden ist
+- URL korrekt zurückgegeben wird
+- die Streamlit-Oberfläche diese URL tatsächlich öffnet/weiterleitet
+
+Wenn eine direkte serverseitige Weiterleitung in Streamlit nicht zuverlässig funktioniert, eine sichere, bestehende Streamlit-kompatible Lösung verwenden.
+
+Wichtig:
+Keine unsichere JavaScript-Bastelei, wenn es eine saubere bestehende Möglichkeit gibt.
+
+Der Benutzer muss nach Klick sichtbar zu Stripe gelangen.
+
+==================================================
+7. FEHLER NICHT STILL SCHLUCKEN
+==================================================
+
+Wenn Checkout nicht erzeugt werden kann:
+
+Dem Benutzer eine verständliche Meldung anzeigen, z. B.:
+
+„Der Zahlungsvorgang konnte nicht gestartet werden. Bitte versuche es erneut.“
+
+Technische Details:
+nur Server-Log.
+
+Nicht rohe Stripe-Exceptions oder Secrets in der UI anzeigen.
+
+==================================================
+8. KEINE LOKALE LIZENZAKTIVIERUNG
+==================================================
+
+Ganz wichtig:
+
+Ein Klick auf Upgrade darf STARTER_FREE NICHT direkt lokal in TRAINER_BASIC oder TRAINER_PRO umwandeln.
+
+Erst der bestehende bestätigte Stripe-/Webhook-Flow darf:
+
+- Lizenztyp ändern
+- Zahlungsstatus setzen
+- Subscription speichern
+- Paket aktivieren
+
+Vor erfolgreicher Stripe-Bestätigung bleibt der Nutzer STARTER_FREE.
+
+==================================================
+9. BESTEHENDE ENV-LOGIK NICHT ZERSTÖREN
+==================================================
+
+Bereits umgesetzt und beibehalten:
+
+MONAT:
+- STRIPE_PRICE_<PAKET>_MONAT
+- Fallback STRIPE_PRICE_<PAKET>_MONTHLY
+
+JAHR:
+- STRIPE_PRICE_<PAKET>_JAHR
+- Fallback STRIPE_PRICE_<PAKET>_YEARLY
+
+STARTER_FREE:
+keine Stripe-Price-ID.
+
+Keine Änderungen an den echten IDs.
+
+==================================================
+10. UI-ANZEIGE BEIBEHALTEN
+==================================================
+
+Bereits korrekt:
+
+TRAINER_PRO
+→ „Max. 1 Trainer · unbegrenzt Spieler“
+
+Niemals wieder:
+„None Spieler“
+
+Nicht zurückbauen.
+
+==================================================
+11. REGRESSIONSTESTS ERWEITERN
+==================================================
+
+Mindestens folgende automatisierte Tests ergänzen:
+
+A. Tarif-/Intervall-State
+
+1. Basic + Monatlich bleibt nach Rerun ausgewählt.
+2. Basic + Jährlich bleibt nach Rerun ausgewählt.
+3. Pro + Monatlich bleibt nach Rerun ausgewählt.
+4. Pro + Jährlich bleibt nach Rerun ausgewählt.
+
+B. Price-Auflösung
+
+5. Basic monatlich verwendet die korrekte Monats-Price-ID.
+6. Basic jährlich verwendet die korrekte Jahres-Price-ID.
+7. Pro monatlich verwendet die korrekte Monats-Price-ID.
+8. Pro jährlich verwendet die korrekte Jahres-Price-ID.
+
+C. Checkout
+
+9. Klick auf Upgrade ruft den bestehenden Checkout-Pfad auf.
+10. Checkout erhält exakt Tarif + Zeitraum aus der UI.
+11. Erfolgreiche Checkout-Session liefert eine URL.
+12. Diese URL wird tatsächlich für die Navigation/Weiterleitung verwendet.
+13. Kein erfolgreicher Checkout-Aufruf → sichtbare Fehlermeldung.
+14. Fehlende Price-ID → sichtbare Fehlermeldung.
+
+D. Sicherheit
+
+15. Button-Klick verändert STARTER_FREE lokal nicht.
+16. Keine lokale Subscription wird erzeugt.
+17. Keine Lizenzaktivierung ohne Webhook.
+18. Bestehende Webhook-Logik bleibt unverändert.
+
+E. Bestehende Funktionen
+
+19. STARTER_FREE-Limits unverändert.
+20. Superadmin unverändert.
+21. TRAINER_BASIC/PRO unverändert.
+22. Verein Basic/Pro unverändert.
+23. „unbegrenzt Spieler“ bleibt korrekt.
+24. Kein separater Kundennavigationspunkt „Lizenz“.
+
+==================================================
+12. BROWSERPRÜFUNG
+==================================================
+
+Bitte im Entwicklungsbrowser prüfen:
+
+STARTER_FREE → Mein Vertrag
+
+1. Basic auswählen
+2. Monatlich auswählen
+3. UI bleibt stabil
+
+Dann:
+4. Jährlich auswählen
+5. UI bleibt stabil
+6. Jährlich bleibt markiert
+7. Upgrade-Button bleibt sichtbar
+
+Dasselbe für Pro.
+
+Beim Upgrade-Button prüfen, ob der Checkout-Flow technisch korrekt startet.
+
+WICHTIG:
+Keine echte Zahlung abschließen.
+
+Falls bereits das Erzeugen einer echten Stripe-Checkout-Session externe Stripe-Daten erzeugen würde:
+nicht unnötig mehrfach auslösen.
+
+Dann stattdessen den Checkout-Aufruf sauber mocken/testen und im Abschlussbericht klar nennen, was real und was gemockt geprüft wurde.
+
+==================================================
+13. NICHT ÄNDERN
+==================================================
+
+Nicht verändern:
+
+- Paketpreise
+- Stripe-Produkte
+- Stripe-Price-IDs
+- Stripe-Webhooks
+- STARTER_FREE 30-Tage-Logik
+- Spielerlimit 5
+- Trainerlimit 1
+- Trainingsplanlimits
+- Premium-Sperren
+- Kundennummern
+- Datenbankstruktur
+- Produktionsdaten
+- Superadmin-Lizenzverwaltung
+- Superadmin-Kundenverwaltung
+- bestehende registrierte Kunden
+
+Keine DB-Migration.
+
+==================================================
+14. TESTS AUSFÜHREN
+==================================================
+
+Nach Umsetzung mindestens:
+
+python -m py_compile app.py license.py stripe_service.py modules/mein_vertrag.py modules/lizenz_page.py
+
+python tools/test_starter_free.py
+
+python tools/test_block_b.py
+
+python tools/test_mein_vertrag_status.py
+
+git diff --check
+
+Falls neue gezielte Checkout-/State-Tests angelegt werden:
+ebenfalls ausführen.
+
+==================================================
+15. ABSCHLUSSBERICHT
+==================================================
+
+Bitte danach einen vollständigen Abschlussbericht liefern mit:
+
+- exakte Ursache des verschwinden­den Jahreszeitraums
+- exakte Ursache, warum Upgrade-Button nichts tat
+- geänderte Dateien
+- verwendete session_state-Keys / State-Lösung
+- Verhalten Basic monatlich
+- Verhalten Basic jährlich
+- Verhalten Pro monatlich
+- Verhalten Pro jährlich
+- Checkout-Redirect-Lösung
+- Umgang mit Stripe-Fehlern
+- Bestätigung, dass kein lokales Upgrade erfolgt
+- Bestätigung, dass Aktivierung weiterhin nur per Webhook geschieht
+- Testergebnisse
+- Browserprüfung
+- wurde eine echte Stripe Checkout Session erzeugt: ja/nein
+- DB-Migration: ja/nein
+- Produktionsdaten verändert: ja/nein
+- Deployment: nein
+- Push: nein
+
+WICHTIG:
+Nicht deployen.
+Nicht pushen.
+
+Danach STOPP.

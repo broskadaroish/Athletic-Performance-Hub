@@ -8,6 +8,7 @@ Superadmin: Alle Vereine verwalten (Lizenz ändern, sperren, etc.)
 from __future__ import annotations
 
 import datetime
+import logging
 import streamlit as st
 
 from database import (
@@ -31,6 +32,8 @@ from license import (
     invalidate_lizenz_cache,
 )
 from stripe_service import stripe_verfuegbar
+
+_log = logging.getLogger("athletik.stripe_upgrade")
 
 # ── Design-Konstanten ──────────────────────────────────────────────────────────
 _C = {
@@ -82,9 +85,38 @@ def _limit_label(value: int | None) -> str:
     return "unbegrenzt" if value is None else str(value)
 
 
+_UPGRADE_TARGET_KEY = "_aph_upgrade_target"
+
+
+def _upgrade_target_setzen(key: str, state: dict | None = None) -> None:
+    """Merkt das vom Nutzer gewählte Zielpaket über Streamlit-Reruns hinweg."""
+    ziel_state = st.session_state if state is None else state
+    if key in LIZENZ_TYPEN and LIZENZ_TYPEN[key].get("preis_monat", 0) > 0:
+        ziel_state[_UPGRADE_TARGET_KEY] = key
+
+
+def _upgrade_target_laden(state: dict | None = None) -> str | None:
+    """Liest nur ein gültiges, kostenpflichtiges Upgrade-Ziel aus dem State."""
+    ziel_state = st.session_state if state is None else state
+    key = ziel_state.get(_UPGRADE_TARGET_KEY)
+    if key in LIZENZ_TYPEN and LIZENZ_TYPEN[key].get("preis_monat", 0) > 0:
+        return key
+    return None
+
+
+def _upgrade_periode_key(label: str) -> str:
+    """Übersetzt die sichtbare Intervallauswahl in den kanonischen State-Wert."""
+    return "monat" if label == "Monatlich" else "jahr"
+
+
 def _stripe_upgrade(typ_key: str, verein_id: int, info: dict) -> None:
-    """Leitet zum Stripe-Checkout weiter oder zeigt Fallback-Kontakt."""
-    from stripe_service import stripe_verfuegbar, customer_erstellen, checkout_session_erstellen
+    """Zeigt den stabilen Zeitraum- und Checkout-Schritt für ein Upgrade."""
+    from stripe_service import (
+        stripe_verfuegbar,
+        customer_erstellen,
+        checkout_session_erstellen,
+        get_price_id,
+    )
     from database import stripe_ids_setzen
     from license import LIZENZ_TYPEN
 
@@ -108,11 +140,14 @@ def _stripe_upgrade(typ_key: str, verein_id: int, info: dict) -> None:
         periode = st.radio(
             "Abrechnungszeitraum",
             ["Monatlich", "Jährlich (2 Monate gratis)"],
-            key=f"periode_{typ_key}",
+            key=f"upgrade_periode_{typ_key}",
             horizontal=True,
         )
-    periode_key = "monat" if periode == "Monatlich" else "jahr"
-    price_id = typ_def.get(f"stripe_price_{periode_key}", "")
+    periode_key = _upgrade_periode_key(periode)
+    try:
+        price_id = get_price_id(typ_key, periode_key)
+    except (TypeError, ValueError):
+        price_id = None
 
     if not price_id:
         st.warning("Stripe-Price-ID noch nicht konfiguriert. Bitte Env-Var setzen.")
@@ -120,7 +155,7 @@ def _stripe_upgrade(typ_key: str, verein_id: int, info: dict) -> None:
 
     if st.button(
         f"💳 Jetzt auf {typ_def.get('label', typ_key)} upgraden",
-        key=f"checkout_{typ_key}_{periode_key}",
+        key=f"checkout_{typ_key}",
         type="primary",
         use_container_width=True,
     ):
@@ -140,15 +175,29 @@ def _stripe_upgrade(typ_key: str, verein_id: int, info: dict) -> None:
                 customer_id=customer_id,
                 price_id=price_id,
                 verein_id=verein_id,
+                lizenztyp=typ_key,
+                abo_intervall=periode_key,
             )
-            st.markdown(
-                f'<meta http-equiv="refresh" content="0; url={checkout_url}">'
-                f'<p>Weiterleitung zu Stripe… '
-                f'<a href="{checkout_url}" target="_blank">Hier klicken</a></p>',
-                unsafe_allow_html=True,
+            if not checkout_url:
+                raise RuntimeError("Stripe hat keine Checkout-URL zurückgegeben.")
+            st.success("Checkout wurde vorbereitet. Öffne jetzt den sicheren Stripe-Zahlungsdialog.")
+            st.link_button(
+                "→ Zu Stripe Checkout",
+                checkout_url,
+                type="primary",
+                use_container_width=True,
             )
-        except Exception as e:
-            st.error(f"Fehler beim Erstellen der Checkout-Session: {e}")
+        except Exception:
+            _log.exception(
+                "Stripe-Checkout konnte nicht gestartet werden: verein_id=%s tarif=%s intervall=%s",
+                verein_id,
+                typ_key,
+                periode_key,
+            )
+            st.error(
+                "Der Zahlungsvorgang konnte nicht gestartet werden. "
+                "Bitte versuche es erneut."
+            )
 
 
 def _tarif_karte(
@@ -531,13 +580,17 @@ def page_lizenz_vereinsadmin() -> None:
         for i, (typ_key, typ_def_iter) in enumerate(LIZENZ_TYPEN.items()):
             with cols[i % len(cols)]:
                 def _on_upgrade(key=typ_key, vid=verein_id, vinfo=info):
-                    _stripe_upgrade(key, vid, vinfo)
+                    _upgrade_target_setzen(key)
                 _tarif_karte(
                     typ_key,
                     typ_def_iter,
                     ist_aktuell=(typ_key == info["lizenz_typ"]),
                     on_upgrade=_on_upgrade,
                 )
+
+        _selected_upgrade = _upgrade_target_laden()
+        if _selected_upgrade:
+            _stripe_upgrade(_selected_upgrade, verein_id, info)
 
         # Stripe Billing-Portal (wenn verfügbar)
         if stripe_verfuegbar() and info.get("stripe_customer_id"):

@@ -19,7 +19,12 @@ if APP_ROOT not in sys.path:
 
 import database as db
 from license import LIZENZ_TYPEN, get_lizenz_info, ist_starter_lizenz
-from modules.lizenz_page import _limit_label, _sa_normalize
+from modules.lizenz_page import (
+    _limit_label,
+    _sa_normalize,
+    _upgrade_target_laden,
+    _upgrade_target_setzen,
+)
 
 
 TMP = tempfile.mkdtemp(prefix="test_starter_free_")
@@ -164,6 +169,24 @@ def main() -> int:
         "Paketkarten zeigen niemals None Spieler",
         f"{_limit_label(LIZENZ_TYPEN['TRAINER_PRO']['max_spieler'])} Spieler"
         == "unbegrenzt Spieler",
+    )
+    upgrade_state = {}
+    _upgrade_target_setzen("TRAINER_BASIC", upgrade_state)
+    check(
+        "Basic-Tarif bleibt über Reruns ausgewählt",
+        _upgrade_target_laden(upgrade_state) == "TRAINER_BASIC",
+    )
+    _upgrade_target_setzen("TRAINER_PRO", upgrade_state)
+    check(
+        "Pro-Tarif bleibt über Reruns ausgewählt",
+        _upgrade_target_laden(upgrade_state) == "TRAINER_PRO",
+    )
+    check(
+        "Upgrade-State verwendet einen stabilen gemeinsamen Key",
+        "_aph_upgrade_target" in open(
+            os.path.join(APP_ROOT, "modules", "lizenz_page.py"),
+            encoding="utf-8",
+        ).read(),
     )
     kunden = db.kunden_liste_laden()
     lizenz_trainer = db.alle_trainer_lizenz()

@@ -258,7 +258,12 @@ def page_mein_vertrag() -> None:
     # modules.lizenz_page. Es gibt keine lokale Aktivierung durch diese Ansicht.
     if lizenztyp == "STARTER_FREE" and data.get("ist_technischer_mandant"):
         from license import LIZENZ_TYPEN
-        from modules.lizenz_page import _stripe_upgrade, _tarif_karte
+        from modules.lizenz_page import (
+            _stripe_upgrade,
+            _tarif_karte,
+            _upgrade_target_laden,
+            _upgrade_target_setzen,
+        )
 
         st.markdown("---")
         st.markdown("### 🚀 Paket wechseln / Upgrade")
@@ -272,7 +277,7 @@ def page_mein_vertrag() -> None:
         ):
             with _upgrade_col:
                 def _upgrade_action(key=_upgrade_key, vid=verein_id, vdata=data):
-                    _stripe_upgrade(key, vid, vdata)
+                    _upgrade_target_setzen(key)
 
                 _tarif_karte(
                     _upgrade_key,
@@ -280,6 +285,10 @@ def page_mein_vertrag() -> None:
                     ist_aktuell=False,
                     on_upgrade=_upgrade_action,
                 )
+
+        _selected_upgrade = _upgrade_target_laden()
+        if _selected_upgrade in ("TRAINER_BASIC", "TRAINER_PRO"):
+            _stripe_upgrade(_selected_upgrade, verein_id, data)
 
     # ── Rechnungen & Zahlungen ───────────────────────────────────────────────
     # Sichtbar für: Vereinsadmin (ist_verein=True) und Einzeltrainer
