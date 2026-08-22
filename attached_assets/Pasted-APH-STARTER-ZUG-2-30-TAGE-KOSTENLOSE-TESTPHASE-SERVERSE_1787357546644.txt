@@ -1,0 +1,474 @@
+APH – STARTER – ZUG 2
+30-TAGE-KOSTENLOSE TESTPHASE + SERVERSEITIGE LIMITS
+
+ZIEL
+
+Zusätzlich zu den bestehenden vier Bezahlpaketen soll ein neuer Einstiegstarif eingeführt werden:
+
+STARTER
+- 0 € für 30 Tage
+- keine Zahlungsdaten erforderlich
+- kein Stripe für die Starter-Testphase
+- maximal 1 Trainer
+- maximal 5 Spieler
+- alle vorhandenen Diagnostikbereiche nutzbar
+- begrenzte Trainingsplanung
+- nach 30 Tagen muss ein Bezahlpaket gewählt werden
+
+WICHTIGE ÄNDERUNG GEGENÜBER ZUG 1:
+STARTER ist NICHT dauerhaft kostenlos.
+Es gibt KEINE rollierende „letzte 30 Tage“-Historienregel.
+
+STARTER ist eine einmalige 30-Tage-Testphase des gesamten Kunden-/Mandantenkontos.
+
+Spieler löschen oder neu anlegen darf die Testphase niemals verlängern oder neu starten.
+
+
+==================================================
+1. NEUER LIZENZTYP
+==================================================
+
+Neuen kanonischen Lizenztyp einführen:
+
+STARTER_FREE
+
+Der interne Schlüssel darf so heißen, die Benutzeroberfläche soll jedoch anzeigen:
+
+„Starter – 30 Tage kostenlos“
+
+NICHT den bestehenden Legacy-Wert FREE umdeuten oder verändern.
+
+Bestehende Legacy-Normalisierung und Bestandskunden dürfen nicht verändert werden.
+
+
+==================================================
+2. STARTER-REGISTRIERUNG
+==================================================
+
+Starter zunächst ausschließlich bei der Einzeltrainer-Selbstregistrierung anbieten.
+
+Auswahl:
+
+- Starter – 30 Tage kostenlos
+- Einzeltrainer Basic
+- Einzeltrainer Pro
+
+Vereinsregistrierung bleibt vorerst unverändert:
+- Verein Basic
+- Verein Pro
+
+STARTER_FREE verwendet weiterhin den bestehenden technischen Einzeltrainer-Mandanten.
+
+Bei Registrierung:
+
+lizenztyp = STARTER_FREE
+lizenz_status = trial
+testphase_bis = Registrierung + 30 Tage
+
+Kein Stripe Checkout.
+Keine Stripe Subscription.
+Keine Zahlungsdaten erforderlich.
+
+Die 30 Tage hängen ausschließlich am Kunden-/Mandantenkonto.
+
+Eine Änderung/Löschung/Neuanlage von Spielern darf testphase_bis niemals verändern.
+
+
+==================================================
+3. STARTER-FUNKTIONSUMFANG
+==================================================
+
+STARTER darf ALLE vorhandenen Diagnostikarten verwenden.
+
+Insbesondere:
+- Anthropometrie
+- FMS
+- Y-Balance
+- Sprint
+- Agilität
+- Sprung
+- Ausdauer
+- Kraft
+- vorhandene Ampel-/Bewertungslogik
+
+Keine Diagnoseart künstlich für Starter sperren.
+
+
+STARTER-LIMITS:
+
+Trainer:
+maximal 1
+
+Spieler:
+maximal 5
+
+Trainingsplan:
+- maximal 1 aktiver Plan je Spieler
+- maximal 2 Wochen
+- maximal 2 unterschiedliche Trainingstage je Woche
+- Warm-up erlaubt
+- Cool-down erlaubt
+- Plan bearbeiten erlaubt
+- Trainingsplan-PDF erlaubt
+
+Nicht in STARTER enthalten:
+- Spielerimport Excel/CSV
+- vollständiger Datenexport
+- Spielerprofil-/Diagnostik-Gesamtbericht PDF
+
+Diese Funktionen NICHT einfach verstecken.
+
+
+==================================================
+4. SICHTBARE PREMIUM-SPERREN
+==================================================
+
+Nicht enthaltene Funktionen sollen weiterhin sichtbar sein.
+
+Beispiel:
+
+🔒 Nicht in Starter enthalten
+
+„Diese Funktion ist in deiner Starter-Testphase nicht enthalten.
+Wähle ein passendes Paket, um sie freizuschalten.“
+
+Button:
+„Pakete ansehen“
+
+Beispiele:
+- Excel/CSV-Spielerimport
+- vollständiger Datenexport
+- Spielerprofil-/Diagnostik-Gesamtbericht
+
+WICHTIG:
+Eine UI-Sperre allein reicht NICHT.
+
+Jede gesperrte Funktion muss zusätzlich serverseitig gegen direkten Aufruf bzw. manipulierte Eingaben geschützt sein.
+
+
+==================================================
+5. SPIELERLIMIT SERVERSEITIG ABSICHERN
+==================================================
+
+STARTER:
+maximal 5 Spieler.
+
+Vorhandene zentrale Lizenz-/Limitlogik wiederverwenden bzw. sauber erweitern.
+
+WICHTIG:
+Der IST-Check hat ergeben, dass das manuelle Spieler-Anlegen das Lizenzlimit derzeit nicht überall zentral erzwingt.
+
+Deshalb ALLE Spieler-Schreibpfade absichern:
+- manuelles Anlegen
+- sonstige Anlagefunktionen
+- Importpfad
+- potenzielle interne Aufrufe
+
+Limitprüfung serverseitig und mandantenbezogen.
+
+Bei 5/5:
+
+„Dein Spielerlimit ist erreicht.
+Starter unterstützt bis zu 5 Spieler.
+Wähle ein Paket, um weitere Spieler zu verwalten.“
+
+Keine Race-Condition zulassen, durch die parallel ein sechster Spieler entstehen kann.
+
+Bestehende Limits der vier Bezahlpakete müssen weiterhin funktionieren.
+
+
+==================================================
+6. TRAINERLIMIT
+==================================================
+
+STARTER:
+maximal 1 Trainer.
+
+Alle relevanten Anlage-/Einladungswege serverseitig absichern.
+
+Insbesondere prüfen:
+- Trainerportal
+- Benutzerverwaltung
+- sonstige Trainer-Anlagepfade
+
+Bestehende Trainerlimits der Bezahlpakete nicht verändern.
+
+
+==================================================
+7. TRAININGSPLAN-LIMITS
+==================================================
+
+STARTER serverseitig begrenzen auf:
+
+- 1 aktiver Plan je Spieler
+- maximal 2 Wochen
+- maximal 2 Trainingstage je Woche
+
+Nicht nur UI-Auswahl begrenzen.
+
+Alle relevanten Schreibwege absichern:
+- Plan erstellen
+- Planversion erstellen
+- Plan aktivieren
+- Eintrag speichern
+- Eintrag ändern
+- Eintrag verteilen
+- Multi-Erstellung
+- Reaktivierung/Versionswechsel
+
+Manipulierte Parameter für Woche 3 oder einen dritten Trainingstag müssen serverseitig abgewiesen werden.
+
+Vorhandene Bezahlpakete dürfen dadurch keine neuen Einschränkungen bekommen.
+
+Falls für „genau eine aktive Planversion“ eine DB-Sicherung notwendig erscheint:
+NICHT automatisch migrieren.
+Zuerst vorhandene Daten prüfen und im Abschlussbericht nennen.
+
+
+==================================================
+8. IMPORT / EXPORT / PDF
+==================================================
+
+STARTER:
+
+Excel-/CSV-Spielerimport:
+🔒 gesperrt
+
+Vollständiger Datenexport:
+🔒 gesperrt
+
+Spielerprofil-/Diagnostik-Gesamtbericht PDF:
+🔒 gesperrt
+
+Trainingsplan-PDF:
+✅ erlaubt
+
+Die gesperrten Funktionen sollen sichtbar bleiben und einen Starter-/Upgrade-Hinweis anzeigen.
+
+Zusätzlich serverseitig absichern.
+
+
+==================================================
+9. ABLAUF DER 30-TAGE-TESTPHASE
+==================================================
+
+WICHTIG:
+Nach Ablauf NICHT den kompletten Benutzeraccount unzugänglich machen.
+
+Der Benutzer muss sich weiterhin einloggen können.
+
+Ab Tag 31:
+
+- Spieler bleiben gespeichert
+- Testergebnisse bleiben gespeichert
+- Trainingspläne bleiben gespeichert
+- nichts löschen
+- nichts archivieren, nur weil Starter abgelaufen ist
+- testphase_bis nicht automatisch verlängern
+
+Normale Arbeitsbereiche werden gesperrt.
+
+Nach Login soll der Nutzer direkt eine klare Ablaufseite sehen:
+
+„Deine kostenlose Testphase ist beendet.
+
+Vielen Dank, dass du APH 30 Tage getestet hast.
+Deine Spieler, Testergebnisse und Trainingspläne bleiben gespeichert.
+
+Bitte wähle ein Paket, um APH weiter zu nutzen.“
+
+Anzeigen:
+
+Einzeltrainer Basic
+9,99 €/Monat | 99 €/Jahr
+
+Einzeltrainer Pro
+14,99 €/Monat | 149 €/Jahr
+
+Verein Basic
+24,99 €/Monat | 249 €/Jahr
+
+Verein Pro
+39,99 €/Monat | 399 €/Jahr
+
+Button:
+„Paket auswählen“ / „Pakete ansehen“
+
+Nach Ablauf weiterhin erreichbar:
+- Paket-/Lizenzseite
+- Mein Vertrag
+- eigenes Profil/Konto
+- Logout
+
+Nicht erreichbar:
+- normale Spielerarbeit
+- Diagnostik
+- Training
+- sonstige fachliche Arbeitsbereiche
+
+Bestehendes enforce_license_gate() NICHT einfach entfernen.
+Gezielt erweitern, damit ein abgelaufener STARTER weiterhin die notwendigen Account-/Paketbereiche erreichen kann.
+
+Andere abgelaufene Lizenztypen dürfen dadurch nicht unbeabsichtigt ihr bisheriges Verhalten ändern.
+
+
+==================================================
+10. HINWEISE VOR ABLAUF
+==================================================
+
+Während der Starter-Testphase Hinweise vorsehen:
+
+7 Tage vor Ablauf:
+„Deine Starter-Testphase endet in 7 Tagen.“
+
+1 Tag vor Ablauf:
+„Deine Starter-Testphase endet morgen.“
+
+Am Ablaufdatum:
+deutlicher Hinweis auf bevorstehende Paketwahl.
+
+Jeweils:
+Button „Pakete ansehen“
+
+Prüfen, ob der bestehende Trial-Scheduler für E-Mail-Erinnerungen sicher wiederverwendet werden kann.
+
+Wenn bereits passend vorhanden:
+Starter integrieren.
+
+Wenn dafür größere Änderungen notwendig wären:
+NICHT unnötig erweitern, sondern im Abschlussbericht separat nennen.
+
+Keine doppelten Erinnerungsmails erzeugen.
+
+
+==================================================
+11. BESTEHENDE BEZAHLPakete NICHT VERÄNDERN
+==================================================
+
+Diese vier Pakete müssen unverändert bleiben:
+
+TRAINER_BASIC
+9,99 €/Monat
+99 €/Jahr
+
+TRAINER_PRO
+14,99 €/Monat
+149 €/Jahr
+
+VEREIN_BASIC
+24,99 €/Monat
+249 €/Jahr
+
+VEREIN_PRO
+39,99 €/Monat
+399 €/Jahr
+
+Bestehende:
+- Preise
+- Limits
+- Trials
+- Stripe-Price-IDs
+- Stripe-Webhooks
+- Bestandskunden
+- Vertragsdaten
+
+nicht verändern.
+
+
+==================================================
+12. STRIPE – IN ZUG 2 NICHT ÄNDERN
+==================================================
+
+STARTER benötigt keinen Stripe Customer und keine Subscription.
+
+In diesem Zug:
+- keinen 0-Euro-Stripe-Preis anlegen
+- keine neuen Stripe-Produkte
+- keine Stripe-Price-IDs für STARTER
+- keine Stripe-Konfiguration verändern
+
+Starter → Bezahlpaket über Stripe kommt in einem späteren Zug.
+
+Die Paketansicht nach Ablauf darf vorbereitet werden, aber noch keinen unsicheren/fiktiven Zahlungsflow erzeugen.
+
+
+==================================================
+13. FREE → VEREIN NOCH NICHT UMSETZEN
+==================================================
+
+STARTER → Verein Basic/Pro wird später als eigener sicherer Konvertierungsflow umgesetzt.
+
+In Zug 2:
+- keinen zweiten Verein erzeugen
+- technischen Mandanten nicht zu Verein konvertieren
+- keine Spieler verschieben
+- keine Rollen automatisch umbauen
+- keine Stripe-Aktion durchführen
+
+Nur Paketoptionen anzeigen, soweit dies ohne falschen aktiven Wechsel möglich ist.
+
+
+==================================================
+14. REGRESSIONSTESTS
+==================================================
+
+Mindestens prüfen:
+
+- STARTER Registrierung funktioniert
+- technischer Mandant korrekt
+- trial korrekt
+- exakt 30 Tage
+- kein Stripe
+- keine Stripe-IDs erforderlich
+- Spieler 1–5 möglich
+- Spieler 6 serverseitig blockiert
+- Löschen eines Spielers startet Trial NICHT neu
+- Neuanlage eines Spielers startet Trial NICHT neu
+- alle Diagnostikarten für Starter verfügbar
+- Trainerlimit 1
+- Import UI sichtbar aber gesperrt
+- Import direkter Serveraufruf gesperrt
+- Datenexport gesperrt
+- Gesamtbericht-PDF gesperrt
+- Trainingsplan-PDF erlaubt
+- Trainingsplan maximal 2 Wochen
+- maximal 2 Tage/Woche
+- dritte Woche serverseitig blockiert
+- dritter Trainingstag serverseitig blockiert
+- maximal eine aktive Planversion
+- Ablauf der Testphase löscht keine Daten
+- Login nach Ablauf weiterhin möglich
+- Ablaufseite wird angezeigt
+- Paket-/Vertragsbereich nach Ablauf erreichbar
+- Spieler/Diagnostik/Training nach Ablauf gesperrt
+- Superadmin weiterhin funktionsfähig
+- alle vier bestehenden Pakete unverändert
+- bestehende Bestandskunden unverändert
+- bestehende Stripe-Logik unverändert
+
+Tests möglichst mit temporärer DB / isoliert durchführen.
+
+
+==================================================
+15. ABSCHLUSSBERICHT
+==================================================
+
+Nach Umsetzung berichten:
+
+- geänderte Dateien
+- neue/angepasste Funktionen
+- genaue Starter-Registrierungslogik
+- genaue Ablauf-/Gate-Logik
+- serverseitige Spieler-/Trainer-/Plan-Gates
+- sichtbare Premium-Sperren
+- Testergebnisse
+- eventuell noch offene Punkte für Stripe-Upgrade
+- eventuell notwendige spätere DB-Sicherung
+- Vorschlag für nächsten Zug
+
+Keine Produktionsdaten manuell verändern.
+Keine Bestandskunden migrieren.
+Keine Stripe-Aktion.
+Kein Deployment.
+
+Nach Umsetzung und Tests STOPP.
