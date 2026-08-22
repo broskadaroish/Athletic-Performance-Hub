@@ -643,15 +643,20 @@ def _sa_display_status(row: dict) -> str:
         return "abgelaufen"
     if s == "suspended":
         return "gesperrt"
+    # Eine laufende Testphase bleibt als solche sichtbar. Das Ablaufdatum wird
+    # daneben separat gezeigt; ein tatsächlich abgelaufener Starter kommt über
+    # die zentrale Lizenzbewertung bereits als "expired" hier an.
+    if s == "trial":
+        return "testphase"
     bis_str = row.get("lizenz_bis") or ""
-    if s in ("active", "trial") and bis_str:
+    if s == "active" and bis_str:
         try:
             bis_dt = datetime.date.fromisoformat(str(bis_str)[:10])
             if (bis_dt - datetime.date.today()).days <= _30_TAGE:
                 return "bald_abgelaufen"
         except Exception:
             pass
-    return "testphase" if s == "trial" else "aktiv"
+    return "aktiv"
 
 
 def _sa_tage_verbleibend(row: dict) -> int | None:
@@ -724,7 +729,16 @@ def _sa_normalize(vereine_raw: list[dict], trainer_raw: list[dict]) -> list[dict
             "_raw_trainer": None,
         })
     for t in trainer_raw:
-        typ_key = t.get("lizenztyp") or "TRAINER_BASIC"
+        # Technische Einzeltrainer-Mandanten führen ihre Trial-Frist in
+        # testphase_bis. Die zentrale Auswertung liefert daraus Ablaufdatum,
+        # verbleibende Tage und den wirksamen Status (auch nach Ablauf).
+        trainer_info = get_lizenz_info({
+            **t,
+            "ist_technischer_mandant": bool(t.get("vertrag_verein_id")),
+            "aktive_benutzer_anzahl": 1 if t.get("aktiv") else 0,
+        })
+        typ_key = trainer_info["lizenz_typ"]
+        ablauf = trainer_info.get("ablauf_datum")
         result.append({
             "_typ":           "trainer",
             "_id":            t["id"],
@@ -733,8 +747,8 @@ def _sa_normalize(vereine_raw: list[dict], trainer_raw: list[dict]) -> list[dict
             "kundennummer":   t.get("kundennummer") or "",
             "_paket_key":     typ_key,
             "_paket_label":   LIZENZ_TYPEN.get(typ_key, {}).get("label", typ_key),
-            "lizenz_status":  t.get("lizenz_status") or "",
-            "lizenz_bis":     t.get("lizenz_bis") or None,
+            "lizenz_status":  trainer_info["lizenz_status"],
+            "lizenz_bis":     ablauf.isoformat() if ablauf else None,
             "gesperrt":       False,
             "zahlungsstatus": t.get("zahlungsstatus") or "",
             "stripe_customer_id":       t.get("stripe_customer_id") or "",
@@ -1145,9 +1159,12 @@ def _sa_render_row(row: dict, idx: int, tab_key: str) -> None:
                     key=f"tp_n_{uid}",
                 )
                 if st.button(f"⏱ Testphase +{tp_tage}d", key=f"tp_{uid}", use_container_width=True):
-                    testphase_verlaengern(row["_id"], tp_tage)
-                    if row["_typ"] == "verein":
-                        invalidate_lizenz_cache(row["_id"])
+                    # Einzeltrainer mit technischem Mandant speichern ihre Lizenz
+                    # auf dem Mandanten, nicht auf der Benutzer-ID.
+                    lizenz_entity_id = row.get("_vertrag_verein_id") or row["_id"]
+                    testphase_verlaengern(lizenz_entity_id, tp_tage)
+                    if row["_typ"] == "verein" or row.get("_vertrag_verein_id"):
+                        invalidate_lizenz_cache(lizenz_entity_id)
                     st.success(f"Testphase um {tp_tage} Tage verlängert.")
                     st.rerun()
                 # Kündigungs-Info (nur wenn relevant)

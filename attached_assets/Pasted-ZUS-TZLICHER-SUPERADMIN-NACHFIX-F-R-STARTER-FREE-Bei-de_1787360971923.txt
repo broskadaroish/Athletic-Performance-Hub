@@ -1,0 +1,185 @@
+ZUSÄTZLICHER SUPERADMIN-NACHFIX FÜR STARTER_FREE
+
+Bei der manuellen Prüfung wurde festgestellt, dass ein neu registrierter
+STARTER_FREE-Einzeltrainer zwar in der Benutzerverwaltung vorhanden ist,
+aber aktuell nicht konsistent in den Superadmin-Verwaltungsansichten erscheint.
+
+IST:
+- Benutzerverwaltung:
+  STARTER_FREE-Benutzer ist vorhanden.
+  Lizenz-Status wird als trial angezeigt.
+
+- Lizenzverwaltung:
+  STARTER_FREE fehlt aktuell in der Lizenzliste und offenbar auch in den
+  Kennzahlen.
+
+- Kundenverwaltung:
+  STARTER_FREE-Kunde fehlt aktuell in der Kundenliste und offenbar auch in
+  den Kennzahlen.
+
+SOLL:
+
+1. LIZENZVERWALTUNG
+
+STARTER_FREE muss als regulärer verwaltbarer Lizenzeintrag sichtbar sein.
+
+Darstellung sinngemäß:
+
+Kunde:
+startertest starter
+
+Paket:
+Starter
+
+Typ:
+Einzeltrainer
+
+Status:
+Testphase
+
+Verbleibend:
+XX Tage · Ablauf: TT.MM.JJJJ
+
+Die vorhandenen Superadmin-Aktionen dürfen weiterhin funktionieren,
+soweit sie für STARTER_FREE fachlich sinnvoll sind.
+
+STARTER_FREE besitzt KEINE Stripe-Subscription und darf deshalb nicht
+fälschlicherweise als Stripe-Abo behandelt werden.
+
+Die Kennzahlen oben müssen STARTER_FREE korrekt berücksichtigen:
+- Gesamt
+- Aktiv/Testphase
+- Läuft bald ab
+- Abgelaufen
+
+Dabei bestehende fachliche Definitionen der Kennzahlen beibehalten und
+nur STARTER_FREE korrekt integrieren.
+
+
+2. KUNDENVERWALTUNG
+
+Ein registrierter STARTER_FREE-Einzeltrainer muss als Kunde erscheinen.
+
+Darstellung sinngemäß:
+
+APH-xxxxxx
+startertest starter · E-Mail
+Einzeltrainer
+STARTER
+Testphase
+aktiv
+
+Optional in der Detailansicht zusätzlich:
+- Testphase begonnen am
+- Testphase endet am
+- verbleibende Tage
+- Spieleranzahl / Limit 5
+
+Bestehende Kundennummer verwenden.
+Keine neue Kundennummer erzeugen.
+
+Die Kennzahlen der Kundenverwaltung müssen STARTER_FREE korrekt
+berücksichtigen:
+- Gesamtkunden
+- Aktiv
+- Trainer
+- Vereine
+- aktive/Test-Lizenzen usw.
+
+Keine Doppelzählung.
+
+
+3. BENUTZERVERWALTUNG
+
+Die bestehende Darstellung grundsätzlich beibehalten.
+
+Bei STARTER_FREE in der aufgeklappten Detailansicht zusätzlich prüfen,
+ob eine verständlichere Anzeige sinnvoll ist:
+
+Lizenz:
+Starter – 30 Tage kostenlos
+
+Lizenz-Status:
+Testphase
+
+Testphase endet:
+TT.MM.JJJJ
+
+Nicht nur den technischen Wert:
+trial
+
+Keine bestehende Benutzerfunktion beschädigen.
+
+
+4. ALTES TESTPHASENMODELL NICHT VERWECHSELN
+
+Bestehende Datensätze wie:
+TRAINER_BASIC + Testphase
+
+dürfen NICHT automatisch in STARTER_FREE umgewandelt werden.
+
+STARTER_FREE ist ein eigener Lizenztyp.
+
+Bestehende Alt-/Testdaten unverändert lassen.
+
+Keine automatische Datenmigration durchführen.
+
+
+5. STARTER_FREE OHNE STRIPE
+
+In allen Superadmin-Ansichten beachten:
+
+STARTER_FREE:
+- keine Stripe Price ID
+- keine Stripe Subscription erforderlich
+- kein Stripe Customer erforderlich
+- Paketpreis 0,00 €
+- 30-Tage-Testphase
+- danach abgelaufen/gesperrt, sofern kein Upgrade erfolgt
+
+Das Fehlen einer Stripe-Subscription darf NICHT dazu führen,
+dass der Starter-Kunde aus Lizenz- oder Kundenverwaltung herausgefiltert wird.
+
+
+6. REGRESSIONSTESTS
+
+Tests ergänzen:
+
+- STARTER_FREE erscheint in Lizenzverwaltung.
+- STARTER_FREE erscheint in Kundenverwaltung.
+- STARTER_FREE erscheint weiterhin in Benutzerverwaltung.
+- Kundennummer bleibt identisch.
+- Keine Doppelzählung.
+- Starter wird als Einzeltrainer gezählt.
+- Starter-Testphase wird korrekt dargestellt.
+- Ablaufdatum wird korrekt dargestellt.
+- Verbleibende Tage werden korrekt berechnet.
+- Keine Stripe-Subscription für Starter erforderlich.
+- Bestehende TRAINER_BASIC-Testphase bleibt TRAINER_BASIC.
+- Verein Basic/Pro und Trainer Basic/Pro bleiben unverändert.
+- Superadmin-Kennzahlen berücksichtigen Starter korrekt.
+
+WICHTIG:
+Zuerst Ursache untersuchen, warum STARTER_FREE derzeit aus Lizenzverwaltung
+und Kundenverwaltung herausfällt. Nicht einfach einen zweiten künstlichen
+Datensatz erzeugen.
+
+Die vorhandene zentrale Lizenz-/Kundenquelle erweitern bzw. die Filterlogik
+korrigieren.
+
+Keine DB-Migration.
+Keine Produktionsdaten verändern.
+Kein Deployment.
+
+Im Abschlussbericht ausdrücklich nennen:
+- Ursache, warum Starter bisher fehlte
+- geänderte Dateien
+- Lizenzverwaltung vorher/nachher
+- Kundenverwaltung vorher/nachher
+- Benutzerverwaltung
+- Kennzahlen
+- Stripe-Verhalten
+- Regressionstests
+- DB-Migration ja/nein
+- Produktionsdaten verändert ja/nein
+- Deployment nein

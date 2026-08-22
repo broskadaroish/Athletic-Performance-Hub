@@ -7842,7 +7842,10 @@ def audit_log_eintragen(
         pass  # Audit darf die Hauptoperation nie blockieren
 
 
-_TRAINER_LIZENZ_TYPEN = frozenset({"TRAINER_BASIC", "TRAINER_PRO"})
+# Eigene Einzeltrainer-Lizenzen werden über den technischen Mandanten geführt.
+# STARTER_FREE ist dabei ein regulärer, stripe-freier Vertragspartner und darf
+# nicht aus den gemeinsamen Superadmin-Listen herausgefiltert werden.
+_TRAINER_LIZENZ_TYPEN = frozenset({"STARTER_FREE", "TRAINER_BASIC", "TRAINER_PRO"})
 
 
 def _hat_vertragsdaten(row: dict, prefix: str = "") -> bool:

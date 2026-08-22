@@ -17,6 +17,7 @@ if APP_ROOT not in sys.path:
 
 import database as db
 from license import LIZENZ_TYPEN, get_lizenz_info, ist_starter_lizenz
+from modules.lizenz_page import _sa_normalize
 
 
 TMP = tempfile.mkdtemp(prefix="test_starter_free_")
@@ -61,6 +62,9 @@ def main() -> int:
         invoice_count = conn.execute(
             "SELECT COUNT(*) FROM rechnungsadressen WHERE benutzer_id=?", (trainer_id,)
         ).fetchone()[0]
+        benutzer_kundennummer = conn.execute(
+            "SELECT kundennummer FROM benutzer WHERE id=?", (trainer_id,)
+        ).fetchone()["kundennummer"]
 
     check("Starter ist ein kanonischer eigener Lizenztyp", ist_starter_lizenz("STARTER_FREE"))
     check("FREE bleibt nicht Starter", not ist_starter_lizenz("FREE", True))
@@ -74,6 +78,54 @@ def main() -> int:
     check("Starter legt keinen Stripe-Kunden an", not verein["stripe_customer_id"])
     check("Starter legt keine Stripe-Subscription an", not verein["stripe_subscription_id"])
     check("Starter legt keine Rechnungsadresse an", invoice_count == 0)
+    kunden = db.kunden_liste_laden()
+    lizenz_trainer = db.alle_trainer_lizenz()
+    starter_kunde = next(
+        (row for row in kunden if row.get("benutzer_id") == trainer_id),
+        None,
+    )
+    starter_lizenz = next(
+        (row for row in lizenz_trainer if row.get("id") == trainer_id),
+        None,
+    )
+    check(
+        "Starter erscheint einmalig in der Kundenverwaltung",
+        starter_kunde is not None
+        and starter_kunde["kundentyp"] == "Einzeltrainer"
+        and sum(1 for row in kunden if row.get("benutzer_id") == trainer_id) == 1,
+    )
+    check(
+        "Starter erscheint in der Lizenzverwaltung als Einzeltrainer",
+        starter_lizenz is not None
+        and starter_lizenz["lizenztyp"] == "STARTER_FREE"
+        and starter_lizenz["vertrag_verein_id"] == verein_id,
+    )
+    check(
+        "Starter behält die vorhandene Kundennummer",
+        starter_kunde is not None
+        and starter_kunde["kundennummer"] == benutzer_kundennummer,
+    )
+    check(
+        "Starter-Testphase und Ablaufdatum werden zentral geführt",
+        starter_lizenz is not None
+        and starter_lizenz["lizenz_status"] == "trial"
+        and starter_lizenz["testphase_bis"] == verein["testphase_bis"],
+    )
+    starter_admin_zeile = next(
+        row for row in _sa_normalize([], lizenz_trainer)
+        if row["_id"] == trainer_id
+    )
+    check(
+        "Lizenzverwaltung zeigt Starter-Ablauf und verbleibende Tage",
+        starter_admin_zeile["lizenz_bis"] == verein["testphase_bis"]
+        and starter_admin_zeile["_tage"] == 30
+        and starter_admin_zeile["_display_status"] == "testphase",
+    )
+    kpis = db.dashboard_sa_kpis()
+    check(
+        "Superadmin-Kennzahlen zählen Starter als Kunden und Testphase",
+        kpis["n_kunden_gesamt"] == 1 and kpis["n_trial"] == 1,
+    )
 
     for i in range(5):
         db.spieler_speichern(

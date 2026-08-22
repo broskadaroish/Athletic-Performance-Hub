@@ -123,7 +123,7 @@ def _kpis(kunden: list[dict]) -> None:
     trainer     = sum(1 for k in kunden if k["kundentyp"] == "Einzeltrainer")
     vereine     = sum(1 for k in kunden if k["kundentyp"] == "Verein")
     unverif     = sum(1 for k in kunden if not k["email_verifiziert"])
-    liz_aktiv   = sum(1 for k in kunden if k["lizenz_status"] == "active")
+    liz_aktiv   = sum(1 for k in kunden if k["lizenz_status"] in ("active", "trial"))
     liz_ab      = sum(1 for k in kunden if k["lizenz_status"] in ("expired", "suspended"))
     gekuendigt  = sum(1 for k in kunden if k["kuendigungsstatus"] != "aktiv")
     cols = st.columns(8)
@@ -133,7 +133,7 @@ def _kpis(kunden: list[dict]) -> None:
         ("Trainer",               trainer,    "#6e7681"),
         ("Vereine",               vereine,    "#6e7681"),
         ("E-Mail ausstehend",     unverif,    "#d29922"),
-        ("Aktive Lizenzen",       liz_aktiv,  "#238636"),
+        ("Aktive/Test-Lizenzen",  liz_aktiv,  "#238636"),
         ("Abgelaufene Lizenzen",  liz_ab,     "#da3633"),
         ("Gekündigt",             gekuendigt, "#da3633"),
     ]
@@ -168,7 +168,8 @@ def _kunden_karte(k: dict) -> None:
     liz   = _STATUS_LABELS.get(liz_raw, liz_raw or "—")
     liz_cls = {"active": "active", "expired": "expired",
                 "suspended": "suspended", "cancelled": "cancelled"}.get(liz_raw, "")
-    paket = (k.get("lizenztyp") or "—").upper()
+    paket_key = str(k.get("lizenztyp") or "").upper()
+    paket = LIZENZ_TYPEN.get(paket_key, {}).get("label", paket_key or "—")
     ev    = "✅" if k.get("email_verifiziert") else "📧"
     ak    = "🟢" if k.get("aktiv") else "⛔"
 
@@ -603,8 +604,9 @@ def _detail_c_lizenz(daten: dict) -> None:
         c2.metric("Lizenzstatus",  _STATUS_LABELS.get(liz_status, liz_status))
         c3.metric("Lizenz bis",    liz_bis)
 
-        if ist_verein:
-            # Nutzungszähler nur für Vereinskunden sinnvoll
+        if ist_verein or hat_mandant:
+            # Vereine und technische Einzeltrainer-Mandanten sind die
+            # führende Lizenzquelle und besitzen beide serverseitige Limits.
             from database import get_conn as _gc
             with _gc() as _conn:
                 spieler_anz = _conn.execute(
@@ -617,9 +619,9 @@ def _detail_c_lizenz(daten: dict) -> None:
             max_trainer = paket_def.get("max_trainer") if paket_def else None
             c1.metric("Spieler",   f"{spieler_anz} / {_detail_limit_label(max_spieler)}")
             c2.metric("Trainer",   f"{trainer_anz} / {_detail_limit_label(max_trainer)}")
-            c3.metric("Testphase bis", testphase)
+            c3.metric("Testphase endet", testphase)
         else:
-            c3.metric("Testphase bis", testphase)
+            c3.metric("Testphase endet", testphase)
             st.caption("ℹ️ Trainer-Konto ohne Vereinsstruktur — Spieler-/Trainer-Limits entfallen.")
 
         # Preis & Abrechnung aus bestehenden Paketen (unveränderlich)
