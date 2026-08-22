@@ -1,0 +1,113 @@
+APH – Nachfix Trainingsplanlänge STARTER_FREE
+
+Bitte zuerst den bestehenden Trainingsplan-Generator und die zentrale
+Lizenz-/Limitlogik untersuchen. Keine unnötigen Umbauten durchführen.
+
+AKTUELLES PROBLEM
+
+STARTER_FREE darf laut bestehender Paketlogik maximal einen
+2-Wochen-Trainingsplan erstellen.
+
+In der UI unter:
+
+Training → Trainingsplan → Planlänge
+
+werden aktuell aber nur angeboten:
+
+- 4 Wochen
+- 6 Wochen
+- 8 Wochen
+
+Dadurch kann ein STARTER_FREE-Kunde überhaupt keinen Trainingsplan
+erstellen und erhält z. B.:
+
+"Trainingsplan konnte nicht erstellt werden:
+Starter erlaubt maximal 2 Wochen pro Trainingsplan."
+
+SOLL
+
+Die Planlängenauswahl soll grundsätzlich enthalten:
+
+- 2 Wochen
+- 4 Wochen
+- 6 Wochen
+- 8 Wochen
+
+WICHTIG:
+
+1. Zuerst prüfen, wo die Planlängen aktuell zentral definiert werden.
+   Keine zweite parallele Planlängenlogik einführen.
+
+2. Die Option "2 Wochen" soll auch für Basic, Pro und Vereinspakete
+   verfügbar sein.
+   Ein zahlender Kunde darf also ebenfalls freiwillig einen kurzen
+   2-Wochen-Plan erstellen.
+
+3. Die bestehenden Paketlimits müssen weiterhin greifen.
+
+   STARTER_FREE:
+   - maximal 2 Wochen
+   - 2 Wochen muss auswählbar und erstellbar sein
+   - 4/6/8 dürfen nicht dazu führen, dass das Starter-Paket sein Limit
+     umgehen kann
+
+4. Bevorzugte UX:
+   Wenn der eingeloggte Kunde STARTER_FREE ist, soll in der Auswahl
+   ausschließlich die zulässige Planlänge "2 Wochen" angeboten werden,
+   sofern dies ohne größere Sonderlogik sauber über das bestehende
+   Paketlimit ableitbar ist.
+
+   Für Pakete mit höherem Limit:
+   - 2 Wochen
+   - 4 Wochen
+   - 6 Wochen
+   - 8 Wochen
+   jeweils nur soweit vom bestehenden Paketlimit erlaubt.
+
+5. Keine Änderung an:
+   - Preisen
+   - Stripe
+   - Checkout
+   - Webhooks
+   - Registrierung
+   - Kundennummern
+   - Mandantenlogik
+   - Superadmin
+   - bestehenden Trainingsinhalten
+   - Übungsauswahl
+   - Periodisierung, außer wenn technisch für die 2-Wochen-Auswahl
+     zwingend erforderlich
+
+6. Bestehende serverseitige Limitprüfung NICHT entfernen.
+   Die UI-Auswahl und die serverseitige Prüfung sollen sich ergänzen.
+   Manipulierte Werte müssen weiterhin abgewiesen werden.
+
+TESTS
+
+Bitte Regressionstests ergänzen für mindestens:
+
+- STARTER_FREE sieht 2 Wochen
+- STARTER_FREE kann einen 2-Wochen-Plan erstellen
+- STARTER_FREE kann keinen Plan > 2 Wochen erzeugen
+- Basic kann 2 Wochen auswählen
+- Pro kann 2 Wochen auswählen
+- Vereinspakete können 2 Wochen auswählen, sofern ihre bestehenden
+  Limits dies erlauben
+- bestehende 4/6/8-Wochen-Pläne der höheren Pakete funktionieren weiterhin
+- keine Änderung an vorhandenen Paketlimits
+
+Danach bestehende relevante Trainingsplan-, Starter- und Lizenztests
+ausführen.
+
+Keine Produktionsdaten verändern.
+Keine DB-Migration, sofern nicht zwingend erforderlich.
+Kein Deployment.
+Kein Push.
+
+Am Ende berichten:
+- Ursache
+- geänderte Dateien
+- neue Planlängenauswahl je Paket
+- Testergebnisse
+- DB-Migration ja/nein
+- Produktionsdaten verändert ja/nein
