@@ -28,6 +28,7 @@ from database import (
 )
 from license import (
     STARTER_MAX_TRAININGSPLAN_WOCHEN,
+    TRAININGSPLAN_WOCHEN_OPTIONEN,
     trainingsplan_wochen_optionen,
 )
 from periodisierung import trainingsplan_multi_erstellen
@@ -88,11 +89,15 @@ def entwurf_mit_plan(spieler_id: int, wochen: int) -> int:
     return plan_id
 
 
-# Die Paket-Auswahl ist zentral: Starter nur zwei Wochen, alle anderen Pakete
-# erhalten die bestehende Auswahl ergänzt um zwei Wochen.
+# Die gültige Auswahl ist zentral: Starter kann nur zwei Wochen übernehmen,
+# sieht aber alle verfügbaren Optionen; bezahlte Pakete sehen alle Optionen.
 check(
-    "Starter sieht ausschließlich zwei Wochen",
+    "Starter kann ausschließlich zwei Wochen auswählen",
     trainingsplan_wochen_optionen("STARTER_FREE") == (2,),
+)
+check(
+    "Starter sieht alle vier Planlängen",
+    TRAININGSPLAN_WOCHEN_OPTIONEN == (2, 4, 6, 8),
 )
 for paket in ("TRAINER_BASIC", "TRAINER_PRO", "VEREIN_BASIC", "VEREIN_PRO"):
     check(
@@ -153,6 +158,23 @@ APP_SOURCE = (ROOT / "app.py").read_text(encoding="utf-8")
 check(
     "Planlängen-Auswahl verwendet die zentrale Lizenzhilfe",
     "trainingsplan_wochen_optionen(" in APP_SOURCE,
+)
+check(
+    "Starter zeigt die gesperrten Planlängen sichtbar an",
+    "TRAININGSPLAN_WOCHEN_OPTIONEN" in APP_SOURCE
+    and "_plan_gesperrte_optionen" in APP_SOURCE
+    and "_locked_woche" in APP_SOURCE
+    and "Premium" in APP_SOURCE,
+)
+check(
+    "Starter erhält einen klaren Upgrade-Hinweis",
+    "Im Starter-Tarif nicht enthalten" in APP_SOURCE
+    and "Längere Trainingspläne sind ab Einzeltrainer Basic verfügbar." in APP_SOURCE,
+)
+check(
+    "Pakete ansehen führt zu Mein Vertrag",
+    'st.session_state["_nav_goto"] = "📋  Mein Vertrag"' in APP_SOURCE
+    and 'key="plan_wochen_upgrade_btn"' in APP_SOURCE,
 )
 
 print("Gesamt: PASS")

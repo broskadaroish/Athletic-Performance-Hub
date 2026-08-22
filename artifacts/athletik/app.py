@@ -1646,7 +1646,11 @@ if _rerun_token:
         st.session_state["_last_db_touch_ts"] = _now_ts
 
 # ─── Lizenz-Gate: Abgelaufene oder gesperrte Lizenzen blockieren ─────────────
-from license import enforce_license_gate, trainingsplan_wochen_optionen
+from license import (
+    TRAININGSPLAN_WOCHEN_OPTIONEN,
+    enforce_license_gate,
+    trainingsplan_wochen_optionen,
+)
 enforce_license_gate()
 
 # ─── Mehrfachmandanten-Auswahl ────────────────────────────────────────────────
@@ -6002,6 +6006,33 @@ def page_trainingsplan():
             index=_plan_wochen_optionen.index(st.session_state["plan_laenge"]),
             key="plan_laenge",
         )
+        _plan_gesperrte_optionen = [
+            woche for woche in TRAININGSPLAN_WOCHEN_OPTIONEN
+            if woche not in _plan_wochen_optionen
+        ]
+        if _plan_gesperrte_optionen:
+            _pc1.markdown("**Weitere Planlängen**")
+            _locked_cols = _pc1.columns(len(_plan_gesperrte_optionen))
+            for _locked_col, _locked_woche in zip(_locked_cols, _plan_gesperrte_optionen):
+                _locked_col.markdown(
+                    f'<div style="background:#20252d;border:1px solid #6e7681;'
+                    f'border-radius:8px;padding:9px 6px;text-align:center;'
+                    f'color:#8b949e;font-size:12px">'
+                    f'🔒 <b style="color:#c9d1d9">{_locked_woche} Wochen</b><br>'
+                    f'<span>Premium</span></div>',
+                    unsafe_allow_html=True,
+                )
+            _pc1.info(
+                "🔒 **Im Starter-Tarif nicht enthalten**\n\n"
+                "Längere Trainingspläne sind ab Einzeltrainer Basic verfügbar."
+            )
+            if _pc1.button(
+                "Pakete ansehen",
+                key="plan_wochen_upgrade_btn",
+                use_container_width=True,
+            ):
+                st.session_state["_nav_goto"] = "📋  Mein Vertrag"
+                st.rerun()
 
         # ── Saisonperiode ─────────────────────────────────────────────────────
         _SAISON_OPTIONEN = {
