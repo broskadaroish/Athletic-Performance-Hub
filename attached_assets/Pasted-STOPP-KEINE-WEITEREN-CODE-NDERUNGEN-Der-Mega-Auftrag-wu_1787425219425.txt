@@ -1,0 +1,189 @@
+STOPP – KEINE WEITEREN CODEÄNDERUNGEN.
+
+Der Mega-Auftrag wurde offenbar umgesetzt, aber der geforderte Abschlussbericht
+fehlt.
+
+Bitte jetzt ausschließlich den aktuellen Umsetzungsstand prüfen und den
+vollständigen Abschlussbericht erstellen.
+
+WICHTIG:
+- keinen Code mehr ändern
+- keine Dateien mehr ändern
+- keine neuen Features
+- keine Datenbankänderung
+- keine Produktionsdaten
+- kein Deployment
+- kein Push
+
+Bitte berichte exakt:
+
+1. BESTÄTIGTE AUSGANGSPROBLEME
+Welche der im Mega-Auftrag beschriebenen Probleme wurden im vorhandenen Code
+tatsächlich bestätigt?
+
+2. GEÄNDERTE DATEIEN
+Alle durch diesen Mega-Auftrag geänderten oder neu angelegten Dateien auflisten
+und jeweils kurz erklären, wofür die Änderung notwendig war.
+
+3. NEUER ATHLETIK-SCORE
+Die tatsächlich implementierte Formel exakt darstellen:
+- COD / Richtungswechsel
+- Sprint
+- Sprung / Power
+- Ausdauer
+- Kraft
+
+Gewichtungen nennen und erklären, wie fehlende Module behandelt werden.
+
+4. DATENBASIS
+Exakt berichten, was implementiert wurde für:
+- 0 Leistungsbereiche
+- 1 Leistungsbereich
+- 2 Leistungsbereiche
+- 3 Leistungsbereiche
+- 4 Leistungsbereiche
+- 5 Leistungsbereiche
+
+Insbesondere bestätigen, ob bei nur einem Leistungsbereich wirklich KEIN
+Gesamt-Athletikscore ausgegeben wird.
+
+5. SPRINT
+Exakt nennen:
+- welche Sprintdistanzen APH aktuell speichern kann
+- welche davon tatsächlich scorefähig sind
+- welche Referenzen/Bewertungsfunktionen dafür verwendet werden
+- wie mehrere absolvierte Distanzen zum Sprint-Subscore zusammengeführt werden
+- was bei nicht scorefähigen Distanzen passiert
+
+Keine theoretische Beschreibung – tatsächliche Implementierung berichten.
+
+6. SPRUNG / POWER
+Exakt nennen:
+- Rolle des CMJ
+- Rolle des Squat Jump
+- ob für SJ eine belastbare vorhandene Norm gefunden wurde
+- ob SJ tatsächlich scorewirksam ist
+- Behandlung von Drop Jump/RSI/Standweitsprung
+- Behandlung von Asymmetrien
+
+7. COD / RICHTUNGSWECHSEL
+Exakt nennen, welche der folgenden Tests tatsächlich scorefähig sind:
+- 505
+- 5-10-5
+- T-Test
+- Illinois
+
+Erklären:
+- Bildung der drei COD-Unterbereiche
+- Verhalten bei fehlenden Teiltests
+- Verhalten bei T-Test + Illinois
+- Behandlung der 505-Asymmetrie
+
+8. AUSDAUER
+Exakt erklären:
+- Yo-Yo
+- VO2-Schätzung
+- ob der alte VO2>=55-Bonus entfernt wurde
+- Spiro
+- ob Yo-Yo und Spiro doppelt gewichtet werden können
+
+9. KRAFT
+Exakt erklären:
+- welche Kraftmessung tatsächlich scorewirksam ist
+- welche Norm/Bewertung verwendet wird
+- ob Bankdrücken nur als Oberkörperkraft gekennzeichnet wird
+- Rolle von Plank/Rumpfkraft
+- Behandlung von Seitenasymmetrien
+
+10. FMS UND Y-BALANCE
+Bestätigen:
+- beide nicht mehr Bestandteil des Leistungs-Athletikscores
+- FMS-"Keine Asymmetrie"-Fehler behoben
+- bestehende strukturierte Y-Balance-Asymmetrielogik erhalten
+- beide weiterhin im Befund-/Handlungsbereich vorhanden
+
+11. TRAINER-HANDLUNGSBEDARF
+Exakt erklären:
+- welche Befunde ihn beeinflussen
+- wie die Ampel funktioniert
+- ob ein Spieler gleichzeitig einen hohen Athletik-Score und hohen
+  Trainer-Handlungsbedarf haben kann
+- bestätigen, dass keine guten Leistungswerte auffällige Befunde wegmitteln
+
+12. LEGACY-KOMPATIBILITÄT
+Bestätigen, wie alte gespeicherte Texte wie:
+- Sehr gut
+- Gut
+- Mittel
+sowie neue Labels behandelt werden.
+
+13. UI
+Nennen, welche sichtbaren Bereiche angepasst wurden:
+- Athletik-Score
+- Datenbasis
+- Radar-Chart
+- Spielerprofil
+- Dashboard
+- Vergleich
+- PDF
+- Export
+
+Falls einzelne Bereiche bewusst NICHT geändert wurden, ausdrücklich nennen.
+
+14. READ-ONLY VPS-DIAGNOSEWERKZEUG
+Bestätigen:
+- Dateiname
+- Funktionsweise
+- ob es garantiert keine Daten verändert
+
+Dann den EXAKTEN Befehl angeben, den ich später auf meinem Produktions-VPS
+ausführen soll, um die sechs dort vorhandenen Demo-Spieler zu prüfen:
+
+Anton Schwarz
+Ben Adler
+David Seidel
+Elias Winter
+Emil Brandt
+Felix Vogel
+
+WICHTIG:
+Die Spieler existieren NICHT in Replit.
+Nicht versuchen, sie jetzt zu prüfen.
+
+15. TESTERGEBNISSE
+Alle tatsächlich ausgeführten Tests mit PASS/FAIL und Anzahl nennen.
+
+Insbesondere:
+- neue Score-V2-Regressionen
+- FMS
+- Y-Balance
+- BMI/WHO
+- Defizitlogik
+- Trainingsplan
+- Periodisierung
+- Spielerprofil/PDF
+- Export
+- Python-Kompilierung
+- git diff --check
+- Browser-Smoke-Test
+
+Keine Tests als bestanden behaupten, die nicht tatsächlich ausgeführt wurden.
+
+16. OFFENE PUNKTE / EINSCHRÄNKUNGEN
+Alles nennen, was aus fachlichen oder technischen Gründen NICHT umgesetzt wurde,
+insbesondere fehlende belastbare Normen.
+
+17. GIT / DATEN
+Zum Schluss ausdrücklich bestätigen:
+- Produktionsdaten verändert: JA/NEIN
+- DB-Migration: JA/NEIN
+- Deployment: JA/NEIN
+- Push: JA/NEIN
+
+18. GIT-DIFF
+Zum Abschluss die aktuell durch diesen Auftrag geänderten Dateien aus
+`git diff --name-status` auflisten.
+
+KEINE WEITEREN ÄNDERUNGEN VORNEHMEN.
+
+Nur prüfen und vollständigen Abschlussbericht ausgeben.
