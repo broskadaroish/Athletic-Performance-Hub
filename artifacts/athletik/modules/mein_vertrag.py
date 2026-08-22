@@ -253,6 +253,34 @@ def page_mein_vertrag() -> None:
             _feld("Vertrag endet am",
                   _fmt_datum(data["gekuendigt_zum"]) or data["gekuendigt_zum"])
 
+    # ── Starter-Upgrade ─────────────────────────────────────────────────────
+    # Die Paketdefinitionen und der Checkout bleiben zentral in license.py bzw.
+    # modules.lizenz_page. Es gibt keine lokale Aktivierung durch diese Ansicht.
+    if lizenztyp == "STARTER_FREE" and data.get("ist_technischer_mandant"):
+        from license import LIZENZ_TYPEN
+        from modules.lizenz_page import _stripe_upgrade, _tarif_karte
+
+        st.markdown("---")
+        st.markdown("### 🚀 Paket wechseln / Upgrade")
+        st.caption(
+            "Du kannst während der laufenden Testphase oder nach ihrem Ablauf "
+            "jederzeit auf ein reguläres Paket upgraden."
+        )
+        _upgrade_cols = st.columns(2)
+        for _upgrade_key, _upgrade_col in zip(
+            ("TRAINER_BASIC", "TRAINER_PRO"), _upgrade_cols
+        ):
+            with _upgrade_col:
+                def _upgrade_action(key=_upgrade_key, vid=verein_id, vdata=data):
+                    _stripe_upgrade(key, vid, vdata)
+
+                _tarif_karte(
+                    _upgrade_key,
+                    LIZENZ_TYPEN[_upgrade_key],
+                    ist_aktuell=False,
+                    on_upgrade=_upgrade_action,
+                )
+
     # ── Rechnungen & Zahlungen ───────────────────────────────────────────────
     # Sichtbar für: Vereinsadmin (ist_verein=True) und Einzeltrainer
     # (Trainer mit technischem Mandant, der eine eigene Lizenz hat).

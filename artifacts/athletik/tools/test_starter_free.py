@@ -176,6 +176,32 @@ def main() -> int:
         LIZENZ_TYPEN["TRAINER_BASIC"]["preis_monat"] == 9.99
         and LIZENZ_TYPEN["TRAINER_PRO"]["preis_monat"] == 14.99,
     )
+    app_source = open(
+        os.path.join(APP_ROOT, "app.py"), encoding="utf-8"
+    ).read()
+    contract_source = open(
+        os.path.join(APP_ROOT, "modules", "mein_vertrag.py"), encoding="utf-8"
+    ).read()
+    license_source = open(
+        os.path.join(APP_ROOT, "license.py"), encoding="utf-8"
+    ).read()
+    check(
+        "Starter-Sperrbutton navigiert zu Mein Vertrag",
+        'st.session_state["_nav_goto"] = "📋  Mein Vertrag"' in app_source,
+    )
+    check(
+        "Mein Vertrag zeigt Basic und Pro als Starter-Ziele",
+        '(\"TRAINER_BASIC\", \"TRAINER_PRO\")' in contract_source,
+    )
+    check(
+        "Mein Vertrag enthält den Starter-Upgradebereich",
+        "Paket wechseln / Upgrade" in contract_source,
+    )
+    check(
+        "Starter-Sperrtext erlaubt Upgrade sofort",
+        "Upgrade auf Basic oder Pro" in license_source
+        and "nach Ablauf deiner Testphase" not in license_source,
+    )
 
     print(f"\n{passed} PASS, {failed} FAIL")
     return 1 if failed else 0

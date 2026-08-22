@@ -523,9 +523,9 @@ def feature_erlaubt(
 
 
 STARTER_PREMIUM_FEATURES: dict[str, str] = {
-    "spieler_import": "Der Spielerimport ist im Starter-Tarif nicht enthalten.",
-    "voll_export": "Der vollständige Datenexport ist im Starter-Tarif nicht enthalten.",
-    "gesamtbericht_pdf": "Der Spielerprofil- und Diagnostik-Gesamtbericht ist im Starter-Tarif nicht enthalten.",
+    "spieler_import": "Der Spielerimport ist im Starter-Tarif nicht verfügbar.",
+    "voll_export": "Der vollständige Datenexport ist im Starter-Tarif nicht verfügbar.",
+    "gesamtbericht_pdf": "Der Spielerprofil- und Diagnostik-Gesamtbericht ist im Starter-Tarif nicht verfügbar.",
 }
 
 
@@ -559,8 +559,11 @@ def starter_premium_feature_gesperrt(
 
 def starter_upgrade_hinweis(feature: str) -> str:
     """Einheitlicher, nicht-technischer Hinweis für sichtbare Starter-Sperren."""
-    grund = STARTER_PREMIUM_FEATURES.get(feature, "Diese Funktion ist im Starter-Tarif nicht enthalten.")
-    return f"{grund} Wähle nach Ablauf deiner Testphase ein passendes Paket."
+    grund = STARTER_PREMIUM_FEATURES.get(feature, "Diese Funktion ist im Starter-Tarif nicht verfügbar.")
+    return (
+        "🔒 Im Starter-Tarif nicht enthalten\n"
+        f"{grund} Upgrade auf Basic oder Pro, um diese Funktion freizuschalten."
+    )
 
 
 def trainer_limit_erreicht(

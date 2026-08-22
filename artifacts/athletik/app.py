@@ -214,9 +214,9 @@ def _starter_premium_feature_gesperrt(feature: str) -> bool:
             return False
     except Exception:
         return False
-    st.info(f"🔒 **Upgrade erforderlich:** {starter_upgrade_hinweis(feature)}")
+    st.info(starter_upgrade_hinweis(feature))
     if st.button("💳 Pakete ansehen", key=f"starter_lock_{feature}", use_container_width=True):
-        st.session_state["_nav_goto"] = "💳  Lizenz"
+        st.session_state["_nav_goto"] = "📋  Mein Vertrag"
         st.rerun()
     return True
 

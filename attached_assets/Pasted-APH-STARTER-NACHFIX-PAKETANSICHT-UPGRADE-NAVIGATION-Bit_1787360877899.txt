@@ -1,0 +1,125 @@
+APH STARTER – NACHFIX PAKETANSICHT / UPGRADE-NAVIGATION
+
+Bitte ausschließlich den folgenden bestehenden UX-/Navigationsfehler beheben.
+Keine anderen Funktionen umbauen.
+
+IST-ZUSTAND:
+STARTER_FREE ist bereits implementiert und funktioniert.
+Ein Starter-Nutzer kann während seiner 30-Tage-Testphase freiwillig auf ein reguläres Paket upgraden.
+Stripe-Checkout und die bestehende sichere Aktivierungslogik sind bereits vorhanden.
+
+PROBLEM 1:
+Bei gesperrten Starter-Funktionen, z. B. Spielerverwaltung → Importieren, gibt es den Button:
+„💳 Pakete ansehen“
+
+Dieser Button führt aktuell fälschlicherweise auf die Startseite.
+
+SOLL:
+„Pakete ansehen“ muss direkt zur bestehenden Seite „📋 Mein Vertrag“ führen und dort den Bereich zur Paketwahl/Upgrade anzeigen.
+
+PROBLEM 2:
+Unter „📋 Mein Vertrag“ werden für einen STARTER_FREE-Nutzer aktuell nur Vertragsinformationen angezeigt, z. B.:
+
+Aktuelles Paket: Starter – 30 Tage kostenlos
+Paketpreis: 0,00 €
+Testphase endet am: ...
+Lizenzstatus: TESTPHASE
+
+Es fehlen aber die auswählbaren Upgrade-Pakete.
+
+SOLL:
+Unterhalb der bestehenden Vertragsinformationen einen klaren Abschnitt ergänzen:
+
+„🚀 Paket wechseln / Upgrade“
+
+Für STARTER_FREE eines Einzeltrainers dort anzeigen:
+
+Einzeltrainer Basic
+- 9,99 €/Monat
+- 99 €/Jahr
+- bestehende Paketlimits und Leistungen verwenden
+
+Einzeltrainer Pro
+- 14,99 €/Monat
+- 149 €/Jahr
+- bestehende Paketlimits und Leistungen verwenden
+
+Monatlich/Jährlich auswählbar.
+
+Die Preise und Paketinformationen NICHT doppelt hardcoden, sondern aus der bereits bestehenden zentralen Paket-/Lizenzdefinition verwenden.
+
+WICHTIG:
+Ein STARTER_FREE-Nutzer darf bereits WÄHREND der laufenden 30-Tage-Testphase freiwillig upgraden.
+
+Beim Klick auf Basic oder Pro muss ausschließlich der bereits vorhandene Stripe-Checkout verwendet werden.
+
+KEINE lokale Aktivierung eines Bezahlpakets.
+KEINE Lizenzfreischaltung allein durch Button-Klick.
+Die Aktivierung darf weiterhin nur über den bestehenden bestätigten Stripe-/Webhook-Flow erfolgen.
+
+Nach Ablauf der Starter-Testphase muss dieselbe Paketansicht weiterhin erreichbar sein und zur verpflichtenden Tarifwahl dienen.
+
+TEXTKORREKTUR BEI STARTER-SPERREN:
+
+Aktuell sinngemäß:
+„Upgrade erforderlich: Der Spielerimport ist im Starter-Tarif nicht enthalten. Wähle nach Ablauf deiner Testphase ein passendes Paket.“
+
+Das ist falsch, weil Upgrade bereits während der Testphase möglich ist.
+
+Ändern in:
+
+„🔒 Im Starter-Tarif nicht enthalten
+Der Spielerimport ist im Starter-Tarif nicht verfügbar. Upgrade auf Basic oder Pro, um diese Funktion freizuschalten.“
+
+Button:
+„💳 Pakete ansehen“
+
+Auch andere vorhandene Starter-Premium-Sperren auf Formulierungen wie
+„nach Ablauf deiner Testphase“
+prüfen und entsprechend korrigieren, sofern ein sofortiges Upgrade erlaubt ist.
+
+NAVIGATION:
+Alle vorhandenen „Pakete ansehen“-/Upgrade-Buttons aus Starter-Sperren müssen zuverlässig zu:
+Mein Vertrag → Paket wechseln / Upgrade
+führen.
+
+Bestehende Navigation nicht grundsätzlich umbauen.
+
+REGRESSION:
+Bitte Tests ergänzen für:
+
+1. STARTER_FREE sieht unter „Mein Vertrag“ Basic und Pro als Upgrade-Ziele.
+2. Starter selbst ist kein Upgrade-Ziel.
+3. Upgrade ist während laufender Trial möglich.
+4. Upgrade ist nach Ablauf möglich.
+5. „Pakete ansehen“ navigiert nicht zur Startseite.
+6. Basic/Pro verwenden bestehende zentrale Preise.
+7. Stripe-Checkout bleibt der einzige Aktivierungsweg.
+8. Kein lokaler Bezahlstatus wird durch Auswahl gesetzt.
+9. Bestehende Starter-Limits bleiben unverändert.
+10. Bestehende Bezahlpakete bleiben unverändert.
+
+Danach ausführen:
+- py_compile
+- test_starter_free.py
+- test_block_b.py
+- test_mein_vertrag_status.py
+- neue/angepasste Regressionstests
+- git diff --check
+
+ABSCHLUSSBERICHT:
+- geänderte Dateien
+- Ursache des Navigationsfehlers
+- neue Navigation
+- Darstellung unter „Mein Vertrag“
+- Verhalten während Trial
+- Verhalten nach Trial
+- Stripe-Auswirkungen
+- Testergebnisse
+- DB-Migration ja/nein
+- Produktionsdaten verändert ja/nein
+- Deployment nein
+
+Keine DB-Migration durchführen.
+Keine Produktionsdaten verändern.
+Kein Deployment durchführen.
