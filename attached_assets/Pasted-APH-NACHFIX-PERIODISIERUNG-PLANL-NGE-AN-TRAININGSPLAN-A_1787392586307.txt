@@ -1,0 +1,170 @@
+APH – NACHFIX PERIODISIERUNG: PLANLÄNGE AN TRAININGSPLAN ANGLEICHEN
+
+Bitte zuerst die bestehende Seite/Funktion:
+
+Training → Periodisierung
+
+read-only untersuchen und prüfen, wie dort aktuell die Planlänge definiert
+und verarbeitet wird.
+
+Keine unnötigen Umbauten durchführen.
+
+AKTUELL
+
+Bei Training → Periodisierung werden aktuell bei allen Paketen nur folgende
+Planlängen angezeigt:
+
+- 4 Wochen
+- 6 Wochen
+- 8 Wochen
+
+Im normalen Trainingsplan wurde die Planlängenlogik bereits korrigiert:
+
+STARTER_FREE:
+- 2 Wochen auswählbar
+- 4 Wochen sichtbar, aber gesperrt
+- 6 Wochen sichtbar, aber gesperrt
+- 8 Wochen sichtbar, aber gesperrt
+
+Bezahlpakete:
+- 2 Wochen
+- 4 Wochen
+- 6 Wochen
+- 8 Wochen
+normal auswählbar, soweit die bestehenden Paketlimits dies erlauben.
+
+SOLL
+
+Training → Periodisierung soll dieselbe Paketlogik und dieselbe UX verwenden.
+
+STARTER_FREE:
+
+Anzeigen:
+- 2 Wochen — auswählbar
+- 4 Wochen — 🔒 gesperrt
+- 6 Wochen — 🔒 gesperrt
+- 8 Wochen — 🔒 gesperrt
+
+Hinweis:
+
+„🔒 Im Starter-Tarif nicht enthalten
+Längere Periodisierungen sind ab Einzeltrainer Basic verfügbar.“
+
+Button:
+„Pakete ansehen“
+
+Ziel:
+📋 Mein Vertrag → Paket wechseln / Upgrade
+
+WICHTIG:
+4/6/8 dürfen bei STARTER_FREE nicht als gültige Periodisierung übernommen,
+gespeichert oder erzeugt werden.
+
+BEZAHLPakete:
+
+TRAINER_BASIC
+TRAINER_PRO
+VEREIN_BASIC
+VEREIN_PRO
+
+sollen bei Periodisierung folgende Planlängen auswählen können:
+
+- 2 Wochen
+- 4 Wochen
+- 6 Wochen
+- 8 Wochen
+
+WICHTIG – ZENTRALE LOGIK
+
+Bitte prüfen, ob die bereits für den Trainingsplan implementierte zentrale
+Planlängen-/Lizenzhilfe wiederverwendet werden kann.
+
+Keine zweite unabhängige Paket- oder Planlängenlogik bauen, wenn die
+bestehende zentrale Funktion verwendet werden kann.
+
+Die Darstellung von:
+
+Training → Trainingsplan
+
+und:
+
+Training → Periodisierung
+
+soll bezüglich der erlaubten Planlängen konsistent sein.
+
+2-WOCHEN-PERIODISIERUNG
+
+Prüfen, ob die bereits ergänzte 2-Wochen-Konfiguration in
+periodisierung.py auch von dieser Periodisierungsseite vollständig
+unterstützt wird.
+
+Falls sie bereits funktioniert:
+NICHT erneut umbauen.
+
+Falls nur die UI noch 4/6/8 anbietet:
+ausschließlich die UI an die bestehende zentrale Logik anbinden.
+
+SERVERSEITIGE SICHERHEIT
+
+Die bestehende Starter-Grenze von maximal 2 Wochen darf NICHT entfernt oder
+aufgeweicht werden.
+
+Auch bei manipulierten UI-Werten muss STARTER_FREE weiterhin daran gehindert
+werden, eine 4-, 6- oder 8-Wochen-Periodisierung zu speichern oder zu erzeugen.
+
+KEINE ÄNDERUNG AN:
+
+- Stripe
+- Preisen
+- Checkout
+- Webhooks
+- Registrierung
+- Kundennummern
+- Kundenverwaltung
+- Mandantenlogik
+- Superadmin
+- Trainingsplan-PDF
+- bestehenden Trainingsinhalten
+- bestehenden Paketlimits
+
+TESTS
+
+Bitte Regressionstests ergänzen für:
+
+1. STARTER_FREE sieht in Periodisierung 2/4/6/8 Wochen.
+2. STARTER_FREE kann nur 2 Wochen auswählen.
+3. 4/6/8 sind für Starter sichtbar als gesperrte Premium-Optionen.
+4. Starter kann eine gültige 2-Wochen-Periodisierung erzeugen/speichern.
+5. Manipulierte 4/6/8-Werte werden für Starter serverseitig abgewiesen.
+6. „Pakete ansehen“ führt zu 📋 Mein Vertrag.
+7. TRAINER_BASIC kann 2/4/6/8 auswählen.
+8. TRAINER_PRO kann 2/4/6/8 auswählen.
+9. VEREIN_BASIC kann 2/4/6/8 auswählen.
+10. VEREIN_PRO kann 2/4/6/8 auswählen.
+11. Bestehende 4/6/8-Wochen-Periodisierungen funktionieren weiterhin.
+12. Die bestehende 2-Wochen-Konfiguration wird wiederverwendet und nicht
+    dupliziert.
+
+Danach relevante bestehende Trainingsplan-, Periodisierungs-, Starter- und
+Lizenztests ausführen.
+
+Keine Produktionsdaten verändern.
+Keine DB-Migration, sofern nicht zwingend erforderlich.
+Kein Deployment.
+Kein Push.
+
+ABSCHLUSSBERICHT
+
+Bitte angeben:
+
+- bisherige Ursache
+- ob bereits vorhandene zentrale Planlängenlogik wiederverwendet wurde
+- geänderte Dateien
+- Darstellung STARTER_FREE
+- Darstellung Bezahlpakete
+- serverseitige Absicherung
+- Testergebnisse
+- DB-Migration ja/nein
+- Produktionsdaten verändert ja/nein
+- Deployment nein
+- Push nein

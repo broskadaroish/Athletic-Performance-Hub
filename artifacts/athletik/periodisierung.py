@@ -1990,6 +1990,7 @@ _PHASEN = [
 ]
 
 _SHORT_PLAN_PHASE = {
+    2:  [(1, "stabilisation", "Grundlagen",          "Bewegungsqualität & Verletzungsprävention")],
     4:  [(1, "stabilisation", "Stabilisation",       "Bewegungsqualität & Verletzungsprävention")],
     6:  [(1, "stabilisation", "Stabilisation",       "Bewegungsqualität & Verletzungsprävention"),
          (3, "kraft",         "Kraftaufbau",          "Maximalkraft & funktionelle Stärke")],
@@ -2046,7 +2047,22 @@ def zyklus_erstellen(spieler_id: int, schwerpunkt_text: str | dict[str, int],
     Altersbasierter Periodisierungszyklus für die Periodisierung-Seite.
     Quellen: Faigenbaum & Myer (2010), Lloyd et al. (2014), NSCA.
     """
-    wochen     = wochen if wochen in (4, 6, 8, 12) else 12
+    if wochen not in (2, 4, 6, 8, 12):
+        raise ValueError(
+            "Ungültige Periodisierungslänge. Erlaubt sind 2, 4, 6, 8 oder 12 Wochen."
+        )
+    from database import spieler_by_id, verein_by_id
+    from license import ist_starter_lizenz
+    _spieler = spieler_by_id(spieler_id)
+    _verein_id = _spieler.get("verein_id") if _spieler else None
+    _verein = verein_by_id(_verein_id) if _verein_id else None
+    if _verein and ist_starter_lizenz(
+        _verein.get("lizenztyp"),
+        _verein.get("ist_technischer_mandant"),
+    ) and wochen > 2:
+        raise ValueError(
+            "Starter erlaubt maximal 2 Wochen pro Periodisierung."
+        )
     scores     = defizit_score(schwerpunkt_text)
     plangruppe = _alter_zu_plangruppe(alter)
     cfg        = _PLANGRUPPEN_CONFIG[plangruppe]

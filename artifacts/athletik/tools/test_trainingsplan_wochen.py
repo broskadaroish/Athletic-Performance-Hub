@@ -31,7 +31,8 @@ from license import (
     TRAININGSPLAN_WOCHEN_OPTIONEN,
     trainingsplan_wochen_optionen,
 )
-from periodisierung import trainingsplan_multi_erstellen
+from periodisierung import trainingsplan_multi_erstellen, zyklus_erstellen
+from database import periodisierung_laden
 
 
 database.DB_PATH = str(TMP_DB)
@@ -176,5 +177,60 @@ check(
     'st.session_state["_nav_goto"] = "📋  Mein Vertrag"' in APP_SOURCE
     and 'key="plan_wochen_upgrade_btn"' in APP_SOURCE,
 )
+
+# Periodisierung verwendet dieselbe zentrale Wochenlogik und schützt den
+# Schreibpfad zusätzlich anhand des tatsächlichen Vereins des Spielers.
+check(
+    "Periodisierung verwendet die zentrale Lizenzhilfe",
+    "trainingsplan_wochen_optionen(" in APP_SOURCE
+    and "_perio_wochen_optionen" in APP_SOURCE,
+)
+check(
+    "Periodisierung zeigt Starter-Sperren sichtbar an",
+    "_perio_gesperrte_optionen" in APP_SOURCE
+    and "_perio_locked_cols" in APP_SOURCE
+    and "Premium" in APP_SOURCE,
+)
+check(
+    "Periodisierung nutzt den richtigen Upgrade-Hinweis",
+    "Längere Periodisierungen sind ab Einzeltrainer Basic verfügbar." in APP_SOURCE
+    and 'key="perio_wochen_upgrade_btn"' in APP_SOURCE,
+)
+check(
+    "Starter erzeugt und speichert eine 2-Wochen-Periodisierung",
+    len(zyklus_erstellen(starter_spieler, {"Rumpf": 3}, wochen=2, alter=15)) > 0
+    and {int(row["woche"]) for row in periodisierung_laden(starter_spieler)} == {1, 2},
+)
+for wochen in (4, 6, 8):
+    check(
+        f"Starter blockiert manipulierte {wochen}-Wochen-Periodisierung serverseitig",
+        raises_value_error(
+            lambda wochen=wochen: zyklus_erstellen(
+                starter_spieler, {"Rumpf": 3}, wochen=wochen, alter=15
+            )
+        ),
+    )
+for paket in ("TRAINER_BASIC", "TRAINER_PRO", "VEREIN_BASIC", "VEREIN_PRO"):
+    _perio_paid_spieler = spieler_fuer_paket(paket, f"Periodisierung-{paket}")
+    _perio_paid_plan = zyklus_erstellen(
+        _perio_paid_spieler, {"Rumpf": 3}, wochen=2, alter=15
+    )
+    check(
+        f"{paket} erstellt eine 2-Wochen-Periodisierung",
+        _perio_paid_plan and max(int(row["woche"]) for row in _perio_paid_plan) == 2,
+    )
+for wochen in (4, 6, 8):
+    _perio_bestand_spieler = spieler_fuer_paket(
+        "TRAINER_PRO", f"Periodisierung-Bestand-{wochen}"
+    )
+    _perio_bestand_plan = zyklus_erstellen(
+        _perio_bestand_spieler, {"Rumpf": 3}, wochen=wochen, alter=15
+    )
+    check(
+        f"Bestehende {wochen}-Wochen-Periodisierung funktioniert weiter",
+        _perio_bestand_plan
+        and {int(row["woche"]) for row in _perio_bestand_plan}
+        == set(range(1, wochen + 1)),
+    )
 
 print("Gesamt: PASS")

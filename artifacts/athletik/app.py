@@ -7376,14 +7376,53 @@ def page_periodisierung():
     st.markdown("---")
     col_info, col_gen = st.columns([3, 2])
     with col_info:
+        _perio_verein = verein_by_id(_akt_user().get("verein_id") or 0) or {}
+        _perio_wochen_optionen = list(trainingsplan_wochen_optionen(
+            _perio_verein.get("lizenztyp"),
+            _perio_verein.get("ist_technischer_mandant"),
+        ))
+        _perio_default_wochen = 2 if len(_perio_wochen_optionen) == 1 else 6
+        if st.session_state.get("perio_wochen") not in _perio_wochen_optionen:
+            st.session_state["perio_wochen"] = _perio_default_wochen
         wochen_auswahl = st.selectbox(
             "Planlänge",
-            [4, 8, 12],
-            index=2,
+            _perio_wochen_optionen,
             format_func=lambda x: f"{x} Wochen",
+            index=_perio_wochen_optionen.index(st.session_state["perio_wochen"]),
             key="perio_wochen",
         )
-        if wochen_auswahl == 4:
+        _perio_gesperrte_optionen = [
+            woche for woche in TRAININGSPLAN_WOCHEN_OPTIONEN
+            if woche not in _perio_wochen_optionen
+        ]
+        if _perio_gesperrte_optionen:
+            st.markdown("**Weitere Planlängen**")
+            _perio_locked_cols = st.columns(len(_perio_gesperrte_optionen))
+            for _locked_col, _locked_woche in zip(
+                _perio_locked_cols, _perio_gesperrte_optionen
+            ):
+                _locked_col.markdown(
+                    f'<div style="background:#20252d;border:1px solid #6e7681;'
+                    f'border-radius:8px;padding:9px 6px;text-align:center;'
+                    f'color:#8b949e;font-size:12px">'
+                    f'🔒 <b style="color:#c9d1d9">{_locked_woche} Wochen</b><br>'
+                    f'<span>Premium</span></div>',
+                    unsafe_allow_html=True,
+                )
+            st.info(
+                "🔒 **Im Starter-Tarif nicht enthalten**\n\n"
+                "Längere Periodisierungen sind ab Einzeltrainer Basic verfügbar."
+            )
+            if st.button(
+                "Pakete ansehen",
+                key="perio_wochen_upgrade_btn",
+                use_container_width=True,
+            ):
+                st.session_state["_nav_goto"] = "📋  Mein Vertrag"
+                st.rerun()
+        if wochen_auswahl == 2:
+            st.markdown("**Phase 1** (W1–2): Grundlagen & Bewegungsqualität")
+        elif wochen_auswahl == 4:
             st.markdown("**Phase 1** (W1–4): Stabilisation & Bewegungsqualität")
         elif wochen_auswahl == 8:
             st.markdown("**Phase 1** (W1–4): Stabilisation  \n**Phase 2** (W5–8): Kraftaufbau")
@@ -7440,6 +7479,7 @@ def page_periodisierung():
 
     # Phase colour map — match on prefix (new format includes week type in parens)
     _phase_defs = [
+        ("Grundlagen",                  "#1f6feb"),
         ("Phase 1 — Stabilisation",    "#1f6feb"),
         ("Phase 2 — Kraftaufbau",       "#3fb950"),
         ("Phase 3 — Fußballspezifisch", "#d29922"),
