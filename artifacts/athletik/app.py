@@ -1263,6 +1263,16 @@ if "user" not in st.session_state:
                     for _tpk, _tpc in zip(_TRAINER_PAKETE, [_ttc1, _ttc2, _ttc3]):
                         _ttd = _REG_TLT[_tpk]
                         _tms = "unbegrenzt" if _ttd["max_spieler"] is None else f"max. {_ttd['max_spieler']}"
+                        _t_preis_label = (
+                            "30 Tage kostenlos"
+                            if _tpk == "STARTER_FREE"
+                            else f"{_ttd['preis_monat']:.2f} €/Mo"
+                        )
+                        _t_jahr_label = (
+                            " · keine Zahlungsdaten"
+                            if _tpk == "STARTER_FREE"
+                            else f" · {_ttd['preis_jahr']:.0f} €/Jahr"
+                        )
                         _t_is_sel = (_tpk == _cur_t_paket)
                         _t_sel_border = "#f85149" if _t_is_sel else "#30363d"
                         _t_sel_bg     = "#1c1112" if _t_is_sel else "#161b22"
@@ -1277,9 +1287,9 @@ if "user" not in st.session_state:
                             f'{_t_sel_badge}'
                             f'<strong style="color:#e6edf3;font-size:13px">{_ttd["label"]}</strong><br>'
                             f'<span style="color:#3fb950;font-weight:600">'
-                            f'{"30 Tage kostenlos" if _tpk == "STARTER_FREE" else f"{_ttd["preis_monat"]:.2f} €/Mo"}</span>'
+                            f'{_t_preis_label}</span>'
                             f'<span style="color:#8b949e;font-size:11px">'
-                            f'{" · keine Zahlungsdaten" if _tpk == "STARTER_FREE" else f" · {_ttd["preis_jahr"]:.0f} €/Jahr"}</span><br>'
+                            f'{_t_jahr_label}</span><br>'
                             f'<span style="color:#8b949e;font-size:11px">👤 {_ttd["max_trainer"]} Trainer'
                             f'\u2002·\u2002{_tms} Spieler</span>'
                             f'</div>',
