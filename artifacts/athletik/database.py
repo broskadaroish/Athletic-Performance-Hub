@@ -5475,6 +5475,163 @@ def lizenz_setzen(
         )
 
 
+def einzeltrainer_zu_verein_konvertieren(
+    verein_id: int,
+    benutzer_id: int,
+    ziel_lizenztyp: str,
+    *,
+    superadmin_id: int | None,
+) -> dict:
+    """Wandelt einen technischen Einzeltrainer-Mandanten atomar in einen Verein.
+
+    Ein Trainer-zu-Verein-Wechsel ist keine gewöhnliche Lizenzänderung: Der
+    vorhandene Mandant bleibt mitsamt Vertrag, Kundennummer, Stripe-Identität,
+    Spielern und zentralem Lizenzstatus bestehen. Ausschließlich seine
+    technische Klassifikation und die Rolle des eindeutigen Inhaberkontos werden
+    in eine Vereinsstruktur überführt.
+    """
+    erlaubte_ziele = {"VEREIN_BASIC", "VEREIN_PRO"}
+    ziel_lizenztyp = str(ziel_lizenztyp or "").strip().upper()
+    if ziel_lizenztyp not in erlaubte_ziele:
+        raise ValueError("Die Konvertierung erlaubt nur VEREIN_BASIC oder VEREIN_PRO.")
+    if superadmin_id is None:
+        raise PermissionError("Nur ein aktiver Superadmin darf einen Mandanten konvertieren.")
+
+    with get_conn() as conn:
+        # BEGIN IMMEDIATE verhindert, dass zwischen Validierung und Umstellung
+        # eine zweite Zuordnung oder ein Paketwechsel eingeschoben wird.
+        conn.execute("BEGIN IMMEDIATE")
+
+        superadmin = conn.execute(
+            "SELECT rolle, aktiv FROM benutzer WHERE id=?", (superadmin_id,)
+        ).fetchone()
+        if (
+            not superadmin
+            or superadmin["rolle"] != "Superadmin"
+            or not superadmin["aktiv"]
+        ):
+            raise PermissionError(
+                "Nur ein aktiver Superadmin darf einen Mandanten konvertieren."
+            )
+
+        verein = conn.execute(
+            """SELECT id, kundennummer, lizenztyp, lizenz_status, testphase_bis,
+                      lizenz_bis, stripe_customer_id, stripe_subscription_id,
+                      ist_technischer_mandant
+                 FROM vereine WHERE id=?""",
+            (verein_id,),
+        ).fetchone()
+        if not verein:
+            raise ValueError("Der technische Mandant wurde nicht gefunden.")
+        if not verein["ist_technischer_mandant"]:
+            raise ValueError("Dieser Mandant ist bereits ein echter Verein.")
+        if (
+            str(verein["kundennummer"] or "").strip() == "[gelöscht]"
+            or str(verein["lizenz_status"] or "").lower() in ("geloescht", "gelöscht")
+        ):
+            raise ValueError("Archivierte Kunden dürfen nicht konvertiert werden.")
+
+        direkte_benutzer = conn.execute(
+            """SELECT id, rolle, aktiv FROM benutzer
+                 WHERE verein_id=?
+                 ORDER BY id""",
+            (verein_id,),
+        ).fetchall()
+        if len(direkte_benutzer) != 1 or direkte_benutzer[0]["id"] != benutzer_id:
+            raise ValueError(
+                "Die Konvertierung benötigt genau ein direkt zugeordnetes Inhaberkonto."
+            )
+        if not direkte_benutzer[0]["aktiv"]:
+            raise ValueError(
+                "Die Konvertierung benötigt ein aktives Inhaberkonto."
+            )
+        ziel_mitgliedschaft = conn.execute(
+            """SELECT aktiv FROM trainer_mandanten
+                WHERE benutzer_id=? AND verein_id=?""",
+            (benutzer_id, verein_id),
+        ).fetchone()
+        if not ziel_mitgliedschaft or not ziel_mitgliedschaft["aktiv"]:
+            raise ValueError(
+                "Die Konvertierung benötigt eine bestehende aktive Mandantenmitgliedschaft."
+            )
+        fremde_aktive_mandanten = conn.execute(
+            """SELECT verein_id
+                 FROM trainer_mandanten
+                WHERE benutzer_id=? AND aktiv=1 AND verein_id<>?
+                LIMIT 1""",
+            (benutzer_id, verein_id),
+        ).fetchone()
+        if fremde_aktive_mandanten:
+            raise ValueError(
+                "Die Konvertierung ist bei weiteren aktiven Mandantenmitgliedschaften nicht zulässig."
+            )
+        if benutzer_id == superadmin_id:
+            raise ValueError("Das aktuell verwendete Superadmin-Konto kann nicht konvertiert werden.")
+
+        # Lizenzstatus, Testphase, Ablauf, Kundennummer und Stripe-Felder
+        # bleiben unverändert auf dem bestehenden Mandanten. So ist bei
+        # widersprüchlichen alten Benutzerfeldern ausschließlich der bisherige
+        # technische Vertragspartner führend.
+        conn.execute(
+            """UPDATE vereine
+                  SET ist_technischer_mandant=0,
+                      lizenztyp=?
+                WHERE id=?""",
+            (ziel_lizenztyp, verein_id),
+        )
+
+        # Die Rollenänderung wird mit einer Token-Versionserhöhung verbunden,
+        # damit offene Trainer-Sitzungen die neuen Vereinsrechte erst nach einem
+        # frischen Login erhalten.
+        try:
+            conn.execute(
+                """UPDATE benutzer
+                      SET rolle='Vereinsadmin',
+                          session_token_version=COALESCE(session_token_version, 0) + 1
+                    WHERE id=?""",
+                (benutzer_id,),
+            )
+        except sqlite3.OperationalError:
+            # Sehr alte Installationen ohne Session-Version bleiben funktional;
+            # die zentrale Migration legt die Spalte in aktuellen Installationen an.
+            conn.execute(
+                "UPDATE benutzer SET rolle='Vereinsadmin' WHERE id=?",
+                (benutzer_id,),
+            )
+
+        conn.execute(
+            """UPDATE trainer_mandanten
+                  SET rolle_im_verein='Vereinsadmin'
+                WHERE benutzer_id=? AND verein_id=? AND aktiv=1""",
+            (benutzer_id, verein_id),
+        )
+
+        conn.execute(
+            """INSERT INTO audit_log (benutzer_id, aktion, details, superadmin_id)
+               VALUES (?, 'einzeltrainer_zu_verein_konvertiert', ?, ?)""",
+            (
+                benutzer_id,
+                (
+                    f"verein_id={verein_id}, zielpaket={ziel_lizenztyp}, "
+                    f"kundennummer={verein['kundennummer'] or ''}"
+                ),
+                superadmin_id,
+            ),
+        )
+
+        return {
+            "verein_id": verein_id,
+            "benutzer_id": benutzer_id,
+            "lizenztyp": ziel_lizenztyp,
+            "kundennummer": verein["kundennummer"],
+            "lizenz_status": verein["lizenz_status"],
+            "testphase_bis": verein["testphase_bis"],
+            "lizenz_bis": verein["lizenz_bis"],
+            "stripe_customer_id": verein["stripe_customer_id"],
+            "stripe_subscription_id": verein["stripe_subscription_id"],
+        }
+
+
 def trainer_lizenz_setzen(
     benutzer_id: int,
     lizenz_typ: str,
@@ -5482,8 +5639,32 @@ def trainer_lizenz_setzen(
     lizenz_bis: str | None = None,
     testphase_bis: str | None = None,
 ) -> None:
-    """Setzt Lizenztyp, Status und Ablaufdaten für einen Trainer-Kunden (standalone, verein_id IS NULL)."""
+    """Setzt Lizenzdaten nur für echte Standalone-Einzeltrainer.
+
+    Technische Mandanten führen Vertrag und Lizenz ausschließlich in
+    ``vereine``. Dieser Schutz verhindert, dass ein beliebiger UI-Pfad dort
+    widersprüchliche Benutzer-Lizenzfelder oder sogar Vereinspakete schreibt.
+    """
+    erlaubte_trainerpakete = {"STARTER_FREE", "TRAINER_BASIC", "TRAINER_PRO"}
+    lizenz_typ = str(lizenz_typ or "").strip().upper()
+    if lizenz_typ not in erlaubte_trainerpakete:
+        raise ValueError(
+            "Standalone-Einzeltrainer dürfen nur Einzeltrainer-Pakete erhalten."
+        )
     with get_conn() as conn:
+        benutzer = conn.execute(
+            "SELECT verein_id, rolle FROM benutzer WHERE id=?", (benutzer_id,)
+        ).fetchone()
+        if not benutzer:
+            raise ValueError("Das Trainerkonto wurde nicht gefunden.")
+        if benutzer["verein_id"] is not None:
+            raise ValueError(
+                "Trainer mit Mandant dürfen keine eigene Benutzer-Lizenz erhalten."
+            )
+        if benutzer["rolle"] != "Trainer":
+            raise ValueError(
+                "Nur Trainerkonten ohne Mandant dürfen eine Einzeltrainer-Lizenz erhalten."
+            )
         conn.execute(
             """UPDATE benutzer
                   SET lizenztyp=?,
@@ -8001,9 +8182,17 @@ def vertragspartner_liste_laden() -> list[dict]:
         tech_lizenztyp = str(b.get("tech_lizenztyp") or "").upper()
         # Frühere Einzeltrainerinstanzen trugen noch BASIC/PRO. Ein technischer
         # Mandant macht diese historische Bezeichnung eindeutig als Trainerpaket.
+        # Historisch fehlerhaft gespeicherte VEREIN_*-Pakete bleiben ebenfalls
+        # sichtbar, aber ausschließlich als reparierbarer Einzeltrainer-Fall:
+        # Sie dürfen erst nach der bestätigten Konvertierung ein echter Verein
+        # werden und erscheinen deshalb nicht im Vereinszweig.
         hat_tech_lizenz = (
             bool(tech_id)
-            and tech_lizenztyp in (_TRAINER_LIZENZ_TYPEN | {"BASIC", "PRO"})
+            and tech_lizenztyp in (
+                _TRAINER_LIZENZ_TYPEN
+                | {"BASIC", "PRO"}
+                | _ERLAUBTE_VEREIN_PAKETE
+            )
             and _hat_vertragsdaten(b, "tech_")
         )
         hat_standalone_lizenz = not b.get("verein_id") and _hat_eigene_standalone_lizenz(b)

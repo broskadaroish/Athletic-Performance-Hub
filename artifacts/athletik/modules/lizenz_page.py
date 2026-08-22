@@ -15,6 +15,7 @@ from database import (
     lizenz_info_laden,
     lizenz_setzen,
     trainer_lizenz_setzen,
+    einzeltrainer_zu_verein_konvertieren,
     verein_sperren as db_verein_sperren,
     testphase_verlaengern,
     rechnungen_laden,
@@ -917,6 +918,14 @@ def _sa_edit_dialog(row: dict) -> None:
         return
 
     typ_keys  = list(LIZENZ_TYPEN.keys())
+    # Ein echter Standalone-Trainer hat keine Mandantenstruktur und kann daher
+    # ausschließlich ein Trainerpaket erhalten. Technische Mandanten bleiben
+    # absichtlich vollständig auswählbar, weil Vereinspakete dort in die
+    # bestätigte Konvertierung führen.
+    if row["_typ"] == "trainer" and not row.get("_vertrag_verein_id"):
+        typ_keys = ["STARTER_FREE", "TRAINER_BASIC", "TRAINER_PRO"]
+    # Historische widersprüchliche Benutzerwerte dürfen die Dialogansicht
+    # nicht zum Absturz bringen; der Server schützt weiterhin die Speicherung.
     cur_typ   = row["_paket_key"] if row["_paket_key"] in typ_keys else typ_keys[0]
     cur_status = row["lizenz_status"] if row["lizenz_status"] in _SA_STATUS_ALLE else _SA_STATUS_ALLE[0]
     try:
@@ -958,6 +967,22 @@ def _sa_edit_dialog(row: dict) -> None:
             help="Fügt diese Tage zur aktuellen Testphase hinzu",
         )
 
+    vertrag_verein_id = row.get("_vertrag_verein_id")
+    ist_mandanten_konvertierung = bool(
+        row["_typ"] == "trainer"
+        and vertrag_verein_id
+        and neuer_typ in {"VEREIN_BASIC", "VEREIN_PRO"}
+    )
+    if ist_mandanten_konvertierung:
+        st.warning(
+            "⚠️ **Mandanten-Konvertierung:** Der bestehende technische "
+            "Einzeltrainer-Mandant wird zu einem echten Verein. Spieler, "
+            "Kundennummer, Stripe-Daten, Lizenzstatus und Testphase bleiben "
+            "unverändert. Der bisherige Trainer wird Vereinsadmin. "
+            "Status-, Ablauf- und Testphasenwerte aus diesem Formular werden "
+            "bei der Konvertierung bewusst nicht übernommen."
+        )
+
     # Sperren/Entsperren (nur Vereine)
     if row["_typ"] == "verein":
         st.markdown("")
@@ -983,7 +1008,38 @@ def _sa_edit_dialog(row: dict) -> None:
                     testphase_verlaengern(row["_id"], extra_tage)
                 invalidate_lizenz_cache(row["_id"])
             else:
-                vertrag_verein_id = row.get("_vertrag_verein_id")
+                if ist_mandanten_konvertierung:
+                    bestaetigung_key = (
+                        f"sa_konvertierung_bestaetigt_{vertrag_verein_id}_{neuer_typ}"
+                    )
+                    if not st.session_state.get(bestaetigung_key):
+                        st.session_state[bestaetigung_key] = True
+                        st.warning(
+                            "Bitte bestätige die Umwandlung durch erneutes "
+                            "Speichern. Dieser Vorgang macht aus dem "
+                            "Einzeltrainer-Mandanten einen Verein und kann "
+                            "nicht über einen normalen Paketwechsel rückgängig gemacht werden."
+                        )
+                        return
+                    try:
+                        einzeltrainer_zu_verein_konvertieren(
+                            int(vertrag_verein_id),
+                            int(row["_id"]),
+                            neuer_typ,
+                            superadmin_id=st.session_state.get("user", {}).get("id"),
+                        )
+                    except (ValueError, PermissionError) as exc:
+                        st.session_state.pop(bestaetigung_key, None)
+                        st.error(str(exc))
+                        return
+                    st.session_state.pop(bestaetigung_key, None)
+                    invalidate_lizenz_cache(int(vertrag_verein_id))
+                    st.success(
+                        f"✅ **{row['_name']}** wurde als Verein konvertiert. "
+                        "Die Vertragsdaten des bestehenden Mandanten bleiben erhalten."
+                    )
+                    st.rerun()
+                    return
                 if vertrag_verein_id:
                     lizenz_setzen(
                         verein_id=vertrag_verein_id,
@@ -1026,13 +1082,24 @@ def _sa_zuweisen_dialog(vereine_raw: list[dict], trainer_raw: list[dict]) -> Non
         verein_name = st.selectbox("Verein auswählen", list(verein_opts.keys()), key="zuw_verein")
         zuw_id = verein_opts[verein_name]
     else:
+        # Technische Mandanten werden über ihre Vereinszeile verwaltet. Sie
+        # dürfen hier nie als Benutzer-Lizenzziel auftauchen, da Vereinspakete
+        # nur über die bestätigte Mandanten-Konvertierung vergeben werden.
+        standalone_trainer = [
+            trainer for trainer in trainer_raw
+            if not trainer.get("verein_id") and not trainer.get("vertrag_verein_id")
+        ]
         trainer_opts = {
             f"{t.get('vorname', '')} {t.get('nachname', '')}".strip() + f" ({t.get('email', '')})"
             if t.get("email") else f"{t.get('vorname', '')} {t.get('nachname', '')}".strip(): t["id"]
-            for t in trainer_raw
+            for t in standalone_trainer
         }
         if not trainer_opts:
-            st.info("Keine Einzeltrainer vorhanden.")
+            st.info(
+                "Keine Standalone-Einzeltrainer vorhanden. Technische "
+                "Einzeltrainer-Mandanten werden über „Lizenz bearbeiten“ "
+                "konvertiert, nicht über eine Benutzer-Lizenzzuweisung."
+            )
             return
         trainer_name = st.selectbox("Trainer auswählen", list(trainer_opts.keys()), key="zuw_trainer")
         zuw_id = trainer_opts[trainer_name]
@@ -1040,7 +1107,11 @@ def _sa_zuweisen_dialog(vereine_raw: list[dict], trainer_raw: list[dict]) -> Non
     st.markdown("")
     zc1, zc2 = st.columns(2)
     with zc1:
-        typ_keys = list(LIZENZ_TYPEN.keys())
+        typ_keys = (
+            ["STARTER_FREE", "TRAINER_BASIC", "TRAINER_PRO"]
+            if kunden_typ == "Einzeltrainer"
+            else list(LIZENZ_TYPEN.keys())
+        )
         zuw_typ = st.selectbox(
             "Lizenzpaket",
             typ_keys,

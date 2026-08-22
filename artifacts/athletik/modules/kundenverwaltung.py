@@ -20,6 +20,7 @@ from database import (
     audit_log_eintragen,
     lizenz_setzen,
     trainer_lizenz_setzen,
+    einzeltrainer_zu_verein_konvertieren,
     normalize_email,
     kuendigung_liste_laden,
     kuendigung_bestaetigen,
@@ -633,7 +634,11 @@ def _detail_c_lizenz(daten: dict) -> None:
             )
 
         st.markdown("---")
-        paket_optionen = list(LIZENZ_TYPEN.keys())
+        paket_optionen = (
+            list(LIZENZ_TYPEN.keys())
+            if (ist_verein or hat_mandant)
+            else ["STARTER_FREE", "TRAINER_BASIC", "TRAINER_PRO"]
+        )
         cur_idx = paket_optionen.index(lizenztyp) if lizenztyp in paket_optionen else 0
 
         if lizenztyp not in paket_optionen:
@@ -646,6 +651,9 @@ def _detail_c_lizenz(daten: dict) -> None:
             "Paket", paket_optionen, index=cur_idx,
             format_func=lambda x: f"{x} — {LIZENZ_TYPEN[x]['label']}",
             key=f"liz_paket_{key_pfx}",
+        )
+        ist_mandanten_konvertierung = bool(
+            hat_mandant and neues_paket in {"VEREIN_BASIC", "VEREIN_PRO"}
         )
         neuer_status = st.selectbox(
             "Lizenzstatus",
@@ -663,9 +671,27 @@ def _detail_c_lizenz(daten: dict) -> None:
                                         value=src.get("testphase_bis") or "",
                                         key=f"liz_test_{key_pfx}")
 
+        if ist_mandanten_konvertierung:
+            st.warning(
+                "⚠️ **Mandanten-Konvertierung:** Der technische Einzeltrainer-Mandant "
+                "wird zu einem echten Verein. Bestehende Kundennummer, Stripe-Daten, "
+                "Spieler, Lizenzstatus und Testphase bleiben am Mandanten unverändert. "
+                "Der bisherige Trainer wird Vereinsadmin. Die darüber gewählten "
+                "Status- und Datumswerte werden bei diesem Schritt nicht übernommen."
+            )
+
         if st.button("💾 Lizenz / Paket speichern", key=f"liz_save_{key_pfx}"):
             _pk_key = f"liz_bestaetigt_{key_pfx}"
-            if neues_paket != lizenztyp and lizenztyp in paket_optionen and not st.session_state.get(_pk_key):
+            if (
+                ist_mandanten_konvertierung
+                and not st.session_state.get(_pk_key)
+            ):
+                st.session_state[_pk_key] = True
+                st.warning(
+                    "⚠️ **Technischen Einzeltrainer-Mandanten wirklich in einen Verein "
+                    f"mit Paket {neues_paket} umwandeln?** Nochmals speichern zum Bestätigen."
+                )
+            elif neues_paket != lizenztyp and lizenztyp in paket_optionen and not st.session_state.get(_pk_key):
                 st.session_state[_pk_key] = True
                 st.warning(
                     f"⚠️ **Paket wirklich von {lizenztyp} auf {neues_paket} ändern?**"
@@ -713,20 +739,38 @@ def _detail_c_lizenz(daten: dict) -> None:
                     st.session_state.pop(_pk_key, None)
                     st.error(_downgrade_fehler)
                 else:
-                    _detail_lizenz_speichern(
-                        entity_id,
-                        neues_paket,
-                        neuer_status,
-                        neue_liz_bis.strip() or None,
-                        neue_test_bis.strip() or None,
-                        vertragspartner_verein=bool(ist_verein or hat_mandant),
-                    )
-                    audit_log_eintragen(
-                        b.get("id"), "paket_geaendert",
-                        f"{lizenztyp} → {neues_paket} status={neuer_status}", _sa_id(),
-                    )
+                    try:
+                        if ist_mandanten_konvertierung:
+                            einzeltrainer_zu_verein_konvertieren(
+                                entity_id,
+                                b["id"],
+                                neues_paket,
+                                superadmin_id=_sa_id(),
+                            )
+                            invalidate_lizenz_cache(entity_id)
+                        else:
+                            _detail_lizenz_speichern(
+                                entity_id,
+                                neues_paket,
+                                neuer_status,
+                                neue_liz_bis.strip() or None,
+                                neue_test_bis.strip() or None,
+                                vertragspartner_verein=bool(ist_verein or hat_mandant),
+                            )
+                            audit_log_eintragen(
+                                b.get("id"), "paket_geaendert",
+                                f"{lizenztyp} → {neues_paket} status={neuer_status}", _sa_id(),
+                            )
+                    except (ValueError, PermissionError) as exc:
+                        st.session_state.pop(_pk_key, None)
+                        st.error(str(exc))
+                        return
                     st.session_state.pop(_pk_key, None)
-                    st.success("✅ Lizenz gespeichert.")
+                    st.success(
+                        "✅ Einzeltrainer-Mandant als Verein konvertiert."
+                        if ist_mandanten_konvertierung
+                        else "✅ Lizenz gespeichert."
+                    )
                     st.rerun()
 
 

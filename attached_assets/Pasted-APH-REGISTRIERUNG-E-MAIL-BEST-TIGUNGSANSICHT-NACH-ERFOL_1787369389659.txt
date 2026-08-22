@@ -1,0 +1,280 @@
+APH – REGISTRIERUNG: E-MAIL-BESTÄTIGUNGSANSICHT NACH ERFOLGREICHER REGISTRIERUNG
+
+WICHTIG:
+NICHT sofort umbauen.
+
+Zuerst den bestehenden Ablauf vollständig analysieren:
+
+1. Trainer-Registrierung
+2. Vereinsregistrierung
+3. Erstellung des Benutzer-/Mandantenkontos
+4. Versand der Verifizierungs-E-Mail
+5. E-Mail-Verifizierung über Token
+6. Superadmin-Freischaltung
+7. Login-Sperre vor Freischaltung
+8. vorhandene „E-Mail erneut senden“-Logik
+9. vorhandene Session-/Streamlit-State-Logik
+
+Erst danach gezielt die notwendige UI/UX ergänzen.
+
+Keine unnötigen Refactorings.
+Keine parallele Registrierungs- oder Verifizierungslogik bauen.
+Bestehende funktionierende Sicherheitslogik wiederverwenden.
+
+==================================================
+SOLL-ABLAUF
+==================================================
+
+Der bestehende fachliche Ablauf soll erhalten bleiben:
+
+Registrierung
+→ Bestätigungs-E-Mail
+→ Nutzer bestätigt E-Mail-Adresse
+→ Konto wartet auf Freischaltung durch Superadmin
+→ Superadmin schaltet Konto frei
+→ danach kann der Kunde APH regulär nutzen.
+
+WICHTIG:
+Die E-Mail-Bestätigung allein darf den Account NICHT freischalten.
+
+==================================================
+1. NACH ERFOLGREICHER REGISTRIERUNG
+==================================================
+
+Das gilt für:
+
+TRAINER:
+- STARTER_FREE
+- TRAINER_BASIC
+- TRAINER_PRO
+
+VEREIN:
+- VEREIN_BASIC
+- VEREIN_PRO
+
+Nach einer technisch erfolgreich abgeschlossenen Registrierung soll nicht
+weiter das ausgefüllte bzw. zurückgesetzte Registrierungsformular angezeigt
+werden.
+
+Stattdessen eine klare Bestätigungsansicht anzeigen.
+
+==================================================
+2. BESTÄTIGUNGSANSICHT
+==================================================
+
+Überschrift:
+
+✅ Registrierung erfolgreich
+
+Text:
+
+„Wir haben dir eine Bestätigungs-E-Mail geschickt.“
+
+„Bitte öffne dein E-Mail-Postfach und bestätige deine E-Mail-Adresse über den Link in der Nachricht.“
+
+Danach anzeigen:
+
+„E-Mail gesendet an:
+<registrierte E-Mail-Adresse>“
+
+Zusätzlicher Hinweis:
+
+„Nach der E-Mail-Bestätigung wird deine Registrierung von APH geprüft und freigeschaltet.“
+
+„Du kannst dich anmelden, sobald dein Konto freigeschaltet wurde.“
+
+Spam-Hinweis:
+
+„Keine E-Mail erhalten? Bitte prüfe auch deinen Spam-Ordner.“
+
+==================================================
+3. BUTTONS
+==================================================
+
+Auf der Seite:
+
+📧 E-Mail erneut senden
+
+und
+
+🔐 Zur Anmeldung
+
+Für „E-Mail erneut senden“ ausschließlich die bereits vorhandene
+Resend-/Token-Logik verwenden.
+
+Bestehenden Cooldown und Missbrauchsschutz NICHT umgehen.
+
+Keine zweite E-Mail-Versandlogik bauen.
+
+==================================================
+4. NACH KLICK AUF DEN E-MAIL-BESTÄTIGUNGSLINK
+==================================================
+
+Bitte den bestehenden Verifizierungsablauf zuerst prüfen.
+
+Falls dort aktuell sinngemäß steht:
+
+„E-Mail bestätigt – du kannst dich jetzt anmelden“
+
+oder etwas anderes, das eine sofortige Freischaltung suggeriert,
+nur diesen Text korrigieren.
+
+Gewünschte Darstellung:
+
+✅ E-Mail-Adresse bestätigt
+
+„Deine E-Mail-Adresse wurde erfolgreich bestätigt.“
+
+„Dein Konto wartet jetzt auf die Freischaltung durch APH.“
+
+„Sobald dein Konto freigeschaltet wurde, kannst du dich anmelden.“
+
+WICHTIG:
+Die technische Verifizierungslogik NICHT ändern, sofern sie bereits korrekt
+nur email_verifiziert setzt und den Account nicht automatisch aktiviert.
+
+==================================================
+5. SUPERADMIN-FREISCHALTUNG
+==================================================
+
+Bestehende Superadmin-Freischaltung vollständig erhalten.
+
+Nicht ändern:
+
+- Aktivierungslogik
+- Benutzerverwaltung
+- Kundenverwaltung
+- Lizenzverwaltung
+- Rollen
+- Lizenztypen
+- Trial-/Starter-Logik
+- Stripe
+- Pakete
+- Kundennummern
+- Mandantenlogik
+
+Es handelt sich primär um eine UX-Ergänzung nach der Registrierung.
+
+==================================================
+6. STREAMLIT / SESSION STATE
+==================================================
+
+Nur falls erforderlich einen kleinen stabilen State verwenden, damit:
+
+erfolgreiche Registrierung
+→ Bestätigungsansicht
+
+bei einem normalen Streamlit-Rerun nicht sofort wieder zum
+Registrierungsformular zurückspringt.
+
+Dabei nur die minimal notwendigen Informationen speichern, z. B.:
+
+- Registrierung erfolgreich
+- registrierte E-Mail
+
+Keine Passwörter speichern.
+Keine Tokens unnötig im Session-State speichern.
+
+Beim bewussten Wechsel zu „Zur Anmeldung“ den temporären
+Registrierungs-State sauber zurücksetzen.
+
+==================================================
+7. KEINE AUTOMATISCHE ANMELDUNG
+==================================================
+
+Nach Registrierung:
+kein Auto-Login.
+
+Nach E-Mail-Verifizierung:
+kein Auto-Login, solange Superadmin-Freischaltung erforderlich ist.
+
+Ein nicht freigeschaltetes Konto muss weiterhin durch die bestehende
+Login-/Aktivierungsprüfung blockiert werden.
+
+==================================================
+8. TESTS
+==================================================
+
+Bestehenden Code zuerst analysieren und danach Regressionstests ergänzen.
+
+Mindestens prüfen:
+
+1. STARTER_FREE Registrierung
+   → Bestätigungsansicht
+
+2. TRAINER_BASIC Registrierung
+   → Bestätigungsansicht
+
+3. TRAINER_PRO Registrierung
+   → Bestätigungsansicht
+
+4. VEREIN_BASIC Registrierung
+   → Bestätigungsansicht
+
+5. VEREIN_PRO Registrierung
+   → Bestätigungsansicht
+
+6. registrierte E-Mail wird korrekt angezeigt
+
+7. Streamlit-Rerun
+   → Bestätigungsansicht bleibt erhalten
+
+8. „E-Mail erneut senden“
+   → vorhandene Resend-Logik
+
+9. Cooldown bleibt erhalten
+
+10. E-Mail-Verifizierung
+    → email_verifiziert wird wie bisher gesetzt
+
+11. E-Mail-Verifizierung
+    → Account wird NICHT automatisch freigeschaltet
+
+12. nicht freigeschalteter Benutzer
+    → Login/Nutzung weiterhin blockiert
+
+13. Superadmin-Freischaltung
+    → bestehender Ablauf unverändert
+
+14. „Zur Anmeldung“
+    → temporären Registrierungs-State sauber zurücksetzen
+
+15. keine Regression bei Trainer-/Vereinsregistrierung
+
+==================================================
+9. WICHTIGE VORGABE
+==================================================
+
+Wenn die bestehende Implementierung Teile davon bereits korrekt macht:
+
+NICHT neu bauen.
+
+Bestehenden Code wiederverwenden und ausschließlich die fehlenden Stellen
+ergänzen bzw. falsche Texte korrigieren.
+
+Keine Architekturänderung nur für diese UX-Anpassung.
+
+==================================================
+10. ABSCHLUSSBERICHT
+==================================================
+
+Am Ende berichten:
+
+- wie der bisherige Registrierungsablauf tatsächlich funktioniert
+- wie E-Mail-Verifizierung aktuell funktioniert
+- wie Superadmin-Freischaltung aktuell funktioniert
+- was bereits vorhanden war
+- was tatsächlich geändert werden musste
+- geänderte Dateien
+- neuer Ablauf Trainer
+- neuer Ablauf Verein
+- Verhalten nach E-Mail-Bestätigung
+- Verhalten vor Superadmin-Freischaltung
+- Testergebnisse
+- DB-Migration ja/nein
+- Produktionsdaten verändert ja/nein
+
+Nicht deployen.
+Nicht pushen.
+
+Danach STOPP.
