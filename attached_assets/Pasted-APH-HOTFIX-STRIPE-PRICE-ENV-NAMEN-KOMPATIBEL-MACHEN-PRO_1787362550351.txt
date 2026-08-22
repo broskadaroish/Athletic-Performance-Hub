@@ -1,0 +1,98 @@
+APH – HOTFIX STRIPE PRICE ENV-NAMEN KOMPATIBEL MACHEN
+
+PROBLEM
+
+Die produktive .env verwendet bereits die vorhandenen Stripe-Price-Variablen:
+
+STRIPE_PRICE_TRAINER_BASIC_MONTHLY
+STRIPE_PRICE_TRAINER_BASIC_YEARLY
+STRIPE_PRICE_TRAINER_PRO_MONTHLY
+STRIPE_PRICE_TRAINER_PRO_YEARLY
+STRIPE_PRICE_VEREIN_BASIC_MONTHLY
+STRIPE_PRICE_VEREIN_BASIC_YEARLY
+STRIPE_PRICE_VEREIN_PRO_MONTHLY
+STRIPE_PRICE_VEREIN_PRO_YEARLY
+
+stripe_service.py kann diese vorhandenen Namen bereits verwenden.
+
+license.py erwartet für LIZENZ_TYPEN jedoch aktuell ausschließlich:
+
+..._MONAT
+..._JAHR
+
+Dadurch zeigt „Mein Vertrag“ fälschlicherweise:
+„Stripe-Price-ID noch nicht konfiguriert.“
+
+AUFGABE
+
+1. license.py so anpassen, dass die Stripe-Price-ID zentral beide Namensvarianten unterstützt.
+
+Priorität:
+
+MONAT:
+- zuerst STRIPE_PRICE_<PAKET>_MONAT
+- falls leer/nicht vorhanden: STRIPE_PRICE_<PAKET>_MONTHLY
+
+JAHR:
+- zuerst STRIPE_PRICE_<PAKET>_JAHR
+- falls leer/nicht vorhanden: STRIPE_PRICE_<PAKET>_YEARLY
+
+Beispiel sinngemäß:
+
+os.environ.get("STRIPE_PRICE_TRAINER_BASIC_MONAT")
+or os.environ.get("STRIPE_PRICE_TRAINER_BASIC_MONTHLY", "")
+
+und analog für alle vier Bezahlpakete.
+
+2. Keine Stripe-IDs hardcoden.
+
+3. Bestehende MONAT/JAHR-Unterstützung NICHT entfernen.
+Beide Varianten müssen weiterhin funktionieren.
+
+4. STARTER_FREE weiterhin ohne Stripe-Price-ID.
+
+5. Zusätzlich den sichtbaren UI-Fehler korrigieren:
+
+Aktuell:
+„Max. 1 Trainer · None Spieler“
+
+Bei einem Paket mit max_spieler = None muss angezeigt werden:
+
+„Max. 1 Trainer · unbegrenzt Spieler“
+
+Niemals „None Spieler“.
+
+6. Keine Änderung an:
+- Preisen
+- Stripe-Produkten
+- Webhooks
+- Checkout
+- Lizenzaktivierung
+- Datenbank
+- Produktionsdaten
+
+TESTS
+
+Bitte Regressionen ergänzen für:
+
+- MONTHLY wird als Monats-Price erkannt
+- YEARLY wird als Jahres-Price erkannt
+- MONAT funktioniert weiterhin
+- JAHR funktioniert weiterhin
+- MONAT/JAHR haben Priorität, falls beide Varianten gesetzt sind
+- STARTER_FREE bleibt ohne Stripe-Price
+- TRAINER_PRO mit max_spieler=None zeigt „unbegrenzt Spieler“
+- kein „None Spieler“ in Paketkarten
+
+Danach:
+python -m py_compile license.py modules/mein_vertrag.py app.py
+python tools/test_starter_free.py
+python tools/test_block_b.py
+python tools/test_mein_vertrag_status.py
+git diff --check
+
+Kein Deployment.
+Keine DB-Migration.
+Keine Produktionsdatenänderung.
+
+Danach kurzen Abschlussbericht und STOPP.

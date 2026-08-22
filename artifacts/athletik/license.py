@@ -130,6 +130,24 @@ _FEATURES_VEREIN_PRO: list[str] = [
 ]
 
 
+def _stripe_price_id(paket: str, intervall: str) -> str:
+    """Lädt eine Stripe-Price-ID mit beiden unterstützten Env-Namensvarianten.
+
+    Die ursprünglichen APH-Namen (*_MONAT / *_JAHR) haben Vorrang. Die
+    produktive Konfiguration verwendet teilweise die Stripe-üblichen
+    *_MONTHLY / *_YEARLY-Suffixe; diese dienen als Fallback.
+    """
+    suffixe = {
+        "monat": ("MONAT", "MONTHLY"),
+        "jahr": ("JAHR", "YEARLY"),
+    }
+    primaer, fallback = suffixe[intervall]
+    return (
+        os.environ.get(f"STRIPE_PRICE_{paket}_{primaer}")
+        or os.environ.get(f"STRIPE_PRICE_{paket}_{fallback}", "")
+    )
+
+
 LIZENZ_TYPEN: dict[str, LizenzTypDef] = {
     "STARTER_FREE": {
         "label":              "Starter – 30 Tage kostenlos",
@@ -150,8 +168,8 @@ LIZENZ_TYPEN: dict[str, LizenzTypDef] = {
         "max_spieler":        20,
         "preis_monat":        9.99,
         "preis_jahr":         99.0,
-        "stripe_price_monat": os.environ.get("STRIPE_PRICE_TRAINER_BASIC_MONAT", ""),
-        "stripe_price_jahr":  os.environ.get("STRIPE_PRICE_TRAINER_BASIC_JAHR",  ""),
+        "stripe_price_monat": _stripe_price_id("TRAINER_BASIC", "monat"),
+        "stripe_price_jahr":  _stripe_price_id("TRAINER_BASIC", "jahr"),
         "geeignet_fuer":      ["Einzeltrainer", "Jugendtrainer"],
         "features":           _FEATURES_TRAINER_BASIC,
     },
@@ -162,8 +180,8 @@ LIZENZ_TYPEN: dict[str, LizenzTypDef] = {
         "max_spieler":        None,      # unbegrenzt
         "preis_monat":        14.99,
         "preis_jahr":         149.0,
-        "stripe_price_monat": os.environ.get("STRIPE_PRICE_TRAINER_PRO_MONAT", ""),
-        "stripe_price_jahr":  os.environ.get("STRIPE_PRICE_TRAINER_PRO_JAHR",  ""),
+        "stripe_price_monat": _stripe_price_id("TRAINER_PRO", "monat"),
+        "stripe_price_jahr":  _stripe_price_id("TRAINER_PRO", "jahr"),
         "geeignet_fuer":      ["Einzeltrainer", "Akademie-Trainer"],
         "features":           _FEATURES_TRAINER_PRO,
     },
@@ -174,8 +192,8 @@ LIZENZ_TYPEN: dict[str, LizenzTypDef] = {
         "max_spieler":        50,
         "preis_monat":        24.99,
         "preis_jahr":         249.0,
-        "stripe_price_monat": os.environ.get("STRIPE_PRICE_VEREIN_BASIC_MONAT", ""),
-        "stripe_price_jahr":  os.environ.get("STRIPE_PRICE_VEREIN_BASIC_JAHR",  ""),
+        "stripe_price_monat": _stripe_price_id("VEREIN_BASIC", "monat"),
+        "stripe_price_jahr":  _stripe_price_id("VEREIN_BASIC", "jahr"),
         "geeignet_fuer":      ["Kleine Vereine", "Jugendabteilungen"],
         "features":           _FEATURES_VEREIN_BASIC,
     },
@@ -186,8 +204,8 @@ LIZENZ_TYPEN: dict[str, LizenzTypDef] = {
         "max_spieler":        None,      # unbegrenzt
         "preis_monat":        39.99,
         "preis_jahr":         399.0,
-        "stripe_price_monat": os.environ.get("STRIPE_PRICE_VEREIN_PRO_MONAT", ""),
-        "stripe_price_jahr":  os.environ.get("STRIPE_PRICE_VEREIN_PRO_JAHR",  ""),
+        "stripe_price_monat": _stripe_price_id("VEREIN_PRO", "monat"),
+        "stripe_price_jahr":  _stripe_price_id("VEREIN_PRO", "jahr"),
         "geeignet_fuer":      ["Komplette Vereine", "Leistungszentren", "Akademien"],
         "features":           _FEATURES_VEREIN_PRO,
     },

@@ -77,6 +77,11 @@ def _kpi(label: str, value: str, color: str = "#58a6ff", sub: str = "") -> None:
     )
 
 
+def _limit_label(value: int | None) -> str:
+    """Formatiert ein Paketlimit ohne Python-None in der sichtbaren UI."""
+    return "unbegrenzt" if value is None else str(value)
+
+
 def _stripe_upgrade(typ_key: str, verein_id: int, info: dict) -> None:
     """Leitet zum Stripe-Checkout weiter oder zeigt Fallback-Kontakt."""
     from stripe_service import stripe_verfuegbar, customer_erstellen, checkout_session_erstellen
@@ -175,7 +180,8 @@ def _tarif_karte(
         f'<div style="font-size:14px;font-weight:700;color:{_C["text"]};margin-bottom:4px">'
         f'{typ_def["label"]}{badge}</div>'
         f'<div style="font-size:11px;color:{_C["muted"]};margin-bottom:8px">'
-        f'Max. {typ_def["max_trainer"]} Trainer · {typ_def["max_spieler"]} Spieler</div>'
+        f'Max. {_limit_label(typ_def.get("max_trainer"))} Trainer · '
+        f'{_limit_label(typ_def.get("max_spieler"))} Spieler</div>'
         f'{preis_html}{feat_html}</div>',
         unsafe_allow_html=True,
     )

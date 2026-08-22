@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import os
+import json
 import shutil
 import sqlite3
+import subprocess
 import sys
 import tempfile
 from datetime import date, timedelta
@@ -17,7 +19,7 @@ if APP_ROOT not in sys.path:
 
 import database as db
 from license import LIZENZ_TYPEN, get_lizenz_info, ist_starter_lizenz
-from modules.lizenz_page import _sa_normalize
+from modules.lizenz_page import _limit_label, _sa_normalize
 
 
 TMP = tempfile.mkdtemp(prefix="test_starter_free_")
@@ -45,6 +47,51 @@ def raises_value_error(callback) -> bool:
     except ValueError:
         return True
     return False
+
+
+def stripe_prices_with_env(updates: dict[str, str]) -> dict[str, str]:
+    """Lädt license.py isoliert mit einem kontrollierten Env-Satz."""
+    names = [
+        "STRIPE_PRICE_TRAINER_BASIC_MONAT",
+        "STRIPE_PRICE_TRAINER_BASIC_MONTHLY",
+        "STRIPE_PRICE_TRAINER_BASIC_JAHR",
+        "STRIPE_PRICE_TRAINER_BASIC_YEARLY",
+        "STRIPE_PRICE_TRAINER_PRO_MONAT",
+        "STRIPE_PRICE_TRAINER_PRO_MONTHLY",
+        "STRIPE_PRICE_TRAINER_PRO_JAHR",
+        "STRIPE_PRICE_TRAINER_PRO_YEARLY",
+        "STRIPE_PRICE_VEREIN_BASIC_MONAT",
+        "STRIPE_PRICE_VEREIN_BASIC_MONTHLY",
+        "STRIPE_PRICE_VEREIN_BASIC_JAHR",
+        "STRIPE_PRICE_VEREIN_BASIC_YEARLY",
+        "STRIPE_PRICE_VEREIN_PRO_MONAT",
+        "STRIPE_PRICE_VEREIN_PRO_MONTHLY",
+        "STRIPE_PRICE_VEREIN_PRO_JAHR",
+        "STRIPE_PRICE_VEREIN_PRO_YEARLY",
+    ]
+    env = os.environ.copy()
+    for name in names:
+        env.pop(name, None)
+    env.update(updates)
+    output = subprocess.check_output(
+        [
+            sys.executable,
+            "-c",
+            (
+                "import json, license; "
+                "print(json.dumps({"
+                "'monat': license.LIZENZ_TYPEN['TRAINER_BASIC']['stripe_price_monat'], "
+                "'jahr': license.LIZENZ_TYPEN['TRAINER_BASIC']['stripe_price_jahr'], "
+                "'starter_monat': license.LIZENZ_TYPEN['STARTER_FREE']['stripe_price_monat'], "
+                "'starter_jahr': license.LIZENZ_TYPEN['STARTER_FREE']['stripe_price_jahr']"
+                "}))"
+            ),
+        ],
+        cwd=APP_ROOT,
+        env=env,
+        text=True,
+    )
+    return json.loads(output)
 
 
 def main() -> int:
@@ -78,6 +125,46 @@ def main() -> int:
     check("Starter legt keinen Stripe-Kunden an", not verein["stripe_customer_id"])
     check("Starter legt keine Stripe-Subscription an", not verein["stripe_subscription_id"])
     check("Starter legt keine Rechnungsadresse an", invoice_count == 0)
+    monthly = stripe_prices_with_env({
+        "STRIPE_PRICE_TRAINER_BASIC_MONTHLY": "price_monthly_test",
+    })
+    yearly = stripe_prices_with_env({
+        "STRIPE_PRICE_TRAINER_BASIC_YEARLY": "price_yearly_test",
+    })
+    legacy_month = stripe_prices_with_env({
+        "STRIPE_PRICE_TRAINER_BASIC_MONAT": "price_monat_test",
+    })
+    legacy_year = stripe_prices_with_env({
+        "STRIPE_PRICE_TRAINER_BASIC_JAHR": "price_jahr_test",
+    })
+    priority = stripe_prices_with_env({
+        "STRIPE_PRICE_TRAINER_BASIC_MONAT": "price_primary_month",
+        "STRIPE_PRICE_TRAINER_BASIC_MONTHLY": "price_fallback_month",
+        "STRIPE_PRICE_TRAINER_BASIC_JAHR": "price_primary_year",
+        "STRIPE_PRICE_TRAINER_BASIC_YEARLY": "price_fallback_year",
+    })
+    check("MONTHLY wird als Monats-Price erkannt", monthly["monat"] == "price_monthly_test")
+    check("YEARLY wird als Jahres-Price erkannt", yearly["jahr"] == "price_yearly_test")
+    check("MONAT funktioniert weiterhin", legacy_month["monat"] == "price_monat_test")
+    check("JAHR funktioniert weiterhin", legacy_year["jahr"] == "price_jahr_test")
+    check(
+        "MONAT/JAHR haben Priorität vor MONTHLY/YEARLY",
+        priority["monat"] == "price_primary_month"
+        and priority["jahr"] == "price_primary_year",
+    )
+    check(
+        "STARTER_FREE bleibt ohne Stripe-Price",
+        not monthly["starter_monat"] and not yearly["starter_jahr"],
+    )
+    check(
+        "TRAINER_PRO mit max_spieler=None zeigt unbegrenzt Spieler",
+        _limit_label(LIZENZ_TYPEN["TRAINER_PRO"]["max_spieler"]) == "unbegrenzt",
+    )
+    check(
+        "Paketkarten zeigen niemals None Spieler",
+        f"{_limit_label(LIZENZ_TYPEN['TRAINER_PRO']['max_spieler'])} Spieler"
+        == "unbegrenzt Spieler",
+    )
     kunden = db.kunden_liste_laden()
     lizenz_trainer = db.alle_trainer_lizenz()
     starter_kunde = next(
