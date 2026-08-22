@@ -201,6 +201,26 @@ from spieler_import import (
 )
 
 
+def _starter_premium_feature_gesperrt(feature: str) -> bool:
+    """Zeigt eine sichtbare Sperre und verhindert den serverseitigen App-Einstieg."""
+    user = st.session_state.get("user", {})
+    verein_id = user.get("verein_id")
+    if not verein_id:
+        return False
+    try:
+        from database import lizenz_info_laden
+        from license import starter_premium_feature_gesperrt, starter_upgrade_hinweis
+        if not starter_premium_feature_gesperrt(feature, lizenz_info_laden(verein_id)):
+            return False
+    except Exception:
+        return False
+    st.info(f"🔒 **Upgrade erforderlich:** {starter_upgrade_hinweis(feature)}")
+    if st.button("💳 Pakete ansehen", key=f"starter_lock_{feature}", use_container_width=True):
+        st.session_state["_nav_goto"] = "💳  Lizenz"
+        st.rerun()
+    return True
+
+
 # ─── Anleitung-Download-Button (wiederverwendbar auf jeder Testseite) ─────────
 
 @st.cache_data(show_spinner=False, ttl=300)
@@ -1222,7 +1242,7 @@ if "user" not in st.session_state:
                 if _trainer_modus == "eigenstaendig":
 
                     from license import LIZENZ_TYPEN as _REG_TLT
-                    _TRAINER_PAKETE = ["TRAINER_BASIC", "TRAINER_PRO"]
+                    _TRAINER_PAKETE = ["STARTER_FREE", "TRAINER_BASIC", "TRAINER_PRO"]
 
                     # ── 1 · Paket wählen ──────────────────────────────────────────
                     st.markdown(
@@ -1244,8 +1264,8 @@ if "user" not in st.session_state:
 
                     # Paket-Karten mit Auswahlzustand
                     _cur_t_paket = st.session_state.get("reg_t_paket", _TRAINER_PAKETE[0])
-                    _ttc1, _ttc2 = st.columns(2)
-                    for _tpk, _tpc in zip(_TRAINER_PAKETE, [_ttc1, _ttc2]):
+                    _ttc1, _ttc2, _ttc3 = st.columns(3)
+                    for _tpk, _tpc in zip(_TRAINER_PAKETE, [_ttc1, _ttc2, _ttc3]):
                         _ttd = _REG_TLT[_tpk]
                         _tms = "unbegrenzt" if _ttd["max_spieler"] is None else f"max. {_ttd['max_spieler']}"
                         _t_is_sel = (_tpk == _cur_t_paket)
@@ -1261,8 +1281,10 @@ if "user" not in st.session_state:
                             f'border-radius:10px;padding:12px 14px;font-size:12px;line-height:1.8">'
                             f'{_t_sel_badge}'
                             f'<strong style="color:#e6edf3;font-size:13px">{_ttd["label"]}</strong><br>'
-                            f'<span style="color:#3fb950;font-weight:600">{_ttd["preis_monat"]:.2f}\u202f€/Mo</span>'
-                            f'<span style="color:#8b949e;font-size:11px">\u2002·\u2002{_ttd["preis_jahr"]:.0f}\u202f€/Jahr</span><br>'
+                            f'<span style="color:#3fb950;font-weight:600">'
+                            f'{"30 Tage kostenlos" if _tpk == "STARTER_FREE" else f"{_ttd["preis_monat"]:.2f} €/Mo"}</span>'
+                            f'<span style="color:#8b949e;font-size:11px">'
+                            f'{" · keine Zahlungsdaten" if _tpk == "STARTER_FREE" else f" · {_ttd["preis_jahr"]:.0f} €/Jahr"}</span><br>'
                             f'<span style="color:#8b949e;font-size:11px">👤 {_ttd["max_trainer"]} Trainer'
                             f'\u2002·\u2002{_tms} Spieler</span>'
                             f'</div>',
@@ -1278,17 +1300,21 @@ if "user" not in st.session_state:
                         label_visibility="collapsed",
                     )
                     _t_tsel = _REG_TLT[_t_paket]
-                    _t_intervall = st.radio(
-                        "Abrechnungsintervall *",
-                        ["monat", "jahr"],
-                        format_func=lambda x, _td=_t_tsel: (
-                            f"Monatlich — {_td['preis_monat']:.2f}\u202f€/Monat"
-                            if x == "monat"
-                            else f"Jährlich — {_td['preis_jahr']:.0f}\u202f€/Jahr"
-                                 f"  ✓ günstiger als 12 Monatszahlungen"
-                        ),
-                        key="reg_t_intervall",
-                    )
+                    if _t_paket == "STARTER_FREE":
+                        _t_intervall = "monat"
+                        st.info("Starter läuft einmalig 30 Tage und benötigt keine Zahlungs- oder Rechnungsdaten.")
+                    else:
+                        _t_intervall = st.radio(
+                            "Abrechnungsintervall *",
+                            ["monat", "jahr"],
+                            format_func=lambda x, _td=_t_tsel: (
+                                f"Monatlich — {_td['preis_monat']:.2f} €/Monat"
+                                if x == "monat"
+                                else f"Jährlich — {_td['preis_jahr']:.0f} €/Jahr"
+                                     f"  ✓ günstiger als 12 Monatszahlungen"
+                            ),
+                            key="reg_t_intervall",
+                        )
 
                     # ── 2 · Zugangsdaten ──────────────────────────────────────────
                     st.markdown(
@@ -1309,31 +1335,38 @@ if "user" not in st.session_state:
                     _t_pw2 = _tp2.text_input("Passwort bestätigen *", key="trainer_pw2", type="password")
 
                     # ── 3 · Rechnungsdaten ────────────────────────────────────────
-                    st.markdown(
-                        '<div style="margin:14px 0 10px;padding:0 0 6px;border-bottom:1px solid #21262d">'
-                        '<span style="color:#e6edf3;font-size:14px;font-weight:700">3 · Rechnungsdaten</span>'
-                        '</div>',
-                        unsafe_allow_html=True,
-                    )
-                    with st.expander("📄 Rechnungsadresse (Pflichtangabe)", expanded=True):
-                        _tb1, _tb2 = st.columns(2)
-                        _t_ra_firma    = _tb1.text_input("Firma/Verein (optional)",  key="tr_ra_firma")
-                        _t_ra_tel      = _tb2.text_input("Telefon (optional)",       key="tr_ra_tel")
-                        _tb3, _tb4 = st.columns(2)
-                        _t_ra_vorname  = _tb3.text_input("Vorname *",                key="tr_ra_vorname")
-                        _t_ra_nachname = _tb4.text_input("Nachname *",               key="tr_ra_nachname")
-                        _tb5, _tb6 = st.columns([3, 1])
-                        _t_ra_strasse  = _tb5.text_input("Straße *",                 key="tr_ra_strasse")
-                        _t_ra_hnr      = _tb6.text_input("Nr. *",                    key="tr_ra_hnr")
-                        _tb7, _tb8 = st.columns([1, 2])
-                        _t_ra_plz      = _tb7.text_input("PLZ *",                    key="tr_ra_plz")
-                        _t_ra_ort      = _tb8.text_input("Ort *",                    key="tr_ra_ort")
-                        _tb9, _tb10 = st.columns(2)
-                        _t_ra_land     = _tb9.text_input("Land *",                   key="tr_ra_land",
-                                                         value="Deutschland")
-                        _t_ra_remail   = _tb10.text_input("Rechnungs-E-Mail *",      key="tr_ra_remail",
-                                                          placeholder="rechnung@trainer.de")
-                        _t_ra_ustid    = st.text_input("Umsatzsteuer-ID (optional)", key="tr_ra_ustid")
+                    # Starter speichert bewusst keinerlei Rechnungs- oder Zahlungsdaten.
+                    _t_ra_firma = _t_ra_tel = _t_ra_vorname = _t_ra_nachname = ""
+                    _t_ra_strasse = _t_ra_hnr = _t_ra_plz = _t_ra_ort = ""
+                    _t_ra_land = _t_ra_remail = _t_ra_ustid = ""
+                    if _t_paket == "STARTER_FREE":
+                        st.caption("3 · Keine Rechnungsdaten für Starter erforderlich.")
+                    else:
+                        st.markdown(
+                            '<div style="margin:14px 0 10px;padding:0 0 6px;border-bottom:1px solid #21262d">'
+                            '<span style="color:#e6edf3;font-size:14px;font-weight:700">3 · Rechnungsdaten</span>'
+                            '</div>',
+                            unsafe_allow_html=True,
+                        )
+                        with st.expander("📄 Rechnungsadresse (Pflichtangabe)", expanded=True):
+                            _tb1, _tb2 = st.columns(2)
+                            _t_ra_firma    = _tb1.text_input("Firma/Verein (optional)",  key="tr_ra_firma")
+                            _t_ra_tel      = _tb2.text_input("Telefon (optional)",       key="tr_ra_tel")
+                            _tb3, _tb4 = st.columns(2)
+                            _t_ra_vorname  = _tb3.text_input("Vorname *",                key="tr_ra_vorname")
+                            _t_ra_nachname = _tb4.text_input("Nachname *",               key="tr_ra_nachname")
+                            _tb5, _tb6 = st.columns([3, 1])
+                            _t_ra_strasse  = _tb5.text_input("Straße *",                 key="tr_ra_strasse")
+                            _t_ra_hnr      = _tb6.text_input("Nr. *",                    key="tr_ra_hnr")
+                            _tb7, _tb8 = st.columns([1, 2])
+                            _t_ra_plz      = _tb7.text_input("PLZ *",                    key="tr_ra_plz")
+                            _t_ra_ort      = _tb8.text_input("Ort *",                    key="tr_ra_ort")
+                            _tb9, _tb10 = st.columns(2)
+                            _t_ra_land     = _tb9.text_input("Land *",                   key="tr_ra_land",
+                                                             value="Deutschland")
+                            _t_ra_remail   = _tb10.text_input("Rechnungs-E-Mail *",      key="tr_ra_remail",
+                                                              placeholder="rechnung@trainer.de")
+                            _t_ra_ustid    = st.text_input("Umsatzsteuer-ID (optional)", key="tr_ra_ustid")
 
                     # ── 4 · Rechtliches ───────────────────────────────────────────
                     st.markdown(
@@ -1383,15 +1416,16 @@ if "user" not in st.session_state:
                         if not _t_uname.strip():             _terr.append("Benutzername fehlt.")
                         if len(_t_pw1) < 6:                  _terr.append("Passwort mind. 6 Zeichen.")
                         elif _t_pw1 != _t_pw2:               _terr.append("Passwörter stimmen nicht überein.")
-                        if not _t_ra_vorname.strip() or not _t_ra_nachname.strip():
-                            _terr.append("Rechnungsadresse: Vor-/Nachname fehlen.")
-                        if not _t_ra_strasse.strip() or not _t_ra_hnr.strip():
-                            _terr.append("Rechnungsadresse: Straße und Hausnummer fehlen.")
-                        if not _t_ra_plz.strip() or not _t_ra_ort.strip():
-                            _terr.append("Rechnungsadresse: PLZ und Ort fehlen.")
-                        if not _t_ra_land.strip():           _terr.append("Rechnungsadresse: Land fehlt.")
-                        if not _t_ra_remail.strip() or "@" not in _t_ra_remail:
-                            _terr.append("Rechnungsadresse: Rechnungs-E-Mail fehlt oder ungültig.")
+                        if _t_paket != "STARTER_FREE":
+                            if not _t_ra_vorname.strip() or not _t_ra_nachname.strip():
+                                _terr.append("Rechnungsadresse: Vor-/Nachname fehlen.")
+                            if not _t_ra_strasse.strip() or not _t_ra_hnr.strip():
+                                _terr.append("Rechnungsadresse: Straße und Hausnummer fehlen.")
+                            if not _t_ra_plz.strip() or not _t_ra_ort.strip():
+                                _terr.append("Rechnungsadresse: PLZ und Ort fehlen.")
+                            if not _t_ra_land.strip():           _terr.append("Rechnungsadresse: Land fehlt.")
+                            if not _t_ra_remail.strip() or "@" not in _t_ra_remail:
+                                _terr.append("Rechnungsadresse: Rechnungs-E-Mail fehlt oder ungültig.")
                         if _t_paket not in _TRAINER_PAKETE:
                             _terr.append(f"Ungültiges Paket: {_t_paket!r}.")
                         if _t_intervall not in ("monat", "jahr"):
@@ -1408,18 +1442,19 @@ if "user" not in st.session_state:
                                     lizenztyp=_t_paket,
                                     abo_intervall=_t_intervall,
                                 )
-                                _ras(_tbid,
-                                     firma=_t_ra_firma.strip() or None,
-                                     vorname=_t_ra_vorname.strip(),
-                                     nachname=_t_ra_nachname.strip(),
-                                     strasse=_t_ra_strasse.strip(),
-                                     hausnummer=_t_ra_hnr.strip(),
-                                     plz=_t_ra_plz.strip(),
-                                     ort=_t_ra_ort.strip(),
-                                     land=_t_ra_land.strip(),
-                                     rechnung_email=_t_ra_remail.strip(),
-                                     telefon=_t_ra_tel.strip() or None,
-                                     ust_id=_t_ra_ustid.strip() or None)
+                                if _t_paket != "STARTER_FREE":
+                                    _ras(_tbid,
+                                         firma=_t_ra_firma.strip() or None,
+                                         vorname=_t_ra_vorname.strip(),
+                                         nachname=_t_ra_nachname.strip(),
+                                         strasse=_t_ra_strasse.strip(),
+                                         hausnummer=_t_ra_hnr.strip(),
+                                         plz=_t_ra_plz.strip(),
+                                         ort=_t_ra_ort.strip(),
+                                         land=_t_ra_land.strip(),
+                                         rechnung_email=_t_ra_remail.strip(),
+                                         telefon=_t_ra_tel.strip() or None,
+                                         ust_id=_t_ra_ustid.strip() or None)
                                 zustimmung_registrierung_speichern(
                                     _tbid, PRIVACY_POLICY_VERSION, TERMS_VERSION
                                 )
@@ -3656,19 +3691,20 @@ def page_dashboard():
 
         st.markdown("---")
         st.markdown("### 📥 Kader-Export")
-        col_exp, _ = st.columns([1, 3])
-        with col_exp:
-            with st.spinner("Excel wird vorbereitet …"):
-                excel_data = kader_excel_bytes()
-            filename = f"Kader_Export_{date.today().strftime('%Y-%m-%d')}.xlsx"
-            st.download_button(
-                label="⬇️ Kader-Export (Excel)",
-                data=excel_data,
-                file_name=filename,
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                use_container_width=True,
-                help="Exportiert alle Spieler-Stammdaten, letzte Testwerte und die gesamte Verletzungshistorie als Excel-Datei (2 Tabellenblätter).",
-            )
+        if not _starter_premium_feature_gesperrt("voll_export"):
+            col_exp, _ = st.columns([1, 3])
+            with col_exp:
+                with st.spinner("Excel wird vorbereitet …"):
+                    excel_data = kader_excel_bytes()
+                filename = f"Kader_Export_{date.today().strftime('%Y-%m-%d')}.xlsx"
+                st.download_button(
+                    label="⬇️ Kader-Export (Excel)",
+                    data=excel_data,
+                    file_name=filename,
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True,
+                    help="Exportiert alle Spieler-Stammdaten, letzte Testwerte und die gesamte Verletzungshistorie als Excel-Datei (2 Tabellenblätter).",
+                )
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -3831,6 +3867,8 @@ def _render_inline_edit_form(sp: dict) -> None:
 def _page_spieler_import():
     """Rendert den bestätigungsbasierten, mandantensicheren Kaderimport."""
     st.markdown("### Kader importieren")
+    if _starter_premium_feature_gesperrt("spieler_import"):
+        return
     st.caption(
         "Unterstützt CSV und XLSX. Es werden ausschließlich Spielerstammdaten "
         "übernommen – keine IDs, Rollen, Trainer- oder Vereinszuordnungen aus der Datei."
@@ -5173,16 +5211,17 @@ def page_spieler_profil():
     with _btn_b:
         # Kein Cache — damit Änderungen (neue Tests, neue Verletzungen) sofort
         # im Export sichtbar sind und keine veralteten Daten ausgeliefert werden.
-        _xlsx = spieler_excel_bytes(sid)
-        _name_safe = auswahl["name"].replace(" ", "_")
-        st.download_button(
-            label="⬇️ Spieler exportieren (Excel)",
-            data=_xlsx,
-            file_name=f"Spieler_{_name_safe}_{date.today()}.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            use_container_width=True,
-            key="profil_xlsx_dl",
-        )
+        if not _starter_premium_feature_gesperrt("voll_export"):
+            _xlsx = spieler_excel_bytes(sid)
+            _name_safe = auswahl["name"].replace(" ", "_")
+            st.download_button(
+                label="⬇️ Spieler exportieren (Excel)",
+                data=_xlsx,
+                file_name=f"Spieler_{_name_safe}_{date.today()}.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True,
+                key="profil_xlsx_dl",
+            )
 
     # ── Radar-Chart im Header (wenn ≥ 3 Module vorhanden) ─────────────────
     sub_scores_header = athletik_sub_scores(fms, y, sprint, sprung, agil, aus,
@@ -5529,7 +5568,7 @@ def page_spieler_profil():
         else:
             st.warning("⚠️ Kein Modul ausgewählt — bitte mindestens eines aktivieren.")
 
-        if _n_aktiv > 0 and st.button(
+        if not _starter_premium_feature_gesperrt("gesamtbericht_pdf") and _n_aktiv > 0 and st.button(
             f"📥 PDF Report generieren  ({_n_aktiv} Module)",
             key="pdf_gen", type="primary", use_container_width=True,
         ):
@@ -11558,7 +11597,11 @@ def page_spieler_vergleich():
     _inline_spielerwechsel("vergleich")
     st.markdown("---")
 
-    alle_spieler = spieler_laden(_akt_user()["id"], _akt_user()["rolle"], _akt_user()["verein_id"])
+    # Nach Ablauf der Starter-Testphase darf auch die Sidebar keine fachlichen
+    # Personen- oder Testdaten mehr lesen bzw. darstellen.
+    alle_spieler = [] if st.session_state.get("_starter_abgelaufen") else spieler_laden(
+        _akt_user()["id"], _akt_user()["rolle"], _akt_user()["verein_id"]
+    )
     if len(alle_spieler) < 2:
         st.info("⚠️ Mindestens **zwei Spieler** werden für den Vergleich benötigt. "
                 "Bitte unter **Spieler → Verwaltung** weitere Spieler anlegen.")
@@ -12529,7 +12572,11 @@ def page_testprotokoll():
         unsafe_allow_html=True,
     )
 
-    alle_spieler = spieler_laden(_akt_user()["id"], _akt_user()["rolle"], _akt_user()["verein_id"])
+    # Nach Ablauf der Starter-Testphase darf auch die globale Sidebar keine
+    # fachlichen Personen- oder Testdaten mehr laden bzw. darstellen.
+    alle_spieler = [] if st.session_state.get("_starter_abgelaufen") else spieler_laden(
+        _akt_user()["id"], _akt_user()["rolle"], _akt_user()["verein_id"]
+    )
 
     # ── Schritt 1: Variante ────────────────────────────────────────────────────
     st.markdown("### Schritt 1 — Variante")
@@ -12872,10 +12919,21 @@ if _user_rolle_nav in ("Superadmin", "Vereinsadmin"):
     _MAIN_SECTIONS = _MAIN_SECTIONS + ["🧑‍💼  Trainerportal", "🔑  Benutzerverwaltung"]
 if _user_rolle_nav in ("Trainer", "Vereinsadmin"):
     _MAIN_SECTIONS = _MAIN_SECTIONS + ["📋  Mein Vertrag"]
-if _user_rolle_nav == "Vereinsadmin":
+if _user_rolle_nav == "Vereinsadmin" or (
+    _user_rolle_nav == "Trainer" and st.session_state.get("_starter_abgelaufen")
+):
     _MAIN_SECTIONS = _MAIN_SECTIONS + ["💳  Lizenz"]
 if _user_rolle_nav == "Superadmin":
     _MAIN_SECTIONS = _MAIN_SECTIONS + ["🏢  Vereinsverwaltung", "💳  Lizenzverwaltung", "👥  Kundenverwaltung"]
+
+# Abgelaufene Starter behalten einen schmalen, sicheren Kontozugang. Die
+# Lizenzprüfung setzt dieses Flag nur für STARTER_FREE; alle fachlichen Bereiche
+# verschwinden aus Navigation und Routing, Daten bleiben unangetastet.
+if st.session_state.get("_starter_abgelaufen"):
+    _MAIN_SECTIONS = [
+        section for section in ("👤  Mein Profil", "📋  Mein Vertrag", "💳  Lizenz", "ℹ️  Über")
+        if section in _MAIN_SECTIONS
+    ]
 
 with st.sidebar:
     # ── Logo ──────────────────────────────────────────────────────────────────
@@ -12894,7 +12952,11 @@ with st.sidebar:
     )
 
     # ── Global player search ──────────────────────────────────────────────────
-    alle_spieler = spieler_laden(_akt_user()["id"], _akt_user()["rolle"], _akt_user()["verein_id"])
+    # Nach Ablauf der Starter-Testphase darf die globale Sidebar keine
+    # fachlichen Personen- oder Testdaten mehr laden bzw. darstellen.
+    alle_spieler = [] if st.session_state.get("_starter_abgelaufen") else spieler_laden(
+        _akt_user()["id"], _akt_user()["rolle"], _akt_user()["verein_id"]
+    )
     if alle_spieler:
         _ids = [p["id"] for p in alle_spieler]
         if st.session_state.get("global_player_id") not in _ids:
@@ -13061,7 +13123,11 @@ with st.sidebar:
 
     # ── Benachrichtigungen (nur für Trainer-Rolle) ────────────────────────────
     _nb_user = _akt_user()
-    if _nb_user.get("rolle") == "Trainer" and _nb_user.get("id"):
+    if (
+        not st.session_state.get("_starter_abgelaufen")
+        and _nb_user.get("rolle") == "Trainer"
+        and _nb_user.get("id")
+    ):
         _nb_ungelesen = benachrichtigungen_laden(_nb_user["id"], nur_ungelesen=True)
         if _nb_ungelesen:
             _nb_count = len(_nb_ungelesen)

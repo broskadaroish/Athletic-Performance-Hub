@@ -1120,6 +1120,126 @@ def parse_datum_safe(value) -> "date | None":
 
 # ─── Spieler ───────────────────────────────────────────────────────────────
 
+def _lizenz_def_fuer_verein(conn: sqlite3.Connection, verein_id: int) -> tuple[str, dict]:
+    """Lädt den kanonischen Lizenztyp samt Definition innerhalb einer Transaktion."""
+    from license import LIZENZ_TYPEN, normalize_lizenz_typ
+
+    verein = conn.execute(
+        "SELECT lizenztyp, ist_technischer_mandant FROM vereine WHERE id=?",
+        (verein_id,),
+    ).fetchone()
+    if not verein:
+        raise ValueError("Der Zielmandant existiert nicht.")
+    typ = normalize_lizenz_typ(
+        verein["lizenztyp"],
+        ist_technischer_mandant=verein["ist_technischer_mandant"],
+    )
+    return typ, LIZENZ_TYPEN[typ]
+
+
+def _spieler_limit_pruefen(
+    conn: sqlite3.Connection,
+    verein_id: int | None,
+    *,
+    zusatz: int = 1,
+) -> None:
+    """Erzwingt das Spielerlimit im selben Schreibvorgang wie das Insert."""
+    if not verein_id:
+        return
+    _, lizenz = _lizenz_def_fuer_verein(conn, int(verein_id))
+    limit = lizenz["max_spieler"]
+    if limit is None:
+        return
+    aktuell = conn.execute(
+        "SELECT COUNT(*) FROM spieler WHERE verein_id=?",
+        (verein_id,),
+    ).fetchone()[0]
+    if aktuell + zusatz > limit:
+        raise ValueError(
+            f"Das Spielerlimit dieses Pakets ist erreicht (maximal {limit} Spieler)."
+        )
+
+
+def _trainer_limit_pruefen(
+    conn: sqlite3.Connection,
+    verein_id: int | None,
+    *,
+    ausgenommen_benutzer_id: int | None = None,
+) -> None:
+    """Erzwingt das Trainerlimit vor Anlage, Aktivierung oder Mandantenzuordnung."""
+    if not verein_id:
+        return
+    _, lizenz = _lizenz_def_fuer_verein(conn, int(verein_id))
+    limit = lizenz["max_trainer"]
+    if limit is None:
+        return
+    # Auch wartende Trainer zählen: sonst ließe sich ein kleines Paket durch
+    # eine beliebige Zahl noch nicht freigeschalteter Konten umgehen.
+    sql = "SELECT COUNT(*) FROM benutzer WHERE verein_id=? AND rolle='Trainer'"
+    params: list[object] = [verein_id]
+    if ausgenommen_benutzer_id is not None:
+        sql += " AND id<>?"
+        params.append(ausgenommen_benutzer_id)
+    aktuell = conn.execute(sql, tuple(params)).fetchone()[0]
+    if aktuell >= limit:
+        raise ValueError(
+            f"Das Trainerlimit dieses Pakets ist erreicht (maximal {limit} Trainer)."
+        )
+
+
+def _starter_plan_grenzen_pruefen(
+    conn: sqlite3.Connection,
+    spieler_id: int,
+    plan_id: int | None,
+    *,
+    wochen: set[int] | None = None,
+    tage: dict[int, set[int]] | None = None,
+    ausgenommen_eintrag_id: int | None = None,
+) -> None:
+    """Sichert Starter-Pläne auf zwei Wochen und zwei Trainingstage je Woche.
+
+    Der Check läuft in allen Plan-Schreibwegen innerhalb derselben Transaktion.
+    Er verändert keine Bestandsdaten; ältere Pläne werden nur abgewiesen, wenn
+    sie als neue aktive Starter-Version verwendet werden sollen.
+    """
+    player = conn.execute(
+        "SELECT verein_id FROM spieler WHERE id=?",
+        (spieler_id,),
+    ).fetchone()
+    if not player or not player["verein_id"]:
+        return
+    typ, _ = _lizenz_def_fuer_verein(conn, int(player["verein_id"]))
+    if typ != "STARTER_FREE":
+        return
+
+    existing_rows = []
+    if plan_id is not None:
+        sql = (
+            "SELECT DISTINCT woche, COALESCE(tag, 1) AS tag FROM trainingsplan "
+            "WHERE spieler_id=? AND plan_id=?"
+        )
+        params: list[object] = [spieler_id, plan_id]
+        if ausgenommen_eintrag_id is not None:
+            sql += " AND id<>?"
+            params.append(ausgenommen_eintrag_id)
+        existing_rows = conn.execute(sql, tuple(params)).fetchall()
+    all_weeks = {int(row["woche"]) for row in existing_rows}
+    all_days: dict[int, set[int]] = {}
+    for row in existing_rows:
+        all_days.setdefault(int(row["woche"]), set()).add(int(row["tag"]))
+    if wochen:
+        all_weeks.update(int(w) for w in wochen)
+    if tage:
+        for woche, tag_set in tage.items():
+            all_days.setdefault(int(woche), set()).update(int(tag) for tag in tag_set)
+            all_weeks.add(int(woche))
+
+    if len(all_weeks) > 2:
+        raise ValueError("Starter erlaubt maximal 2 Wochen pro Trainingsplan.")
+    if any(len(tag_set) > 2 for tag_set in all_days.values()):
+        raise ValueError("Starter erlaubt maximal 2 unterschiedliche Trainingstage je Woche.")
+
+
 def spieler_speichern(vorname, nachname, geburtsdatum, geschlecht,
                       hauptposition, nebenposition, altersklasse,
                       spielbein, leistungsniveau, mannschaft, trainingsstatus,
@@ -1133,6 +1253,7 @@ def spieler_speichern(vorname, nachname, geburtsdatum, geschlecht,
         ).fetchone()
         if existing:
             return existing[0]
+        _spieler_limit_pruefen(conn, verein_id)
         cursor = conn.execute(
             """INSERT INTO spieler
                (name, vorname, nachname, geburtsdatum, geschlecht,
@@ -1213,17 +1334,8 @@ def _spieler_import_berechtigt(
 
 def _spieler_import_limit(conn: sqlite3.Connection, verein_id: int) -> int | None:
     """Ermittelt das aktuelle Spielerlimit im selben Schreibvorgang."""
-    from license import LIZENZ_TYPEN, normalize_lizenz_typ
-
-    verein = conn.execute("SELECT * FROM vereine WHERE id=?", (verein_id,)).fetchone()
-    if not verein:
-        raise ValueError("Der Zielmandant existiert nicht.")
-    row = dict(verein)
-    lizenztyp = normalize_lizenz_typ(
-        row.get("lizenztyp"),
-        ist_technischer_mandant=row.get("ist_technischer_mandant"),
-    )
-    return LIZENZ_TYPEN[lizenztyp]["max_spieler"]
+    _, lizenz = _lizenz_def_fuer_verein(conn, verein_id)
+    return lizenz["max_spieler"]
 
 
 def spieler_import_kapazitaet_laden(verein_id: int) -> dict[str, int | None]:
@@ -1265,6 +1377,12 @@ def spieler_importieren(
         if not _spieler_import_berechtigt(conn, benutzer_id, rolle, verein_id):
             raise PermissionError("Kein berechtigter Zielmandant für den Import.")
         assert verein_id is not None
+        typ, _ = _lizenz_def_fuer_verein(conn, verein_id)
+        if typ == "STARTER_FREE":
+            raise PermissionError(
+                "Der Spielerimport ist im Starter-Tarif nicht enthalten. "
+                "Wähle nach der Testphase ein passendes Paket."
+            )
         limit = _spieler_import_limit(conn, verein_id)
         current_count = conn.execute(
             "SELECT COUNT(*) FROM spieler WHERE verein_id=?",
@@ -1502,6 +1620,14 @@ def spieler_trainer_zuweisen(spieler_id: int, trainer_id, verein_id,
         # Vereinsadmin: Verein erzwingen
         if aufrufender_verein_id is not None:
             verein_id = aufrufender_verein_id
+        bisher = conn.execute(
+            "SELECT verein_id FROM spieler WHERE id=?",
+            (spieler_id,),
+        ).fetchone()
+        if not bisher:
+            raise ValueError(f"Spieler {spieler_id} existiert nicht.")
+        if verein_id is not None and bisher["verein_id"] != verein_id:
+            _spieler_limit_pruefen(conn, verein_id)
 
         # Trainer validieren
         if trainer_id is not None:
@@ -1617,6 +1743,8 @@ def spieler_aktualisieren(spieler_id, vorname, nachname, geburtsdatum, geschlech
             ).fetchone()
             alt_tid = alt["trainer_id"] if alt else None
             alt_vid = alt["verein_id"] if alt else None
+            if verein_id is not _UNSET and verein_id is not None and alt_vid != verein_id:
+                _spieler_limit_pruefen(conn, verein_id)
         else:
             alt_tid = alt_vid = None
 
@@ -3766,6 +3894,13 @@ def trainingsplan_eintrag_speichern(spieler_id, datum, woche, bereich, uebung, s
                                     position: int = 0,
                                     notiz: str = ""):
     with get_conn() as conn:
+        _starter_plan_grenzen_pruefen(
+            conn,
+            int(spieler_id),
+            plan_id,
+            wochen={int(woche)},
+            tage={int(woche): {int(tag)}},
+        )
         conn.execute(
             "INSERT INTO trainingsplan (spieler_id,datum,woche,bereich,uebung,saetze,wiederholungen,"
             "haeufigkeit,status,tag,pause_sekunden,ausfuehrung,rpe,energie_system,equipment,begruendung,"
@@ -3796,6 +3931,13 @@ def plan_warmup_speichern(spieler_id: int, plan_id: int, woche: int, tag: int,
         ).fetchone()
         if not version:
             return False
+        _starter_plan_grenzen_pruefen(
+            conn,
+            spieler_id,
+            plan_id,
+            wochen={int(woche)},
+            tage={int(woche): {int(tag)}},
+        )
         conn.execute(
             "DELETE FROM trainingsplan WHERE spieler_id=? AND plan_id=? AND woche=? AND tag=? AND bereich=?",
             (spieler_id, plan_id, int(woche), int(tag), WARMUP_BEREICH),
@@ -3838,6 +3980,13 @@ def plan_eintrag_verteilen(spieler_id: int, plan_id: int, eintrag_id: int,
         ).fetchone()
         if not source:
             return result
+        _starter_plan_grenzen_pruefen(
+            conn,
+            spieler_id,
+            plan_id,
+            wochen=set(requested_weeks),
+            tage={woche: set(requested_days) for woche in requested_weeks},
+        )
         row = dict(source)
         neue_haeufigkeit = f"{len(requested_days)}×/Woche"
 
@@ -3934,6 +4083,26 @@ def plan_version_erstellen(spieler_id: int, datum: str, erstellt_von: str = "",
     if status not in {"AKTIV", "ENTWURF"}:
         raise ValueError("Ungültiger Planversionsstatus")
     with get_conn() as conn:
+        # Für Starter darf es pro Spieler nie mehr als eine aktive Version geben.
+        # Der reguläre Aktivierungsweg archiviert erst nach erfolgreichem Entwurf;
+        # ein direkter AKTIV-Insert wird daher bewusst abgewiesen statt still
+        # Bestandspläne zu verändern.
+        player = conn.execute(
+            "SELECT verein_id FROM spieler WHERE id=?",
+            (spieler_id,),
+        ).fetchone()
+        if player and player["verein_id"]:
+            typ, _ = _lizenz_def_fuer_verein(conn, int(player["verein_id"]))
+            if typ == "STARTER_FREE" and status == "AKTIV":
+                active = conn.execute(
+                    "SELECT COUNT(*) FROM trainingsplan_versionen "
+                    "WHERE spieler_id=? AND status='AKTIV'",
+                    (spieler_id,),
+                ).fetchone()[0]
+                if active:
+                    raise ValueError(
+                        "Starter erlaubt höchstens eine aktive Planversion je Spieler."
+                    )
         max_v = (conn.execute(
             "SELECT COALESCE(MAX(version_nr),0) FROM trainingsplan_versionen WHERE spieler_id=?",
             (spieler_id,),
@@ -3967,6 +4136,7 @@ def plan_version_aktivieren(spieler_id: int, version_id: int) -> bool:
         ).fetchone()
         if not exists:
             return False
+        _starter_plan_grenzen_pruefen(conn, spieler_id, version_id)
         conn.execute(
             "UPDATE trainingsplan_versionen SET status='ARCHIVIERT' WHERE spieler_id=? AND status='AKTIV'",
             (spieler_id,),
@@ -4070,6 +4240,26 @@ def plan_eintrag_aktualisieren(eintrag_id: int, **felder):
     if not updates:
         return
     with get_conn() as conn:
+        row = conn.execute(
+            "SELECT spieler_id, plan_id, woche, COALESCE(tag, 1) AS tag "
+            "FROM trainingsplan WHERE id=?",
+            (eintrag_id,),
+        ).fetchone()
+        if not row:
+            return
+        if "woche" in updates or "tag" in updates:
+            neue_woche = int(updates.get("woche", row["woche"]))
+            neuer_tag = int(updates.get("tag", row["tag"]))
+            # Der Datensatz selbst wird bei der zukünftigen Zielkombination
+            # nicht doppelt gezählt; die Prüffunktion akzeptiert Sets.
+            _starter_plan_grenzen_pruefen(
+                conn,
+                int(row["spieler_id"]),
+                row["plan_id"],
+                wochen={neue_woche},
+                tage={neue_woche: {neuer_tag}},
+                ausgenommen_eintrag_id=eintrag_id,
+            )
         set_clause = ", ".join(f"{k}=?" for k in updates)
         conn.execute(f"UPDATE trainingsplan SET {set_clause} WHERE id=?",
                      list(updates.values()) + [eintrag_id])
@@ -4101,6 +4291,8 @@ def plan_trainingszeit_setzen(version_id: int, trainingszeit_min: int):
 def plan_duplizieren(spieler_id: int, source_version_id: int, datum: str,
                      erstellt_von: str = "") -> int:
     """Dupliziert einen bestehenden Plan als neue AKTIV-Version (Original bleibt unverändert)."""
+    with get_conn() as conn:
+        _starter_plan_grenzen_pruefen(conn, spieler_id, source_version_id)
     src_rows = plan_laden_nach_version(source_version_id)
     with get_conn() as conn:
         r = conn.execute(
@@ -4809,6 +5001,24 @@ def trainer_mandant_hinzufuegen(
     Idempotent: existierende inaktive Einträge werden reaktiviert.
     """
     with get_conn() as conn:
+        typ, lizenz = _lizenz_def_fuer_verein(conn, verein_id)
+        if typ == "STARTER_FREE" and rolle == "Trainer":
+            exists = conn.execute(
+                "SELECT aktiv FROM trainer_mandanten WHERE benutzer_id=? AND verein_id=?",
+                (benutzer_id, verein_id),
+            ).fetchone()
+            if not exists or not exists["aktiv"]:
+                aktive = conn.execute(
+                    """SELECT COUNT(*) FROM trainer_mandanten tm
+                       JOIN benutzer b ON b.id=tm.benutzer_id
+                       WHERE tm.verein_id=? AND tm.aktiv=1
+                         AND tm.rolle_im_verein='Trainer'""",
+                    (verein_id,),
+                ).fetchone()[0]
+                if aktive >= int(lizenz["max_trainer"]):
+                    raise ValueError(
+                        "Das Trainerlimit dieses Pakets ist erreicht (maximal 1 Trainer)."
+                    )
         conn.execute("""
             INSERT INTO trainer_mandanten (benutzer_id, verein_id, rolle_im_verein, aktiv)
             VALUES (?, ?, ?, 1)
@@ -4988,7 +5198,7 @@ def verein_speichern(name: str) -> int:
 # ── Selbstregistrierung ────────────────────────────────────────────────────────
 
 _ERLAUBTE_VEREIN_PAKETE  = frozenset({"VEREIN_BASIC", "VEREIN_PRO"})
-_ERLAUBTE_TRAINER_PAKETE = frozenset({"TRAINER_BASIC", "TRAINER_PRO"})
+_ERLAUBTE_TRAINER_PAKETE = frozenset({"STARTER_FREE", "TRAINER_BASIC", "TRAINER_PRO"})
 _ERLAUBTE_INTERVALLE     = frozenset({"monat", "jahr"})
 
 
@@ -5634,7 +5844,7 @@ def trainer_registrieren(
     (lizenz_status='trial', 30 Tage Testphase, ist_technischer_mandant=1),
     damit verein_id niemals NULL ist.
 
-    lizenztyp muss TRAINER_BASIC oder TRAINER_PRO sein.
+    lizenztyp muss STARTER_FREE, TRAINER_BASIC oder TRAINER_PRO sein.
     abo_intervall muss 'monat' oder 'jahr' sein.
 
     Startet mit aktiv=0 und email_verifiziert=0.
@@ -5806,7 +6016,10 @@ def trainer_verein_beitreten(
         if not v or not v[2] or v[3]:
             raise ValueError("Der Verein ist nicht aktiv oder gesperrt.")
 
+        typ, lizenz = _lizenz_def_fuer_verein(conn, verein_id)
         max_trainer = v[4]
+        if typ == "STARTER_FREE":
+            max_trainer = lizenz["max_trainer"]
         if max_trainer is not None:
             # Aktive UND wartende (aktiv=0) Trainer zählen — verhindert,
             # dass beliebig viele Pending-Accounts angelegt werden.
@@ -5882,6 +6095,8 @@ def benutzer_speichern(
     import sqlite3 as _sqlite3
     email_norm = normalize_email(email)
     with get_conn() as conn:
+        if rolle == "Trainer":
+            _trainer_limit_pruefen(conn, verein_id)
         try:
             cur = conn.execute("""
                 INSERT INTO benutzer (verein_id, vorname, nachname, email,
@@ -5947,8 +6162,6 @@ def benutzer_aktualisieren(
                 raise PermissionError(
                     "Zugriff verweigert: Dieser Benutzer gehört zu einem anderen Mandanten."
                 )
-        # ─────────────────────────────────────────────────────────────────────
-
         try:
             conn.execute("""
                 UPDATE benutzer
@@ -6000,21 +6213,7 @@ def benutzer_aktivieren(benutzer_id: int, aktiv: int) -> None:
 
         # ── Guard: max_trainer-Limit bei Trainer-Freischaltung ────────────────
         if aktiv == 1 and ziel and ziel[0] == "Trainer":
-            verein_id = ziel[1]
-            verein = conn.execute(
-                "SELECT max_trainer FROM vereine WHERE id=?", (verein_id,)
-            ).fetchone()
-            if verein and verein[0] is not None:
-                aktive_trainer = conn.execute(
-                    """SELECT COUNT(*) FROM benutzer
-                       WHERE verein_id=? AND rolle='Trainer' AND aktiv=1""",
-                    (verein_id,),
-                ).fetchone()[0]
-                if aktive_trainer >= verein[0]:
-                    raise ValueError(
-                        "Das Trainerlimit des Vereins ist erreicht. "
-                        "Es können keine weiteren Trainer freigeschaltet werden."
-                    )
+            _trainer_limit_pruefen(conn, ziel[1], ausgenommen_benutzer_id=benutzer_id)
 
         # ─────────────────────────────────────────────────────────────────────
         conn.execute(

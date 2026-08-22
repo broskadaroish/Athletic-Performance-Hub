@@ -4,7 +4,8 @@ Lizenzsystem — Athletic Performance Hub.
 Saubere Trennung von Lizenz-Logik und App-Code.
 Alle Lizenzprüfungen laufen zentral hier durch.
 
-4-Paket-System (Phase A1):
+Paket-System:
+  STARTER_FREE   — Einzeltrainer, 30 Tage Testzugang ohne Zahlungsdaten
   TRAINER_BASIC  — 1 Trainer, 20 Spieler,      9,99 €/Monat
   TRAINER_PRO    — 1 Trainer, unbegrenzt,      14,99 €/Monat
   VEREIN_BASIC   — 2 Trainer, 50 Spieler,      24,99 €/Monat
@@ -56,6 +57,25 @@ _FEATURES_TRAINER_BASIC: list[str] = [
     "verlauf",
     "trainingsplanung",
     "dashboard",
+    "email_support",
+]
+
+_FEATURES_STARTER_FREE: list[str] = [
+    # Während der einmaligen Testphase steht die fachliche Arbeit vollständig
+    # zur Verfügung. Import, vollständige Exporte und Gesamtberichte werden
+    # bewusst nicht als Feature geführt und separat gesperrt.
+    "diagnostik_basis",
+    "diagnostik_erweitert",
+    "diagnostik_spiro",
+    "spielerprofil",
+    "verlauf",
+    "verletzungsmanagement",
+    "trainingsplanung",
+    "periodisierung",
+    "spielervergleich",
+    "mannschaftsdashboard",
+    "dashboard",
+    "trainingsplan_pdf",
     "email_support",
 ]
 
@@ -111,6 +131,18 @@ _FEATURES_VEREIN_PRO: list[str] = [
 
 
 LIZENZ_TYPEN: dict[str, LizenzTypDef] = {
+    "STARTER_FREE": {
+        "label":              "Starter – 30 Tage kostenlos",
+        "kundentyp":          "Einzeltrainer",
+        "max_trainer":        1,
+        "max_spieler":        5,
+        "preis_monat":        0.0,
+        "preis_jahr":         0.0,
+        "stripe_price_monat": "",
+        "stripe_price_jahr":  "",
+        "geeignet_fuer":      ["Einzeltrainer zum Kennenlernen"],
+        "features":           _FEATURES_STARTER_FREE,
+    },
     "TRAINER_BASIC": {
         "label":              "Einzeltrainer Basic",
         "kundentyp":          "Einzeltrainer",
@@ -273,6 +305,7 @@ FEATURE_LABELS: dict[str, str] = {
     "dashboard":             "Dashboard",
     "email_support":         "E-Mail Support",
     "prioritaets_support":   "Prioritäts-Support",
+    "trainingsplan_pdf":     "Trainingsplan-PDF",
 }
 
 TESTPHASE_TAGE = 30   # Tage kostenlose Testphase bei Neuregistrierung
@@ -340,9 +373,6 @@ def get_lizenz_info(verein_row: dict) -> LizenzInfo:
     """
     verein_id = verein_row.get("id", 0)
     cache_key = f"_lizenz_info_{verein_id}"
-
-    if cache_key in st.session_state:
-        return st.session_state[cache_key]
 
     heute = date.today()
 
@@ -434,24 +464,44 @@ def enforce_license_gate() -> None:
     if not verein_id:
         return
 
-    cache_key = f"_lizenz_info_{verein_id}"
-    if cache_key not in st.session_state:
-        try:
-            from database import lizenz_info_laden
-            verein_row = lizenz_info_laden(verein_id) or {}
-        except Exception:
-            return
-        info = get_lizenz_info(verein_row)
-    else:
-        info = st.session_state[cache_key]
+    # Der Status darf nicht über eine Session gecacht werden: Eine offene
+    # Browser-Sitzung muss am Ablaufdatum ohne Logout in den Sperrmodus wechseln.
+    try:
+        from database import lizenz_info_laden
+        verein_row = lizenz_info_laden(verein_id) or {}
+    except Exception:
+        return
+    info = get_lizenz_info(verein_row)
 
     if info["lizenz_status"] == "suspended":
         _zeige_gesperrt_page(rolle=user.get("rolle"))
         st.stop()
 
+    # Ein abgelaufener Starter bleibt eingeloggt: Die App-Navigation beschränkt
+    # ihn anschließend auf Profil, Vertrag, Paketansicht und Logout. So bleiben
+    # Daten erhalten und die Paketentscheidung ist erreichbar, ohne fachliche
+    # Bereiche wieder zu öffnen. Andere abgelaufene Lizenzen behalten das
+    # bisherige Voll-Gate unverändert.
+    if info["lizenz_status"] == "expired" and ist_starter_lizenz(info["lizenz_typ"]):
+        st.session_state["_starter_abgelaufen"] = True
+        return
+    st.session_state.pop("_starter_abgelaufen", None)
+
     if info["lizenz_status"] in ("expired", "beendet"):
         _zeige_abgelaufen_page(info)
         st.stop()
+
+    if (
+        ist_starter_lizenz(info["lizenz_typ"])
+        and info["lizenz_status"] == "trial"
+        and info["tage_verbleibend"] in (7, 1)
+    ):
+        rest = int(info["tage_verbleibend"])
+        st.warning(
+            f"⏳ Deine Starter-Testphase endet in {rest} "
+            f"{'Tag' if rest == 1 else 'Tagen'}. "
+            "Nach Ablauf bleiben Profil, Vertrag und Pakete erreichbar."
+        )
 
 
 def feature_erlaubt(
@@ -470,6 +520,47 @@ def feature_erlaubt(
         return False
     feats = typ_def["features"]
     return "all" in feats or feature in feats
+
+
+STARTER_PREMIUM_FEATURES: dict[str, str] = {
+    "spieler_import": "Der Spielerimport ist im Starter-Tarif nicht enthalten.",
+    "voll_export": "Der vollständige Datenexport ist im Starter-Tarif nicht enthalten.",
+    "gesamtbericht_pdf": "Der Spielerprofil- und Diagnostik-Gesamtbericht ist im Starter-Tarif nicht enthalten.",
+}
+
+
+def ist_starter_lizenz(
+    lizenz_typ: str | None,
+    ist_technischer_mandant: bool | int | None = None,
+) -> bool:
+    """True ausschließlich für den neuen kanonischen Starter-Tarif.
+
+    Der Legacy-Wert ``FREE`` wird absichtlich weiterhin nach TRAINER_BASIC
+    abgebildet und darf nie stillschweigend zum Starter werden.
+    """
+    return normalize_lizenz_typ(lizenz_typ, ist_technischer_mandant) == "STARTER_FREE"
+
+
+def starter_premium_feature_gesperrt(
+    feature: str,
+    verein_row: dict | None,
+) -> bool:
+    """Prüft einen ausdrücklich nicht im Starter enthaltenen Premium-Einstieg."""
+    if not verein_row:
+        return False
+    return (
+        feature in STARTER_PREMIUM_FEATURES
+        and ist_starter_lizenz(
+            verein_row.get("lizenztyp"),
+            verein_row.get("ist_technischer_mandant"),
+        )
+    )
+
+
+def starter_upgrade_hinweis(feature: str) -> str:
+    """Einheitlicher, nicht-technischer Hinweis für sichtbare Starter-Sperren."""
+    grund = STARTER_PREMIUM_FEATURES.get(feature, "Diese Funktion ist im Starter-Tarif nicht enthalten.")
+    return f"{grund} Wähle nach Ablauf deiner Testphase ein passendes Paket."
 
 
 def trainer_limit_erreicht(

@@ -84,6 +84,20 @@ def _stripe_upgrade(typ_key: str, verein_id: int, info: dict) -> None:
     from license import LIZENZ_TYPEN
 
     typ_def = LIZENZ_TYPEN.get(typ_key, {})
+    if typ_key == "STARTER_FREE":
+        st.info(
+            "Die Starter-Testphase ist einmalig und löst keinen Stripe-Vorgang aus. "
+            "Wähle nach Ablauf deiner Testphase ein reguläres Paket."
+        )
+        return
+    if (
+        info.get("lizenz_typ") == "STARTER_FREE"
+        and info.get("lizenz_status") != "expired"
+    ):
+        st.info(
+            "Ein reguläres Paket kannst du nach Ablauf deiner Starter-Testphase aktivieren."
+        )
+        return
 
     if not stripe_verfuegbar():
         st.info(
@@ -518,14 +532,21 @@ def page_lizenz_vereinsadmin() -> None:
 
         cols = st.columns(2)
         for i, (typ_key, typ_def_iter) in enumerate(LIZENZ_TYPEN.items()):
-            with cols[i]:
+            with cols[i % len(cols)]:
                 def _on_upgrade(key=typ_key, vid=verein_id, vinfo=info):
                     _stripe_upgrade(key, vid, vinfo)
                 _tarif_karte(
                     typ_key,
                     typ_def_iter,
                     ist_aktuell=(typ_key == info["lizenz_typ"]),
-                    on_upgrade=_on_upgrade,
+                    on_upgrade=(
+                        _on_upgrade
+                        if (
+                            info["lizenz_typ"] != "STARTER_FREE"
+                            or info["lizenz_status"] == "expired"
+                        )
+                        else None
+                    ),
                 )
 
         # Stripe Billing-Portal (wenn verfügbar)
@@ -556,7 +577,18 @@ def page_lizenz_vereinsadmin() -> None:
             )
 
     with tab_wechseln:
-        _tarif_wechseln_section(verein_id, info, verein_row)
+        if info["lizenz_typ"] == "STARTER_FREE" and info["lizenz_status"] != "expired":
+            st.info(
+                "Starter ist eine einmalige 30-Tage-Testphase. "
+                "Während der Testphase wird kein Stripe-Checkout angeboten."
+            )
+        elif info["lizenz_typ"] == "STARTER_FREE":
+            st.info(
+                "Deine Starter-Testphase ist abgelaufen. Wähle oben unter "
+                "**Tarife** ein reguläres Paket, um deinen Zugang zu aktivieren."
+            )
+        else:
+            _tarif_wechseln_section(verein_id, info, verein_row)
 
     with tab_rechnungen:
         rechnungen = rechnungen_laden(verein_id)
