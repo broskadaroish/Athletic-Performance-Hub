@@ -323,6 +323,104 @@ def _app_base_url() -> str:
     return "http://localhost:8082/app"
 
 
+def _registrierung_erfolg_speichern(
+    benutzer_id: int,
+    email: str,
+    *,
+    email_gesendet: bool,
+) -> None:
+    """Merkt nur die für die Bestätigungsansicht nötigen Registrierungsdaten."""
+    state = {
+        "benutzer_id": int(benutzer_id),
+        "email": email.strip(),
+        "email_gesendet": bool(email_gesendet),
+    }
+    st.session_state["_registration_success"] = state
+    # Die bestehende Resend-UI nutzt diese beiden Werte. Kein Passwort und kein
+    # Token werden im Session-State abgelegt.
+    st.session_state["_reg_pending_bid"] = state["benutzer_id"]
+    st.session_state["_reg_pending_email"] = state["email"]
+
+
+def _registrierung_bestaetigung_anzeigen() -> None:
+    """Zeigt die Bestätigungsansicht und verwendet die bestehende Resend-Logik."""
+    state = st.session_state.get("_registration_success")
+    if not isinstance(state, dict):
+        return
+
+    st.markdown("## ✅ Registrierung erfolgreich")
+    if state.get("email_gesendet"):
+        st.write("Wir haben dir eine Bestätigungs-E-Mail geschickt.")
+    else:
+        st.warning(
+            "Dein Konto wurde erstellt, aber die Bestätigungs-E-Mail konnte "
+            "momentan nicht versendet werden."
+        )
+    st.write(
+        "Bitte öffne dein E-Mail-Postfach und bestätige deine E-Mail-Adresse "
+        "über den Link in der Nachricht."
+    )
+    st.write("E-Mail gesendet an:", state.get("email") or "—")
+    st.info(
+        "Nach der E-Mail-Bestätigung wird deine Registrierung von APH geprüft "
+        "und freigeschaltet.\n\n"
+        "Du kannst dich anmelden, sobald dein Konto freigeschaltet wurde."
+    )
+    st.caption("Keine E-Mail erhalten? Bitte prüfe auch deinen Spam-Ordner.")
+
+    _rc1, _rc2 = st.columns(2)
+    if _rc1.button(
+        "📧 E-Mail erneut senden",
+        key="registration_success_resend",
+        use_container_width=True,
+    ):
+        from database import (
+            email_token_erzeugen as _ete_success,
+            email_token_resend_erlaubt as _etra_success,
+            benutzer_by_id as _bbi_success,
+        )
+
+        _bid = state.get("benutzer_id")
+        if not _bid or not _etra_success(_bid):
+            st.info("Bitte warte mindestens 5 Minuten vor der nächsten Anforderung.")
+        else:
+            _new_token = _ete_success(_bid)
+            _user = _bbi_success(_bid) or {}
+            try:
+                from email_service import send_verification_email as _sve_success
+
+                _sve_success(
+                    state.get("email") or _user.get("email") or "",
+                    _user.get("vorname") or "Benutzer",
+                    _new_token,
+                    _app_base_url(),
+                )
+                state["email_gesendet"] = True
+                st.session_state["_registration_success"] = state
+                st.success("✅ Bestätigungs-E-Mail erneut gesendet.")
+            except RuntimeError:
+                st.warning(
+                    "Die E-Mail konnte momentan nicht versendet werden. "
+                    "Bitte versuche es später erneut."
+                )
+            except Exception:
+                st.warning(
+                    "Die E-Mail konnte momentan nicht versendet werden. "
+                    "Bitte versuche es später erneut."
+                )
+
+    if _rc2.button(
+        "🔐 Zur Anmeldung",
+        key="registration_success_to_login",
+        use_container_width=True,
+    ):
+        st.session_state.pop("_registration_success", None)
+        st.session_state.pop("_reg_pending_bid", None)
+        st.session_state.pop("_reg_pending_email", None)
+        st.session_state["_login_subview"] = None
+        st.rerun()
+
+
 # ─── URL-Parameter lesen (E-Mail-Verifikation, Passwort-Reset) ────────────────
 _qp_verify   = st.query_params.get("verify")
 _qp_reset    = st.query_params.get("reset")
@@ -503,10 +601,20 @@ if "user" not in st.session_state:
 
         # 2. E-Mail-Verifikation via URL-Parameter (?verify=TOKEN)
         if _qp_verify:
+            # Ein alter Registrierungs-State darf nach dem Klick auf den
+            # Verifizierungslink nicht wieder die Registrierungsansicht öffnen.
+            st.session_state.pop("_registration_success", None)
+            st.session_state.pop("_reg_pending_bid", None)
+            st.session_state.pop("_reg_pending_email", None)
             from database import email_token_validieren as _etv
             _vbid = _etv(_qp_verify)
             if _vbid:
-                st.success("✅ **E-Mail-Adresse erfolgreich bestätigt!** Du kannst dich jetzt anmelden.")
+                st.success("✅ **E-Mail-Adresse bestätigt**")
+                st.write("Deine E-Mail-Adresse wurde erfolgreich bestätigt.")
+                st.info(
+                    "Dein Konto wartet jetzt auf die Freischaltung durch APH.\n\n"
+                    "Sobald dein Konto freigeschaltet wurde, kannst du dich anmelden."
+                )
             else:
                 st.error("❌ Der Bestätigungslink ist ungültig oder abgelaufen. Bitte fordere einen neuen an.")
             st.query_params.clear()
@@ -573,6 +681,10 @@ if "user" not in st.session_state:
 
         else:
             # 5. Login / Registrierung / Passwort vergessen / Benutzername vergessen
+            if st.session_state.get("_registration_success"):
+                _registrierung_bestaetigung_anzeigen()
+                st.stop()
+
             _login_tab, _reg_tab, _trainer_tab = st.tabs([
                 "🔐 Anmelden",
                 "🏟️ Verein registrieren",
@@ -998,6 +1110,7 @@ if "user" not in st.session_state:
                     if _rerr:
                         for _e in _rerr: st.error(_e)
                     else:
+                        _verein_reg_weiterleiten = False
                         try:
                             from database import verein_registrieren, rechnungsadresse_speichern as _ras
                             _vid, _bid = verein_registrieren(
@@ -1037,44 +1150,18 @@ if "user" not in st.session_state:
                                     "(%s). SMTP-Passwort wird nicht geloggt.",
                                     type(_smtp_err).__name__,
                                 )
-                                st.session_state["_reg_pending_bid"]   = _bid
-                                st.session_state["_reg_pending_email"] = _r_email.strip()
-                            if _reg_email_ok:
-                                st.success(
-                                    "✅ Verein erfolgreich registriert! "
-                                    "Bitte bestätige deine E-Mail-Adresse — "
-                                    "wir haben dir eine Bestätigungs-E-Mail gesendet."
-                                )
-                            else:
-                                st.warning(
-                                    "✅ Dein Konto wurde erstellt, aber die Bestätigungs-E-Mail "
-                                    "konnte momentan nicht versendet werden. "
-                                    "Bitte versuche, die Bestätigungs-E-Mail erneut anzufordern."
-                                )
-                                if st.button("📧 Bestätigungs-E-Mail erneut senden",
-                                             key="reg_resend_verein_btn"):
-                                    _rpb = st.session_state.get("_reg_pending_bid")
-                                    _rpe = st.session_state.get("_reg_pending_email","")
-                                    if _rpb:
-                                        from database import (
-                                            email_token_erzeugen as _ete2,
-                                            email_token_resend_erlaubt as _etra2,
-                                            benutzer_by_id as _bbi2,
-                                        )
-                                        if _etra2(_rpb):
-                                            _nt2 = _ete2(_rpb)
-                                            _bu2 = _bbi2(_rpb) or {}
-                                            try:
-                                                from email_service import send_verification_email as _sve2
-                                                _sve2(_rpe, _bu2.get("vorname","Benutzer"),
-                                                      _nt2, _app_base_url())
-                                                st.success("✅ Bestätigungs-E-Mail gesendet.")
-                                            except Exception as _e2:
-                                                st.warning(f"E-Mail konnte nicht gesendet werden: {type(_e2).__name__}")
+                            _registrierung_erfolg_speichern(
+                                _bid,
+                                _r_email,
+                                email_gesendet=_reg_email_ok,
+                            )
+                            _verein_reg_weiterleiten = True
                         except ValueError as _ve:
                             st.error(str(_ve))
                         except Exception as _ex:
                             st.error(f"Fehler bei der Registrierung: {_ex}")
+                        if _verein_reg_weiterleiten:
+                            st.rerun()
 
             # ── Trainer registrieren ──────────────────────────────────────────
             with _trainer_tab:
@@ -1167,6 +1254,7 @@ if "user" not in st.session_state:
                             for _be in _bj_errs:
                                 st.error(_be)
                         else:
+                            _beitritt_weiterleiten = False
                             try:
                                 from database import (
                                     verein_by_registriercode as _vbrc,
@@ -1221,17 +1309,18 @@ if "user" not in st.session_state:
                                             "fehlgeschlagen (%s).",
                                             type(_bj_smtp_e).__name__,
                                         )
-                                    st.success(
-                                        f"✅ Registrierung bei "
-                                        f"**{_bj_verein['name']}** erfolgreich! "
-                                        "Dein Konto wird vom Vereinsadmin freigeschaltet."
-                                        + (" Bitte bestätige deine E-Mail-Adresse."
-                                           if _bj_email_ok else "")
+                                    _registrierung_erfolg_speichern(
+                                        _bj_bid,
+                                        _bj_email,
+                                        email_gesendet=_bj_email_ok,
                                     )
+                                    _beitritt_weiterleiten = True
                             except ValueError as _bj_ve:
                                 st.error(f"❌ {_bj_ve}")
                             except Exception as _bj_ex:
                                 st.error(f"Fehler bei der Registrierung: {_bj_ex}")
+                            if _beitritt_weiterleiten:
+                                st.rerun()
 
                 # ── Option A: Eigener Trainer (bestehender Flow) ──────────────────────
                 if _trainer_modus == "eigenstaendig":
@@ -1434,6 +1523,7 @@ if "user" not in st.session_state:
                         if _terr:
                             for _e in _terr: st.error(_e)
                         else:
+                            _trainer_reg_weiterleiten = False
                             try:
                                 from database import trainer_registrieren, rechnungsadresse_speichern as _ras
                                 _tbid = trainer_registrieren(
@@ -1474,45 +1564,18 @@ if "user" not in st.session_state:
                                         "(%s). SMTP-Passwort wird nicht geloggt.",
                                         type(_tsmtp_err).__name__,
                                     )
-                                    st.session_state["_reg_pending_bid"]   = _tbid
-                                    st.session_state["_reg_pending_email"] = _t_email.strip()
-                                if _treg_email_ok:
-                                    st.success(
-                                        "✅ Registrierung erfolgreich! "
-                                        "Bitte bestätige deine E-Mail-Adresse — "
-                                        "wir haben dir eine Bestätigungs-E-Mail gesendet. "
-                                        "Danach schaltet ein Administrator dein Konto frei."
-                                    )
-                                else:
-                                    st.warning(
-                                        "✅ Dein Konto wurde erstellt, aber die Bestätigungs-E-Mail "
-                                        "konnte momentan nicht versendet werden. "
-                                        "Bitte versuche, die Bestätigungs-E-Mail erneut anzufordern."
-                                    )
-                                    if st.button("📧 Bestätigungs-E-Mail erneut senden",
-                                                 key="reg_resend_trainer_btn"):
-                                        _rpbt = st.session_state.get("_reg_pending_bid")
-                                        _rpet = st.session_state.get("_reg_pending_email","")
-                                        if _rpbt:
-                                            from database import (
-                                                email_token_erzeugen as _ete3,
-                                                email_token_resend_erlaubt as _etra3,
-                                                benutzer_by_id as _bbi3,
-                                            )
-                                            if _etra3(_rpbt):
-                                                _nt3 = _ete3(_rpbt)
-                                                _bu3 = _bbi3(_rpbt) or {}
-                                                try:
-                                                    from email_service import send_verification_email as _sve3
-                                                    _sve3(_rpet, _bu3.get("vorname","Benutzer"),
-                                                          _nt3, _app_base_url())
-                                                    st.success("✅ Bestätigungs-E-Mail gesendet.")
-                                                except Exception as _e3:
-                                                    st.warning(f"E-Mail konnte nicht gesendet werden: {type(_e3).__name__}")
+                                _registrierung_erfolg_speichern(
+                                    _tbid,
+                                    _t_email,
+                                    email_gesendet=_treg_email_ok,
+                                )
+                                _trainer_reg_weiterleiten = True
                             except ValueError as _ve:
                                 st.error(str(_ve))
                             except Exception as _ex:
                                 st.error(f"Fehler bei der Registrierung: {_ex}")
+                            if _trainer_reg_weiterleiten:
+                                st.rerun()
 
     # ── Rechtliche Links (ohne Anmeldung erreichbar) ──────────────────────────
     st.markdown(

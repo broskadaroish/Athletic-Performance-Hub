@@ -5257,7 +5257,7 @@ def verein_registrieren(
 
     benutzer_id = benutzer_speichern(
         verein_id, vorname, nachname, email_norm, passwort, "Vereinsadmin",
-        benutzername=benutzername, email_verifiziert=0,
+        benutzername=benutzername, email_verifiziert=0, aktiv=0,
     )
     kundennummer_vergeben_verein(verein_id)
     return verein_id, benutzer_id
@@ -6271,8 +6271,11 @@ def normalize_email(email: str) -> str:
 
 def benutzer_speichern(
     verein_id, vorname, nachname, email, passwort, rolle,
-    *, benutzername: str | None = None, email_verifiziert: int = 1,
+    *, benutzername: str | None = None, email_verifiziert: int = 1, aktiv: int = 1,
 ) -> int:
+    """Legt einen Benutzer an; Selbstregistrierungen können bis zur Freischaltung inaktiv bleiben."""
+    if aktiv not in (0, 1):
+        raise ValueError("aktiv muss 0 oder 1 sein.")
     import sqlite3 as _sqlite3
     email_norm = normalize_email(email)
     with get_conn() as conn:
@@ -6283,9 +6286,9 @@ def benutzer_speichern(
                 INSERT INTO benutzer (verein_id, vorname, nachname, email,
                                       passwort_hash, rolle, aktiv,
                                       benutzername, email_verifiziert)
-                VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (verein_id, vorname, nachname, email_norm,
-                  _pw_hash(passwort), rolle, benutzername, email_verifiziert))
+                   _pw_hash(passwort), rolle, aktiv, benutzername, email_verifiziert))
             new_bid = cur.lastrowid
             # Atomares trainer_mandanten-Insert: Trainer/Vereinsadmin mit verein_id
             # werden sofort sichtbar ohne Init-Db-Neustart zu benötigen.

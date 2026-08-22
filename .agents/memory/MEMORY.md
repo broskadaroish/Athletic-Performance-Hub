@@ -38,3 +38,4 @@
 - [Protocol-specific CPET reference data](cpet-reference-models.md) — never transfer VO₂ norms across devices/protocols; global ranges failed on methodological heterogeneity
 - [Contract status consistency](contract-status-consistency.md) — customer contract views must use the central effective license evaluation; anonymized records are never revived
 - [Customer and tenant classification](customer-tenant-classification.md) — customer and license views share one evidence-based classification; memberships never establish a contract
+- [Registration confirmation state](registration-confirmation-state.md) — confirmation UX survives Streamlit reruns only; a full browser reload intentionally starts a new unauthenticated session
