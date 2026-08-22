@@ -79,10 +79,20 @@ YELLOW = (230, 126, 34)
 RED    = (231, 76, 60)
 GREY   = (140, 150, 170)
 
+def _hex_to_rgb(hex_farbe: str) -> tuple[int, int, int]:
+    """Konvertiert einen zentralen UI-Farbwert in die PDF-RGB-Darstellung."""
+    try:
+        wert = str(hex_farbe).lstrip("#")
+        if len(wert) == 6:
+            return int(wert[0:2], 16), int(wert[2:4], 16), int(wert[4:6], 16)
+    except (TypeError, ValueError):
+        pass
+    return GREY
+
 def ampel(bewertung: str):
     """Gibt RGB-Tuple fuer Bewertungstext zurueck."""
     b = _safe(bewertung).lower()
-    if any(x in b for x in ["sehr gut", "gut", "niedrig", "normalgewicht", "nach dem wachstum"]):
+    if any(x in b for x in ["sehr gut", "gut", "niedrig", "normalgewicht", "normalbereich", "nach dem wachstum"]):
         return GREEN
     if any(x in b for x in ["mittel", "breitensport", "im wachstum", "vor dem wachstum"]):
         return YELLOW
@@ -660,6 +670,12 @@ def generate_report(
     kraft_versuche = kraft_versuche or []
     spiro_stufen = spiro_stufen or []
     spiro_nachbelastung = spiro_nachbelastung or []
+    from anthropometrie import bmi_bewertung_aus_messung
+    bmi_status = bmi_bewertung_aus_messung(
+        anthro_row,
+        spieler.get("geburtsdatum") if spieler else None,
+        spieler.get("geschlecht") if spieler else None,
+    ) if anthro_row else None
 
     # Vorhandene Module ermitteln (fuer Deckblatt)
     _module_map = [
@@ -735,7 +751,7 @@ def generate_report(
 
     if anthro_row and anthro_row.get("bmi"):
         metrics.append(("BMI", "%.1f" % anthro_row["bmi"],
-                        ampel(anthro_row.get("bmi_kategorie", ""))))
+                        _hex_to_rgb(bmi_status.farbe) if bmi_status else GREY))
 
     if kraft_row:
         rm1 = kraft_row.get("direktes_1rm") or kraft_row.get("geschaetztes_1rm")
@@ -756,10 +772,10 @@ def generate_report(
         pdf.section_title("ANTHROPOMETRIE")
         pdf.row2("Testdatum",   anthro_row.get("datum", "-"),
                  "Groesse",     "%s cm" % anthro_row.get("groesse", "-"))
-        bmi_kat = anthro_row.get("bmi_kategorie", "-")
+        bmi_kat = bmi_status.kategorie if bmi_status else "-"
         pdf.row2("Gewicht",     "%s kg" % anthro_row.get("gewicht", "-"),
                  "BMI",         "%.1f (%s)" % (anthro_row.get("bmi", 0), bmi_kat),
-                 color_r=ampel(bmi_kat))
+                  color_r=_hex_to_rgb(bmi_status.farbe) if bmi_status else GREY)
         if anthro_row.get("koerperfett"):
             kf_meth = anthro_row.get("koerperfett_methode") or ""
             kf_label = "Koerperfett%s" % ((" (%s)" % kf_meth) if kf_meth else "")
@@ -1490,7 +1506,7 @@ def generate_report(
     # Modul-Uebersicht als Tabelle
     _modul_status = [
         ("Anthropometrie",  anthro_row,  lambda r: "%s kg / %.0f cm — BMI %.1f" % (r.get("gewicht","-"), r.get("groesse",0), r.get("bmi",0)) if r.get("groesse") else "-",
-         lambda r: ampel(r.get("bmi_kategorie",""))),
+         lambda r: _hex_to_rgb(bmi_status.farbe) if bmi_status else GREY),
         ("FMS",             fms_row,     lambda r: "Score %d/21" % r.get("score",0),
          lambda r: GREEN if r.get("score",0) >= 15 else YELLOW if r.get("score",0) >= 13 else RED),
         ("Y-Balance",       y_row,       lambda r: "Rechts %.1f%% / Links %.1f%%" % (r.get("composite_rechts",0), r.get("composite_links",0)),

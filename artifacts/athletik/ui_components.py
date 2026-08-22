@@ -156,7 +156,7 @@ def empty_state(icon: str, title: str, subtitle: str = "") -> str:
 
 # ─── Anthropometrie summary card ─────────────────────────────────────────────
 
-def anthro_karte(anthro: dict | None) -> str:
+def anthro_karte(anthro: dict | None, bmi_bewertung=None) -> str:
     """Compact Anthropometrie summary card — same tile style as test-status cards."""
     if not anthro:
         return (
@@ -174,19 +174,17 @@ def anthro_karte(anthro: dict | None) -> str:
     groesse = anthro.get("groesse")
     gewicht = anthro.get("gewicht")
     bmi     = anthro.get("bmi")
-    bmi_kat = anthro.get("bmi_kategorie") or "—"
+    if bmi_bewertung is None:
+        from anthropometrie import bmi_bewertung_aus_kategorie
+        bmi_bewertung = bmi_bewertung_aus_kategorie(anthro.get("bmi_kategorie"))
+    bmi_kat = bmi_bewertung.kategorie
     reife   = anthro.get("reifestatus") or "—"
 
     groesse_str = f"{groesse:.1f} cm" if groesse else "—"
     gewicht_str = f"{gewicht:.1f} kg" if gewicht else "—"
     bmi_str     = f"{bmi:.1f}" if bmi else "—"
 
-    # BMI badge colour
-    bmi_color = (
-        C["red"]    if bmi_kat and any(x in bmi_kat.lower() for x in ["übergewicht", "adipositas", "untergewicht"])
-        else C["yellow"] if bmi_kat and "grenzwertig" in bmi_kat.lower()
-        else C["green"]
-    )
+    bmi_color = bmi_bewertung.farbe
 
     return (
         f'<div class="card-sm">'

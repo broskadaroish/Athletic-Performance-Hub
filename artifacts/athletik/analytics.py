@@ -275,6 +275,7 @@ def defizite_ermitteln(
     kraft_row=None,
     spiro_row=None,
     geschlecht: str = "Männlich",
+    geburtsdatum: str | None = None,
 ) -> list[dict]:
     """
     Returns a deduplicated list of deficit dicts.  NO_DATA (None row) ≠ Defizit.
@@ -465,19 +466,19 @@ def defizite_ermitteln(
 
     # ── Anthropometrie ────────────────────────────────────────────────────────
     if anthro_row:
-        bmi   = anthro_row.get("bmi") or 0
+        from anthropometrie import bmi_bewertung_aus_messung
+        bmi_status = bmi_bewertung_aus_messung(anthro_row, geburtsdatum, geschlecht)
         reife = str(anthro_row.get("reifestatus") or "").lower()
         _d    = anthro_row.get("datum") or anthro_row.get("erstellt_am")
 
-        if float(bmi) >= 30:
+        if bmi_status.code in {"severe_thinness", "obesity"}:
             add("kritisch", "Körperzusammensetzung",
-                f"BMI {float(bmi):.1f} — Übergewicht kann Leistung und Gelenkbelastung erhöhen.", "Anthropometrie", _d)
-        elif float(bmi) >= 25:
+                f"BMI {float(anthro_row['bmi']):.1f} — {bmi_status.kategorie} nach {bmi_status.referenz}.",
+                "Anthropometrie", _d)
+        elif bmi_status.code in {"underweight", "thinness", "overweight"}:
             add("warnung", "Körperzusammensetzung",
-                f"BMI {float(bmi):.1f} — leichtes Übergewicht, Körperfett reduzieren.", "Anthropometrie", _d)
-        elif float(bmi) < 18.5 and float(bmi) > 0:
-            add("warnung", "Körperzusammensetzung",
-                f"BMI {float(bmi):.1f} — Untergewicht, Ernährung prüfen.", "Anthropometrie", _d)
+                f"BMI {float(anthro_row['bmi']):.1f} — {bmi_status.kategorie} nach {bmi_status.referenz}.",
+                "Anthropometrie", _d)
         if "vor phv" in reife or "wachstumsschub" in reife:
             add("warnung", "Wachstum / Belastungssteuerung",
                 "Spieler befindet sich im oder vor dem Wachstumsschub — Belastung anpassen.", "Anthropometrie", _d)
@@ -538,6 +539,7 @@ def trainingsbereich_scores_ermitteln(
     kraft_row=None,
     spiro_row=None,
     geschlecht: str = "Männlich",
+    geburtsdatum: str | None = None,
 ) -> dict[str, int]:
     """Leitet Planbereiche ausschließlich aus strukturierten Defiziten ab.
 
@@ -548,7 +550,7 @@ def trainingsbereich_scores_ermitteln(
     scores: dict[str, int] = {}
     for defizit in defizite_ermitteln(
         fms_row, y_row, sprint_row, sprung_row, agil_row, aus_row,
-        anthro_row, kraft_row, spiro_row, geschlecht,
+        anthro_row, kraft_row, spiro_row, geschlecht, geburtsdatum,
     ):
         bereich = _DEFIZIT_TRAININGSBEREICH.get(defizit["bereich"])
         if bereich:

@@ -119,7 +119,7 @@ from safety_texts import (
     EMAIL_NACHRICHT_VORLAGE,
 )
 from anthropometrie import (
-    bmi_berechnen, bmi_kategorie, phv_offset_berechnen,
+    bmi_berechnen, bmi_bewerten, bmi_bewertung_aus_messung, phv_offset_berechnen,
     reifestatus_text, reifestatus_farbe, wachstum_berechnen,
     koerperfett_jp7, koerperfett_jp11,
 )
@@ -2232,7 +2232,7 @@ def _render_anthro_edit(spieler_id: int) -> None:
             if not _history_mandant_ok(spieler_id):
                 st.error("❌ Zugriff verweigert — Spieler gehört nicht zu Ihrem Mandanten.")
                 return
-            from anthropometrie import bmi_berechnen, bmi_kategorie, phv_offset_berechnen, reifestatus_text
+            from anthropometrie import bmi_berechnen, bmi_bewerten, phv_offset_berechnen, reifestatus_text
             sp_r = spieler_by_id(spieler_id)
             alter_r = alter_am_datum(
                 sp_r.get("geburtsdatum", "") if sp_r else "",
@@ -2240,7 +2240,10 @@ def _render_anthro_edit(spieler_id: int) -> None:
             ) or 0
             geschl_r = sp_r.get("geschlecht", "Männlich") if sp_r else "Männlich"
             new_bmi = bmi_berechnen(new_gewicht, new_groesse) if new_groesse > 0 and new_gewicht > 0 else None
-            new_bmi_kat = bmi_kategorie(new_bmi) if new_bmi else None
+            new_bmi_status = bmi_bewerten(
+                new_bmi, sp_r.get("geburtsdatum") if sp_r else None, new_datum, geschl_r
+            ) if new_bmi else None
+            new_bmi_kat = new_bmi_status.kategorie if new_bmi_status else None
             new_phv = phv_offset_berechnen(alter_r, new_groesse, new_gewicht, new_sh, new_bl, geschl_r)
             new_reife = reifestatus_text(new_phv)
             ok = anthropometrie_update(
@@ -3273,6 +3276,9 @@ def page_dashboard():
         agil   = agilitaet_letzter(pid)
         aus    = ausdauer_letzter(pid)
         anthro = anthropometrie_letzter(pid)
+        anthro_bmi_status = bmi_bewertung_aus_messung(
+            anthro, p.get("geburtsdatum"), p.get("geschlecht", "Männlich")
+        )
         spiro  = spiro_test_letzter(pid)
         verlet = verletzungen_laden(pid)
         rs     = risiko_score(fms, y, verlet)
@@ -3281,14 +3287,15 @@ def page_dashboard():
         sc     = athletik_score(fms, y, sprint, sprung, agil, aus, spiro_row=spiro)
         defizite = defizite_ermitteln(fms, y, sprint, sprung, agil, aus, anthro,
                                       spiro_row=spiro,
-                                      geschlecht=p.get("geschlecht", "Männlich"))
+                                      geschlecht=p.get("geschlecht", "Männlich"),
+                                      geburtsdatum=p.get("geburtsdatum"))
         # last test date across all modules
         dates = [d["datum"] for d in [fms, y, sprint, sprung, agil, aus]
                  if d and d.get("datum")]
         last_test_date = max(dates) if dates else None
         player_data.append({
             "p": p, "fms": fms, "y": y, "sprint": sprint, "sprung": sprung,
-            "agil": agil, "aus": aus, "anthro": anthro, "spiro": spiro,
+            "agil": agil, "aus": aus, "anthro": anthro, "anthro_bmi_status": anthro_bmi_status, "spiro": spiro,
             "verlet": verlet, "rs": rs, "level": level, "sc": sc,
             "defizite": defizite, "last_test_date": last_test_date,
         })
@@ -3578,13 +3585,9 @@ def page_dashboard():
             ts = str(d["p"].get("trainingsstatus") or "")
             if "Pause" in ts or "Abklärung" in ts or "Eingeschränkt" in ts or "Angepasst" in ts:
                 warns_eingeschr.append(d)
-            # BMI-Auffälligkeit
-            if d["anthro"]:
-                bmi = d["anthro"].get("bmi")
-                if bmi:
-                    bmi_f = float(bmi)
-                    if bmi_f >= 25 or (0 < bmi_f < 18.5):
-                        warns_bmi.append(d)
+            # BMI-Auffälligkeit: ausschließlich der zentrale WHO-/Erwachsenenstatus.
+            if d["anthro"] and d["anthro_bmi_status"].ist_auffaellig:
+                warns_bmi.append(d)
         def _warn_block(title: str, icon: str, color: str, items: list,
                         detail_fn) -> None:
             if not items:
@@ -3631,11 +3634,7 @@ def page_dashboard():
         _warn_block(
             "Körperzusammensetzung auffällig (BMI)",
             "⚖️", C["yellow"], warns_bmi,
-            lambda d: (
-                f"BMI {float(d['anthro']['bmi']):.1f} — "
-                + ("Übergewicht" if float(d['anthro']['bmi']) >= 25 else "Untergewicht")
-                + (f" · {d['anthro'].get('bmi_kategorie') or ''}")
-            )
+            lambda d: f"BMI {float(d['anthro']['bmi']):.1f} — {d['anthro_bmi_status'].kachel_text}"
         )
         _warn_block(
             "Wachstumsschub-Fenster",
@@ -5219,8 +5218,12 @@ def page_spieler_profil():
     label, level = risiko_label(rs)
     _spiro_p = spiro_test_letzter(sid)
     ascore   = athletik_score(fms, y, sprint, sprung, agil, aus, spiro_row=_spiro_p)
+    anthro_bmi_status = bmi_bewertung_aus_messung(
+        anthro, auswahl.get("geburtsdatum"), auswahl.get("geschlecht", "Männlich")
+    )
     defizite = defizite_ermitteln(fms, y, sprint, sprung, agil, aus, anthro, kraft_row=kraft, spiro_row=_spiro_p,
-                                  geschlecht=auswahl.get("geschlecht", "Männlich"))
+                                  geschlecht=auswahl.get("geschlecht", "Männlich"),
+                                  geburtsdatum=auswahl.get("geburtsdatum"))
     schwerpunkt = schwerpunkt_sammeln(fms, y, sprint, sprung, agil, aus,
                                       kraft_row=kraft_letzter(sid), spiro_row=_spiro_p)
     alter = berechne_alter(auswahl.get("geburtsdatum"))
@@ -5351,7 +5354,7 @@ def page_spieler_profil():
     # ── Anthropometrie-Karte ───────────────────────────────────────────────
     ak_col, ak_btn_col = st.columns([5, 1])
     with ak_col:
-        st.markdown(anthro_karte(anthro), unsafe_allow_html=True)
+        st.markdown(anthro_karte(anthro, anthro_bmi_status), unsafe_allow_html=True)
     with ak_btn_col:
         st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
         if st.button("📐 Messen →", key="profil_goto_anthro", use_container_width=True):
@@ -8083,7 +8086,8 @@ def page_anthropometrie():
                                         step=0.5, key="anthro_arm", label_visibility="collapsed", help=_fh("armspann"))
 
         bmi     = bmi_berechnen(gewicht, groesse)
-        bmi_kat = bmi_kategorie(bmi)
+        bmi_status = bmi_bewerten(bmi, sp.get("geburtsdatum") if sp else None, datum, geschl)
+        bmi_kat = bmi_status.kategorie
         phv     = phv_offset_berechnen(alter, groesse, gewicht, sitzhoehe, beinlaenge, geschl) if alter else None
         reife   = reifestatus_text(phv)
         farbe   = reifestatus_farbe(phv)
@@ -8100,16 +8104,15 @@ def page_anthropometrie():
                 f"⚠️ Armspannweite ({armspann:.0f} cm) liegt deutlich außerhalb der "
                 f"Körpergröße ({groesse:.0f} cm) — Eingaben prüfen."
             )
-        if alter and alter < 18 and bmi > 0:
-            st.info(
-                "ℹ️ Hinweis: BMI-Normbereiche für Erwachsene (≥ 18 J.) gelten nicht direkt "
-                "für Kinder und Jugendliche — bitte altersabhängige Normkurven verwenden."
-            )
+        if bmi_status.schweregrad == "neutral":
+            st.info(f"ℹ️ {bmi_status.anzeige}")
+        else:
+            st.caption(f"Referenz: {bmi_status.referenz}")
 
         # Vorschau
         st.markdown("---")
         m1, m2, m3 = st.columns(3)
-        m1.metric("BMI", f"{bmi}", bmi_kat)
+        m1.metric("BMI", f"{bmi}", bmi_status.kachel_text)
         m2.metric("Körperfett", f"{koerperfett} %")
         if phv is not None:
             m3.metric("PHV-Offset", f"{phv:+.1f} Jahre")
@@ -10693,8 +10696,12 @@ def page_startseite():
     _, level        = risiko_label(rs)
     _spiro_s = spiro_test_letzter(sid)
     ascore          = athletik_score(fms, y, sprint, sprung, agil, aus, spiro_row=_spiro_s)
+    anthro_bmi_status = bmi_bewertung_aus_messung(
+        anthro, auswahl.get("geburtsdatum"), auswahl.get("geschlecht", "Männlich")
+    )
     defizite = defizite_ermitteln(fms, y, sprint, sprung, agil, aus, anthro, spiro_row=_spiro_s,
-                                  geschlecht=auswahl.get("geschlecht", "Männlich"))
+                                  geschlecht=auswahl.get("geschlecht", "Männlich"),
+                                  geburtsdatum=auswahl.get("geburtsdatum"))
     alter    = berechne_alter(auswahl.get("geburtsdatum"))
 
     # ── Greeting ──────────────────────────────────────────────────────────────
@@ -10809,20 +10816,7 @@ def page_startseite():
     )
 
     # Anthropometrie-Beurteilung für Startseite (Ampelfarben)
-    _anthro_kat = (anthro.get("bmi_kategorie") or "").strip() if anthro else ""
-    _anthro_kat_l = _anthro_kat.lower()
-    if "normalgewicht" in _anthro_kat_l:
-        _anthro_rating_s = f"Unauffällig — {_anthro_kat}"
-    elif "untergewicht" in _anthro_kat_l:
-        _anthro_rating_s = f"Beobachten — {_anthro_kat}"
-    elif "übergewicht" in _anthro_kat_l or "ubergewicht" in _anthro_kat_l:
-        _anthro_rating_s = f"Handlungsbedarf — {_anthro_kat}"
-    elif "adipositas" in _anthro_kat_l:
-        _anthro_rating_s = f"Aktionsbedarf — {_anthro_kat}"
-    elif anthro and anthro.get("bmi"):
-        _anthro_rating_s = f"BMI {anthro['bmi']:.1f}"
-    else:
-        _anthro_rating_s = None
+    _anthro_rating_s = anthro_bmi_status.kachel_text if anthro and anthro.get("bmi") else None
 
     # Stufentest-Beurteilung für Startseite — ausschließlich protokollspezifisch.
     from spiro import spiro_bewertung_v2 as _spiro_bewertung_v2
@@ -12503,12 +12497,15 @@ def page_diagnostik_overview() -> None:
             return f"505: R {agil_d['t505_r']:.2f} s", agil_d.get("bew_505")
         return None, None
 
+    _anthro_bmi_status_ov = bmi_bewertung_aus_messung(
+        anthro_d, sp_ov.get("geburtsdatum") if sp_ov else None, _geschl_ov
+    )
+
     def _anthro_metric_rating():
         if not anthro_d:
-            return None, None
+            return None, None, None
         bmi  = anthro_d.get("bmi")
         kf   = anthro_d.get("koerperfett")
-        kat  = (anthro_d.get("bmi_kategorie") or "").strip()
         # Metric string
         parts = []
         if bmi:
@@ -12516,21 +12513,7 @@ def page_diagnostik_overview() -> None:
         if kf:
             parts.append(f"KF {kf:.0f} %")
         metric = " · ".join(parts) if parts else None
-        # Rating string — keywords must match _rating_color() logic
-        kat_l = kat.lower()
-        if "normalgewicht" in kat_l:
-            rating = f"Unauffällig — {kat}"
-        elif "untergewicht" in kat_l:
-            rating = f"Beobachten — {kat}"
-        elif "übergewicht" in kat_l or "ubergewicht" in kat_l:
-            rating = f"Handlungsbedarf — {kat}"
-        elif "adipositas" in kat_l:
-            rating = f"Aktionsbedarf — {kat}"
-        elif kat:
-            rating = kat
-        else:
-            rating = None
-        return metric, rating
+        return metric, _anthro_bmi_status_ov.kachel_text, _anthro_bmi_status_ov.farbe
 
     yb_metric, yb_rating, yb_status_color = _yb_metric()
     agil_metric, agil_rating = _agil_metric()
@@ -12548,7 +12531,7 @@ def page_diagnostik_overview() -> None:
             stufen=spiro_stufen_laden(spiro["id"]),
         )["text"]
 
-    anthro_metric, anthro_rating = _anthro_metric_rating()
+    anthro_metric, anthro_rating, anthro_status_color = _anthro_metric_rating()
 
     # Sprint-Karte: beste verfügbare Distanz anzeigen (30m > 20m > 10m > 40m > 5m)
     # 0-Werte = nicht gemessen, zählen nicht als Sprintdaten
@@ -12576,6 +12559,7 @@ def page_diagnostik_overview() -> None:
             "sub":  "📐 Anthropometrie",
             "metric": anthro_metric,
             "rating": anthro_rating,
+            "status_color": anthro_status_color,
             "date":   anthro_d.get("datum") if anthro_d else None,
         },
         {
@@ -13181,11 +13165,14 @@ with st.sidebar:
                 unsafe_allow_html=True,
             )
             if _sb_anthro:
+                _sb_bmi_status = bmi_bewertung_aus_messung(
+                    _sb_anthro, sel_player.get("geburtsdatum"), sel_player.get("geschlecht")
+                )
                 _sb_rows_anthro = [
                     ("Datum",         _sb_anthro.get("datum") or "—"),
                     ("Größe",         f"{_sb_anthro.get('groesse')} cm" if _sb_anthro.get("groesse") else "—"),
                     ("Gewicht",       f"{_sb_anthro.get('gewicht')} kg" if _sb_anthro.get("gewicht") else "—"),
-                    ("BMI",           f"{_sb_anthro.get('bmi'):.1f} ({_sb_anthro.get('bmi_kategorie') or '—'})" if _sb_anthro.get("bmi") else "—"),
+                    ("BMI",           f"{_sb_anthro.get('bmi'):.1f} ({_sb_bmi_status.kategorie})" if _sb_anthro.get("bmi") else "—"),
                     ("Körperfett",    f"{_sb_anthro.get('koerperfett'):.1f} %" if _sb_anthro.get("koerperfett") else "—"),
                     ("Muskelmasse",   f"{_sb_anthro.get('muskelmasse'):.1f} kg" if _sb_anthro.get("muskelmasse") else "—"),
                     ("Sitzhöhe",      f"{_sb_anthro.get('sitzhoehe')} cm" if _sb_anthro.get("sitzhoehe") else "—"),

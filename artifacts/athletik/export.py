@@ -39,6 +39,7 @@ from database import (
     spiro_test_letzter,
 )
 from analytics import risiko_score, risiko_label, athletik_score
+from anthropometrie import bmi_bewertung_aus_messung
 
 
 # ─── Farben (dunkel, passend zum App-Theme) ───────────────────────────────────
@@ -346,6 +347,9 @@ def spieler_excel_bytes(spieler_id: int) -> bytes:
     _, level = risiko_label(rs)
     spiro  = spiro_test_letzter(spieler_id)
     sc     = athletik_score(fms, y, sprint, sprung, agil, aus, spiro_row=spiro)
+    bmi_status = bmi_bewertung_aus_messung(
+        anthr, sp.get("geburtsdatum"), sp.get("geschlecht")
+    )
 
     # History
     h_anthr  = anthropometrie_history(spieler_id)
@@ -442,12 +446,17 @@ def spieler_excel_bytes(spieler_id: int) -> bytes:
             ("Gewicht (kg)",    "gewicht"),
             ("BMI",             "bmi"),
             ("BMI-Kategorie",   "bmi_kategorie"),
+            # Die gespeicherte Kategorie bleibt historisch unverändert.
+            # Die aktuelle Bewertung daneben nutzt denselben zentralen Status
+            # wie Profil, Warnungen und PDF.
             ("Körperfett (%)",  "koerperfett"),
             ("KF-Methode",      "koerperfett_methode"),
             ("Muskelmasse (kg)","muskelmasse"),
             ("Reifestatus",     "reifestatus"),
         ]:
             _kv(r, key, _val(anthr, field)); r += 1
+        _kv(r, "BMI-Bewertung aktuell", bmi_status.kachel_text); r += 1
+        _kv(r, "BMI-Referenz aktuell", bmi_status.referenz); r += 1
 
     for mod_name, row_data, fields in [
         ("FMS (LETZTER WERT)", fms, [
