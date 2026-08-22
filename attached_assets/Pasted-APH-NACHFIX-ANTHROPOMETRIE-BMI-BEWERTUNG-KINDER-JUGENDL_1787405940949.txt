@@ -1,0 +1,378 @@
+APH – NACHFIX ANTHROPOMETRIE / BMI-BEWERTUNG KINDER & JUGENDLICHE
+
+WICHTIG:
+Bitte zuerst den bestehenden Code vollständig analysieren und erst danach Änderungen durchführen.
+
+Keine unnötigen Refactorings.
+Keine Änderungen an Stripe, Registrierung, Lizenzen, Kundennummern, Mandantenlogik, Trainingsplan oder anderen Diagnostikmodulen.
+Keine Produktionsdaten verändern.
+Keine bestehende Datenbank migrieren oder bestehende Anthropometrie-Datensätze automatisch überschreiben.
+Kein Deployment und kein Push.
+
+AUSGANGSLAGE
+
+Die vorherige Analyse hat zwei Probleme bestätigt:
+
+1. APH verwendet bei der BMI-Kategorisierung aktuell für alle Altersgruppen die festen Erwachsenen-Grenzwerte:
+   <18,5 Untergewicht
+   18,5–<25 Normalgewicht
+   25–<30 Übergewicht
+   >=30 Adipositas
+
+2. Alter und Geschlecht des Spielers werden bei der BMI-Kategorie aktuell nicht berücksichtigt.
+
+Dadurch kann beispielsweise ein BMI von 15,6 bei einem Kind/Jugendlichen fälschlich einfach als „Untergewicht“ bewertet werden.
+
+Zusätzlich existieren unterschiedliche gespeicherte/angezeigte Begriffe:
+- Normalgewicht
+- Normalbereich
+
+Dadurch kann ein eigentlich unauffälliger Befund in manchen UI-/PDF-Pfaden grau statt grün dargestellt werden.
+
+ZIEL
+
+Die BMI-Berechnung selbst bleibt unverändert:
+
+BMI = Gewicht [kg] / Größe² [m²]
+
+Geändert werden soll ausschließlich die fachliche Bewertung/Kategorisierung und deren konsistente Verwendung.
+
+==================================================
+1. ZUERST BESTEHENDEN CODE PRÜFEN
+==================================================
+
+Bitte zuerst alle BMI-/Anthropometrie-Pfade untersuchen, insbesondere:
+
+- anthropometrie.py
+- analytics.py
+- app.py
+- ui_components.py
+- pdf_report.py
+- Spielerprofil
+- Diagnostik-Übersicht
+- Mannschaft/Warnmeldungen
+- Verlauf
+- PDF
+- Excel/Export
+- vorhandene Tests
+
+Prüfe insbesondere:
+
+- bmi_berechnen(...)
+- bmi_kategorie(...)
+- wo Alter verfügbar ist
+- wo Geschlecht verfügbar ist
+- ob das Alter am Messdatum berechnet werden kann
+- wo gespeicherte bmi_kategorie verwendet wird
+- wo direkt <18,5 / >=25 / >=30 geprüft wird
+- wo Texte wie „Normalgewicht“, „Normalbereich“, „Untergewicht“ usw. ausgewertet werden.
+
+Erst danach minimal ändern.
+
+==================================================
+2. KINDER UND JUGENDLICHE
+==================================================
+
+Für Spieler unter 18 Jahren dürfen NICHT mehr einfach die festen Erwachsenen-BMI-Grenzen verwendet werden.
+
+Die Bewertung muss alters- und geschlechtsspezifisch erfolgen.
+
+Verwende dafür eine fachlich etablierte Referenz.
+
+Bevorzugt:
+WHO BMI-for-age / WHO Growth Reference 2007 für 5–19 Jahre.
+
+Offizielle Referenz:
+https://www.who.int/tools/growth-reference-data-for-5to19-years/indicators/bmi-for-age
+
+WICHTIG:
+Keine eigenen Grenzwerte erfinden.
+
+Die Referenz muss nachvollziehbar im Code dokumentiert werden.
+
+Alter und Geschlecht müssen in die Bewertung eingehen.
+
+Das Alter soll möglichst exakt am DATUM DER ANTHROPOMETRIE-MESSUNG bestimmt werden, nicht anhand des heutigen Datums.
+
+Also sinngemäß:
+
+Geburtsdatum + Messdatum
+→ Alter in Monaten
+→ geschlechtsspezifische BMI-for-age-Auswertung
+→ strukturierter Status
+
+Bitte prüfen, welche WHO-Referenzdaten bzw. LMS-/Z-Score-Daten für eine lokale, reproduzierbare Implementierung notwendig sind.
+
+Keine externe API-Abhängigkeit für die normale Laufzeit einbauen.
+
+==================================================
+3. ERWACHSENE
+==================================================
+
+Für Spieler ab 18 Jahren soll die bestehende Erwachsenenlogik grundsätzlich erhalten bleiben:
+
+BMI < 18,5
+→ Untergewicht
+
+18,5 bis <25
+→ Normalgewicht
+
+25 bis <30
+→ Übergewicht
+
+>=30
+→ Adipositas
+
+Keine Änderung dieser Erwachsenen-Grenzwerte im Rahmen dieses Tasks.
+
+==================================================
+4. ZENTRALE STRUKTURIERTE BMI-AUSWERTUNG
+==================================================
+
+Bitte vermeiden, dass verschiedene Bereiche selbst BMI-Grenzen oder Textfragmente interpretieren.
+
+Es soll möglichst EINE zentrale strukturierte Auswertung geben.
+
+Beispielhaft:
+
+evaluate_bmi_status(
+    bmi,
+    geburtsdatum,
+    geschlecht,
+    messdatum
+)
+
+Die konkrete Architektur bitte an den vorhandenen Code anpassen und keinen unnötigen Parallelpfad schaffen.
+
+Die Rückgabe sollte ausreichend strukturiert sein, z. B.:
+
+- bmi
+- altersgruppe
+- alter_monate
+- referenz
+- status_code
+- anzeigetext
+- severity
+- farbstatus
+- optional z_score / Perzentil, sofern fachlich korrekt berechnet
+
+WICHTIG:
+Anzeige-Text darf NICHT die eigentliche Entscheidungslogik sein.
+
+Also nicht:
+
+if "Untergewicht" in text ...
+
+sondern strukturierter Status.
+
+==================================================
+5. UI / FARBEN VEREINHEITLICHEN
+==================================================
+
+Unauffällige BMI-Befunde sollen konsistent positiv dargestellt werden.
+
+Bestehende historische Begriffe:
+
+„Normalbereich“
+„Normalgewicht“
+
+müssen bei der Darstellung beide als unauffällig erkannt werden.
+
+Ziel:
+
+🟢 Unauffällig
+
+bzw. sinnvoll ergänzt:
+
+🟢 Unauffällig — Normalgewicht
+
+Bei Kinder-/Jugend-BMI soll ein fachlich passender Text verwendet werden, ohne eine medizinische Diagnose vorzutäuschen.
+
+Die Darstellung muss konsistent sein in:
+
+- Diagnostik-Übersicht
+- Spielerprofil
+- Anthropometrie-Seite
+- Mannschaft/Warnmeldungen
+- PDF
+
+Statuspunkt, Statustext und Kartenrand sollen denselben strukturierten Farbstatus verwenden.
+
+==================================================
+6. ANALYTICS / WARNMELDUNGEN
+==================================================
+
+Besonders wichtig:
+
+analytics.py verwendet laut vorheriger Analyse ebenfalls direkte Erwachsenen-Grenzen:
+
+BMI >=30
+BMI >=25
+BMI <18,5
+
+Diese dürfen bei Kindern/Jugendlichen NICHT weiter unabhängig angewendet werden.
+
+Analytics soll die neue zentrale BMI-Auswertung verwenden.
+
+Für Erwachsene bleiben die bisherigen Schwellen bestehen.
+
+==================================================
+7. KEIN EINFLUSS AUF ATHLETIK-SCORE
+==================================================
+
+Die bisherige Produktlogik soll erhalten bleiben:
+
+Anthropometrie/BMI verändert NICHT:
+
+- Athletik-Score
+- Risiko-Score
+
+BMI bleibt Kontext-/Hinweisbereich.
+
+Es soll durch diesen Task KEINE neue Gewichtung im Athletik-Score entstehen.
+
+==================================================
+8. KEINE AUTOMATISCHE DATENMIGRATION
+==================================================
+
+Bestehende Produktionsdaten dürfen NICHT automatisch verändert werden.
+
+Insbesondere:
+
+- keine gespeicherten BMI-Werte überschreiben
+- keine bestehenden Kategorien massenhaft neu schreiben
+- keine historischen Messungen verändern
+
+Die neue zentrale Bewertung soll zunächst beim Lesen/Anzeigen bzw. bei neuen oder bearbeiteten Messungen korrekt funktionieren, soweit das mit der bestehenden Architektur sicher möglich ist.
+
+Falls eine Datenmigration fachlich sinnvoll erscheint:
+STOPP und nur berichten.
+Nicht selbst durchführen.
+
+==================================================
+9. FEHLENDE DATEN SICHER BEHANDELN
+==================================================
+
+Wenn bei einem Spieler für die alters-/geschlechtsspezifische Bewertung notwendige Angaben fehlen, darf NICHT still auf Erwachsenen-Grenzwerte zurückgefallen werden.
+
+Beispiele:
+
+- Geburtsdatum fehlt
+- Geschlecht fehlt
+- Messdatum unbrauchbar
+- Alter außerhalb des unterstützten Referenzbereichs
+
+Dann neutralen Status verwenden, z. B.:
+
+„Keine altersbezogene BMI-Bewertung möglich“
+
+Keine rote oder gelbe Warnung allein wegen fehlender Referenzdaten.
+
+BMI-Wert selbst darf weiterhin angezeigt werden.
+
+==================================================
+10. TESTS
+==================================================
+
+Bitte Regressionstests ergänzen.
+
+Mindestens prüfen:
+
+A) Kind/Jugendlicher
+- Junge
+- Mädchen
+- verschiedene Altersstufen
+- identischer BMI kann abhängig von Alter/Geschlecht unterschiedlich eingeordnet werden
+- Bewertung anhand der implementierten offiziellen Referenz
+
+B) Grenzfälle
+- Referenzgrenzen exakt prüfen
+- knapp darunter
+- exakt auf Grenze
+- knapp darüber
+
+C) Erwachsene
+- 17 Jahre / Übergang
+- 18 Jahre
+- BMI 18,4
+- BMI 18,5
+- BMI 24,9
+- BMI 25,0
+- BMI 29,9
+- BMI 30,0
+
+D) fehlende Daten
+- Geburtsdatum fehlt
+- Geschlecht fehlt
+- Messdatum fehlt/ungültig
+
+Es darf dabei KEIN stiller Erwachsenen-Fallback für Minderjährige entstehen.
+
+E) Darstellung
+- Normalgewicht → grün
+- historisches „Normalbereich“ → ebenfalls grün
+- unauffälliger Kinder-/Jugendstatus → grün
+- Warnstatus → gelb
+- deutlich auffälliger Status → entsprechend bestehender Produktlogik
+
+F) Verbraucher
+- Diagnostik-Kachel
+- Spielerprofil
+- Mannschaft/Warnmeldungen
+- Analytics
+- PDF soweit dort eine BMI-Bewertung dargestellt wird
+
+G) Scores
+Nachweisen:
+- Athletik-Score unverändert
+- Risiko-Score unverändert
+
+==================================================
+11. BESTEHENDE DEMO-DATEN
+==================================================
+
+Bitte keine Demo-/Produktionsspieler verändern.
+
+Der zuvor sichtbare Spieler mit BMI 15,6 darf NICHT einfach anhand der Zahl 15,6 bewertet werden.
+
+Er muss anhand von:
+- Geschlecht
+- Geburtsdatum
+- Messdatum
+- BMI
+
+über die neue Referenz ausgewertet werden.
+
+==================================================
+12. ABSCHLUSSPRÜFUNG
+==================================================
+
+Nach Umsetzung:
+
+- Python-Kompilierung
+- neue BMI-Regressionstests
+- bestehende Anthropometrie-Tests
+- relevante Analytics-/Dashboard-Tests
+- PDF-Test
+- Athletik-/Risiko-Score Regression
+- git diff --check
+- App neu starten
+- Browser-Smoke-Test
+
+Danach bitte einen Abschlussbericht liefern mit:
+
+1. bestätigter ursprünglicher Ursache
+2. verwendeter BMI-Referenz inklusive Quelle
+3. genauer Alters-/Geschlechtslogik
+4. Umgang mit Alter am Messdatum
+5. Umgang mit fehlenden Daten
+6. geänderten Dateien
+7. Testergebnissen
+8. Bestätigung, dass Athletik- und Risiko-Score nicht verändert wurden
+9. Bestätigung, dass keine Produktionsdaten migriert/geändert wurden
+10. Bestätigung: kein Deployment und kein Push
+
+WICHTIG:
+Wenn für eine fachlich korrekte WHO-BMI-for-age-Implementierung Referenzdaten fehlen oder die vorhandene Datenstruktur Geschlecht/Geburtsdatum/Messdatum nicht zuverlässig bereitstellt, NICHT improvisieren.
+
+Dann STOPP und zuerst genau berichten, was fehlt.
