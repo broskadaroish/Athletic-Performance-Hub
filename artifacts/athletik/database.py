@@ -1234,10 +1234,18 @@ def _starter_plan_grenzen_pruefen(
             all_days.setdefault(int(woche), set()).update(int(tag) for tag in tag_set)
             all_weeks.add(int(woche))
 
-    if len(all_weeks) > 2:
-        raise ValueError("Starter erlaubt maximal 2 Wochen pro Trainingsplan.")
-    if any(len(tag_set) > 2 for tag_set in all_days.values()):
-        raise ValueError("Starter erlaubt maximal 2 unterschiedliche Trainingstage je Woche.")
+    from license import STARTER_MAX_TRAININGSPLAN_WOCHEN
+    if len(all_weeks) > STARTER_MAX_TRAININGSPLAN_WOCHEN:
+        raise ValueError(
+            "Starter erlaubt maximal "
+            f"{STARTER_MAX_TRAININGSPLAN_WOCHEN} Wochen pro Trainingsplan."
+        )
+    from license import STARTER_MAX_TRAININGSTAGE_PRO_WOCHE
+    if any(len(tag_set) > STARTER_MAX_TRAININGSTAGE_PRO_WOCHE for tag_set in all_days.values()):
+        raise ValueError(
+            "Starter erlaubt maximal "
+            f"{STARTER_MAX_TRAININGSTAGE_PRO_WOCHE} unterschiedliche Trainingstage je Woche."
+        )
 
 
 def spieler_speichern(vorname, nachname, geburtsdatum, geschlecht,

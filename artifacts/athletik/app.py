@@ -1646,7 +1646,7 @@ if _rerun_token:
         st.session_state["_last_db_touch_ts"] = _now_ts
 
 # ─── Lizenz-Gate: Abgelaufene oder gesperrte Lizenzen blockieren ─────────────
-from license import enforce_license_gate
+from license import enforce_license_gate, trainingsplan_wochen_optionen
 enforce_license_gate()
 
 # ─── Mehrfachmandanten-Auswahl ────────────────────────────────────────────────
@@ -5987,11 +5987,19 @@ def page_trainingsplan():
         _vb_modus = _planungsmodus == "Mit Vereinsbelastung / Wochenplanung"
 
         _pc1, _pc2 = st.columns(2)
+        _plan_verein = verein_by_id(_akt_user().get("verein_id") or 0) or {}
+        _plan_wochen_optionen = list(trainingsplan_wochen_optionen(
+            _plan_verein.get("lizenztyp"),
+            _plan_verein.get("ist_technischer_mandant"),
+        ))
+        _plan_default_wochen = 2 if len(_plan_wochen_optionen) == 1 else 6
+        if st.session_state.get("plan_laenge") not in _plan_wochen_optionen:
+            st.session_state["plan_laenge"] = _plan_default_wochen
         plan_laenge = _pc1.selectbox(
             "Planlänge",
-            [4, 6, 8],
+            _plan_wochen_optionen,
             format_func=lambda x: f"{x} Wochen",
-            index=1,
+            index=_plan_wochen_optionen.index(st.session_state["plan_laenge"]),
             key="plan_laenge",
         )
 

@@ -239,6 +239,12 @@ LIZENZ_TYPEN_COMPAT: dict[str, str] = {
 
 _DEFAULT_LIZENZ_TYP = "TRAINER_BASIC"
 
+# Planlängen sind eine UI-Auswahl und kein Datenbankfeld. Die Starter-Grenze
+# wird zusätzlich in jedem Plan-Schreibweg serverseitig durchgesetzt.
+TRAININGSPLAN_WOCHEN_OPTIONEN: tuple[int, ...] = (2, 4, 6, 8)
+STARTER_MAX_TRAININGSPLAN_WOCHEN = 2
+STARTER_MAX_TRAININGSTAGE_PRO_WOCHE = 2
+
 
 def normalize_lizenz_typ(
     raw: str | None,
@@ -574,6 +580,25 @@ def ist_starter_lizenz(
     abgebildet und darf nie stillschweigend zum Starter werden.
     """
     return normalize_lizenz_typ(lizenz_typ, ist_technischer_mandant) == "STARTER_FREE"
+
+
+def trainingsplan_wochen_optionen(
+    lizenz_typ: str | None,
+    ist_technischer_mandant: bool | int | None = None,
+) -> tuple[int, ...]:
+    """Liefert die sichtbaren Planlängen für den normalisierten Pakettyp.
+
+    Die Auswahl bleibt bewusst auf den fachlich vorgesehenen 2/4/6/8 Wochen.
+    STARTER_FREE ist auf seine bestehende serverseitige Obergrenze begrenzt;
+    höhere Pakete behalten die bisherige Auswahl und erhalten zusätzlich 2
+    Wochen.
+    """
+    max_wochen = (
+        STARTER_MAX_TRAININGSPLAN_WOCHEN
+        if ist_starter_lizenz(lizenz_typ, ist_technischer_mandant)
+        else max(TRAININGSPLAN_WOCHEN_OPTIONEN)
+    )
+    return tuple(woche for woche in TRAININGSPLAN_WOCHEN_OPTIONEN if woche <= max_wochen)
 
 
 def starter_premium_feature_gesperrt(

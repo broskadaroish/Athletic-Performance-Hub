@@ -442,6 +442,12 @@ def _ausdauer_pool_fuer_plangruppe(
 
 _WOCHE_PLAN: dict[int, list[tuple]] = {
 
+    2: [
+        # Kompakter Starter-/Einstiegsplan — Grundlagen und Bewegungsqualität
+        ("stabilisation","Phase 1 — Grundlagen",          "Mobilität, Bewegungsqualität & Aktivierung",       False, 1.00, 0),
+        ("stabilisation","Phase 1 — Grundlagen",          "Mobilität, Bewegungsqualität & Aktivierung",       False, 1.10, 1),
+    ],
+
     12: [
         # Phase 1 — Grundlagen (W1–2): Mobilität, Bewegungsqualität, Technik
         ("stabilisation","Phase 1 — Grundlagen",          "Mobilität, Bewegungsqualität & Aktivierung",       False, 1.00, 0),
@@ -1734,6 +1740,10 @@ def trainingsplan_multi_erstellen(spieler_id: int, schwerpunkt_text: str | dict[
     _equip_set = set(verfuegbares_equipment) if verfuegbares_equipment else None
     _philo     = philosophie_key  # shorthand
 
+    if wochen not in _WOCHE_PLAN:
+        gueltig = ", ".join(str(woche) for woche in sorted(_WOCHE_PLAN))
+        raise ValueError(f"Ungültige Planlänge: {wochen}. Erlaubt sind {gueltig} Wochen.")
+
     _saison_max_key: str | None = None
     _saison_force_deload = False
     if saison_phase == "Saison":
@@ -1744,7 +1754,6 @@ def trainingsplan_multi_erstellen(spieler_id: int, schwerpunkt_text: str | dict[
         wochen = min(wochen, 4)
         _saison_max_key = "stabilisation"
 
-    wochen       = wochen if wochen in (4, 6, 8, 12) else 8
     basis_scores = defizit_score(schwerpunkt_text)
     plangruppe   = _alter_zu_plangruppe(alter)
     if not basis_scores:
@@ -1754,8 +1763,20 @@ def trainingsplan_multi_erstellen(spieler_id: int, schwerpunkt_text: str | dict[
     cfg          = _PLANGRUPPEN_CONFIG[plangruppe]
     woche_config = _WOCHE_PLAN[wochen]
 
-    from database import trainingsplan_eintrag_speichern
+    from database import spieler_by_id, trainingsplan_eintrag_speichern, verein_by_id
     from datetime import date
+    from license import ist_starter_lizenz, STARTER_MAX_TRAININGSTAGE_PRO_WOCHE
+
+    _plan_spieler = spieler_by_id(spieler_id) or {}
+    _plan_verein = verein_by_id(_plan_spieler.get("verein_id") or 0) or {}
+    _max_tage_pro_woche = (
+        STARTER_MAX_TRAININGSTAGE_PRO_WOCHE
+        if ist_starter_lizenz(
+            _plan_verein.get("lizenztyp"),
+            _plan_verein.get("ist_technischer_mandant"),
+        )
+        else None
+    )
 
     # Zeitbudget-Konfiguration für diesen Plan
     _zb = _zeitbudget_cfg(trainingszeit_min)
@@ -1899,13 +1920,23 @@ def trainingsplan_multi_erstellen(spieler_id: int, schwerpunkt_text: str | dict[
 
                 saetze      = _saetze_begrenzen(saetze, _eff_satz_cap)
                 haeufigkeit = _haeufigkeit_begrenzen(haeufigkeit, cfg["haeuf_cap"])
+                if _max_tage_pro_woche is not None:
+                    haeufigkeit = _haeufigkeit_begrenzen(
+                        haeufigkeit,
+                        f"{_max_tage_pro_woche}×/Woche",
+                    )
                 tags        = _tags_fuer_haeufigkeit(haeufigkeit)
 
                 # VB-Modus: Tag-Anzahl auf gewaehlte_athletik_anzahl begrenzen.
                 # Im VB-Modus immer sequenzielle Tags 1..vb_anzahl verwenden —
                 # kein altes [1,3]- oder [1,2,3]-Muster, das mehr Einheiten erzeugt als gewählt.
                 if vb_anzahl is not None:
-                    tags = list(range(1, vb_anzahl + 1))
+                    _vb_tage = (
+                        min(vb_anzahl, _max_tage_pro_woche)
+                        if _max_tage_pro_woche is not None
+                        else vb_anzahl
+                    )
+                    tags = list(range(1, _vb_tage + 1))
 
                 for tag in tags:
                     week_entries.append((
