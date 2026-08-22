@@ -1,0 +1,122 @@
+APH – PRÜFAUFTRAG ANTHROPOMETRIE / BMI-STATUS
+
+WICHTIG:
+Zuerst ausschließlich analysieren.
+Noch KEINEN Code ändern.
+Keine Datenbankdaten ändern.
+Keine Migration.
+Kein Deployment.
+Kein Push.
+
+Ausgangslage:
+In Diagnostik → Übersicht werden bei unterschiedlichen Spielern z. B. folgende Anthropometrie-Kacheln angezeigt:
+
+Spieler A:
+BMI 15,6
+Status: „Beobachten — Untergewicht“
+Farbe/Kartenrand: gelb
+
+Spieler B:
+BMI 23,4 · KF 11 %
+Status: „Normalbereich“
+Farbe/Kartenrand: grau
+
+Bitte prüfe den kompletten bestehenden Anthropometrie-Pfad.
+
+1. BMI-BERECHNUNG
+- Wo wird der BMI berechnet?
+- Welche Daten werden verwendet?
+- Körpergröße und Gewicht korrekt?
+- Gibt es unterschiedliche Berechnungen an verschiedenen Stellen?
+
+2. ALTER UND GESCHLECHT
+Prüfe insbesondere, wie Kinder und Jugendliche bewertet werden.
+
+- Wird das exakte Alter des Spielers berücksichtigt?
+- Wird das Geschlecht berücksichtigt?
+- Werden bei Minderjährigen alters-/geschlechtsspezifische BMI-Grenzen bzw. Perzentilen verwendet?
+- Oder verwendet APH aktuell Erwachsenen-Grenzwerte?
+- Ab welchem Alter wechselt die bestehende Logik gegebenenfalls auf Erwachsenenwerte?
+
+Wichtig:
+Keine neuen medizinischen Grenzwerte erfinden oder einführen.
+Nur feststellen und dokumentieren, was aktuell tatsächlich implementiert ist.
+
+3. BMI 15,6
+Ermittle anhand der bestehenden APH-Logik konkret, warum ein Spieler mit BMI 15,6 als
+
+„Beobachten — Untergewicht“
+
+eingestuft wird.
+
+Zeige:
+Alter des Demo-Spielers
+Geschlecht, soweit gespeichert/verwendet
+verwendete Grenzwerte
+aufgerufene Funktion
+resultierenden Status
+
+4. BMI 23,4
+Dasselbe für den Spieler mit BMI 23,4 und Status:
+
+„Normalbereich“
+
+Erkläre, warum dieser Status entsteht.
+
+5. KÖRPERFETT
+Prüfe zusätzlich:
+- Wie fließt der Körperfettanteil (KF) in die Bewertung ein?
+- Warum wird bei einem Spieler „BMI 23,4 · KF 11 %“ angezeigt, beim anderen nur „BMI 15,6“?
+- Ist fehlender KF-Wert korrekt behandelt?
+- Beeinflusst KF den Anthropometrie-Status bzw. Athletik-Score?
+
+6. FARBLOGIK DER KACHEL
+Prüfe getrennt von der fachlichen Bewertung:
+
+Warum ist
+„Beobachten — Untergewicht“ = gelb
+
+aber
+„Normalbereich“ = grau?
+
+Prüfe Statuspunkt, Statustext und oberen Kartenrand.
+
+Vergleiche das außerdem mit den anderen Diagnostik-Kacheln:
+- unauffällig/gut = grün
+- beobachten = gelb
+- auffällig/Handlungsbedarf = rot
+
+Bitte feststellen, ob „Normalbereich“ bei Anthropometrie bewusst neutral/grau gestaltet wurde oder ob hier eine inkonsistente Farbzuordnung besteht.
+
+7. SCORE / TRAININGSPLAN
+Prüfe außerdem, ob die Anthropometrie-Bewertung Auswirkungen hat auf:
+- Athletik-Score
+- Risiko-/Gesamtstatus
+- Handlungsbedarf
+- Trainingsdefizite
+- Trainingsplan
+- Dashboard
+- Vergleich
+- PDF/Export
+
+Besonders wichtig:
+Falls ein Jugendspieler fälschlicherweise als untergewichtig eingestuft würde, darf nicht nur die Kachelfarbe betrachtet werden. Ermittle alle Verbraucher dieser Bewertung.
+
+8. ABSCHLUSSBERICHT
+Danach STOPP und berichten:
+
+- aktuelle Berechnungslogik
+- aktuelle Alterslogik
+- aktuelle Geschlechtslogik
+- verwendete Grenzwerte
+- Erklärung BMI 15,6
+- Erklärung BMI 23,4
+- Körperfettlogik
+- Farbzuordnung
+- Auswirkungen auf Athletik-Score/Status/Training
+- gefundene Fehler oder Inkonsistenzen
+- kleinste empfohlene Korrektur
+
+Noch NICHT korrigieren.
+
+Erst nach meinem ausdrücklichen OK darf Code verändert werden.
